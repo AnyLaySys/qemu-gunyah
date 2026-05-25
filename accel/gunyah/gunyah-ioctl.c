@@ -1,0 +1,50 @@
+static void ghdbg_hexdump(const char *label, const void *data, size_t len) {
+    const uint8_t *p = data;
+    size_t i;
+    char line[128];
+    int pos = 0;
+    error_report("gh-dbg│%s (%zu bytes):", label, len);
+    for (i = 0; i < len; i++) {
+        if (i % 16 == 0) {
+            if (i > 0) {
+                error_report("gh-dbg│  %s", line);
+            }
+            pos = 0;
+        }
+        pos += snprintf(line + pos, sizeof(line) - pos, "%02x ", p[i]);
+    }
+    if (pos > 0) {
+        error_report("gh-dbg│  %s", line);
+    }
+}
+static int gunyah_ioctl(int type, ...) {
+    void *arg;
+    va_list ap;
+    GUNYAHState *s = GUNYAH_STATE(current_accel());
+    assert(s->fd);
+    va_start(ap, type);
+    arg = va_arg(ap,
+    void *);
+    va_end(ap);
+    return ioctl(s->fd, type, arg);
+}
+int gunyah_vm_ioctl(int type, ...) {
+    void *arg;
+    va_list ap;
+    GUNYAHState *s = GUNYAH_STATE(current_accel());
+    assert(s->vmfd);
+    va_start(ap, type);
+    arg = va_arg(ap,
+    void *);
+    va_end(ap);
+    return ioctl(s->vmfd, type, arg);
+}
+static int gunyah_vcpu_ioctl(CPUState *cpu, int type, ...) {
+    void *arg;
+    va_list ap;
+    va_start(ap, type);
+    arg = va_arg(ap,
+    void *);
+    va_end(ap);
+    return ioctl(cpu->accel->fd, type, arg);
+}

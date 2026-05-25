@@ -1,0 +1,392 @@
+/*
+ * ucontext coroutine initialization code
+ *
+ * Copyright (C) 2006  Anthony Liguori <anthony@codemonkey.ws>
+ * Copyright (C) 2011  Kevin Wolf <kwolf@redhat.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.0 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* XXX Is there a nicer way to disable glibc's stack check for longjmp? */
+#undef _FORTIFY_SOURCE
+#define _FORTIFY_SOURCE 0
+
+#include "qemu/osdep.h"
+//#include <ucontext.h>
+
+#include <libucontext/libucontext.h>
+#define ucontext_t libucontext_ucontext_t
+#define getcontext libucontext_getcontext
+#define setcontext libucontext_setcontext
+#define swapcontext libucontext_swapcontext
+#define makecontext libucontext_makecontext
+
+#include "qemu/coroutine_int.h"
+#include "qemu/coroutine-tls.h"
+
+#ifdef CONFIG_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
+
+#ifdef QEMU_SANITIZE_ADDRESS
+#ifdef CONFIG_ASAN_IFACE_FIBER
+#define CONFIG_ASAN 1
+#include <sanitizer/asan_interface.h>
+#endif
+#endif
+
+#ifdef CONFIG_TSAN
+#include <sanitizer/tsan_interface.h>
+#endif
+
+typedef struct {
+    Coroutine base;
+    void *stack;
+    size_t stack_size;
+#ifdef CONFIG_SAFESTACK
+    /* Need an unsafe stack for each coroutine */
+    void *unsafe_stack;
+    size_t unsafe_stack_size;
+#endif
+    /*
+     * On Android bionic, sigsetjmp/siglongjmp mangle saved SP/PC
+     * with a per-thread cookie (pointer guard). When coroutines
+     * sigsetjmp on one stack and siglongjmp from another, the
+     * demangling produces garbage → SIGILL.
+     *
+     * Use libucontext contexts instead — they don't mangle pointers
+     * and libucontext already skips signal mask save/restore by default,
+     * so there's no performance penalty vs sigsetjmp(buf,0).
+     */
+    libucontext_ucontext_t env;
+
+    /* Return value for qemu_coroutine_switch after swapcontext */
+    CoroutineAction action_on_entry;
+
+#ifdef CONFIG_TSAN
+    void *tsan_co_fiber;
+    void *tsan_caller_fiber;
+#endif
+
+#ifdef CONFIG_VALGRIND_H
+    unsigned int valgrind_stack_id;
+#endif
+
+} CoroutineUContext;
+
+/**
+ * Per-thread coroutine bookkeeping
+ */
+QEMU_DEFINE_STATIC_CO_TLS(Coroutine *, current);
+QEMU_DEFINE_STATIC_CO_TLS(CoroutineUContext, leader);
+
+/*
+ * va_args to makecontext() must be type 'int', so passing
+ * the pointer we need may require several int args. This
+ * union is a quick hack to let us do that
+ */
+union cc_arg {
+    void *p;
+    int i[2];
+};
+
+/*
+ * QEMU_ALWAYS_INLINE only does so if __OPTIMIZE__, so we cannot use it.
+ * always_inline is required to avoid TSan runtime fatal errors.
+ */
+static inline __attribute__((always_inline))
+void on_new_fiber(CoroutineUContext *co)
+{
+#ifdef CONFIG_TSAN
+    co->tsan_co_fiber = __tsan_create_fiber(0); /* flags: sync on switch */
+    co->tsan_caller_fiber = __tsan_get_current_fiber();
+#endif
+}
+
+/* always_inline is required to avoid TSan runtime fatal errors. */
+static inline __attribute__((always_inline))
+void finish_switch_fiber(void *fake_stack_save)
+{
+#ifdef CONFIG_ASAN
+    CoroutineUContext *leaderp = get_ptr_leader();
+    const void *bottom_old;
+    size_t size_old;
+
+    __sanitizer_finish_switch_fiber(fake_stack_save, &bottom_old, &size_old);
+
+    if (!leaderp->stack) {
+        leaderp->stack = (void *)bottom_old;
+        leaderp->stack_size = size_old;
+    }
+#endif
+#ifdef CONFIG_TSAN
+    if (fake_stack_save) {
+        __tsan_release(fake_stack_save);
+        __tsan_switch_to_fiber(fake_stack_save, 0);  /* 0=synchronize */
+    }
+#endif
+}
+
+/* always_inline is required to avoid TSan runtime fatal errors. */
+static inline __attribute__((always_inline))
+void start_switch_fiber_asan(void **fake_stack_save,
+                             const void *bottom, size_t size)
+{
+#ifdef CONFIG_ASAN
+    __sanitizer_start_switch_fiber(fake_stack_save, bottom, size);
+#endif
+}
+
+/* always_inline is required to avoid TSan runtime fatal errors. */
+static inline __attribute__((always_inline))
+void start_switch_fiber_tsan(void **fake_stack_save,
+                             CoroutineUContext *co,
+                             bool caller)
+{
+#ifdef CONFIG_TSAN
+    void *new_fiber = caller ?
+                      co->tsan_caller_fiber :
+                      co->tsan_co_fiber;
+    void *curr_fiber = __tsan_get_current_fiber();
+    __tsan_acquire(curr_fiber);
+
+    *fake_stack_save = curr_fiber;
+    __tsan_switch_to_fiber(new_fiber, 0);  /* 0=synchronize */
+#endif
+}
+
+static void coroutine_trampoline(int i0, int i1)
+{
+    union cc_arg arg;
+    CoroutineUContext *self;
+    Coroutine *co;
+    void *fake_stack_save = NULL;
+
+    finish_switch_fiber(NULL);
+
+    arg.i[0] = i0;
+    arg.i[1] = i1;
+    self = arg.p;
+    co = &self->base;
+
+    /*
+     * We've just been entered via makecontext → swapcontext from
+     * qemu_coroutine_new(). Save our context and switch back to the
+     * caller so qemu_coroutine_new() can return.
+     *
+     * When we're re-entered later (via qemu_coroutine_switch calling
+     * swapcontext into self->env), we'll resume right after this
+     * swapcontext call and fall through to the while loop.
+     */
+    {
+        CoroutineUContext *leaderp = get_ptr_leader();
+        libucontext_ucontext_t *caller_env =
+            (libucontext_ucontext_t *)co->entry_arg;
+
+        start_switch_fiber_asan(&fake_stack_save,
+                                leaderp->stack, leaderp->stack_size);
+        start_switch_fiber_tsan(&fake_stack_save, self, true);
+
+        /* Save self->env and return to qemu_coroutine_new */
+        libucontext_swapcontext(&self->env, caller_env);
+    }
+
+    /* We resume here on every re-entry from qemu_coroutine_switch */
+    finish_switch_fiber(fake_stack_save);
+
+    while (true) {
+        co->entry(co->entry_arg);
+        qemu_coroutine_switch(co, co->caller, COROUTINE_TERMINATE);
+    }
+}
+
+Coroutine *qemu_coroutine_new(void)
+{
+    CoroutineUContext *co;
+    ucontext_t old_uc, uc;
+    libucontext_ucontext_t caller_ctx;
+    union cc_arg arg = {0};
+    void *fake_stack_save = NULL;
+
+    /* On Android bionic, sigsetjmp/siglongjmp mangle saved pointers
+     * (SP, PC) with a per-thread cookie, which breaks when switching
+     * between coroutine stacks. Use libucontext for everything instead.
+     * libucontext skips signal mask save/restore by default, so there's
+     * no performance penalty.
+     */
+
+    if (getcontext(&uc) == -1) {
+        abort();
+    }
+
+    co = g_malloc0(sizeof(*co));
+    co->stack_size = COROUTINE_STACK_SIZE;
+    co->stack = qemu_alloc_stack(&co->stack_size);
+#ifdef CONFIG_SAFESTACK
+    co->unsafe_stack_size = COROUTINE_STACK_SIZE;
+    co->unsafe_stack = qemu_alloc_stack(&co->unsafe_stack_size);
+#endif
+    co->base.entry_arg = &caller_ctx; /* trampoline uses this to return */
+
+    uc.uc_link = &old_uc;
+    uc.uc_stack.ss_sp = co->stack;
+    uc.uc_stack.ss_size = co->stack_size;
+    uc.uc_stack.ss_flags = 0;
+
+#ifdef CONFIG_VALGRIND_H
+    co->valgrind_stack_id =
+        VALGRIND_STACK_REGISTER(co->stack, co->stack + co->stack_size);
+#endif
+
+    arg.p = co;
+
+    on_new_fiber(co);
+    makecontext(&uc, (void (*)(void))coroutine_trampoline,
+                2, arg.i[0], arg.i[1]);
+
+    /* Enter the trampoline. It will:
+     * 1. Save its context into co->env
+     * 2. swapcontext back to caller_ctx, returning us here
+     * After this, co->env is ready for qemu_coroutine_switch(). */
+    start_switch_fiber_asan(&fake_stack_save, co->stack, co->stack_size);
+    start_switch_fiber_tsan(&fake_stack_save,
+                            co, false); /* false=not caller */
+
+#ifdef CONFIG_SAFESTACK
+    void *usp = co->unsafe_stack + co->unsafe_stack_size;
+    __safestack_unsafe_stack_ptr = usp;
+#endif
+
+    libucontext_swapcontext(&caller_ctx, &uc);
+
+    finish_switch_fiber(fake_stack_save);
+
+    return &co->base;
+}
+
+#ifdef CONFIG_VALGRIND_H
+/* Work around an unused variable in the valgrind.h macro... */
+#if !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+static inline void valgrind_stack_deregister(CoroutineUContext *co)
+{
+    VALGRIND_STACK_DEREGISTER(co->valgrind_stack_id);
+}
+#if !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#endif
+
+#if defined(CONFIG_ASAN) && defined(CONFIG_COROUTINE_POOL)
+static void coroutine_fn terminate_asan(void *opaque)
+{
+    CoroutineUContext *to = DO_UPCAST(CoroutineUContext, base, opaque);
+
+    set_current(opaque);
+    start_switch_fiber_asan(NULL, to->stack, to->stack_size);
+    G_STATIC_ASSERT(!IS_ENABLED(CONFIG_TSAN));
+    to->action_on_entry = COROUTINE_ENTER;
+    libucontext_setcontext(&to->env);
+}
+#endif
+
+void qemu_coroutine_delete(Coroutine *co_)
+{
+    CoroutineUContext *co = DO_UPCAST(CoroutineUContext, base, co_);
+
+#if defined(CONFIG_ASAN) && defined(CONFIG_COROUTINE_POOL)
+    co_->entry_arg = qemu_coroutine_self();
+    co_->entry = terminate_asan;
+    qemu_coroutine_switch(co_->entry_arg, co_, COROUTINE_ENTER);
+#endif
+
+#ifdef CONFIG_VALGRIND_H
+    valgrind_stack_deregister(co);
+#endif
+
+    qemu_free_stack(co->stack, co->stack_size);
+#ifdef CONFIG_SAFESTACK
+    qemu_free_stack(co->unsafe_stack, co->unsafe_stack_size);
+#endif
+    g_free(co);
+}
+
+/* This function is marked noinline to prevent GCC from inlining it
+ * into coroutine_trampoline(). If we allow it to do that then it
+ * hoists the code to get the address of the TLS variable "current"
+ * out of the while() loop. This is an invalid transformation because
+ * the context switch may be called when running thread A but
+ * return in thread B, and so we might be in a different thread
+ * context each time round the loop.
+ */
+CoroutineAction __attribute__((noinline))
+qemu_coroutine_switch(Coroutine *from_, Coroutine *to_,
+                      CoroutineAction action)
+{
+    CoroutineUContext *from = DO_UPCAST(CoroutineUContext, base, from_);
+    CoroutineUContext *to = DO_UPCAST(CoroutineUContext, base, to_);
+    void *fake_stack_save = NULL;
+
+    set_current(to_);
+
+    /*
+     * Use libucontext_swapcontext instead of sigsetjmp/siglongjmp.
+     * Android bionic's siglongjmp mangles saved SP/PC with a per-thread
+     * pointer guard cookie, which causes SIGILL when switching between
+     * coroutine stacks. libucontext doesn't mangle pointers.
+     *
+     * We store the action in to_->caller temporarily so the target
+     * coroutine can retrieve it after the context switch.
+     */
+    to->action_on_entry = action;
+
+    start_switch_fiber_asan(IS_ENABLED(CONFIG_COROUTINE_POOL) ||
+                            action != COROUTINE_TERMINATE ?
+                                &fake_stack_save : NULL,
+                            to->stack, to->stack_size);
+    start_switch_fiber_tsan(&fake_stack_save,
+                            to, false); /* false=not caller */
+
+    libucontext_swapcontext(&from->env, &to->env);
+
+    finish_switch_fiber(fake_stack_save);
+
+    return from->action_on_entry;
+}
+
+Coroutine *qemu_coroutine_self(void)
+{
+    Coroutine *self = get_current();
+    CoroutineUContext *leaderp = get_ptr_leader();
+
+    if (!self) {
+        self = &leaderp->base;
+        set_current(self);
+    }
+#ifdef CONFIG_TSAN
+    if (!leaderp->tsan_co_fiber) {
+        leaderp->tsan_co_fiber = __tsan_get_current_fiber();
+    }
+#endif
+    return self;
+}
+
+bool qemu_in_coroutine(void)
+{
+    Coroutine *self = get_current();
+
+    return self && self->caller;
+}
