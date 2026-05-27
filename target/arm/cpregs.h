@@ -22,11 +22,21 @@
 #define TARGET_ARM_CPREGS_H
 
 #include "hw/registerfields.h"
-#include "target/arm/kvm-consts.h"
 
-/*
- * ARMCPRegInfo type field bits:
- */
+#define CP_REG_ARM_COPROC_SHIFT 16
+#define CP_REG_ARM64_SYSREG_OP0_SHIFT 20
+#define CP_REG_ARM64_SYSREG_OP1_SHIFT 14
+#define CP_REG_ARM64_SYSREG_CRN_SHIFT 10
+#define CP_REG_ARM64_SYSREG_CRM_SHIFT 6
+#define CP_REG_ARM64_SYSREG_OP2_SHIFT 2
+
+#define CP_REG_ARM64_SYSREG_CP 0
+#define CP_REG_ARM64_SYSREG_OP0_MASK (0x3 << CP_REG_ARM64_SYSREG_OP0_SHIFT)
+#define CP_REG_ARM64_SYSREG_OP1_MASK (0x7 << CP_REG_ARM64_SYSREG_OP1_SHIFT)
+#define CP_REG_ARM64_SYSREG_CRN_MASK (0xf << CP_REG_ARM64_SYSREG_CRN_SHIFT)
+#define CP_REG_ARM64_SYSREG_CRM_MASK (0xf << CP_REG_ARM64_SYSREG_CRM_SHIFT)
+#define CP_REG_ARM64_SYSREG_OP2_MASK (0x7 << CP_REG_ARM64_SYSREG_OP2_SHIFT)
+
 enum {
     /*
      * Register must be handled specially during translation.
@@ -189,61 +199,6 @@ enum {
      ((crm) << CP_REG_ARM64_SYSREG_CRM_SHIFT) |         \
      ((op2) << CP_REG_ARM64_SYSREG_OP2_SHIFT))
 
-/*
- * Convert a full 64 bit KVM register ID to the truncated 32 bit
- * version used as a key for the coprocessor register hashtable
- */
-static inline uint32_t kvm_to_cpreg_id(uint64_t kvmid)
-{
-    uint32_t cpregid = kvmid;
-    if ((kvmid & CP_REG_ARCH_MASK) == CP_REG_ARM64) {
-        cpregid |= CP_REG_AA64_MASK;
-    } else {
-        if ((kvmid & CP_REG_SIZE_MASK) == CP_REG_SIZE_U64) {
-            cpregid |= (1 << 15);
-        }
-
-        /*
-         * KVM is always non-secure so add the NS flag on AArch32 register
-         * entries.
-         */
-         cpregid |= 1 << CP_REG_NS_SHIFT;
-    }
-    return cpregid;
-}
-
-/*
- * Convert a truncated 32 bit hashtable key into the full
- * 64 bit KVM register ID.
- */
-static inline uint64_t cpreg_to_kvm_id(uint32_t cpregid)
-{
-    uint64_t kvmid;
-
-    if (cpregid & CP_REG_AA64_MASK) {
-        kvmid = cpregid & ~CP_REG_AA64_MASK;
-        kvmid |= CP_REG_SIZE_U64 | CP_REG_ARM64;
-    } else {
-        kvmid = cpregid & ~(1 << 15);
-        if (cpregid & (1 << 15)) {
-            kvmid |= CP_REG_SIZE_U64 | CP_REG_ARM;
-        } else {
-            kvmid |= CP_REG_SIZE_U32 | CP_REG_ARM;
-        }
-    }
-    return kvmid;
-}
-
-/*
- * Valid values for ARMCPRegInfo state field, indicating which of
- * the AArch32 and AArch64 execution states this register is visible in.
- * If the reginfo doesn't explicitly specify then it is AArch32 only.
- * If the reginfo is declared to be visible in both states then a second
- * reginfo is synthesised for the AArch32 view of the AArch64 register,
- * such that the AArch32 view is the lower 32 bits of the AArch64 one.
- * Note that we rely on the values of these enums as we iterate through
- * the various states in some places.
- */
 typedef enum {
     ARM_CP_STATE_AA32 = 0,
     ARM_CP_STATE_AA64 = 1,

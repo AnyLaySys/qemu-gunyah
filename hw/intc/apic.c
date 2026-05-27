@@ -23,10 +23,8 @@
 #include "hw/i386/apic.h"
 #include "hw/intc/ioapic.h"
 #include "hw/intc/i8259.h"
-#include "hw/intc/kvm_irqcount.h"
 #include "hw/pci/msi.h"
 #include "qemu/host-utils.h"
-#include "system/kvm.h"
 #include "trace.h"
 #include "hw/i386/apic-msidef.h"
 #include "qapi/error.h"
@@ -479,7 +477,6 @@ void apic_poll_irq(DeviceState *dev)
 
 static void apic_set_irq(APICCommonState *s, int vector_num, int trigger_mode)
 {
-    kvm_report_irq_delivered(!apic_get_bit(s->irr, vector_num));
 
     apic_set_bit(s->irr, vector_num);
     if (trigger_mode)
@@ -1138,10 +1135,7 @@ static void apic_realize(DeviceState *dev, Error **errp)
 {
     APICCommonState *s = APIC(dev);
 
-    if (kvm_enabled()) {
-        warn_report("Userspace local APIC is deprecated for KVM.");
-        warn_report("Do not use kernel-irqchip except for the -M isapc machine type.");
-    }
+    
 
     memory_region_init_io(&s->io_memory, OBJECT(s), &apic_io_ops, s, "apic-msi",
                           APIC_SPACE_SIZE);

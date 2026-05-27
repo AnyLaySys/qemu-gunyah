@@ -27,7 +27,6 @@
 
 #include "exec/memory-internal.h"
 #include "exec/ram_addr.h"
-#include "system/kvm.h"
 #include "system/runstate.h"
 #include "system/tcg.h"
 #include "qemu/accel.h"
@@ -1540,12 +1539,10 @@ MemTxResult memory_region_dispatch_write(MemoryRegion *mr,
     adjust_endianness(mr, &data, op);
 
     /*
-     * FIXME: it's not clear why under KVM the write would be processed
-     * directly, instead of going through eventfd.  This probably should
-     * test "tcg_enabled() || qtest_enabled()", or should just go away.
+     * FIXME: This probably should test "tcg_enabled() || qtest_enabled()",
+     * or should just go away.
      */
-    if (!kvm_enabled() &&
-        memory_region_dispatch_write_eventfds(mr, addr, data, size, attrs)) {
+    if (memory_region_dispatch_write_eventfds(mr, addr, data, size, attrs)) {
         return MEMTX_OK;
     }
 

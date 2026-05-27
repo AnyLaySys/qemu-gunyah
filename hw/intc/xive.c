@@ -768,11 +768,11 @@ static const char * const xive_tctx_ring_names[] = {
 };
 
 /*
- * kvm_irqchip_in_kernel() will cause the compiler to turn this
+ * false will cause the compiler to turn this
  * info a nop if CONFIG_KVM isn't defined.
  */
 #define xive_in_kernel(xptr)                                            \
-    (kvm_irqchip_in_kernel() &&                                         \
+    (false &&                                         \
      ({                                                                 \
          XivePresenterClass *xpc = XIVE_PRESENTER_GET_CLASS(xptr);      \
          xpc->in_kernel ? xpc->in_kernel(xptr) : false;                 \

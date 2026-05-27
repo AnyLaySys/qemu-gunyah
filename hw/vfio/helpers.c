@@ -10,7 +10,6 @@
  * This work is licensed under the terms of the GNU GPL, version 2.  See
  * the COPYING file in the top-level directory.
  *
- * Based on qemu-kvm device-assignment:
  *  Adapted for KVM by Qumranet.
  *  Copyright (c) 2007, Neocleus, Alex Novik (alex@neocleus.com)
  *  Copyright (c) 2007, Neocleus, Guy Zana (guy@neocleus.com)

@@ -23,7 +23,6 @@
 #include "exec/translation-block.h"
 #include "hw/irq.h"
 #include "system/cpu-timers.h"
-#include "system/kvm.h"
 #include "system/tcg.h"
 #include "qapi/error.h"
 #include "qemu/guest-random.h"
@@ -118,14 +117,13 @@ static bool raw_accessors_invalid(const ARMCPRegInfo *ri)
     return true;
 }
 
-bool write_cpustate_to_list(ARMCPU *cpu, bool kvm_sync)
+bool write_cpustate_to_list(ARMCPU *cpu)
 {
-    /* Write the coprocessor state from cpu->env to the (index,value) list. */
     int i;
     bool ok = true;
 
     for (i = 0; i < cpu->cpreg_array_len; i++) {
-        uint32_t regidx = kvm_to_cpreg_id(cpu->cpreg_indexes[i]);
+        uint32_t regidx = 0;
         const ARMCPRegInfo *ri;
         uint64_t newval;
 
@@ -139,26 +137,6 @@ bool write_cpustate_to_list(ARMCPU *cpu, bool kvm_sync)
         }
 
         newval = read_raw_cp_reg(&cpu->env, ri);
-        if (kvm_sync) {
-            /*
-             * Only sync if the previous list->cpustate sync succeeded.
-             * Rather than tracking the success/failure state for every
-             * item in the list, we just recheck "does the raw write we must
-             * have made in write_list_to_cpustate() read back OK" here.
-             */
-            uint64_t oldval = cpu->cpreg_values[i];
-
-            if (oldval == newval) {
-                continue;
-            }
-
-            write_raw_cp_reg(&cpu->env, ri, oldval);
-            if (read_raw_cp_reg(&cpu->env, ri) != oldval) {
-                continue;
-            }
-
-            write_raw_cp_reg(&cpu->env, ri, newval);
-        }
         cpu->cpreg_values[i] = newval;
     }
     return ok;
@@ -170,7 +148,7 @@ bool write_list_to_cpustate(ARMCPU *cpu)
     bool ok = true;
 
     for (i = 0; i < cpu->cpreg_array_len; i++) {
-        uint32_t regidx = kvm_to_cpreg_id(cpu->cpreg_indexes[i]);
+        uint32_t regidx = 0;
         uint64_t v = cpu->cpreg_values[i];
         const ARMCPRegInfo *ri;
 
@@ -202,7 +180,7 @@ static void add_cpreg_to_list(gpointer key, gpointer opaque)
     const ARMCPRegInfo *ri = get_arm_cp_reginfo(cpu->cp_regs, regidx);
 
     if (!(ri->type & (ARM_CP_NO_RAW | ARM_CP_ALIAS))) {
-        cpu->cpreg_indexes[cpu->cpreg_array_len] = cpreg_to_kvm_id(regidx);
+        cpu->cpreg_indexes[cpu->cpreg_array_len] = 0;
         /* The value array need not be initialized at this point */
         cpu->cpreg_array_len++;
     }
@@ -222,8 +200,8 @@ static void count_cpreg(gpointer key, gpointer opaque)
 
 static gint cpreg_key_compare(gconstpointer a, gconstpointer b)
 {
-    uint64_t aidx = cpreg_to_kvm_id((uintptr_t)a);
-    uint64_t bidx = cpreg_to_kvm_id((uintptr_t)b);
+    uint64_t aidx = (uintptr_t)a;
+    uint64_t bidx = (uintptr_t)b;
 
     if (aidx > bidx) {
         return 1;
@@ -10929,7 +10907,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
 
     arm_call_el_change_hook(cpu);
 
-    if (!kvm_enabled()) {
+    if (!false) {
         cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
     }
 }

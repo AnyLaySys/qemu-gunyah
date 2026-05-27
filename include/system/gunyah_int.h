@@ -10,6 +10,8 @@
 #ifndef GUNYAH_INT_H
 #define GUNYAH_INT_H
 
+#define gh "gh    │"
+
 #include "qemu/accel.h"
 #include "qemu/typedefs.h"
 #include "qemu/thread.h"

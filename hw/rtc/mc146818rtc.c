@@ -27,7 +27,6 @@
 #include "qemu/module.h"
 #include "qemu/bcd.h"
 #include "hw/acpi/acpi_aml_interface.h"
-#include "hw/intc/kvm_irqcount.h"
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
@@ -111,9 +110,8 @@ void rtc_reset_reinjection(MC146818RtcState *rtc)
 
 static bool rtc_policy_slew_deliver_irq(MC146818RtcState *s)
 {
-    kvm_reset_irq_delivered();
     qemu_irq_raise(s->irq);
-    return kvm_get_irq_delivered();
+    return 0;
 }
 
 static void rtc_coalesced_timer(void *opaque)

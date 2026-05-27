@@ -8,13 +8,13 @@ int gunyah_add_irqfd(int irqfd, int label, Error **errp) {
     ghirqfd.fd = irqfd;
     ghirqfd.label = label;
     ghirqfd.flags = GH_IRQFD_FLAGS_LEVEL;
-    error_report("gh    │add_irqfd label=%d fd=%d flags=0x%x", label, irqfd, ghirqfd.flags);
+    error_report(gh"add_irqfd label=%d fd=%d flags=0x%x", label, irqfd, ghirqfd.flags);
     ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
     if (ret) {
-        error_report("gh    │add_irqfd FAILED label=%d: %s (errno=%d)", label, strerror(errno), errno);
+        error_report(gh"add_irqfd FAILED label=%d: %s (errno=%d)", label, strerror(errno), errno);
         error_setg_errno(errp, errno, "GH_FN_IRQFD failed");
     } else {
-        error_report("gh    │add_irqfd OK label=%d", label);
+        error_report(gh"add_irqfd OK label=%d", label);
     }
     return ret;
 }
@@ -44,7 +44,7 @@ gunyah_mem_ioeventfd_add(MemoryListener *listener, MemoryRegionSection *section,
                          uint64_t data, EventNotifier *e) {
     int fd = event_notifier_get_fd(e);
     int r;
-    error_report("gh    │ioeventfd_add addr=0x%"
+    error_report(gh"ioeventfd_add addr=0x%"
     PRIx64
     " size=0x%"
     PRIx64
@@ -54,7 +54,7 @@ gunyah_mem_ioeventfd_add(MemoryListener *listener, MemoryRegionSection *section,
     r = gunyah_set_ioeventfd_mmio(fd, section->offset_within_address_space,
                                   int128_get64(section->size), data, match_data, true);
     if (r < 0) {
-        error_report("gh    │ioeventfd_add failed addr=0x%"
+        error_report(gh"ioeventfd_add failed addr=0x%"
         PRIx64
         ": %s (errno=%d) "
         "— falling back to MMIO exit path (slower but functional)", (uint64_t) section->offset_within_address_space, strerror(

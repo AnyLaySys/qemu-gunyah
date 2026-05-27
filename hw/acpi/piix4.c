@@ -237,7 +237,6 @@ static bool vmstate_test_migrate_acpi_index(void *opaque, int version_id)
 }
 
 /* qemu-kvm 1.2 uses version 3 but advertised as 2
- * To support incoming qemu-kvm 1.2 migration, change version_id
  * and minimum_version_id to 2 below (which breaks migration from
  * qemu 1.2).
  *

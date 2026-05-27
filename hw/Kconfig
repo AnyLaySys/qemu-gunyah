@@ -1,5 +1,4 @@
 # devices Kconfig
-source 9pfs/Kconfig
 source acpi/Kconfig
 source adc/Kconfig
 source audio/Kconfig
@@ -43,30 +42,11 @@ source usb/Kconfig
 source virtio/Kconfig
 source vfio/Kconfig
 source vmapple/Kconfig
-source xen/Kconfig
 source watchdog/Kconfig
 
 # arch Kconfig
 source arm/Kconfig
 source cpu/Kconfig
-source alpha/Kconfig
-source avr/Kconfig
-source hppa/Kconfig
-source i386/Kconfig
-source loongarch/Kconfig
-source m68k/Kconfig
-source microblaze/Kconfig
-source mips/Kconfig
-source openrisc/Kconfig
-source ppc/Kconfig
-source riscv/Kconfig
-source rx/Kconfig
-source s390x/Kconfig
-source sh4/Kconfig
-source sparc/Kconfig
-source sparc64/Kconfig
-source tricore/Kconfig
-source xtensa/Kconfig
 
 # Symbols used by multiple targets
 config TEST_DEVICES
@@ -87,3 +67,33 @@ config XLNX_ZYNQMP
     select PTIMER
     select XLNX_BBRAM
     select XLNX_EFUSE_ZYNQMP
+
+# Stub definitions for symbols from deleted arch Kconfig files
+config FSDEV_9P
+    bool
+config XEN_BUS
+    bool
+config PC
+    bool
+config PC_PCI
+    bool
+config MIPS
+    bool
+config AARCH64
+    bool
+    default y
+config Q35
+    bool
+config PSERIES
+    bool
+config X86_64
+    bool
+config RISCV64
+    bool
+config LOONGARCH64
+    bool
+config ARM
+    bool
+    default y
+config S390_CCW_VIRTIO
+    bool

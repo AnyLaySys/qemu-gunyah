@@ -26,7 +26,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/atomic.h"
-#include "system/kvm.h"
 #include "system/balloon.h"
 #include "qapi/error.h"
 #include "qapi/qapi-commands-machine.h"
@@ -39,7 +38,7 @@ static void *balloon_opaque;
 
 static bool have_balloon(Error **errp)
 {
-    if (kvm_enabled() && !kvm_has_sync_mmu()) {
+    if (!false) {
         error_set(errp, ERROR_CLASS_KVM_MISSING_CAP,
                   "Using KVM without synchronous MMU, balloon unavailable");
         return false;

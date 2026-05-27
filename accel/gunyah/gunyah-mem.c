@@ -54,7 +54,7 @@ gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa, uint64_t size, b
     gumr.guest_phys_addr = gpa;
     gumr.memory_size = size;
     gumr.userspace_addr = (__u64) hva;
-    error_report("gh    │add_mem label=%u gpa=0x%"
+    error_report(gh"add_mem label=%u gpa=0x%"
     PRIx64
     " size=0x%"
     PRIx64
@@ -68,17 +68,17 @@ gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa, uint64_t size, b
     }
     if (ret) {
         if (!lend && errno == EEXIST) {
-            error_report("gh    │SHARE gpa=0x%"
+            error_report(gh"SHARE gpa=0x%"
             PRIx64
             " already exists — reusing"
             " (recycled RingBlob)", gpa);
         } else {
-            error_report("gh    │%s ioctl FAILED: %s (ret=%d, errno=%d)", lend ? "LEND" : "SHARE",
+            error_report(gh"%s ioctl FAILED: %s (ret=%d, errno=%d)", lend ? "LEND" : "SHARE",
                          strerror(errno), ret, errno);
             exit(1);
         }
     } else {
-        error_report("gh    │add_mem_slot OK (gpa=0x%"
+        error_report(gh"add_mem_slot OK (gpa=0x%"
         PRIx64
         " size=0x%"
         PRIx64
@@ -101,7 +101,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
     const uint64_t map_unit = 256ULL * 1024;
     uint64_t map_count = total_size / map_unit;
     if (lend) {
-        error_report("gh    │preparing LEND region");
+        error_report(gh"preparing LEND region");
         {
             static const char *mthp_sizes[] = {"128kB", "256kB", "512kB", "1024kB", "2048kB",
                                                "4096kB", NULL};
@@ -119,11 +119,11 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 fclose(f);
                 mthp_enabled++;
             }
-            error_report("gh    │mTHP %s", mthp_enabled ? "enabled" : "not available");
+            error_report(gh"mTHP %s", mthp_enabled ? "enabled" : "not available");
         }
 
         ret = madvise(base_hva, total_size, MADV_HUGEPAGE);
-        error_report("gh    │MADV_HUGEPAGE %s", ret == 0 ? "OK" : "FAILED");
+        error_report(gh"MADV_HUGEPAGE %s", ret == 0 ? "OK" : "FAILED");
     }
     {
         static const struct {
@@ -201,7 +201,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
         free(order_map);
     }
     skip_phase3:
-    error_report("gh    │=== large-page coverage: %"
+    error_report(gh"=== large-page coverage: %"
     PRIu64
     " / %"
     PRIu64
@@ -209,9 +209,9 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                                                                   100.0 / (double) total_size);
     ret = mlock(base_hva, total_size);
     if (ret == 0)
-        error_report("gh    │mlock: OK");
+        error_report(gh"mlock: OK");
     else
-        error_report("gh    │mlock FAILED: %s", strerror(errno));
+        error_report(gh"mlock FAILED: %s", strerror(errno));
     if (lend && total_size > GUNYAH_LEND_CHUNK_SIZE) {
         int chunk_idx = 0;
         if (need_thp) {
@@ -223,7 +223,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 else
                     thp_ok++;
             }
-            error_report("gh    │THP-aware LEND split: %"
+            error_report(gh"THP-aware LEND split: %"
             PRIu64
             " MB total, %"
             PRIu64
@@ -299,7 +299,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     MemoryRegionSection mrs = *section;
     bool lend = is_confidential_guest(), split = false;
     struct gunyah_slot *slot;
-    error_report("gh    │set_phys_mem gpa=0x%"
+    error_report(gh"set_phys_mem gpa=0x%"
     PRIx64
     " size=0x%"
     PRIx64
@@ -317,7 +317,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
         uint64_t gpa = (uint64_t) section->offset_within_address_space;
         if (gpa != last_skip_gpa) {
             last_skip_gpa = gpa;
-            error_report("gh    │skipping region gpa=0x%"
+            error_report(gh"skipping region gpa=0x%"
             PRIx64
             " size=0x%"
             PRIx64
@@ -344,7 +344,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     if (!add) {
         if (slot) {
             if (is_hostmem_blob) {
-                error_report("gh    │hostmem blob removal at gpa=0x%"
+                error_report(gh"hostmem blob removal at gpa=0x%"
                 PRIx64
                 " size=0x%"
                 PRIx64
@@ -360,7 +360,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     } else {
         if (slot) {
             if (is_hostmem_blob) {
-                error_report("gh    │hostmem blob reuse at gpa=0x%"
+                error_report(gh"hostmem blob reuse at gpa=0x%"
                 PRIx64
                 " — freeing old slot", (uint64_t) section->offset_within_address_space);
                 slot->size = 0;
@@ -378,7 +378,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     if (is_hostmem_blob) {
         lend = false;
         flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE;
-        error_report("gh    │hostmem blob region at gpa=0x%"
+        error_report(gh"hostmem blob region at gpa=0x%"
         PRIx64
         " size=0x%"
         PRIx64
@@ -429,7 +429,7 @@ static void gunyah_cache_lend_range(void) {
         if (slot->size && slot->lend) {
             gunyah_lend_start = slot->start;
             gunyah_lend_end = slot->start + slot->size;
-            error_report("gh    │cached LEND range: 0x%"
+            error_report(gh"cached LEND range: 0x%"
             PRIx64
             " - 0x%"
             PRIx64, gunyah_lend_start, gunyah_lend_end);
@@ -450,13 +450,13 @@ int gunyah_create_vm(void) {
         error_report("Could not access Gunyah kernel module at /dev/gunyah: %s", strerror(errno));
         exit(1);
     }
-    error_report("gh    │/dev/gunyah opened, fd=%d", s->fd);
+    error_report(gh"/dev/gunyah opened, fd=%d", s->fd);
     s->vmfd = gunyah_ioctl(GH_CREATE_VM, 0);
     if (s->vmfd < 0) {
         error_report("Could not create VM: %s (errno=%d)", strerror(errno), errno);
         exit(1);
     }
-    error_report("gh    │VM created, vmfd=%d", s->vmfd);
+    error_report(gh"VM created, vmfd=%d", s->vmfd);
     qemu_mutex_init(&s->slots_lock);
     s->nr_slots = GUNYAH_MAX_MEM_SLOTS;
     for (i = 0; i < s->nr_slots; ++i) {

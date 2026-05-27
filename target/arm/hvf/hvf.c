@@ -1037,7 +1037,7 @@ int hvf_arch_init_vcpu(CPUState *cpu)
         if (ri) {
             assert(!(ri->type & ARM_CP_NO_RAW));
             hvf_sreg_match[i].cp_idx = sregs_cnt;
-            arm_cpu->cpreg_indexes[sregs_cnt++] = cpreg_to_kvm_id(key);
+            arm_cpu->cpreg_indexes[sregs_cnt++] = 0;
         } else {
             hvf_sreg_match[i].cp_idx = -1;
         }

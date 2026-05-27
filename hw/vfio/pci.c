@@ -9,7 +9,6 @@
  * This work is licensed under the terms of the GNU GPL, version 2.  See
  * the COPYING file in the top-level directory.
  *
- * Based on qemu-kvm device-assignment:
  *  Adapted for KVM by Qumranet.
  *  Copyright (c) 2007, Neocleus, Alex Novik (alex@neocleus.com)
  *  Copyright (c) 2007, Neocleus, Guy Zana (guy@neocleus.com)
@@ -36,7 +35,6 @@
 #include "qemu/module.h"
 #include "qemu/range.h"
 #include "qemu/units.h"
-#include "system/kvm.h"
 #include "system/runstate.h"
 #include "pci.h"
 #include "trace.h"
@@ -114,104 +112,13 @@ static void vfio_intx_eoi(VFIODevice *vbasedev)
     vdev->intx.pending = false;
     pci_irq_deassert(&vdev->pdev);
     vfio_unmask_single_irqindex(vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-}
-
 static bool vfio_intx_enable_kvm(VFIOPCIDevice *vdev, Error **errp)
 {
-#ifdef CONFIG_KVM
-    int irq_fd = event_notifier_get_fd(&vdev->intx.interrupt);
-
-    if (vdev->no_kvm_intx || !kvm_irqfds_enabled() ||
-        vdev->intx.route.mode != PCI_INTX_ENABLED ||
-        !kvm_resamplefds_enabled()) {
-        return true;
-    }
-
-    /* Get to a known interrupt state */
-    qemu_set_fd_handler(irq_fd, NULL, NULL, vdev);
-    vfio_mask_single_irqindex(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-    vdev->intx.pending = false;
-    pci_irq_deassert(&vdev->pdev);
-
-    /* Get an eventfd for resample/unmask */
-    if (event_notifier_init(&vdev->intx.unmask, 0)) {
-        error_setg(errp, "event_notifier_init failed eoi");
-        goto fail;
-    }
-
-    if (kvm_irqchip_add_irqfd_notifier_gsi(kvm_state,
-                                           &vdev->intx.interrupt,
-                                           &vdev->intx.unmask,
-                                           vdev->intx.route.irq)) {
-        error_setg_errno(errp, errno, "failed to setup resample irqfd");
-        goto fail_irqfd;
-    }
-
-    if (!vfio_set_irq_signaling(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX, 0,
-                                VFIO_IRQ_SET_ACTION_UNMASK,
-                                event_notifier_get_fd(&vdev->intx.unmask),
-                                errp)) {
-        goto fail_vfio;
-    }
-
-    /* Let'em rip */
-    vfio_unmask_single_irqindex(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-
-    vdev->intx.kvm_accel = true;
-
-    trace_vfio_intx_enable_kvm(vdev->vbasedev.name);
-
     return true;
-
-fail_vfio:
-    kvm_irqchip_remove_irqfd_notifier_gsi(kvm_state, &vdev->intx.interrupt,
-                                          vdev->intx.route.irq);
-fail_irqfd:
-    event_notifier_cleanup(&vdev->intx.unmask);
-fail:
-    qemu_set_fd_handler(irq_fd, vfio_intx_interrupt, NULL, vdev);
-    vfio_unmask_single_irqindex(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-    return false;
-#else
-    return true;
-#endif
 }
 
 static void vfio_intx_disable_kvm(VFIOPCIDevice *vdev)
 {
-#ifdef CONFIG_KVM
-    if (!vdev->intx.kvm_accel) {
-        return;
-    }
-
-    /*
-     * Get to a known state, hardware masked, QEMU ready to accept new
-     * interrupts, QEMU IRQ de-asserted.
-     */
-    vfio_mask_single_irqindex(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-    vdev->intx.pending = false;
-    pci_irq_deassert(&vdev->pdev);
-
-    /* Tell KVM to stop listening for an INTx irqfd */
-    if (kvm_irqchip_remove_irqfd_notifier_gsi(kvm_state, &vdev->intx.interrupt,
-                                              vdev->intx.route.irq)) {
-        error_report("vfio: Error: Failed to disable INTx irqfd: %m");
-    }
-
-    /* We only need to close the eventfd for VFIO to cleanup the kernel side */
-    event_notifier_cleanup(&vdev->intx.unmask);
-
-    /* QEMU starts listening for interrupt events. */
-    qemu_set_fd_handler(event_notifier_get_fd(&vdev->intx.interrupt),
-                        vfio_intx_interrupt, NULL, vdev);
-
-    vdev->intx.kvm_accel = false;
-
-    /* If we've missed an event, let it re-fire through QEMU */
-    vfio_unmask_single_irqindex(&vdev->vbasedev, VFIO_PCI_INTX_IRQ_INDEX);
-
-    trace_vfio_intx_disable_kvm(vdev->vbasedev.name);
-#endif
 }
 
 static void vfio_intx_update(VFIOPCIDevice *vdev, PCIINTxRoute *route)
@@ -277,17 +184,6 @@ static bool vfio_intx_enable(VFIOPCIDevice *vdev, Error **errp)
 
     vdev->intx.pin = pin - 1; /* Pin A (1) -> irq[0] */
     pci_config_set_interrupt_pin(vdev->pdev.config, pin);
-
-#ifdef CONFIG_KVM
-    /*
-     * Only conditional to avoid generating error messages on platforms
-     * where we won't actually use the result anyway.
-     */
-    if (kvm_irqfds_enabled() && kvm_resamplefds_enabled()) {
-        vdev->intx.route = pci_device_route_intx_to_irq(&vdev->pdev,
-                                                        vdev->intx.pin);
-    }
-#endif
 
     ret = event_notifier_init(&vdev->intx.interrupt, 0);
     if (ret) {
@@ -446,7 +342,7 @@ static int vfio_enable_vectors(VFIOPCIDevice *vdev, bool msix)
                 (msix && msix_is_masked(&vdev->pdev, i))) {
                 fd = event_notifier_get_fd(&vdev->msi_vectors[i].interrupt);
             } else {
-                fd = event_notifier_get_fd(&vdev->msi_vectors[i].kvm_interrupt);
+                fd = event_notifier_get_fd(&vdev->msi_vectors[i].interrupt);
             }
         }
 
@@ -460,56 +356,32 @@ static int vfio_enable_vectors(VFIOPCIDevice *vdev, bool msix)
     return ret;
 }
 
-static void vfio_add_kvm_msi_virq(VFIOPCIDevice *vdev, VFIOMSIVector *vector,
-                                  int vector_n, bool msix)
-{
-    if ((msix && vdev->no_kvm_msix) || (!msix && vdev->no_kvm_msi)) {
-        return;
-    }
 
-    vector->virq = kvm_irqchip_add_msi_route(&vfio_route_change,
-                                             vector_n, &vdev->pdev);
+
+    vector->virq = 0;
 }
 
-static void vfio_connect_kvm_msi_virq(VFIOMSIVector *vector)
-{
-    if (vector->virq < 0) {
-        return;
-    }
 
-    if (event_notifier_init(&vector->kvm_interrupt, 0)) {
+
+    if (event_notifier_init(&vector->interrupt, 0)) {
         goto fail_notifier;
     }
 
-    if (kvm_irqchip_add_irqfd_notifier_gsi(kvm_state, &vector->kvm_interrupt,
-                                           NULL, vector->virq) < 0) {
+    if (-1 < 0) {
         goto fail_kvm;
     }
 
     return;
 
 fail_kvm:
-    event_notifier_cleanup(&vector->kvm_interrupt);
+    event_notifier_cleanup(&vector->interrupt);
 fail_notifier:
-    kvm_irqchip_release_virq(kvm_state, vector->virq);
     vector->virq = -1;
 }
 
-static void vfio_remove_kvm_msi_virq(VFIOMSIVector *vector)
-{
-    kvm_irqchip_remove_irqfd_notifier_gsi(kvm_state, &vector->kvm_interrupt,
-                                          vector->virq);
-    kvm_irqchip_release_virq(kvm_state, vector->virq);
-    vector->virq = -1;
-    event_notifier_cleanup(&vector->kvm_interrupt);
-}
 
-static void vfio_update_kvm_msi_virq(VFIOMSIVector *vector, MSIMessage msg,
-                                     PCIDevice *pdev)
-{
-    kvm_irqchip_update_msi_route(kvm_state, vector->virq, msg, pdev);
-    kvm_irqchip_commit_routes(kvm_state);
-}
+
+
 
 static int vfio_msix_vector_do_use(PCIDevice *pdev, unsigned int nr,
                                    MSIMessage *msg, IOHandler *handler)
@@ -542,19 +414,18 @@ static int vfio_msix_vector_do_use(PCIDevice *pdev, unsigned int nr,
      */
     if (vector->virq >= 0) {
         if (!msg) {
-            vfio_remove_kvm_msi_virq(vector);
+            
         } else {
-            vfio_update_kvm_msi_virq(vector, *msg, pdev);
+            
         }
     } else {
         if (msg) {
-            if (vdev->defer_kvm_irq_routing) {
-                vfio_add_kvm_msi_virq(vdev, vector, nr, true);
+            if (false) {
+                
             } else {
-                vfio_route_change = kvm_irqchip_begin_route_changes(kvm_state);
-                vfio_add_kvm_msi_virq(vdev, vector, nr, true);
-                kvm_irqchip_commit_route_changes(&vfio_route_change);
-                vfio_connect_kvm_msi_virq(vector);
+                vfio_route_change = 0;
+                
+                
             }
         }
     }
@@ -574,7 +445,7 @@ static int vfio_msix_vector_do_use(PCIDevice *pdev, unsigned int nr,
         vdev->nr_vectors = nr + 1;
     }
 
-    if (!vdev->defer_kvm_irq_routing) {
+    if (!false) {
         if (vdev->msix->noresize && resizing) {
             vfio_disable_irqindex(&vdev->vbasedev, VFIO_PCI_MSIX_IRQ_INDEX);
             ret = vfio_enable_vectors(vdev, true);
@@ -586,7 +457,7 @@ static int vfio_msix_vector_do_use(PCIDevice *pdev, unsigned int nr,
             int32_t fd;
 
             if (vector->virq >= 0) {
-                fd = event_notifier_get_fd(&vector->kvm_interrupt);
+                fd = event_notifier_get_fd(&vector->interrupt);
             } else {
                 fd = event_notifier_get_fd(&vector->interrupt);
             }
@@ -644,25 +515,9 @@ static void vfio_msix_vector_release(PCIDevice *pdev, unsigned int nr)
     }
 }
 
-static void vfio_prepare_kvm_msi_virq_batch(VFIOPCIDevice *vdev)
-{
-    assert(!vdev->defer_kvm_irq_routing);
-    vdev->defer_kvm_irq_routing = true;
-    vfio_route_change = kvm_irqchip_begin_route_changes(kvm_state);
-}
 
-static void vfio_commit_kvm_msi_virq_batch(VFIOPCIDevice *vdev)
-{
-    int i;
 
-    assert(vdev->defer_kvm_irq_routing);
-    vdev->defer_kvm_irq_routing = false;
 
-    kvm_irqchip_commit_route_changes(&vfio_route_change);
-
-    for (i = 0; i < vdev->nr_vectors; i++) {
-        vfio_connect_kvm_msi_virq(&vdev->msi_vectors[i]);
-    }
 }
 
 static void vfio_msix_enable(VFIOPCIDevice *vdev)
@@ -681,14 +536,14 @@ static void vfio_msix_enable(VFIOPCIDevice *vdev)
      * routes once rather than per vector provides a substantial
      * performance improvement.
      */
-    vfio_prepare_kvm_msi_virq_batch(vdev);
+    
 
     if (msix_set_vector_notifiers(&vdev->pdev, vfio_msix_vector_use,
                                   vfio_msix_vector_release, NULL)) {
         error_report("vfio: msix_set_vector_notifiers failed");
     }
 
-    vfio_commit_kvm_msi_virq_batch(vdev);
+    
 
     if (vdev->nr_vectors) {
         ret = vfio_enable_vectors(vdev, true);
@@ -730,7 +585,7 @@ retry:
      * Deferring to commit the KVM routes once rather than per vector
      * provides a substantial performance improvement.
      */
-    vfio_prepare_kvm_msi_virq_batch(vdev);
+    
 
     vdev->msi_vectors = g_new0(VFIOMSIVector, vdev->nr_vectors);
 
@@ -752,10 +607,10 @@ retry:
          * Attempt to enable route through KVM irqchip,
          * default to userspace handling if unavailable.
          */
-        vfio_add_kvm_msi_virq(vdev, vector, i, false);
+        
     }
 
-    vfio_commit_kvm_msi_virq_batch(vdev);
+    
 
     /* Set interrupt type prior to possible interrupts */
     vdev->interrupt = VFIO_INT_MSI;
@@ -797,7 +652,7 @@ static void vfio_msi_disable_common(VFIOPCIDevice *vdev)
         VFIOMSIVector *vector = &vdev->msi_vectors[i];
         if (vdev->msi_vectors[i].use) {
             if (vector->virq >= 0) {
-                vfio_remove_kvm_msi_virq(vector);
+                
             }
             qemu_set_fd_handler(event_notifier_get_fd(&vector->interrupt),
                                 NULL, NULL, NULL);
@@ -873,7 +728,7 @@ static void vfio_update_msi(VFIOPCIDevice *vdev)
         }
 
         msg = msi_get_message(&vdev->pdev, i);
-        vfio_update_kvm_msi_virq(vector, msg, &vdev->pdev);
+        
     }
 }
 
@@ -1671,7 +1526,6 @@ static bool vfio_msix_setup(VFIOPCIDevice *vdev, int pos, Error **errp)
      * structures does not affect the performance of the device.  If devices
      * fail to provide that alignment, a significant performance penalty may
      * result, for instance Mellanox MT27500 VFs:
-     * http://www.spinics.net/lists/kvm/msg125881.html
      *
      * The PBA is simply not that important for such a serious regression and
      * most drivers do not appear to look at it.  The solution for this is to
@@ -3157,7 +3011,6 @@ static void vfio_realize(PCIDevice *pdev, Error **errp)
         pci_device_set_intx_routing_notifier(&vdev->pdev,
                                              vfio_intx_routing_notifier);
         vdev->irqchip_change_notifier.notify = vfio_irqchip_change;
-        kvm_irqchip_add_change_notifier(&vdev->irqchip_change_notifier);
         if (!vfio_intx_enable(vdev, errp)) {
             goto out_deregister;
         }
@@ -3215,7 +3068,6 @@ out_deregister:
     }
     pci_device_set_intx_routing_notifier(&vdev->pdev, NULL);
     if (vdev->irqchip_change_notifier.notify) {
-        kvm_irqchip_remove_change_notifier(&vdev->irqchip_change_notifier);
     }
     if (vdev->intx.mmap_timer) {
         timer_free(vdev->intx.mmap_timer);
@@ -3258,7 +3110,6 @@ static void vfio_exitfn(PCIDevice *pdev)
     vfio_unregister_err_notifier(vdev);
     pci_device_set_intx_routing_notifier(&vdev->pdev, NULL);
     if (vdev->irqchip_change_notifier.notify) {
-        kvm_irqchip_remove_change_notifier(&vdev->irqchip_change_notifier);
     }
     vfio_disable_interrupts(vdev);
     if (vdev->intx.mmap_timer) {
@@ -3375,13 +3226,12 @@ static const Property vfio_pci_dev_properties[] = {
     DEFINE_PROP_BOOL("x-no-mmap", VFIOPCIDevice, vbasedev.no_mmap, false),
     DEFINE_PROP_BOOL("x-balloon-allowed", VFIOPCIDevice,
                      vbasedev.ram_block_discard_allowed, false),
-    DEFINE_PROP_BOOL("x-no-kvm-intx", VFIOPCIDevice, no_kvm_intx, false),
-    DEFINE_PROP_BOOL("x-no-kvm-msi", VFIOPCIDevice, no_kvm_msi, false),
-    DEFINE_PROP_BOOL("x-no-kvm-msix", VFIOPCIDevice, no_kvm_msix, false),
+    ,
+    ,
+    ,
     DEFINE_PROP_BOOL("x-no-geforce-quirks", VFIOPCIDevice,
                      no_geforce_quirks, false),
-    DEFINE_PROP_BOOL("x-no-kvm-ioeventfd", VFIOPCIDevice, no_kvm_ioeventfd,
-                     false),
+    ,
     DEFINE_PROP_BOOL("x-no-vfio-ioeventfd", VFIOPCIDevice, no_vfio_ioeventfd,
                      false),
     DEFINE_PROP_UINT32("x-pci-vendor-id", VFIOPCIDevice, vendor_id, PCI_ANY_ID),

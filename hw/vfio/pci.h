@@ -19,7 +19,6 @@
 #include "qemu/queue.h"
 #include "qemu/timer.h"
 #include "qom/object.h"
-#include "system/kvm.h"
 
 #define PCI_ANY_ID (~0)
 
@@ -72,7 +71,6 @@ typedef struct VFIOVGA {
 
 typedef struct VFIOINTx {
     bool pending; /* interrupt pending */
-    bool kvm_accel; /* set when QEMU bypass through KVM enabled */
     uint8_t pin; /* which pin to pull for qemu_set_irq */
     EventNotifier interrupt; /* eventfd triggered on interrupt */
     EventNotifier unmask; /* eventfd for unmask on QEMU bypass */
@@ -82,17 +80,7 @@ typedef struct VFIOINTx {
 } VFIOINTx;
 
 typedef struct VFIOMSIVector {
-    /*
-     * Two interrupt paths are configured per vector.  The first, is only used
-     * for interrupts injected via QEMU.  This is typically the non-accel path,
-     * but may also be used when we want QEMU to handle masking and pending
-     * bits.  The KVM path bypasses QEMU and is therefore higher performance,
-     * but requires masking at the device.  virq is used to track the MSI route
-     * through KVM, thus kvm_interrupt is only available when virq is set to a
-     * valid (>= 0) value.
-     */
     EventNotifier interrupt;
-    EventNotifier kvm_interrupt;
     struct VFIOPCIDevice *vdev; /* back pointer to device */
     int virq;
     bool use;
@@ -170,15 +158,10 @@ struct VFIOPCIDevice {
     bool has_flr;
     bool has_pm_reset;
     bool rom_read_failed;
-    bool no_kvm_intx;
-    bool no_kvm_msi;
-    bool no_kvm_msix;
     bool no_geforce_quirks;
-    bool no_kvm_ioeventfd;
     bool no_vfio_ioeventfd;
     bool enable_ramfb;
     OnOffAuto ramfb_migrate;
-    bool defer_kvm_irq_routing;
     bool clear_parent_atomics_on_exit;
     bool skip_vsc_check;
     VFIODisplay *dpy;

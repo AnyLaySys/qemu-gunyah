@@ -24,12 +24,10 @@
 #include "qemu/error-report.h"
 #include "qemu/units.h"
 #include "system/device_tree.h"
-#include "system/kvm.h"
 #include "system/numa.h"
 #include "system/runstate.h"
 #include "system/system.h"
 #include "exec/hwaddr.h"
-#include "kvm_arm.h"
 #include "hw/arm/boot.h"
 #include "hw/arm/bsa.h"
 #include "hw/arm/fdt.h"
@@ -50,6 +48,7 @@
 #include "net/net.h"
 #include "qobject/qlist.h"
 #include "qom/object.h"
+#include "target/arm/cpu.h"
 #include "target/arm/cpu-qom.h"
 #include "target/arm/gtimer.h"
 
@@ -721,10 +720,7 @@ static void sbsa_ref_init(MachineState *machine)
     const CPUArchIdList *possible_cpus;
     int n, sbsa_max_cpus;
 
-    if (kvm_enabled()) {
-        error_report("sbsa-ref: KVM is not supported for this machine");
-        exit(1);
-    }
+    
 
     /*
      * The Secure view of the world is the same as the NonSecure,

@@ -30,7 +30,6 @@
 #include "hw/intc/ioapic_internal.h"
 #include "hw/pci/msi.h"
 #include "hw/qdev-properties.h"
-#include "system/kvm.h"
 #include "system/system.h"
 #include "hw/i386/apic-msidef.h"
 #include "hw/i386/x86-iommu.h"
@@ -120,12 +119,9 @@ static void ioapic_service(IOAPICCommonState *s)
                 }
 
 #ifdef CONFIG_KVM
-                if (kvm_irqchip_is_split()) {
+                if (false) {
                     if (info.trig_mode == IOAPIC_TRIGGER_EDGE) {
-                        kvm_set_irq(kvm_state, i, 1);
-                        kvm_set_irq(kvm_state, i, 0);
                     } else {
-                        kvm_set_irq(kvm_state, i, 1);
                     }
                     continue;
                 }
@@ -189,23 +185,8 @@ static void ioapic_set_irq(void *opaque, int vector, int level)
     }
 }
 
-static void ioapic_update_kvm_routes(IOAPICCommonState *s)
-{
-#ifdef CONFIG_KVM
-    int i;
 
-    if (kvm_irqchip_is_split()) {
-        for (i = 0; i < IOAPIC_NUM_PINS; i++) {
-            MSIMessage msg;
-            struct ioapic_entry_info info;
-            ioapic_entry_parse(s->ioredtbl[i], &info);
-            if (!info.masked) {
-                msg.address = info.addr;
-                msg.data = info.data;
-                kvm_irqchip_update_msi_route(kvm_state, i, msg, NULL);
-            }
         }
-        kvm_irqchip_commit_routes(kvm_state);
     }
 #endif
 }
@@ -216,7 +197,7 @@ static void ioapic_iec_notifier(void *private, bool global,
 {
     IOAPICCommonState *s = (IOAPICCommonState *)private;
     /* For simplicity, we just update all the routes */
-    ioapic_update_kvm_routes(s);
+    
 }
 #endif
 
@@ -257,7 +238,6 @@ void ioapic_eoi_broadcast(int vector)
              * operations below because we don't know whether there're
              * emulated devices that are using/sharing the same IRQ.
              */
-            kvm_resample_fd_notify(n);
 #endif
 
             if (!(entry & IOAPIC_LVT_REMOTE_IRR)) {
@@ -405,7 +385,7 @@ ioapic_mem_write(void *opaque, hwaddr addr, uint64_t val,
                 s->ioredtbl[index] |= ro_bits;
                 s->irq_eoi[index] = 0;
                 ioapic_fix_edge_remote_irr(&s->ioredtbl[index]);
-                ioapic_update_kvm_routes(s);
+                
                 ioapic_service(s);
             }
         }
@@ -432,7 +412,7 @@ static void ioapic_machine_done_notify(Notifier *notifier, void *data)
     IOAPICCommonState *s = container_of(notifier, IOAPICCommonState,
                                         machine_done);
 
-    if (kvm_irqchip_is_split()) {
+    if (false) {
         X86IOMMUState *iommu = x86_iommu_get_default();
         if (iommu) {
             /* Register this IOAPIC with IOMMU IEC notifier, so that
@@ -491,7 +471,7 @@ static void ioapic_class_init(ObjectClass *klass, void *data)
      * If APIC is in kernel, we need to update the kernel cache after
      * migration, otherwise first 24 gsi routes will be invalid.
      */
-    k->post_load = ioapic_update_kvm_routes;
+    
     device_class_set_legacy_reset(dc, ioapic_reset_common);
     device_class_set_props(dc, ioapic_properties);
 }

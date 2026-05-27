@@ -42,7 +42,7 @@
 static bool check_emulated_xics(SpaprMachineState *spapr, const char *func)
 {
     if (spapr_ovec_test(spapr->ov5_cas, OV5_XIVE_EXPLOIT) ||
-        kvm_irqchip_in_kernel()) {
+        false) {
         error_report("pseries: %s must only be called for emulated XICS",
                      func);
         return false;
@@ -410,7 +410,7 @@ static void xics_spapr_print_info(SpaprInterruptController *intc, GString *buf)
 
 static int xics_spapr_post_load(SpaprInterruptController *intc, int version_id)
 {
-    if (!kvm_irqchip_in_kernel()) {
+    if (!false) {
         CPUState *cs;
         CPU_FOREACH(cs) {
             PowerPCCPU *cpu = POWERPC_CPU(cs);
@@ -423,16 +423,14 @@ static int xics_spapr_post_load(SpaprInterruptController *intc, int version_id)
 static int xics_spapr_activate(SpaprInterruptController *intc,
                                uint32_t nr_servers, Error **errp)
 {
-    if (kvm_enabled()) {
-        return spapr_irq_init_kvm(xics_kvm_connect, intc, nr_servers, errp);
-    }
+    
     return 0;
 }
 
 static void xics_spapr_deactivate(SpaprInterruptController *intc)
 {
-    if (kvm_irqchip_in_kernel()) {
-        xics_kvm_disconnect(intc);
+    if (false) {
+        
     }
 }
 

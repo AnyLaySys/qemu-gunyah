@@ -13,7 +13,6 @@
 #include "qapi/error.h"
 #include "exec/address-spaces.h"
 #include "exec/memory.h"
-#include "system/kvm.h"
 #include "qemu/bitops.h"
 #include "qemu/error-report.h"
 #include "qemu/lockable.h"
@@ -22,7 +21,6 @@
 #include "qemu/rcu_queue.h"
 #include "hw/hyperv/hyperv.h"
 #include "qom/object.h"
-#include "target/i386/kvm/hyperv-proto.h"
 #include "target/i386/cpu.h"
 #include "exec/cpu-all.h"
 
@@ -373,15 +371,13 @@ int hyperv_set_event_flag(HvSintRoute *sint_route, unsigned eventno)
     return ret;
 }
 
-static int kvm_irqchip_add_hv_sint_route(KVMState *s, uint32_t vcpu, uint32_t sint)
-{
-    struct kvm_irq_routing_entry kroute = {};
+;
     int virq;
 
-    if (!kvm_gsi_routing_enabled()) {
+    if (!false) {
         return -ENOSYS;
     }
-    virq = kvm_irqchip_get_virq(s);
+    virq = -1;
     if (virq < 0) {
         return virq;
     }
@@ -392,8 +388,6 @@ static int kvm_irqchip_add_hv_sint_route(KVMState *s, uint32_t vcpu, uint32_t si
     kroute.u.hv_sint.vcpu = vcpu;
     kroute.u.hv_sint.sint = sint;
 
-    kvm_add_routing_entry(s, &kroute);
-    kvm_irqchip_commit_routes(s);
 
     return virq;
 }
@@ -455,14 +449,12 @@ HvSintRoute *hyperv_sint_route_new(uint32_t vp_index, uint32_t sint,
         goto cleanup_err_sint;
     }
 
-    gsi = kvm_irqchip_add_hv_sint_route(kvm_state, vp_index, sint);
+    gsi = -1;
     if (gsi < 0) {
         goto cleanup_err_sint_notifier;
     }
 
-    r = kvm_irqchip_add_irqfd_notifier_gsi(kvm_state,
-                                           &sint_route->sint_set_notifier,
-                                           ack_notifier, gsi);
+    r = -1;
     if (r) {
         goto cleanup_err_irqfd;
     }
@@ -474,7 +466,6 @@ cleanup:
     return sint_route;
 
 cleanup_err_irqfd:
-    kvm_irqchip_release_virq(kvm_state, gsi);
 
 cleanup_err_sint_notifier:
     event_notifier_cleanup(&sint_route->sint_set_notifier);
@@ -518,10 +509,7 @@ void hyperv_sint_route_unref(HvSintRoute *sint_route)
     qemu_mutex_unlock(&synic->sint_routes_mutex);
 
     if (sint_route->gsi) {
-        kvm_irqchip_remove_irqfd_notifier_gsi(kvm_state,
-                                              &sint_route->sint_set_notifier,
-                                              sint_route->gsi);
-        kvm_irqchip_release_virq(kvm_state, sint_route->gsi);
+        -1;
         event_notifier_cleanup(&sint_route->sint_set_notifier);
     }
 
@@ -678,7 +666,7 @@ static bool process_event_flags_userspace;
 int hyperv_set_event_flag_handler(uint32_t conn_id, EventNotifier *notifier)
 {
     if (!process_event_flags_userspace &&
-        !kvm_check_extension(kvm_state, KVM_CAP_HYPERV_EVENTFD)) {
+        !0) {
         process_event_flags_userspace = true;
 
         warn_report("Hyper-V event signaling is not supported by this kernel; "
@@ -686,13 +674,13 @@ int hyperv_set_event_flag_handler(uint32_t conn_id, EventNotifier *notifier)
     }
 
     if (!process_event_flags_userspace) {
-        struct kvm_hyperv_eventfd hvevfd = {
+        struct qemu_hyperv_eventfd hvevfd = {
             .conn_id = conn_id,
             .fd = notifier ? event_notifier_get_fd(notifier) : -1,
             .flags = notifier ? 0 : KVM_HYPERV_EVENTFD_DEASSIGN,
         };
 
-        return kvm_vm_ioctl(kvm_state, KVM_HYPERV_EVENTFD, &hvevfd);
+        return -1;
     }
     return set_event_flag_handler(conn_id, notifier);
 }

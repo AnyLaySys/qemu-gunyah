@@ -29,10 +29,8 @@
  *
  * qemu-system-x86_64 -device pc-testdev -serial stdio \
  * -device isa-debug-exit,iobase=0xf4,iosize=0x4 \
- * -kernel /home/lmr/Code/virt-test.git/kvm/unittests/msr.flat
  *
  * Where msr.flat is one of the KVM unittests, present on a separate repo,
- * https://git.kernel.org/pub/scm/virt/kvm/kvm-unit-tests.git
 */
 
 #include "qemu/osdep.h"

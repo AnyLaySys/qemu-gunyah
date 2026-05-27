@@ -32,7 +32,7 @@ static int gunyah_init_vcpu(CPUState *cpu, Error **errp) {
         error_report("pthread_sigmask: %s", strerror(ret));
         exit(1);
     }
-    error_report("gh    │init_vcpu %d (deferred - VCPU will be created at VM start)", cpu->cpu_index);
+    error_report(gh"init_vcpu %d (deferred - VCPU will be created at VM start)", cpu->cpu_index);
     return 0;
 }
 static void gunyah_vcpu_destroy(CPUState *cpu) {
@@ -62,7 +62,7 @@ static int gunyah_handle_unknown_exit(CPUState *cpu, struct gh_vcpu_run *run) {
             acpu->same_fault_count = 1;
         }
         if (acpu->same_fault_count > 500) {
-            error_report("gh    │CPU#%d exit_reason=%d stuck "
+            error_report(gh"CPU#%d exit_reason=%d stuck "
                          "at addr=0x%"
             PRIx64
             " (%d repeats)"
@@ -80,7 +80,7 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
     int ret;
     static bool handler_installed;
     if (cpu->accel->fd < 0) {
-        error_report("gh    │ERROR: vcpu fd is %d (invalid!)", cpu->accel->fd);
+        error_report(gh"ERROR: vcpu fd is %d (invalid!)", cpu->accel->fd);
         return EXCP_INTERRUPT;
     }
     if (!handler_installed) {
@@ -117,7 +117,7 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
             }
             error_report("GH_VCPU_RUN: %s (errno=%d)", strerror(errno), errno);
             if (errno == EBUSY) {
-                error_report("gh    │cpu %d: GH_VCPU_RUN returned EBUSY — "
+                error_report(gh"cpu %d: GH_VCPU_RUN returned EBUSY — "
                              "VM shutting down, exiting", cpu->cpu_index);
                 qatomic_set(&gunyah_vm_stopped, true);
                 _exit(0);
@@ -157,11 +157,11 @@ void *gunyah_cpu_thread_fn(void *arg) {
     qemu_thread_get_self(cpu->thread);
     cpu->thread_id = qemu_get_thread_id();
     current_cpu = cpu;
-    error_report("gh    │cpu_thread_fn started for cpu %d (tid=%d)", cpu->cpu_index, cpu->thread_id);
+    error_report(gh"cpu_thread_fn started for cpu %d (tid=%d)", cpu->cpu_index, cpu->thread_id);
     gunyah_init_vcpu(cpu, &error_fatal);
     cpu_thread_signal_created(cpu);
     qemu_guest_random_seed_thread_part2(cpu->random_seed);
-    error_report("gh    │cpu %d entering main loop (fd=%d run=%p)", cpu->cpu_index, cpu->accel->fd,
+    error_report(gh"cpu %d entering main loop (fd=%d run=%p)", cpu->cpu_index, cpu->accel->fd,
                  cpu->accel->run);
     do {
         if (cpu_can_run(cpu)) {

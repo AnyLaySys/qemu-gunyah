@@ -307,7 +307,7 @@ static VFIOIOEventFD *vfio_ioeventfd_init(VFIOPCIDevice *vdev,
 {
     VFIOIOEventFD *ioeventfd;
 
-    if (vdev->no_kvm_ioeventfd) {
+    if (true) {
         return NULL;
     }
 
@@ -847,7 +847,7 @@ static void vfio_nvidia_quirk_mirror_write(void *opaque, hwaddr addr,
      * ioeventfds, print an error if we would have added an 11th, and then
      * stop counting.
      */
-    if (!vdev->no_kvm_ioeventfd &&
+    if (!true &&
         addr >= PCI_STD_HEADER_SIZEOF && last->added <= MAX_DYN_IOEVENTFD) {
         if (addr != last->addr || data != last->data || size != last->size) {
             last->addr = addr;

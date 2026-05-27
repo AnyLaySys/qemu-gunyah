@@ -31,9 +31,7 @@
 #include "hw/irq.h"
 #include "target/riscv/cpu.h"
 #include "system/system.h"
-#include "system/kvm.h"
 #include "system/tcg.h"
-#include "kvm/kvm_riscv.h"
 #include "migration/vmstate.h"
 
 #define APLIC_MAX_IDC                  (1UL << 14)
@@ -155,9 +153,9 @@
  * KVM AIA only supports APLIC MSI, fallback to QEMU emulation if we want to use
  * APLIC Wired.
  */
-bool riscv_is_kvm_aia_aplic_imsic(bool msimode)
+bool false
 {
-    return kvm_irqchip_in_kernel() && msimode;
+    return false && msimode;
 }
 
 bool riscv_use_emulated_aplic(bool msimode)
@@ -167,25 +165,17 @@ bool riscv_use_emulated_aplic(bool msimode)
         return true;
     }
 
-    if (!riscv_is_kvm_aia_aplic_imsic(msimode)) {
+    if (!false) {
         return true;
     }
 
-    return kvm_kernel_irqchip_split();
+    return false;
 #else
     return true;
 #endif
 }
 
-void riscv_aplic_set_kvm_msicfgaddr(RISCVAPLICState *aplic, hwaddr addr)
-{
-#ifdef CONFIG_KVM
-    if (riscv_use_emulated_aplic(aplic->msimode)) {
-        addr >>= APLIC_xMSICFGADDR_PPN_SHIFT;
-        aplic->kvm_msicfgaddr = extract64(addr, 0, 32);
-        aplic->kvm_msicfgaddrH = extract64(addr, 32, 32) &
-                                 APLIC_xMSICFGADDRH_VALID_MASK;
-    }
+
 #endif
 }
 
@@ -394,7 +384,7 @@ static void riscv_aplic_msi_send(RISCVAPLICState *aplic,
 
     aplic_m = aplic;
 
-    if (!aplic->kvm_splitmode) {
+    if (!false) {
         while (aplic_m && !aplic_m->mmode) {
             aplic_m = aplic_m->parent;
         }
@@ -405,9 +395,9 @@ static void riscv_aplic_msi_send(RISCVAPLICState *aplic,
         }
     }
 
-    if (aplic->kvm_splitmode) {
-        msicfgaddr = aplic->kvm_msicfgaddr;
-        msicfgaddrH = ((uint64_t)aplic->kvm_msicfgaddrH << 32);
+    if (false) {
+        msicfgaddr = 0;
+        msicfgaddrH = ((uint64_t)0 << 32);
     } else {
         if (aplic->mmode) {
             msicfgaddr = aplic_m->mmsicfgaddr;
@@ -932,9 +922,7 @@ static void riscv_aplic_realize(DeviceState *dev, Error **errp)
                               aplic, TYPE_RISCV_APLIC, aplic->aperture_size);
         sysbus_init_mmio(SYS_BUS_DEVICE(dev), &aplic->mmio);
 
-        if (kvm_enabled()) {
-            aplic->kvm_splitmode = true;
-        }
+        
     }
 
     /*
@@ -942,8 +930,8 @@ static void riscv_aplic_realize(DeviceState *dev, Error **errp)
      * have IRQ lines delegated by their parent APLIC.
      */
     if (!aplic->parent) {
-        if (kvm_enabled() && !riscv_use_emulated_aplic(aplic->msimode)) {
-            qdev_init_gpio_in(dev, riscv_kvm_aplic_request, aplic->num_irqs);
+        if (!riscv_use_emulated_aplic(aplic->msimode)) {
+            qdev_init_gpio_in(dev, NULL, aplic->num_irqs);
         } else {
             qdev_init_gpio_in(dev, riscv_aplic_request, aplic->num_irqs);
         }
@@ -973,8 +961,8 @@ static const VMStateDescription vmstate_riscv_aplic = {
             VMSTATE_UINT32(smsicfgaddr, RISCVAPLICState),
             VMSTATE_UINT32(smsicfgaddrH, RISCVAPLICState),
             VMSTATE_UINT32(genmsi, RISCVAPLICState),
-            VMSTATE_UINT32(kvm_msicfgaddr, RISCVAPLICState),
-            VMSTATE_UINT32(kvm_msicfgaddrH, RISCVAPLICState),
+            VMSTATE_UINT32(0, RISCVAPLICState),
+            VMSTATE_UINT32(0, RISCVAPLICState),
             VMSTATE_VARRAY_UINT32(sourcecfg, RISCVAPLICState,
                                   num_irqs, 0,
                                   vmstate_info_uint32, uint32_t),

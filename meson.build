@@ -280,32 +280,7 @@ else
   host_arch = cpu
 endif
 
-if cpu == 'x86'
-  kvm_targets = ['i386-softmmu']
-elif cpu == 'x86_64'
-  kvm_targets = ['i386-softmmu', 'x86_64-softmmu']
-elif cpu == 'aarch64'
-  kvm_targets = ['aarch64-softmmu']
-elif cpu == 's390x'
-  kvm_targets = ['s390x-softmmu']
-elif cpu == 'ppc'
-  kvm_targets = ['ppc-softmmu']
-elif cpu == 'ppc64'
-  kvm_targets = ['ppc-softmmu', 'ppc64-softmmu']
-elif cpu == 'mips'
-  kvm_targets = ['mips-softmmu', 'mipsel-softmmu']
-elif cpu == 'mips64'
-  kvm_targets = ['mips-softmmu', 'mipsel-softmmu', 'mips64-softmmu', 'mips64el-softmmu']
-elif cpu == 'riscv32'
-  kvm_targets = ['riscv32-softmmu']
-elif cpu == 'riscv64'
-  kvm_targets = ['riscv64-softmmu']
-elif cpu == 'loongarch64'
-  kvm_targets = ['loongarch64-softmmu']
-else
-  kvm_targets = []
-endif
-accelerator_targets = { 'CONFIG_KVM': kvm_targets }
+accelerator_targets = {}
 
 if cpu == 'x86'
   xen_targets = ['i386-softmmu']
@@ -868,9 +843,6 @@ endif
 ###############################################
 
 accelerators = []
-if get_option('kvm').allowed() and host_os == 'linux'
-  accelerators += 'CONFIG_KVM'
-endif
 if get_option('gunyah').allowed() and host_os == 'linux'
   accelerators += 'CONFIG_GUNYAH'
 endif
@@ -927,9 +899,6 @@ if get_option('tcg').allowed()
   accelerators += 'CONFIG_TCG'
 endif
 
-if 'CONFIG_KVM' not in accelerators and get_option('kvm').enabled()
-  error('KVM not available on this platform')
-endif
 if 'CONFIG_GUNYAH' not in accelerators and get_option('gunyah').enabled()
   error('Gunyah not available on this platform')
 endif
@@ -2450,12 +2419,6 @@ endif
 
 config_host_data.set('HOST_' + host_arch.to_upper(), 1)
 
-kvm_targets_c = '""'
-if get_option('kvm').allowed() and host_os == 'linux'
-  kvm_targets_c = '"' + '" ,"'.join(kvm_targets) + '"'
-endif
-config_host_data.set('CONFIG_KVM_TARGETS', kvm_targets_c)
-
 if get_option('module_upgrades') and not enable_modules
   error('Cannot enable module-upgrades as modules are not enabled')
 endif
@@ -3564,15 +3527,12 @@ if have_block
 endif
 if have_system
   trace_events_subdirs += [
-    'accel/kvm',
     'audio',
     'backends',
     'backends/tpm',
     'ebpf',
-    'hw/9pfs',
     'hw/acpi',
     'hw/adc',
-    'hw/alpha',
     'hw/arm',
     'hw/audio',
     'hw/block',
@@ -3582,15 +3542,11 @@ if have_system
     'hw/fsi',
     'hw/hyperv',
     'hw/i2c',
-    'hw/i386',
-    'hw/i386/xen',
-    'hw/i386/kvm',
     'hw/ide',
     'hw/input',
     'hw/intc',
     'hw/isa',
     'hw/mem',
-    'hw/mips',
     'hw/misc',
     'hw/misc/macio',
     'hw/net',
@@ -3600,16 +3556,10 @@ if have_system
     'hw/nvram',
     'hw/pci',
     'hw/pci-host',
-    'hw/ppc',
     'hw/rtc',
-    'hw/riscv',
-    'hw/s390x',
     'hw/scsi',
     'hw/sd',
     'hw/sensor',
-    'hw/sh4',
-    'hw/sparc',
-    'hw/sparc64',
     'hw/ssi',
     'hw/timer',
     'hw/tpm',
@@ -3620,7 +3570,6 @@ if have_system
     'hw/virtio',
     'hw/vmapple',
     'hw/watchdog',
-    'hw/xen',
     'hw/gpio',
     'migration',
     'net',
@@ -3634,18 +3583,10 @@ if have_system or have_user
     'accel/tcg',
     'hw/core',
     'target/arm',
-    'target/arm/hvf',
-    'target/hppa',
-    'target/i386',
-    'target/i386/kvm',
-    'target/loongarch',
-    'target/mips/tcg',
-    'target/ppc',
-    'target/riscv',
-    'target/s390x',
-    'target/s390x/kvm',
-    'target/sparc',
   ]
+  if 'CONFIG_HVF' in config_all_accel
+    trace_events_subdirs += [ 'target/arm/hvf' ]
+  endif
 endif
 
 ###################
@@ -3829,9 +3770,7 @@ subdir('common-user')
 subdir('bsd-user')
 subdir('linux-user')
 
-# needed for fuzzing binaries
-subdir('tests/qtest/libqos')
-subdir('tests/qtest/fuzz')
+
 
 # accel modules
 target_modules += { 'accel' : { 'qtest': qtest_module_ss }}
@@ -4456,7 +4395,6 @@ endif
 subdir('scripts')
 subdir('tools')
 subdir('pc-bios')
-subdir('docs')
 # vectras android: disable test
 #subdir('tests')
 if gtk.found()
@@ -4474,7 +4412,7 @@ if host_machine.system() == 'windows'
     '--',
     '-DDISPLAYVERSION=' + meson.project_version(),
   ]
-  if build_docs
+  if get_option('docs').enabled()
     nsis_cmd += '-DCONFIG_DOCUMENTATION=y'
   endif
   if gtk.found()
@@ -4523,7 +4461,6 @@ summary(summary_info, bool_yn: true, section: 'Directories')
 # Host binaries
 summary_info = {}
 summary_info += {'python':            '@0@ (version: @1@)'.format(python.full_path(), python.language_version())}
-summary_info += {'sphinx-build':      sphinx_build}
 
 # FIXME: the [binaries] section of machine files, which can be probed
 # with find_program(), would be great for passing gdb and genisoimage
@@ -4544,7 +4481,7 @@ summary(summary_info, bool_yn: true, section: 'Host binaries')
 
 # Configurable features
 summary_info = {}
-summary_info += {'Documentation':     build_docs}
+summary_info += {'Documentation':     get_option('docs').enabled()}
 summary_info += {'system-mode emulation': have_system}
 summary_info += {'user-mode emulation': have_user}
 summary_info += {'block layer':       have_block}
@@ -4662,7 +4599,6 @@ endif
 # Targets and accelerators
 summary_info = {}
 if have_system
-  summary_info += {'KVM support':       config_all_accel.has_key('CONFIG_KVM')}
   summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
   summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
   summary_info += {'NVMM support':      config_all_accel.has_key('CONFIG_NVMM')}

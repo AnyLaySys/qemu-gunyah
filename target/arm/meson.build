@@ -8,7 +8,6 @@ arm_ss.add(files(
 ))
 arm_ss.add(zlib)
 
-arm_ss.add(when: 'CONFIG_KVM', if_true: files('hyp_gdbstub.c', 'kvm.c'), if_false: files('kvm-stub.c'))
 arm_ss.add(when: 'CONFIG_HVF', if_true: files('hyp_gdbstub.c'))
 arm_ss.add(when: 'CONFIG_GUNYAH', if_true: files('gunyah.c'))
 
@@ -29,7 +28,9 @@ arm_system_ss.add(files(
 
 arm_user_ss = ss.source_set()
 
-subdir('hvf')
+if 'CONFIG_HVF' in config_all_accel
+  subdir('hvf')
+endif
 
 if 'CONFIG_TCG' in config_all_accel
    subdir('tcg')

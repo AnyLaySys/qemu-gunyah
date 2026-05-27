@@ -1805,7 +1805,7 @@ static void dump_init(DumpState *s, int fd, bool has_format,
         s->resume = false;
     }
 
-    /* If we use KVM, we should synchronize the registers before we get dump
+    /* Synchronize the registers before we get dump
      * info or physmap info.
      */
     cpu_synchronize_all_states();

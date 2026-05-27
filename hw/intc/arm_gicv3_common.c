@@ -31,7 +31,6 @@
 #include "migration/vmstate.h"
 #include "gicv3_internal.h"
 #include "hw/arm/linux-boot-if.h"
-#include "system/kvm.h"
 #include "system/gunyah.h"
 
 
@@ -235,9 +234,7 @@ static int gicv3_pre_load(void *opaque)
     * subsection which sets the flag to true; otherwise it will remain set to
     * the value we select here.
     */
-    if (kvm_enabled()) {
-        cs->gicd_no_migration_shift_bug = false;
-    }
+    
 
     return 0;
 }
@@ -660,15 +657,12 @@ type_init(register_types)
 
 const char *gicv3_class_name(void)
 {
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         return "kvm-arm-gicv3";
     } else if (gunyah_enabled()) {
         return "gunyah-arm-gicv3";
     } else {
-        if (kvm_enabled()) {
-            error_report("Userspace GICv3 is not supported with KVM");
-            exit(1);
-        }
+        
         return "arm-gicv3";
     }
 }

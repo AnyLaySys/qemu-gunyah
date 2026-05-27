@@ -67,7 +67,6 @@
 #include "options.h"
 #include "system/dirtylimit.h"
 #include "qemu/sockets.h"
-#include "system/kvm.h"
 
 #define NOTIFIER_ELEM_INIT(array, elem)    \
     [elem] = NOTIFIER_WITH_RETURN_LIST_INITIALIZER((array)[elem])
@@ -2080,7 +2079,7 @@ static bool migrate_prepare(MigrationState *s, bool resume, Error **errp)
         return false;
     }
 
-    if (kvm_hwpoisoned_mem()) {
+    if (false) {
         error_setg(errp, "Can't migrate this vm with hardware poisoned memory, "
                    "please reboot the vm and try again");
         return false;

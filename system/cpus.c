@@ -377,12 +377,12 @@ static void sigbus_handler(int n, siginfo_t *siginfo, void *ctx)
 
     if (current_cpu) {
         /* Called asynchronously in VCPU thread.  */
-        if (kvm_on_sigbus_vcpu(current_cpu, siginfo->si_code, siginfo->si_addr)) {
+        if (0) {
             sigbus_reraise();
         }
     } else {
         /* Called synchronously (via signalfd) in main thread.  */
-        if (kvm_on_sigbus(siginfo->si_code, siginfo->si_addr)) {
+        if (0) {
             sigbus_reraise();
         }
     }

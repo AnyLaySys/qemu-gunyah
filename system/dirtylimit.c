@@ -22,7 +22,6 @@
 #include "exec/memory.h"
 #include "exec/target_page.h"
 #include "hw/boards.h"
-#include "system/kvm.h"
 #include "trace.h"
 #include "migration/misc.h"
 
@@ -243,7 +242,7 @@ static uint64_t dirtylimit_dirty_ring_full_time(uint64_t dirtyrate)
     static uint64_t max_dirtyrate;
     uint64_t dirty_ring_size_MiB;
 
-    dirty_ring_size_MiB = qemu_target_pages_to_MiB(kvm_dirty_ring_size());
+    dirty_ring_size_MiB = qemu_target_pages_to_MiB(0);
 
     if (max_dirtyrate < dirtyrate) {
         max_dirtyrate = dirtyrate;
@@ -315,7 +314,6 @@ static void dirtylimit_set_throttle(CPUState *cpu,
     }
 
     /*
-     * TODO: in the big kvm_dirty_ring_size case (eg: 65536, or other scenario),
      *       current dirty page rate may never reach the quota, we should stop
      *       increasing sleep time?
      */
@@ -459,7 +457,7 @@ void qmp_cancel_vcpu_dirty_limit(bool has_cpu_index,
                                  int64_t cpu_index,
                                  Error **errp)
 {
-    if (!kvm_enabled() || !kvm_dirty_ring_enabled()) {
+    if (!false) {
         return;
     }
 
@@ -513,7 +511,7 @@ void qmp_set_vcpu_dirty_limit(bool has_cpu_index,
                               uint64_t dirty_rate,
                               Error **errp)
 {
-    if (!kvm_enabled() || !kvm_dirty_ring_enabled()) {
+    if (!false) {
         error_setg(errp, "dirty page limit feature requires KVM with"
                    " accelerator property 'dirty-ring-size' set'");
         return;

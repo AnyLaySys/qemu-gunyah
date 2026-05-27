@@ -41,7 +41,6 @@ typedef struct VFIOINTp {
     int state; /* inactive, pending, active */
     uint8_t pin; /* index */
     uint32_t flags; /* IRQ info flags */
-    bool kvm_accel; /* set when QEMU bypass through KVM enabled */
 } VFIOINTp;
 
 /* function type for user side eventfd handler */

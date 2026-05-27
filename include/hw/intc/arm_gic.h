@@ -86,6 +86,9 @@ struct ARMGICClass {
     DeviceRealize parent_realize;
 };
 
-const char *gic_class_name(void);
+static inline const char *gic_class_name(void)
+{
+    return "arm_gic";
+}
 
 #endif

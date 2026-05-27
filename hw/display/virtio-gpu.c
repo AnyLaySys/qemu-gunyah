@@ -12,27 +12,29 @@
  */
 
 #include "qemu/osdep.h"
-#include "qemu/units.h"
-#include "qemu/iov.h"
-#include "system/cpus.h"
-#include "ui/console.h"
-#include "ui/rect.h"
-#include "trace.h"
-#include "system/dma.h"
-#include "system/system.h"
+
+#include "hw/qdev-properties.h"
+#include "hw/virtio/virtio-bus.h"
+#include "hw/virtio/virtio-gpu-bswap.h"
+#include "hw/virtio/virtio-gpu.h"
+#include "hw/virtio/virtio-gpu-pixman.h"
 #include "hw/virtio/virtio.h"
 #include "migration/qemu-file-types.h"
-#include "hw/virtio/virtio-gpu.h"
-#include "hw/virtio/virtio-gpu-bswap.h"
-#include "hw/virtio/virtio-gpu-pixman.h"
-#include "hw/virtio/virtio-bus.h"
-#include "hw/qdev-properties.h"
+#include "qapi/error.h"
+#include "qemu/error-report.h"
+#include "qemu/iov.h"
 #include "qemu/log.h"
 #include "qemu/memfd.h"
 #include "qemu/module.h"
-#include "qapi/error.h"
-#include "qemu/error-report.h"
+#include "qemu/units.h"
+#include "system/cpus.h"
+#include "system/dma.h"
 #include "system/gunyah.h"
+#include "system/gunyah_int.h"
+#include "system/system.h"
+#include "trace.h"
+#include "ui/console.h"
+#include "ui/rect.h"
 
 #define VIRTIO_GPU_VM_VERSION 1
 
@@ -870,7 +872,7 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
             if (gunyah_enabled() && gunyah_addr_is_lend(a)) {
                 static bool warned;
                 if (!warned) {
-                    error_report("gh    │virtio-gpu: backing page GPA 0x%"
+                    error_report(gh"virtio-gpu: backing page GPA 0x%"
                                  PRIx64 " is in LEND'd memory — using "
                                  "local bounce buffer (display may be "
                                  "blank)", a);

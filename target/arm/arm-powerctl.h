@@ -11,7 +11,12 @@
 #ifndef QEMU_ARM_POWERCTL_H
 #define QEMU_ARM_POWERCTL_H
 
-#include "kvm-consts.h"
+#define QEMU_PSCI_RET_SUCCESS              0
+#define QEMU_PSCI_RET_NOT_SUPPORTED        (-1)
+#define QEMU_PSCI_RET_INVALID_PARAMS       (-2)
+#define QEMU_PSCI_RET_DENIED               (-3)
+#define QEMU_PSCI_RET_ALREADY_ON           (-4)
+#define QEMU_PSCI_RET_ON_PENDING           (-5)
 
 #define QEMU_ARM_POWERCTL_RET_SUCCESS QEMU_PSCI_RET_SUCCESS
 #define QEMU_ARM_POWERCTL_INVALID_PARAM QEMU_PSCI_RET_INVALID_PARAMS

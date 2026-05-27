@@ -20,7 +20,6 @@
 #ifndef ARM_CPU_H
 #define ARM_CPU_H
 
-#include "kvm-consts.h"
 #include "qemu/cpu-float.h"
 #include "hw/registerfields.h"
 #include "cpu-qom.h"
@@ -30,10 +29,6 @@
 #include "qapi/qapi-types-common.h"
 #include "target/arm/multiprocessing.h"
 #include "target/arm/gtimer.h"
-
-#ifdef TARGET_AARCH64
-#define KVM_HAVE_MCE_INJECTION 1
-#endif
 
 #define EXCP_UDEF            1   /* undefined instruction */
 #define EXCP_SWI             2   /* software interrupt */
@@ -949,8 +944,6 @@ struct ArchCPU {
 
     /* CPU has memory protection unit */
     bool has_mpu;
-    /* CPU has MTE enabled in KVM mode */
-    bool kvm_mte;
     /* PMSAv7 MPU number of supported regions */
     uint32_t pmsav7_dregion;
     /* PMSAv8 MPU number of supported hyp regions */
@@ -968,30 +961,10 @@ struct ArchCPU {
     /* For v8M, initial value of the Non-secure VTOR */
     uint32_t init_nsvtor;
 
-    /* [QEMU_]KVM_ARM_TARGET_* constant for this CPU, or
-     * QEMU_KVM_ARM_TARGET_NONE if the kernel doesn't support this CPU type.
-     */
-    uint32_t kvm_target;
-
-#ifdef CONFIG_KVM
-    /* KVM init features for this CPU */
-    uint32_t kvm_init_features[7];
-
-    /* KVM CPU state */
-
-    /* KVM virtual time adjustment */
-    bool kvm_adjvtime;
-    bool kvm_vtime_dirty;
-    uint64_t kvm_vtime;
-
-    /* KVM steal time */
-    OnOffAuto kvm_steal_time;
-#endif /* CONFIG_KVM */
-
     /* Uniprocessor system with MP extensions */
     bool mp_is_up;
 
-    /* True if we tried kvm_arm_host_cpu_features() during CPU instance_init
+    /* True if we tried host CPU features during CPU instance_init
      * and the probe failed (so we need to report the error in realize)
      */
     bool host_cpu_probe_failed;
@@ -1018,11 +991,6 @@ struct ArchCPU {
      * prefix means a constant register.
      * Some of these registers are split out into a substructure that
      * is shared with the translators to control the ISA.
-     *
-     * Note that if you add an ID register to the ARMISARegisters struct
-     * you need to also update the 32-bit and 64-bit versions of the
-     * kvm_arm_get_host_cpu_features() function to correctly populate the
-     * field by reading the value from the KVM vCPU.
      */
     struct ARMISARegisters {
         uint32_t id_isar0;
@@ -2682,28 +2650,7 @@ static inline bool arm_v7m_is_handler_mode(CPUARMState *env)
  */
 bool write_list_to_cpustate(ARMCPU *cpu);
 
-/**
- * write_cpustate_to_list:
- * @cpu: ARMCPU
- * @kvm_sync: true if this is for syncing back to KVM
- *
- * For each register listed in the ARMCPU cpreg_indexes list, write
- * its value from the ARMCPUState structure into the cpreg_values list.
- * This is used to copy info from TCG's working data structures into
- * KVM or for outbound migration.
- *
- * @kvm_sync is true if we are doing this in order to sync the
- * register state back to KVM. In this case we will only update
- * values in the list if the previous list->cpustate sync actually
- * successfully wrote the CPU state. Otherwise we will keep the value
- * that is in the list.
- *
- * Returns: true if all register values were read correctly,
- * false if some register was unknown or could not be read.
- * Note that we do not stop early on failure -- we will attempt
- * reading all registers in the list.
- */
-bool write_cpustate_to_list(ARMCPU *cpu, bool kvm_sync);
+bool write_cpustate_to_list(ARMCPU *cpu);
 
 #define ARM_CPUID_TI915T      0x54029152
 #define ARM_CPUID_TI925T      0x54029252
@@ -3159,6 +3106,38 @@ enum {
     QEMU_PSCI_CONDUIT_SMC = 1,
     QEMU_PSCI_CONDUIT_HVC = 2,
 };
+
+#define QEMU_PSCI_VERSION_0_1 0x00001
+#define QEMU_PSCI_VERSION_0_2 0x00020000
+#define QEMU_PSCI_VERSION_1_0 0x00010000
+#define QEMU_PSCI_VERSION_1_1 0x00010001
+
+#define QEMU_PSCI_0_2_64BIT 0x40000000
+
+#define QEMU_PSCI_0_1_FN_CPU_OFF       1
+#define QEMU_PSCI_0_1_FN_CPU_SUSPEND   0
+#define QEMU_PSCI_0_1_FN_CPU_ON        3
+#define QEMU_PSCI_0_1_FN_MIGRATE       5
+
+#define QEMU_PSCI_0_2_FN_PSCI_VERSION      0x84000000
+#define QEMU_PSCI_0_2_FN_CPU_SUSPEND       0x84000001
+#define QEMU_PSCI_0_2_FN64_CPU_SUSPEND     0xc4000001
+#define QEMU_PSCI_0_2_FN_CPU_OFF           0x84000002
+#define QEMU_PSCI_0_2_FN_CPU_ON            0x84000003
+#define QEMU_PSCI_0_2_FN64_CPU_ON          0xc4000003
+#define QEMU_PSCI_0_2_FN_AFFINITY_INFO     0x84000004
+#define QEMU_PSCI_0_2_FN64_AFFINITY_INFO   0xc4000004
+#define QEMU_PSCI_0_2_FN_MIGRATE_INFO_TYPE 0x84000005
+#define QEMU_PSCI_0_2_FN_MIGRATE           0x84000006
+#define QEMU_PSCI_0_2_FN64_MIGRATE         0xc4000006
+#define QEMU_PSCI_0_2_FN_SYSTEM_RESET      0x84000007
+#define QEMU_PSCI_0_2_FN_SYSTEM_OFF         0x84000008
+
+#define QEMU_PSCI_0_2_RET_TOS_MIGRATION_NOT_REQUIRED 0
+#define QEMU_PSCI_0_2_RET_TOS_MIGRATION_REQUIRED     1
+#define QEMU_PSCI_0_2_RET_TOS_MIGRATION_NOT_SUPPORTED 2
+
+#define QEMU_PSCI_1_0_FN_PSCI_FEATURES 0x8400000a
 
 #ifndef CONFIG_USER_ONLY
 /* Return the address space index to use for a memory access */

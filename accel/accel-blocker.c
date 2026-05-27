@@ -46,7 +46,6 @@ void accel_ioctl_begin(void)
         return;
     }
 
-    /* block if lock is taken in kvm_ioctl_inhibit_begin() */
     qemu_lockcnt_inc(&accel_in_ioctl_lock);
 }
 
@@ -67,7 +66,6 @@ void accel_cpu_ioctl_begin(CPUState *cpu)
         return;
     }
 
-    /* block if lock is taken in kvm_ioctl_inhibit_begin() */
     qemu_lockcnt_inc(&cpu->in_ioctl_lock);
 }
 

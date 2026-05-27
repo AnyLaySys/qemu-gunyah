@@ -1,5 +1,5 @@
 /*
- * ARM KVM vGIC utility functions
+ * ARM GIC utility functions
  *
  * Copyright (c) 2015 Samsung Electronics
  * Written by Pavel Fedin
@@ -20,16 +20,5 @@
 
 #ifndef QEMU_ARM_VGIC_COMMON_H
 #define QEMU_ARM_VGIC_COMMON_H
-
-/**
- * kvm_arm_gic_set_irq - Send an IRQ to the in-kernel vGIC
- * @num_irq: Total number of IRQs configured for the GIC instance
- * @irq: qemu internal IRQ line number:
- *  [0..N-1] : external interrupts
- *  [N..N+31] : PPI (internal) interrupts for CPU 0
- *  [N+32..N+63] : PPI (internal interrupts for CPU 1
- * @level: level of the IRQ line.
- */
-void kvm_arm_gic_set_irq(uint32_t num_irq, int irq, int level);
 
 #endif

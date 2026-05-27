@@ -25,7 +25,6 @@
 #include "exec/target_page.h"
 #include "hw/qdev-properties.h"
 #include "hw/virtio/virtio.h"
-#include "system/kvm.h"
 #include "system/reset.h"
 #include "system/system.h"
 #include "qemu/reserved-region.h"

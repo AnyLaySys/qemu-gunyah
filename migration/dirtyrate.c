@@ -25,7 +25,6 @@
 #include "monitor/hmp.h"
 #include "monitor/monitor.h"
 #include "qobject/qdict.h"
-#include "system/kvm.h"
 #include "system/runstate.h"
 #include "exec/memory.h"
 #include "qemu/xxhash.h"
@@ -107,7 +106,6 @@ void global_dirty_log_change(unsigned int flag, bool start)
 
 /*
  * global_dirty_log_sync
- * 1. sync dirty log from kvm
  * 2. stop dirty tracking if needed.
  */
 static void global_dirty_log_sync(unsigned int flag, bool one_shot)
@@ -633,7 +631,6 @@ static void calculate_dirtyrate_dirty_bitmap(struct DirtyRateConfig config)
 
     /*
      * reset page protect manually and unconditionally.
-     * this make sure kvm dirty log be cleared if
      * KVM_DIRTY_LOG_MANUAL_PROTECT_ENABLE cap is enabled.
      */
     dirtyrate_manual_reset_protect();
@@ -648,7 +645,6 @@ static void calculate_dirtyrate_dirty_bitmap(struct DirtyRateConfig config)
 
     /*
      * do two things.
-     * 1. fetch dirty bitmap from kvm
      * 2. stop dirty tracking
      */
     global_dirty_log_sync(GLOBAL_DIRTY_DIRTY_RATE, true);
@@ -807,13 +803,12 @@ void qmp_calc_dirty_rate(int64_t calc_time,
     }
 
     /*
-     * dirty ring mode only works when kvm dirty ring is enabled.
      * on the contrary, dirty bitmap mode is not.
      */
     if (((mode == DIRTY_RATE_MEASURE_MODE_DIRTY_RING) &&
-        !kvm_dirty_ring_enabled()) ||
+        !false) ||
         ((mode == DIRTY_RATE_MEASURE_MODE_DIRTY_BITMAP) &&
-         kvm_dirty_ring_enabled())) {
+         false)) {
         error_setg(errp, "mode %s is not enabled, use other method instead.",
                          DirtyRateMeasureMode_str(mode));
          return;

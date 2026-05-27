@@ -27,7 +27,7 @@ acpi_ss.add(when: 'CONFIG_ACPI_VIOT', if_true: files('viot.c'))
 acpi_ss.add(when: 'CONFIG_ACPI_ICH9', if_true: files('ich9.c', 'ich9_tco.c', 'ich9_timer.c'))
 acpi_ss.add(when: 'CONFIG_ACPI_ERST', if_true: files('erst.c'))
 acpi_ss.add(when: 'CONFIG_IPMI', if_true: files('ipmi.c'), if_false: files('ipmi-stub.c'))
-acpi_ss.add(when: 'CONFIG_PC', if_false: files('acpi-x86-stub.c'))
+
 if have_tpm
   acpi_ss.add(files('tpm.c'))
 endif

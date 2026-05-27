@@ -91,7 +91,6 @@
 #include "system/cpu-timers.h"
 #include "migration/colo.h"
 #include "migration/postcopy-ram.h"
-#include "system/kvm.h"
 #include "qapi/qobject-input-visitor.h"
 #include "qemu/option.h"
 #include "qemu/config-file.h"

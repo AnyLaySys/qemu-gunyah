@@ -34,7 +34,6 @@
 #include "hw/xen/interface/io/console.h"
 #include "hw/xen/interface/io/xs_wire.h"
 #include "hw/xen/interface/grant_table.h"
-#include "hw/i386/kvm/xen_primary_console.h"
 #include "trace.h"
 
 struct buffer {

@@ -46,7 +46,6 @@
 #include "system/qtest.h"
 #include "system/hw_accel.h"
 #include "system/gunyah.h"
-#include "kvm_arm.h"
 #include "disas/capstone.h"
 #include "fpu/softfloat.h"
 #include "cpregs.h"
@@ -565,9 +564,6 @@ static void arm_cpu_reset_hold(Object *obj, ResetType type)
     arm_set_ah_fp_behaviours(&env->vfp.fp_status[FPST_AH_F16]);
 
 #ifndef CONFIG_USER_ONLY
-    if (kvm_enabled()) {
-        kvm_arm_reset_vcpu(cpu);
-    }
 #endif
 
     if (tcg_enabled()) {
@@ -1098,36 +1094,7 @@ static void arm_cpu_set_irq(void *opaque, int irq, int level)
     }
 }
 
-static void arm_cpu_kvm_set_irq(void *opaque, int irq, int level)
-{
-#ifdef CONFIG_KVM
-    ARMCPU *cpu = opaque;
-    CPUARMState *env = &cpu->env;
-    CPUState *cs = CPU(cpu);
-    uint32_t linestate_bit;
-    int irq_id;
-
-    switch (irq) {
-    case ARM_CPU_IRQ:
-        irq_id = KVM_ARM_IRQ_CPU_IRQ;
-        linestate_bit = CPU_INTERRUPT_HARD;
-        break;
-    case ARM_CPU_FIQ:
-        irq_id = KVM_ARM_IRQ_CPU_FIQ;
-        linestate_bit = CPU_INTERRUPT_FIQ;
-        break;
-    default:
-        g_assert_not_reached();
-    }
-
-    if (level) {
-        env->irq_line_state |= linestate_bit;
-    } else {
-        env->irq_line_state &= ~linestate_bit;
-    }
-    kvm_arm_set_irq(cs->cpu_index, KVM_ARM_IRQ_TYPE_CPU, irq_id, !!level);
 #endif
-}
 
 static bool arm_cpu_virtio_is_big_endian(CPUState *cs)
 {
@@ -1167,7 +1134,6 @@ static void arm_wfxt_timer_cb(void *opaque)
      */
     cpu_interrupt(cs, CPU_INTERRUPT_EXITTB);
 }
-#endif
 
 static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
 {
@@ -1504,15 +1470,7 @@ static void arm_cpu_initfn(Object *obj)
 # endif
 #else
     /* Our inbound IRQ and FIQ lines */
-    if (kvm_enabled()) {
-        /*
-         * VIRQ, VFIQ, NMI, VINMI are unused with KVM but we add
-         * them to maintain the same interface as non-KVM CPUs.
-         */
-        qdev_init_gpio_in(DEVICE(cpu), arm_cpu_kvm_set_irq, 6);
-    } else {
-        qdev_init_gpio_in(DEVICE(cpu), arm_cpu_set_irq, 6);
-    }
+    qdev_init_gpio_in(DEVICE(cpu), arm_cpu_set_irq, 6);
 
     qdev_init_gpio_out(DEVICE(cpu), cpu->gt_timer_outputs,
                        ARRAY_SIZE(cpu->gt_timer_outputs));
@@ -1529,10 +1487,9 @@ static void arm_cpu_initfn(Object *obj)
      */
     cpu->dtb_compatible = "qemu,unknown";
     cpu->psci_version = QEMU_PSCI_VERSION_0_1; /* By default assume PSCI v0.1 */
-    cpu->kvm_target = QEMU_KVM_ARM_TARGET_NONE;
+    
 
-    if (tcg_enabled() || hvf_enabled() || gunyah_enabled()) {
-        /* TCG, HVF, and Gunyah implement PSCI 1.1 */
+    if (tcg_enabled() || gunyah_enabled()) {
         cpu->psci_version = QEMU_PSCI_VERSION_1_1;
     }
 }
@@ -1598,7 +1555,7 @@ static void arm_set_pmu(Object *obj, bool value, Error **errp)
     ARMCPU *cpu = ARM_CPU(obj);
 
     if (value) {
-        if (kvm_enabled() && !kvm_arm_pmu_supported()) {
+        if (!false) {
             error_setg(errp, "'pmu' feature not supported by KVM on this host");
             return;
         }
@@ -1813,7 +1770,7 @@ void arm_cpu_post_init(Object *obj)
 
     if (arm_feature(&cpu->env, ARM_FEATURE_NEON)) {
         cpu->has_neon = true;
-        if (!kvm_enabled()) {
+        if (!false) {
             qdev_property_add_static(DEVICE(obj), &arm_cpu_has_neon_property);
         }
     }
@@ -1863,10 +1820,6 @@ void arm_cpu_post_init(Object *obj)
 
     if (arm_feature(&cpu->env, ARM_FEATURE_GENERIC_TIMER)) {
         qdev_property_add_static(DEVICE(cpu), &arm_cpu_gt_cntfrq_property);
-    }
-
-    if (kvm_enabled()) {
-        kvm_arm_add_vcpu_properties(cpu);
     }
 
 #ifndef CONFIG_USER_ONLY
@@ -1956,13 +1909,6 @@ void arm_cpu_finalize_features(ARMCPU *cpu, Error **errp)
     }
 #endif
 
-    if (kvm_enabled()) {
-        kvm_arm_steal_time_finalize(cpu, &local_err);
-        if (local_err != NULL) {
-            error_propagate(errp, local_err);
-            return;
-        }
-    }
 }
 
 static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
@@ -1983,8 +1929,8 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
      * this is the first point where we can report it.
      */
     if (cpu->host_cpu_probe_failed) {
-        if (!kvm_enabled() && !hvf_enabled() && !gunyah_enabled()) {
-            error_setg(errp, "The 'host' CPU type can only be used with KVM, HVF, or Gunyah");
+        if (!gunyah_enabled()) {
+            error_setg(errp, "The 'host' CPU type can only be used with Gunyah");
         } else {
             error_setg(errp, "Failed to retrieve host CPU features");
         }
@@ -2357,7 +2303,7 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
     if (arm_feature(env, ARM_FEATURE_PMU)) {
         pmu_init(cpu);
 
-        if (!kvm_enabled()) {
+        if (!false) {
             arm_register_pre_el_change_hook(cpu, &pmu_pre_el_change, 0);
             arm_register_el_change_hook(cpu, &pmu_post_el_change, 0);
         }
@@ -2409,7 +2355,7 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
          * If MTE is supported by the host, however it should not be
          * enabled on the guest (i.e mte=off), clear guest's MTE bits."
          */
-        if (kvm_enabled() && !cpu->kvm_mte) {
+        if (true) {
                 FIELD_DP64(cpu->isar.id_aa64pfr1, ID_AA64PFR1, MTE, 0);
         }
 #endif

@@ -19,7 +19,6 @@
 #include "monitor/qdev.h"
 #include "monitor/qmp-helpers.h"
 #include "system/system.h"
-#include "system/kvm.h"
 #include "system/runstate.h"
 #include "system/runstate-action.h"
 #include "system/block-backend.h"

@@ -60,7 +60,6 @@
 #include "rdma.h"
 #include "options.h"
 #include "system/dirtylimit.h"
-#include "system/kvm.h"
 
 #include "hw/boards.h" /* for machine_dump_guest_core() */
 

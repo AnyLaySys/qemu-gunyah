@@ -21,7 +21,6 @@
 #include "hw/remote/proxy-memory-listener.h"
 #include "qom/object.h"
 #include "qemu/event_notifier.h"
-#include "system/kvm.h"
 
 static void probe_pci_info(PCIDevice *dev, Error **errp);
 static void proxy_device_reset(DeviceState *dev);
@@ -33,7 +32,6 @@ static void proxy_intx_update(PCIDevice *pci_dev)
     int pin = pci_get_byte(pci_dev->config + PCI_INTERRUPT_PIN) - 1;
 
     if (dev->virq != -1) {
-        kvm_irqchip_remove_irqfd_notifier_gsi(kvm_state, &dev->intr, dev->virq);
         dev->virq = -1;
     }
 
@@ -42,8 +40,7 @@ static void proxy_intx_update(PCIDevice *pci_dev)
     dev->virq = route.irq;
 
     if (dev->virq != -1) {
-        kvm_irqchip_add_irqfd_notifier_gsi(kvm_state, &dev->intr,
-                                           &dev->resample, dev->virq);
+        -1;
     }
 }
 

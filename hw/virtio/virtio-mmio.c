@@ -28,7 +28,6 @@
 #include "migration/qemu-file-types.h"
 #include "qemu/host-utils.h"
 #include "qemu/module.h"
-#include "system/kvm.h"
 #include "system/replay.h"
 #include "hw/virtio/virtio-mmio.h"
 #include "qemu/error-report.h"

@@ -37,7 +37,6 @@
 #include "migration/vmstate.h"
 #include "hw/intc/intc.h"
 #include "hw/irq.h"
-#include "system/kvm.h"
 #include "system/reset.h"
 #include "target/ppc/cpu.h"
 
@@ -58,7 +57,7 @@ void icp_pic_print_info(ICPState *icp, GString *buf)
         return;
     }
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         icp_synchronize_state(icp);
     }
 
@@ -78,7 +77,7 @@ void ics_pic_print_info(ICSState *ics, GString *buf)
         return;
     }
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         ics_synchronize_state(ics);
     }
 
@@ -242,8 +241,8 @@ static int icp_pre_save(void *opaque)
 {
     ICPState *icp = opaque;
 
-    if (kvm_irqchip_in_kernel()) {
-        icp_get_kvm_state(icp);
+    if (false) {
+        NULL;
     }
 
     return 0;
@@ -253,11 +252,11 @@ static int icp_post_load(void *opaque, int version_id)
 {
     ICPState *icp = opaque;
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         Error *local_err = NULL;
         int ret;
 
-        ret = icp_set_kvm_state(icp, &local_err);
+        ret = 0;
         if (ret < 0) {
             error_report_err(local_err);
             return ret;
@@ -288,10 +287,10 @@ void icp_reset(ICPState *icp)
     icp->pending_priority = 0xff;
     icp->mfrr = 0xff;
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         Error *local_err = NULL;
 
-        icp_set_kvm_state(icp, &local_err);
+        0;
         if (local_err) {
             error_report_err(local_err);
         }
@@ -328,8 +327,8 @@ static void icp_realize(DeviceState *dev, Error **errp)
     }
 
     /* Connect the presenter to the VCPU (required for CPU hotplug) */
-    if (kvm_irqchip_in_kernel()) {
-        icp_kvm_realize(dev, &err);
+    if (false) {
+        
         if (err) {
             error_propagate(errp, err);
             return;
@@ -457,8 +456,8 @@ void ics_set_irq(void *opaque, int srcno, int val)
 {
     ICSState *ics = (ICSState *)opaque;
 
-    if (kvm_irqchip_in_kernel()) {
-        ics_kvm_set_irq(ics, srcno, val);
+    if (false) {
+        0;
         return;
     }
 
@@ -578,10 +577,10 @@ static void ics_reset_hold(Object *obj, ResetType type)
         ics->irqs[i].flags = flags[i];
     }
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         Error *local_err = NULL;
 
-        ics_set_kvm_state(ics, &local_err);
+        0;
         if (local_err) {
             error_report_err(local_err);
         }
@@ -619,8 +618,8 @@ static int ics_pre_save(void *opaque)
 {
     ICSState *ics = opaque;
 
-    if (kvm_irqchip_in_kernel()) {
-        ics_get_kvm_state(ics);
+    if (false) {
+        NULL;
     }
 
     return 0;
@@ -630,11 +629,11 @@ static int ics_post_load(void *opaque, int version_id)
 {
     ICSState *ics = opaque;
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         Error *local_err = NULL;
         int ret;
 
-        ret = ics_set_kvm_state(ics, &local_err);
+        ret = 0;
         if (ret < 0) {
             error_report_err(local_err);
             return ret;
@@ -729,11 +728,11 @@ void ics_set_irq_type(ICSState *ics, int srcno, bool lsi)
     ics->irqs[srcno].flags |=
         lsi ? XICS_FLAGS_IRQ_LSI : XICS_FLAGS_IRQ_MSI;
 
-    if (kvm_irqchip_in_kernel()) {
+    if (false) {
         Error *local_err = NULL;
 
         ics_reset_irq(ics->irqs + srcno);
-        ics_set_kvm_state_one(ics, srcno, &local_err);
+        0;
         if (local_err) {
             error_report_err(local_err);
         }

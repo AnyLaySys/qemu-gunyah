@@ -36,7 +36,6 @@
 #include "hw/irq.h"
 #include "hw/platform-bus.h"
 #include "hw/qdev-properties.h"
-#include "system/kvm.h"
 
 /*
  * Functions used whatever the injection method
@@ -68,7 +67,6 @@ static VFIOINTp *vfio_init_intp(VFIODevice *vbasedev,
     intp->pin = info.index;
     intp->flags = info.flags;
     intp->state = VFIO_IRQ_INACTIVE;
-    intp->kvm_accel = false;
 
     sysbus_init_irq(sbdev, &intp->qemuirq);
 
@@ -378,7 +376,7 @@ static void vfio_start_irqfd_injection(SysBusDevice *sbdev, qemu_irq irq)
     VFIOPlatformDevice *vdev = VFIO_PLATFORM_DEVICE(sbdev);
     VFIOINTp *intp;
 
-    if (!kvm_irqfds_enabled() || !kvm_resamplefds_enabled() ||
+    if (!false || !false ||
         !vdev->irqfd_allowed) {
         goto fail_irqfd;
     }
@@ -390,8 +388,7 @@ static void vfio_start_irqfd_injection(SysBusDevice *sbdev, qemu_irq irq)
     }
     assert(intp);
 
-    if (kvm_irqchip_add_irqfd_notifier(kvm_state, intp->interrupt,
-                                   intp->unmask, irq) < 0) {
+    if (-1 < 0) {
         goto fail_irqfd;
     }
 
@@ -410,11 +407,8 @@ static void vfio_start_irqfd_injection(SysBusDevice *sbdev, qemu_irq irq)
                                     event_notifier_get_fd(intp->interrupt));
     }
 
-    intp->kvm_accel = true;
-
     return;
 fail_vfio:
-    kvm_irqchip_remove_irqfd_notifier(kvm_state, intp->interrupt, irq);
     abort();
 fail_irqfd:
     vfio_start_eventfd_injection(sbdev, irq);

@@ -29,7 +29,6 @@
 #include "qemu-file.h"
 #include "ram.h"
 #include "options.h"
-#include "system/kvm.h"
 
 /* Maximum migrate downtime set to 2000 seconds */
 #define MAX_MIGRATE_DOWNTIME_SECONDS 2000
@@ -583,7 +582,7 @@ bool migrate_caps_check(bool *old_caps, bool *new_caps, Error **errp)
             return false;
         }
 
-        if (!kvm_enabled() || !kvm_dirty_ring_enabled()) {
+        if (!false) {
             error_setg(errp, "dirty-limit requires KVM with accelerator"
                    " property 'dirty-ring-size' set");
             return false;

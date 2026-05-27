@@ -33,7 +33,7 @@ static int gunyah_handle_mmio_exit(CPUState *cpu, struct gh_vcpu_run *run) {
             if (run->mmio.len == 4 && !run->mmio.is_write) {
                 memcpy(&val, run->mmio.data, 4);
             }
-            error_report("gh    │non-UART MMIO #%d: addr=0x%"
+            error_report(gh"non-UART MMIO #%d: addr=0x%"
             PRIx64
             " len=%u is_write=%d mr=%d data=0x%08x", non_uart_count, mmio_addr, run->mmio.len, run->mmio.is_write, (int) mr, val);
         }

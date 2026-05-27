@@ -24,13 +24,9 @@
 #include "cpregs.h"
 #include "qemu/module.h"
 #include "qemu/units.h"
-#include "system/kvm.h"
-#include "system/hvf.h"
 #include "system/gunyah.h"
 #include "system/qtest.h"
 #include "system/tcg.h"
-#include "kvm_arm.h"
-#include "hvf_arm.h"
 #include "qapi/visitor.h"
 #include "hw/qdev-properties.h"
 #include "internals.h"
@@ -56,28 +52,16 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
      */
     uint32_t vq_map = cpu->sve_vq.map;
     uint32_t vq_init = cpu->sve_vq.init;
-    uint32_t vq_supported;
+    uint32_t vq_supported = cpu->sve_vq.supported;
     uint32_t vq_mask = 0;
     uint32_t tmp, vq, max_vq = 0;
 
     /*
      * CPU models specify a set of supported vector lengths which are
      * enabled by default.  Attempting to enable any vector length not set
-     * in the supported bitmap results in an error.  When KVM is enabled we
+     * in the supported bitmap results in an error.  When Gunyah is enabled we
      * fetch the supported bitmap from the host.
      */
-    if (kvm_enabled()) {
-        if (kvm_arm_sve_supported()) {
-            cpu->sve_vq.supported = kvm_arm_sve_get_vls(cpu);
-            vq_supported = cpu->sve_vq.supported;
-        } else {
-            assert(!cpu_isar_feature(aa64_sve, cpu));
-            vq_supported = 0;
-        }
-    } else {
-        vq_supported = cpu->sve_vq.supported;
-    }
-
     /*
      * Process explicit sve<N> properties.
      * From the properties, sve_vq_map<N> implies sve_vq_init<N>.
@@ -96,16 +80,7 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
             return;
         }
 
-        if (kvm_enabled()) {
-            /*
-             * For KVM we have to automatically enable all supported uninitialized
-             * lengths, even when the smaller lengths are not all powers-of-two.
-             */
-            vq_map |= vq_supported & ~vq_init & vq_mask;
-        } else {
-            /* Propagate enabled bits down through required powers-of-two. */
-            vq_map |= SVE_VQ_POW2_MAP & ~vq_init & vq_mask;
-        }
+        vq_map |= SVE_VQ_POW2_MAP & ~vq_init & vq_mask;
     } else if (cpu->sve_max_vq == 0) {
         /*
          * No explicit bits enabled, and no implicit bits from sve-max-vq.
@@ -119,13 +94,7 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
             return;
         }
 
-        if (kvm_enabled()) {
-            /* Disabling a supported length disables all larger lengths. */
-            tmp = vq_init & vq_supported;
-        } else {
-            /* Disabling a power-of-two disables all larger lengths. */
-            tmp = vq_init & SVE_VQ_POW2_MAP;
-        }
+        tmp = vq_init & SVE_VQ_POW2_MAP;
         vq = ctz32(tmp) + 1;
 
         max_vq = vq <= ARM_MAX_VQ ? vq - 1 : ARM_MAX_VQ;
@@ -200,25 +169,15 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
             }
             return;
         } else {
-            if (kvm_enabled()) {
+            tmp = SVE_VQ_POW2_MAP & vq_mask & ~vq_map;
+            if (tmp) {
+                vq = 32 - clz32(tmp);
                 error_setg(errp, "cannot disable sve%d", vq * 128);
-                error_append_hint(errp, "The KVM host requires all "
-                                  "supported vector lengths smaller "
-                                  "than %d bits to also be enabled.\n",
-                                  max_vq * 128);
+                error_append_hint(errp, "sve%d is required as it "
+                                  "is a power-of-two length smaller "
+                                  "than the maximum, sve%d\n",
+                                  vq * 128, max_vq * 128);
                 return;
-            } else {
-                /* Ensure all required powers-of-two are enabled. */
-                tmp = SVE_VQ_POW2_MAP & vq_mask & ~vq_map;
-                if (tmp) {
-                    vq = 32 - clz32(tmp);
-                    error_setg(errp, "cannot disable sve%d", vq * 128);
-                    error_append_hint(errp, "sve%d is required as it "
-                                      "is a power-of-two length smaller "
-                                      "than the maximum, sve%d\n",
-                                      vq * 128, max_vq * 128);
-                    return;
-                }
             }
         }
     }
@@ -290,11 +249,6 @@ static void cpu_arm_set_sve(Object *obj, bool value, Error **errp)
 {
     ARMCPU *cpu = ARM_CPU(obj);
     uint64_t t;
-
-    if (value && kvm_enabled() && !kvm_arm_sve_supported()) {
-        error_setg(errp, "'sve' feature not supported by KVM on this host");
-        return;
-    }
 
     t = cpu->isar.id_aa64pfr0;
     t = FIELD_DP64(t, ID_AA64PFR0, SVE, value);
@@ -501,62 +455,47 @@ void arm_cpu_pauth_finalize(ARMCPU *cpu, Error **errp)
     isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, APA3, 0);
     isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, GPA3, 0);
 
-    if (kvm_enabled() || hvf_enabled()) {
-        /*
-         * Exit early if PAuth is enabled and fall through to disable it.
-         * The algorithm selection properties are not present.
-         */
-        if (cpu->prop_pauth) {
-            if (features == 0) {
-                error_setg(errp, "'pauth' feature not supported by "
-                           "%s on this host", current_accel_name());
-            }
-            return;
-        }
-    } else {
-        /* Pauth properties are only present when the model supports it. */
-        if (features == 0) {
-            assert(!cpu->prop_pauth);
+    if (features == 0) {
+        assert(!cpu->prop_pauth);
+        return;
+    }
+
+    if (cpu->prop_pauth) {
+        if ((cpu->prop_pauth_impdef && cpu->prop_pauth_qarma3) ||
+            (cpu->prop_pauth_impdef && cpu->prop_pauth_qarma5) ||
+            (cpu->prop_pauth_qarma3 && cpu->prop_pauth_qarma5)) {
+            error_setg(errp,
+                       "cannot enable pauth-impdef, pauth-qarma3 and "
+                       "pauth-qarma5 at the same time");
             return;
         }
 
-        if (cpu->prop_pauth) {
-            if ((cpu->prop_pauth_impdef && cpu->prop_pauth_qarma3) ||
-                (cpu->prop_pauth_impdef && cpu->prop_pauth_qarma5) ||
-                (cpu->prop_pauth_qarma3 && cpu->prop_pauth_qarma5)) {
-                error_setg(errp,
-                           "cannot enable pauth-impdef, pauth-qarma3 and "
-                           "pauth-qarma5 at the same time");
-                return;
-            }
+        bool use_default = !cpu->prop_pauth_qarma5 &&
+                           !cpu->prop_pauth_qarma3 &&
+                           !cpu->prop_pauth_impdef;
 
-            bool use_default = !cpu->prop_pauth_qarma5 &&
-                               !cpu->prop_pauth_qarma3 &&
-                               !cpu->prop_pauth_impdef;
-
-            if (cpu->prop_pauth_qarma5 ||
-                (use_default &&
-                 cpu->backcompat_pauth_default_use_qarma5)) {
-                isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, APA, features);
-                isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, GPA, 1);
-            } else if (cpu->prop_pauth_qarma3) {
-                isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, APA3, features);
-                isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, GPA3, 1);
-            } else if (cpu->prop_pauth_impdef ||
-                       (use_default &&
-                        !cpu->backcompat_pauth_default_use_qarma5)) {
-                isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, API, features);
-                isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, GPI, 1);
-            } else {
-                g_assert_not_reached();
-            }
+        if (cpu->prop_pauth_qarma5 ||
+            (use_default &&
+             cpu->backcompat_pauth_default_use_qarma5)) {
+            isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, APA, features);
+            isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, GPA, 1);
+        } else if (cpu->prop_pauth_qarma3) {
+            isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, APA3, features);
+            isar2 = FIELD_DP64(isar2, ID_AA64ISAR2, GPA3, 1);
         } else if (cpu->prop_pauth_impdef ||
-                   cpu->prop_pauth_qarma3 ||
-                   cpu->prop_pauth_qarma5) {
-            error_setg(errp, "cannot enable pauth-impdef, pauth-qarma3 or "
-                       "pauth-qarma5 without pauth");
-            error_append_hint(errp, "Add pauth=on to the CPU property list.\n");
+                   (use_default &&
+                    !cpu->backcompat_pauth_default_use_qarma5)) {
+            isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, API, features);
+            isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, GPI, 1);
+        } else {
+            g_assert_not_reached();
         }
+    } else if (cpu->prop_pauth_impdef ||
+               cpu->prop_pauth_qarma3 ||
+               cpu->prop_pauth_qarma5) {
+        error_setg(errp, "cannot enable pauth-impdef, pauth-qarma3 or "
+                   "pauth-qarma5 without pauth");
+        error_append_hint(errp, "Add pauth=on to the CPU property list.\n");
     }
 
     cpu->isar.id_aa64isar1 = isar1;
@@ -578,21 +517,9 @@ void aarch64_add_pauth_properties(Object *obj)
 
     /* Default to PAUTH on, with the architected algorithm on TCG. */
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_property);
-    if (kvm_enabled() || hvf_enabled()) {
-        /*
-         * Mirror PAuth support from the probed sysregs back into the
-         * property for KVM or hvf. Is it just a bit backward? Yes it is!
-         * Note that prop_pauth is true whether the host CPU supports the
-         * architected QARMA5 algorithm or the IMPDEF one. We don't
-         * provide the separate pauth-impdef property for KVM or hvf,
-         * only for TCG.
-         */
-        cpu->prop_pauth = cpu_isar_feature(aa64_pauth, cpu);
-    } else {
-        qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_impdef_property);
-        qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_qarma3_property);
-        qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_qarma5_property);
-    }
+    qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_impdef_property);
+    qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_qarma3_property);
+    qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_qarma5_property);
 }
 
 void arm_cpu_lpa2_finalize(ARMCPU *cpu, Error **errp)
@@ -629,7 +556,7 @@ static void aarch64_a57_initfn(Object *obj)
     set_feature(&cpu->env, ARM_FEATURE_EL2);
     set_feature(&cpu->env, ARM_FEATURE_EL3);
     set_feature(&cpu->env, ARM_FEATURE_PMU);
-    cpu->kvm_target = QEMU_KVM_ARM_TARGET_CORTEX_A57;
+    
     cpu->midr = 0x411fd070;
     cpu->revidr = 0x00000000;
     cpu->reset_fpsid = 0x41034070;
@@ -690,7 +617,7 @@ static void aarch64_a53_initfn(Object *obj)
     set_feature(&cpu->env, ARM_FEATURE_EL2);
     set_feature(&cpu->env, ARM_FEATURE_EL3);
     set_feature(&cpu->env, ARM_FEATURE_PMU);
-    cpu->kvm_target = QEMU_KVM_ARM_TARGET_CORTEX_A53;
+    
     cpu->midr = 0x410fd034;
     cpu->revidr = 0x00000100;
     cpu->reset_fpsid = 0x41034070;
@@ -750,26 +677,12 @@ static void aarch64_host_initfn(Object *obj)
         return;
     }
 #endif
-#if defined(CONFIG_KVM)
-    ARMCPU *cpu = ARM_CPU(obj);
-    kvm_arm_set_cpu_features_from_host(cpu);
-    if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
-        aarch64_add_sve_properties(obj);
-        aarch64_add_pauth_properties(obj);
-    }
-#elif defined(CONFIG_HVF)
-    ARMCPU *cpu = ARM_CPU(obj);
-    hvf_arm_set_cpu_features_from_host(cpu);
-    aarch64_add_pauth_properties(obj);
-#else
     g_assert_not_reached();
-#endif
 }
 
 static void aarch64_max_initfn(Object *obj)
 {
-    if (kvm_enabled() || hvf_enabled() || gunyah_enabled()) {
-        /* With KVM, HVF, or Gunyah, '-cpu max' is identical to '-cpu host' */
+    if (gunyah_enabled()) {
         aarch64_host_initfn(obj);
         return;
     }
@@ -788,7 +701,7 @@ static const ARMCPUInfo aarch64_cpus[] = {
     { .name = "cortex-a57",         .initfn = aarch64_a57_initfn },
     { .name = "cortex-a53",         .initfn = aarch64_a53_initfn },
     { .name = "max",                .initfn = aarch64_max_initfn },
-#if defined(CONFIG_KVM) || defined(CONFIG_HVF) || defined(CONFIG_GUNYAH)
+#if defined(CONFIG_GUNYAH)
     { .name = "host",               .initfn = aarch64_host_initfn },
 #endif
 };
@@ -809,7 +722,7 @@ static void aarch64_cpu_set_aarch64(Object *obj, bool value, Error **errp)
      * uniform execution state like do_interrupt.
      */
     if (value == false) {
-        if (!kvm_enabled() || !kvm_arm_aarch32_supported()) {
+        if (!false) {
             error_setg(errp, "'aarch64' feature cannot be disabled "
                              "unless KVM is enabled and 32-bit EL1 "
                              "is supported");

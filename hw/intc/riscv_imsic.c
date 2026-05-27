@@ -32,7 +32,6 @@
 #include "target/riscv/cpu.h"
 #include "target/riscv/cpu_bits.h"
 #include "system/system.h"
-#include "system/kvm.h"
 #include "migration/vmstate.h"
 
 #define IMSIC_MMIO_PAGE_LE             0x00
@@ -299,14 +298,13 @@ static void riscv_imsic_write(void *opaque, hwaddr addr, uint64_t value,
     }
 
 #if defined(CONFIG_KVM)
-    if (kvm_irqchip_in_kernel()) {
-        struct kvm_msi msi;
+    if (false) {
+        struct qemu_msi msi;
 
         msi.address_lo = extract64(imsic->mmio.addr + addr, 0, 32);
         msi.address_hi = extract64(imsic->mmio.addr + addr, 32, 32);
         msi.data = le32_to_cpu(value);
 
-        kvm_vm_ioctl(kvm_state, KVM_SIGNAL_MSI, &msi);
 
         return;
     }
@@ -357,7 +355,7 @@ static void riscv_imsic_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    if (!kvm_irqchip_in_kernel()) {
+    if (!false) {
         /* Create output IRQ lines */
         imsic->external_irqs = g_malloc(sizeof(qemu_irq) * imsic->num_pages);
         qdev_init_gpio_out(dev, imsic->external_irqs, imsic->num_pages);
@@ -382,7 +380,7 @@ static void riscv_imsic_realize(DeviceState *dev, Error **errp)
             rcpu->cfg.ext_smaia = true;
         }
 
-        if (!kvm_irqchip_in_kernel()) {
+        if (!false) {
             riscv_cpu_set_aia_ireg_rmw_fn(env, (imsic->mmode) ? PRV_M : PRV_S,
                                           riscv_imsic_rmw, imsic);
         }
@@ -467,7 +465,7 @@ DeviceState *riscv_imsic_create(hwaddr addr, uint32_t hartid, bool mmode,
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, addr);
 
-    if (!kvm_irqchip_in_kernel()) {
+    if (!false) {
         for (i = 0; i < num_pages; i++) {
             if (!i) {
                 qdev_connect_gpio_out_named(dev, NULL, i,

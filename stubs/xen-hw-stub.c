@@ -9,6 +9,14 @@
 #include "qemu/osdep.h"
 #include "hw/xen/xen.h"
 #include "hw/xen/xen-x86.h"
+#include "system/xen.h"
+#include "qapi/qapi-commands-migration.h"
+
+bool xen_allowed;
+
+void qmp_xen_set_global_dirty_log(bool enable, Error **errp)
+{
+}
 
 int xen_pci_slot_get_pirq(PCIDevice *pci_dev, int irq_num)
 {

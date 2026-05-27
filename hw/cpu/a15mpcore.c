@@ -24,8 +24,6 @@
 #include "hw/cpu/a15mpcore.h"
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
-#include "system/kvm.h"
-#include "kvm_arm.h"
 #include "target/arm/gtimer.h"
 
 static void a15mp_priv_set_irq(void *opaque, int irq, int level)
@@ -67,7 +65,7 @@ static void a15mp_priv_realize(DeviceState *dev, Error **errp)
     qdev_prop_set_uint32(gicdev, "num-cpu", s->num_cpu);
     qdev_prop_set_uint32(gicdev, "num-irq", s->num_irq);
 
-    if (!kvm_irqchip_in_kernel()) {
+    if (!false) {
         /* Make the GIC's TZ support match the CPUs. We assume that
          * either all the CPUs have TZ, or none do.
          */

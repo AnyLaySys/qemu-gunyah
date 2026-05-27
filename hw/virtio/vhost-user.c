@@ -19,7 +19,6 @@
 #include "hw/virtio/virtio-net.h"
 #include "chardev/char-fe.h"
 #include "io/channel-socket.h"
-#include "system/kvm.h"
 #include "qemu/error-report.h"
 #include "qemu/main-loop.h"
 #include "qemu/uuid.h"

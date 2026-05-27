@@ -175,7 +175,7 @@ virtio_gpu_rutabaga_resource_unref(VirtIOGPU *g,
     for (uint32_t i = 0; i < MAX_SLOTS; i++) {
         if (vr->memory_regions[i].used &&
             vr->memory_regions[i].resource_id == res->resource_id) {
-            error_report("gh    │RESOURCE_UNREF resource_id=%u"
+            error_report(gh"RESOURCE_UNREF resource_id=%u"
                          " — skip rutabaga unref (SHARE'd), free QEMU resource",
                          res->resource_id);
             /* Don't call rutabaga_resource_unref — gfxstream memory stays.
@@ -805,7 +805,7 @@ rutabaga_cmd_resource_unmap_blob(VirtIOGPU *g,
      * unmapping the blob from userspace and freeing the GPA range for reuse
      * (but the host-side memory and SHARE persist).
      */
-    error_report("gh    │UNMAP_BLOB resource_id=%u — keeping alive (Gunyah SHARE)",
+    error_report(gh"UNMAP_BLOB resource_id=%u — keeping alive (Gunyah SHARE)",
                  ublob.resource_id);
     /* Don't remove sub-region, don't unmap resource, don't free slot.
      * The slot stays "used" so it won't be reused. */

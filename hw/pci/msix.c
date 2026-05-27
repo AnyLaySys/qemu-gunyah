@@ -19,15 +19,11 @@
 #include "hw/pci/msi.h"
 #include "hw/pci/msix.h"
 #include "hw/pci/pci.h"
-#include "hw/xen/xen.h"
-#include "system/xen.h"
 #include "migration/qemu-file-types.h"
 #include "migration/vmstate.h"
 #include "qemu/range.h"
 #include "qapi/error.h"
 #include "trace.h"
-
-#include "hw/i386/kvm/xen_evtchn.h"
 
 /* MSI enable bit and maskall bit are in byte 1 in FLAGS register */
 #define MSIX_CONTROL_OFFSET (PCI_MSIX_FLAGS + 1)
@@ -90,12 +86,6 @@ void msix_clr_pending(PCIDevice *dev, int vector)
 static bool msix_vector_masked(PCIDevice *dev, unsigned int vector, bool fmask)
 {
     unsigned offset = vector * PCI_MSIX_ENTRY_SIZE;
-    uint8_t *data = &dev->msix_table[offset + PCI_MSIX_ENTRY_DATA];
-    /* MSIs on Xen can be remapped into pirqs. In those cases, masking
-     * and unmasking go through the PV evtchn path. */
-    if (xen_enabled() && xen_is_pirq_msi(pci_get_long(data))) {
-        return false;
-    }
     return fmask || dev->msix_table[offset + PCI_MSIX_ENTRY_VECTOR_CTRL] &
         PCI_MSIX_ENTRY_CTRL_MASKBIT;
 }
@@ -126,13 +116,6 @@ static void msix_fire_vector_notifier(PCIDevice *dev,
 static void msix_handle_mask_update(PCIDevice *dev, int vector, bool was_masked)
 {
     bool is_masked = msix_is_masked(dev, vector);
-
-    if (xen_mode == XEN_EMULATE) {
-        MSIMessage msg = msix_prepare_message(dev, vector);
-
-        xen_evtchn_snoop_msi(dev, true, vector, msg.address, msg.data,
-                             is_masked);
-    }
 
     if (is_masked == was_masked) {
         return;

@@ -118,6 +118,6 @@ static void gunyah_install_sigsegv_handler(void) {
     sigaddset(&set, SIGBUS);
     sigaddset(&set, SIGSEGV);
     pthread_sigmask(SIG_UNBLOCK, &set, NULL);
-    error_report("gh    │installed SIGSEGV/SIGBUS handler via raw rt_sigaction "
+    error_report(gh"installed SIGSEGV/SIGBUS handler via raw rt_sigaction "
                  "(SIGSEGV=%d SIGBUS=%d)", r1, r2);
 }

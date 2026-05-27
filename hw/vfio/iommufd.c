@@ -49,20 +49,6 @@ static int iommufd_cdev_unmap(const VFIOContainerBase *bcontainer,
                                      container->ioas_id, iova, size);
 }
 
-static bool iommufd_cdev_kvm_device_add(VFIODevice *vbasedev, Error **errp)
-{
-    return !vfio_kvm_device_add_fd(vbasedev->fd, errp);
-}
-
-static void iommufd_cdev_kvm_device_del(VFIODevice *vbasedev)
-{
-    Error *err = NULL;
-
-    if (vfio_kvm_device_del_fd(vbasedev->fd, &err)) {
-        error_report_err(err);
-    }
-}
-
 static bool iommufd_cdev_connect_and_bind(VFIODevice *vbasedev, Error **errp)
 {
     IOMMUFDBackend *iommufd = vbasedev->iommufd;
@@ -73,15 +59,6 @@ static bool iommufd_cdev_connect_and_bind(VFIODevice *vbasedev, Error **errp)
 
     if (!iommufd_backend_connect(iommufd, errp)) {
         return false;
-    }
-
-    /*
-     * Add device to kvm-vfio to be prepared for the tracking
-     * in KVM. Especially for some emulated devices, it requires
-     * to have kvm information in the device open.
-     */
-    if (!iommufd_cdev_kvm_device_add(vbasedev, errp)) {
-        goto err_kvm_device_add;
     }
 
     /* Bind device to iommufd */
@@ -97,8 +74,6 @@ static bool iommufd_cdev_connect_and_bind(VFIODevice *vbasedev, Error **errp)
                                         vbasedev->fd, vbasedev->devid);
     return true;
 err_bind:
-    iommufd_cdev_kvm_device_del(vbasedev);
-err_kvm_device_add:
     iommufd_backend_disconnect(iommufd);
     return false;
 }
@@ -106,7 +81,7 @@ err_kvm_device_add:
 static void iommufd_cdev_unbind_and_disconnect(VFIODevice *vbasedev)
 {
     /* Unbind is automatically conducted when device fd is closed */
-    iommufd_cdev_kvm_device_del(vbasedev);
+    
     iommufd_backend_disconnect(vbasedev->iommufd);
 }
 

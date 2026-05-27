@@ -9,7 +9,6 @@
  * This work is licensed under the terms of the GNU GPL, version 2.  See
  * the COPYING file in the top-level directory.
  *
- * Based on qemu-kvm device-assignment:
  *  Adapted for KVM by Qumranet.
  *  Copyright (c) 2007, Neocleus, Alex Novik (alex@neocleus.com)
  *  Copyright (c) 2007, Neocleus, Guy Zana (guy@neocleus.com)
@@ -330,22 +329,10 @@ static bool vfio_get_info_iova_range(struct vfio_iommu_type1_info *info,
     return true;
 }
 
-static void vfio_kvm_device_add_group(VFIOGroup *group)
-{
-    Error *err = NULL;
 
-    if (vfio_kvm_device_add_fd(group->fd, &err)) {
-        error_reportf_err(err, "group ID %d: ", group->groupid);
-    }
 }
 
-static void vfio_kvm_device_del_group(VFIOGroup *group)
-{
-    Error *err = NULL;
 
-    if (vfio_kvm_device_del_fd(group->fd, &err)) {
-        error_reportf_err(err, "group ID %d: ", group->groupid);
-    }
 }
 
 /*
@@ -593,7 +580,7 @@ static bool vfio_connect_container(VFIOGroup *group, AddressSpace *as,
             }
             group->container = container;
             QLIST_INSERT_HEAD(&container->group_list, group, container_next);
-            vfio_kvm_device_add_group(group);
+            
             return true;
         }
     }
@@ -633,7 +620,7 @@ static bool vfio_connect_container(VFIOGroup *group, AddressSpace *as,
         goto enable_discards_exit;
     }
 
-    vfio_kvm_device_add_group(group);
+    
 
     vfio_address_space_insert(space, bcontainer);
 
@@ -654,7 +641,7 @@ static bool vfio_connect_container(VFIOGroup *group, AddressSpace *as,
     return true;
 listener_release_exit:
     QLIST_REMOVE(group, container_next);
-    vfio_kvm_device_del_group(group);
+    
     memory_listener_unregister(&bcontainer->listener);
     if (vioc->release) {
         vioc->release(bcontainer);
@@ -788,7 +775,7 @@ static void vfio_put_group(VFIOGroup *group)
     if (!group->ram_block_discard_allowed) {
         vfio_ram_block_discard_disable(group->container, false);
     }
-    vfio_kvm_device_del_group(group);
+    
     vfio_disconnect_container(group);
     QLIST_REMOVE(group, next);
     trace_vfio_put_group(group->fd);

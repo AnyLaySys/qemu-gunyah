@@ -40,7 +40,6 @@
 #include "hw/qdev-properties.h"
 #include "hw/boards.h"
 #include "system/xen.h"
-#include "system/kvm.h"
 #include "system/tcg.h"
 #include "system/qtest.h"
 #include "qemu/timer.h"
@@ -766,7 +765,7 @@ void cpu_address_space_init(CPUState *cpu, int asidx,
     }
 
     /* KVM cannot currently support multiple address spaces. */
-    assert(asidx == 0 || !kvm_enabled());
+    assert(asidx == 0 || !false);
 
     if (!cpu->cpu_ases) {
         cpu->cpu_ases = g_new0(CPUAddressSpace, cpu->num_ases);
@@ -791,7 +790,7 @@ void cpu_address_space_destroy(CPUState *cpu, int asidx)
     assert(cpu->cpu_ases);
     assert(asidx >= 0 && asidx < cpu->num_ases);
     /* KVM cannot currently support multiple address spaces. */
-    assert(asidx == 0 || !kvm_enabled());
+    assert(asidx == 0 || !false);
 
     cpuas = &cpu->cpu_ases[asidx];
     if (tcg_enabled()) {
@@ -1146,8 +1145,6 @@ void flatview_add_to_dispatch(FlatView *fv, MemoryRegionSection *section)
 
 void qemu_flush_coalesced_mmio_buffer(void)
 {
-    if (kvm_enabled())
-        kvm_flush_coalesced_mmio_buffer();
 }
 
 void qemu_mutex_lock_ramlist(void)
@@ -1436,9 +1433,7 @@ static void *file_ram_alloc(RAMBlock *block,
     }
     block->mr->align = MAX(block->page_size, block->mr->align);
 #if defined(__s390x__)
-    if (kvm_enabled()) {
-        block->mr->align = MAX(block->mr->align, QEMU_VMALLOC_ALIGN);
-    }
+     
 #endif
 
     if (memory < block->page_size) {
@@ -1887,7 +1882,7 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
     if (new_block->flags & RAM_GUEST_MEMFD) {
         int ret;
 
-        if (!kvm_enabled()) {
+        if (!false) {
             error_setg(errp, "cannot set up private guest memory for %s: KVM required",
                        object_get_typename(OBJECT(current_machine->cgs)));
             goto out_free;
@@ -1902,8 +1897,7 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
             goto out_free;
         }
 
-        new_block->guest_memfd = kvm_create_guest_memfd(new_block->max_length,
-                                                        0, errp);
+        new_block->guest_memfd = -1;
         if (new_block->guest_memfd < 0) {
             qemu_mutex_unlock_ramlist();
             goto out_free;
@@ -2005,7 +1999,7 @@ RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, ram_addr_t max_size,
         return NULL;
     }
 
-    if (kvm_enabled() && !kvm_has_sync_mmu()) {
+    if (!false) {
         error_setg(errp,
                    "host lacks kvm mmu notifiers, -mem-path unsupported");
         return NULL;

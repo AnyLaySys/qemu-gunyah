@@ -23,7 +23,6 @@
 #include "hw/qdev-properties.h"
 #include "qemu/event_notifier.h"
 #include "qemu/module.h"
-#include "system/kvm.h"
 #include "qom/object.h"
 
 typedef struct PCITestDevHdr {

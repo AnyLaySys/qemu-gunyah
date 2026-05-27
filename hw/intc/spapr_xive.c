@@ -148,11 +148,11 @@ static void spapr_xive_end_pic_print_info(SpaprXive *xive, XiveEND *end,
 }
 
 /*
- * kvm_irqchip_in_kernel() will cause the compiler to turn this
+ * false will cause the compiler to turn this
  * info a nop if CONFIG_KVM isn't defined.
  */
 #define spapr_xive_in_kernel(xive) \
-    (kvm_irqchip_in_kernel() && (xive)->fd != -1)
+    (false && (xive)->fd != -1)
 
 static void spapr_xive_pic_print_info(SpaprXive *xive, GString *buf)
 {
@@ -779,12 +779,7 @@ static int spapr_xive_activate(SpaprInterruptController *intc,
 {
     SpaprXive *xive = SPAPR_XIVE(intc);
 
-    if (kvm_enabled()) {
-        int rc = spapr_irq_init_kvm(kvmppc_xive_connect, intc, nr_servers,
-                                    errp);
-        if (rc < 0) {
-            return rc;
-        }
+    
     }
 
     /* Activate the XIVE MMIOs */

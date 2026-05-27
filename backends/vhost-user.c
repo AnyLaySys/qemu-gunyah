@@ -16,7 +16,6 @@
 #include "qemu/error-report.h"
 #include "qom/object_interfaces.h"
 #include "system/vhost-user-backend.h"
-#include "system/kvm.h"
 #include "io/channel-command.h"
 #include "hw/virtio/virtio-bus.h"
 

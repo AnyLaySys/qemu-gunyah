@@ -15,7 +15,6 @@
 #include "hw/s390x/adapter.h"
 #include "hw/s390x/s390_flic.h"
 #include "hw/s390x/ioinst.h"
-#include "system/kvm.h"
 #include "target/s390x/cpu-qom.h"
 
 /* Channel subsystem constants. */

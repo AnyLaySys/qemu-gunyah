@@ -16,7 +16,6 @@
 #include "hw/boards.h"
 #include "qemu/range.h"
 #include "hw/virtio/vhost.h"
-#include "system/kvm.h"
 #include "exec/address-spaces.h"
 #include "trace.h"
 
@@ -120,11 +119,6 @@ static unsigned int memory_device_memslot_decision_limit(MachineState *ms,
     uint64_t available_space;
     unsigned int memslots;
 
-    if (kvm_enabled()) {
-        max = MIN(max, kvm_get_max_memslots());
-        free = MIN(free, kvm_get_free_memslots());
-    }
-
     /*
      * If we only have less overall memslots than what we consider reasonable,
      * just keep it to a minimum.
@@ -190,8 +184,7 @@ static void memory_device_check_addable(MachineState *ms, MemoryDeviceState *md,
     required_memslots = memory_device_get_memslots(md);
 
     /* we will need memory slots for kvm and vhost */
-    if (kvm_enabled() &&
-        kvm_get_free_memslots() < required_memslots + reserved_memslots) {
+    if (0 < required_memslots + reserved_memslots) {
         error_setg(errp, "hypervisor has not enough free memory slots left");
         return;
     }

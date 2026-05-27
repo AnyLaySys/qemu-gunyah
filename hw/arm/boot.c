@@ -14,7 +14,8 @@
 #include <libfdt.h>
 #include "hw/arm/boot.h"
 #include "hw/arm/linux-boot-if.h"
-#include "system/kvm.h"
+#include "target/arm/cpu.h"
+#include "target/arm/arm-powerctl.h"
 #include "system/tcg.h"
 #include "system/system.h"
 #include "system/numa.h"
@@ -1240,7 +1241,7 @@ void arm_load_kernel(ARMCPU *cpu, MachineState *ms, struct arm_boot_info *info)
      * running its code in secure mode is actually possible, and KVM
      * doesn't support secure.
      */
-    assert(!(info->secure_board_setup && kvm_enabled()));
+    assert(!(info->secure_board_setup && false));
     info->kernel_filename = ms->kernel_filename;
     info->kernel_cmdline = ms->kernel_cmdline;
     info->initrd_filename = ms->initrd_filename;

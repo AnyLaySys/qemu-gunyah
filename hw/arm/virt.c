@@ -25,7 +25,6 @@
  *    and also because it reduces our exposure to being broken when
  *    the kernel updates its device tree bindings and requires further
  *    information in a device binding that we aren't providing.
- * This is essentially the same approach kvmtool uses.
  */
 
 #include "qemu/osdep.h"
@@ -50,7 +49,6 @@
 #include "system/runstate.h"
 #include "system/tpm.h"
 #include "system/tcg.h"
-#include "system/kvm.h"
 #include "system/hvf.h"
 #include "system/gunyah.h"
 #include "system/gunyah_int.h"
@@ -60,6 +58,7 @@
 #include "hw/loader.h"
 #include "qapi/error.h"
 #include "qemu/bitops.h"
+#include "target/arm/cpu.h"
 #include "qemu/cutils.h"
 #include "qemu/error-report.h"
 #include "qemu/module.h"
@@ -73,7 +72,6 @@
 #include "hw/intc/arm_gicv3_common.h"
 #include "hw/intc/arm_gicv3_its_common.h"
 #include "hw/irq.h"
-#include "kvm_arm.h"
 #include "hvf_arm.h"
 #include "hw/firmware/smbios.h"
 #include "qapi/visitor.h"
@@ -823,7 +821,7 @@ static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
      * interrupts; there are always 32 of the former (mandated by GIC spec).
      */
     qdev_prop_set_uint32(vms->gic, "num-irq", NUM_IRQS + 32);
-    if (!kvm_irqchip_in_kernel()) {
+    if (!false) {
         qdev_prop_set_bit(vms->gic, "has-security-extensions", vms->secure);
     }
 
@@ -846,7 +844,7 @@ static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
         qdev_prop_set_array(vms->gic, "redist-region-count",
                             redist_region_count);
 
-        if (!kvm_irqchip_in_kernel()) {
+        if (!false) {
             if (vms->tcg_its) {
                 object_property_set_link(OBJECT(vms->gic), "sysmem",
                                          OBJECT(mem), &error_fatal);
@@ -854,7 +852,7 @@ static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
             }
         }
     } else {
-        if (!kvm_irqchip_in_kernel()) {
+        if (!false) {
             qdev_prop_set_bit(vms->gic, "has-virtualization-extensions",
                               vms->virt);
         }
@@ -1766,9 +1764,7 @@ static void virt_build_smbios(VirtMachineState *vms)
     struct smbios_phys_mem_area mem_array;
     const char *product = "QEMU Virtual Machine";
 
-    if (kvm_enabled()) {
-        product = "KVM Virtual Machine";
-    } else if (gunyah_enabled()) {
+    if (gunyah_enabled()) {
         product = "Gunyah Virtual Machine";
     }
 
@@ -1846,7 +1842,7 @@ void virt_machine_done(Notifier *notifier, void *data)
                                                gunyah_dtb_size);
         }
         info->dtb_limit = 0; /* no limit */
-        error_report("gh    │DTB placed at dtb_start=0x%"PRIx64
+        error_report(gh"DTB placed at dtb_start=0x%"PRIx64
                      " dtb_size=0x%"PRIx64
                      " main_mem=0x%"PRIx64" swiotlb=0x%"PRIx64
                      " firmware=%d",
@@ -2031,7 +2027,7 @@ static VirtGICType finalize_gic_version_do(const char *accel_name,
     /* Convert host/max/nosel to GIC version number */
     switch (gic_version) {
     case VIRT_GIC_VERSION_HOST:
-        if (!kvm_enabled()) {
+        if (!false) {
             error_report("gic-version=host requires KVM");
             exit(1);
         }
@@ -2114,28 +2110,10 @@ static void finalize_gic_version(VirtMachineState *vms)
     int gics_supported = 0;
 
     /* Determine which GIC versions the current environment supports */
-    if (kvm_enabled() && kvm_irqchip_in_kernel()) {
-        int probe_bitmap = kvm_arm_vgic_probe();
-
-        if (!probe_bitmap) {
-            error_report("Unable to determine GIC version supported by host");
-            exit(1);
-        }
-
-        if (probe_bitmap & KVM_ARM_VGIC_V2) {
-            gics_supported |= VIRT_GIC_VERSION_2_MASK;
-        }
-        if (probe_bitmap & KVM_ARM_VGIC_V3) {
-            gics_supported |= VIRT_GIC_VERSION_3_MASK;
-        }
-    } else if (kvm_enabled() && !kvm_irqchip_in_kernel()) {
-        /* KVM w/o kernel irqchip can only deal with GICv2 */
-        gics_supported |= VIRT_GIC_VERSION_2_MASK;
-        accel_name = "KVM with kernel-irqchip=off";
-    } else if (gunyah_enabled()) {
+    if (gunyah_enabled()) {
         /* Gunyah only supports GICv3 via in-hypervisor vGIC */
         gics_supported |= VIRT_GIC_VERSION_3_MASK;
-    } else if (tcg_enabled() || hvf_enabled() || qtest_enabled())  {
+    } else if (tcg_enabled() || qtest_enabled())  {
         gics_supported |= VIRT_GIC_VERSION_2_MASK;
         if (module_object_class_by_name("arm-gicv3")) {
             gics_supported |= VIRT_GIC_VERSION_3_MASK;
@@ -2164,62 +2142,27 @@ static void finalize_gic_version(VirtMachineState *vms)
 static void virt_cpu_post_init(VirtMachineState *vms, MemoryRegion *sysmem)
 {
     int max_cpus = MACHINE(vms)->smp.max_cpus;
-    bool aarch64, pmu, steal_time;
+    bool aarch64, pmu;
     CPUState *cpu;
 
     aarch64 = object_property_get_bool(OBJECT(first_cpu), "aarch64", NULL);
     pmu = object_property_get_bool(OBJECT(first_cpu), "pmu", NULL);
-    steal_time = object_property_get_bool(OBJECT(first_cpu),
-                                          "kvm-steal-time", NULL);
 
-    if (kvm_enabled()) {
-        hwaddr pvtime_reg_base = vms->memmap[VIRT_PVTIME].base;
-        hwaddr pvtime_reg_size = vms->memmap[VIRT_PVTIME].size;
-
-        if (steal_time) {
-            MemoryRegion *pvtime = g_new(MemoryRegion, 1);
-            hwaddr pvtime_size = max_cpus * PVTIME_SIZE_PER_CPU;
-
-            /* The memory region size must be a multiple of host page size. */
-            pvtime_size = REAL_HOST_PAGE_ALIGN(pvtime_size);
-
-            if (pvtime_size > pvtime_reg_size) {
-                error_report("pvtime requires a %" HWADDR_PRId
-                             " byte memory region for %d CPUs,"
-                             " but only %" HWADDR_PRId " has been reserved",
-                             pvtime_size, max_cpus, pvtime_reg_size);
-                exit(1);
-            }
-
-            memory_region_init_ram(pvtime, NULL, "pvtime", pvtime_size, NULL);
-            memory_region_add_subregion(sysmem, pvtime_reg_base, pvtime);
+    CPU_FOREACH(cpu) {
+        if (pmu) {
+            assert(arm_feature(&ARM_CPU(cpu)->env, ARM_FEATURE_PMU));
         }
+    }
 
-        CPU_FOREACH(cpu) {
-            if (pmu) {
-                assert(arm_feature(&ARM_CPU(cpu)->env, ARM_FEATURE_PMU));
-                if (kvm_irqchip_in_kernel()) {
-                    kvm_arm_pmu_set_irq(ARM_CPU(cpu), VIRTUAL_PMU_IRQ);
-                }
-                kvm_arm_pmu_init(ARM_CPU(cpu));
-            }
-            if (steal_time) {
-                kvm_arm_pvtime_init(ARM_CPU(cpu), pvtime_reg_base
-                                                  + cpu->cpu_index
-                                                    * PVTIME_SIZE_PER_CPU);
-            }
-        }
-    } else {
-        if (aarch64 && vms->highmem) {
-            int requested_pa_size = 64 - clz64(vms->highest_gpa);
-            int pamax = arm_pamax(ARM_CPU(first_cpu));
+    if (aarch64 && vms->highmem) {
+        int requested_pa_size = 64 - clz64(vms->highest_gpa);
+        int pamax = arm_pamax(ARM_CPU(first_cpu));
 
-            if (pamax < requested_pa_size) {
-                error_report("VCPU supports less PA bits (%d) than "
-                             "requested by the memory map (%d)",
-                             pamax, requested_pa_size);
-                exit(1);
-            }
+        if (pamax < requested_pa_size) {
+            error_report("VCPU supports less PA bits (%d) than "
+                         "requested by the memory map (%d)",
+                         pamax, requested_pa_size);
+            exit(1);
         }
     }
 }
@@ -2343,11 +2286,11 @@ static int confidential_guest_init(MachineState *ms)
 
         if (obj->swiotlb_size) {
             gunyah_set_swiotlb_size(obj->swiotlb_size);
-            error_report("gh    │confidential-guest-support: "
+            error_report(gh"confidential-guest-support: "
                          "protected_vm=true swiotlb=0x%"PRIx64,
                          (uint64_t)obj->swiotlb_size);
         } else {
-            error_report("gh    │confidential-guest-support: "
+            error_report(gh"confidential-guest-support: "
                          "protected_vm=true (no swiotlb specified, "
                          "using default)");
         }
@@ -2441,7 +2384,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
         nodeoff = fdt_path_offset(fdt, nodes_to_remove[i]);
         if (nodeoff >= 0) {
             fdt_nop_node(fdt, nodeoff);
-            error_report("gh    │stripped DTB node %s", nodes_to_remove[i]);
+            error_report(gh"stripped DTB node %s", nodes_to_remove[i]);
         }
     }
 
@@ -2454,7 +2397,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
             fdt_nop_node(fdt, nodeoff);
         }
     }
-    error_report("gh    │stripped virtio_mmio nodes");
+    error_report(gh"stripped virtio_mmio nodes");
 
     /*
      * Fix root node: remove properties CrosVM doesn't set.
@@ -2465,7 +2408,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
     if (nodeoff >= 0) {
         fdt_delprop(fdt, nodeoff, "dma-coherent");
         fdt_delprop(fdt, nodeoff, "model");
-        error_report("gh    │removed root model and dma-coherent");
+        error_report(gh"removed root model and dma-coherent");
     }
 
     /*
@@ -2490,7 +2433,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
             new_irqs[11] = cpu_to_fdt32(GIC_FDT_IRQ_FLAGS_LEVEL_LO);
             fdt_setprop(fdt, nodeoff, "interrupts", new_irqs,
                         sizeof(new_irqs));
-            error_report("gh    │fixed timer interrupts to LEVEL_LOW (0x%x)",
+            error_report(gh"fixed timer interrupts to LEVEL_LOW (0x%x)",
                          GIC_FDT_IRQ_FLAGS_LEVEL_LO);
         }
 
@@ -2546,7 +2489,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
              */
             fdt_setprop_cell(fdt, nodeoff, "phandle", 1);
 
-            error_report("gh    │fixed GIC: REDIST=0x%x (%u CPUs), "
+            error_report(gh"fixed GIC: REDIST=0x%x (%u CPUs), "
                          "renamed to /intc, phandle=1",
                          redist_size, num_cpus);
         }
@@ -2571,14 +2514,14 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
     nodeoff = fdt_path_offset(fdt, "/cpus/cpu@0");
     if (nodeoff >= 0) {
         fdt_setprop_string(fdt, nodeoff, "compatible", "arm,armv8");
-        error_report("gh    │fixed cpu compatible to arm,armv8");
+        error_report(gh"fixed cpu compatible to arm,armv8");
     }
 
     /* Remove cpu-map (CrosVM doesn't generate topology) */
     nodeoff = fdt_path_offset(fdt, "/cpus/cpu-map");
     if (nodeoff >= 0) {
         fdt_nop_node(fdt, nodeoff);
-        error_report("gh    │removed cpu-map");
+        error_report(gh"removed cpu-map");
     }
 
     /*
@@ -2592,7 +2535,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
         fdt_delprop(fdt, nodeoff, "cpu_off");
         fdt_delprop(fdt, nodeoff, "cpu_on");
         fdt_delprop(fdt, nodeoff, "migrate");
-        error_report("gh    │fixed PSCI to arm,psci-0.2 only");
+        error_report(gh"fixed PSCI to arm,psci-0.2 only");
     }
 
     /*
@@ -2612,7 +2555,7 @@ static void virt_strip_dtb_for_gunyah(void *fdt, uint32_t gic_phandle)
      */
     qemu_fdt_add_subnode(fdt, "/__symbols__");
     qemu_fdt_setprop_string(fdt, "/__symbols__", "intc", "/intc");
-    error_report("gh    │added __symbols__ node with intc -> /intc");
+    error_report(gh"added __symbols__ node with intc -> /intc");
 }
 
 static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
@@ -2635,13 +2578,13 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
      * GH_VCPU_EXIT_MMIO exits that QEMU handles via its PL011 model.
      * A PL011 DTB node is included so the kernel probes ttyAMA0 for login.
      */
-    error_report("gh    │Building minimal DTB from scratch (mem_base=0x%"PRIx64
+    error_report(gh"Building minimal DTB from scratch (mem_base=0x%"PRIx64
                  " mem_size=0x%"PRIx64")", mem_base, mem_size);
 
     /* Clear and create a new empty FDT */
     ret = fdt_create_empty_tree(fdt, 0x100000 /* 1MB */);
     if (ret) {
-        error_report("gh    │fdt_create_empty_tree failed: %s",
+        error_report(gh"fdt_create_empty_tree failed: %s",
                      fdt_strerror(ret));
         exit(1);
     }
@@ -2681,8 +2624,8 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, chosen_off, "bootargs", bootargs);
         fdt_setprop_string(fdt, chosen_off, "stdout-path",
                            "/pl011@9000000");
-        error_report("gh    │DTB /chosen/bootargs: %s", bootargs);
-        error_report("gh    │DTB /chosen/stdout-path: /pl011@9000000");
+        error_report(gh"DTB /chosen/bootargs: %s", bootargs);
+        error_report(gh"DTB /chosen/stdout-path: /pl011@9000000");
     }
 
     {
@@ -2707,7 +2650,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         cfg_size = 0x1000000;
         fdt_setprop_cell(fdt, cfg_off, "kernel-address", cfg_addr);
         fdt_setprop_cell(fdt, cfg_off, "kernel-size", cfg_size);
-        error_report("gh    │DTB /config: kernel-address=0x%x kernel-size=0x%x"
+        error_report(gh"DTB /config: kernel-address=0x%x kernel-size=0x%x"
                      "%s", cfg_addr, cfg_size,
                      binfo->firmware_loaded ? " (firmware)" : "");
     }
@@ -2733,7 +2676,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         mem_reg[0] = cpu_to_fdt64(mem_base);
         mem_reg[1] = cpu_to_fdt64(dtb_mem_size);
         fdt_setprop(fdt, memoff, "reg", mem_reg, sizeof(mem_reg));
-        error_report("gh    │DTB /memory: base=0x%"PRIx64" size=0x%"PRIx64
+        error_report(gh"DTB /memory: base=0x%"PRIx64" size=0x%"PRIx64
                      " (total=0x%"PRIx64" lend_only=%d)"
                      "%s", mem_base, dtb_mem_size,
                      mem_size,
@@ -2762,7 +2705,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
                 fdt_setprop_string(fdt, cpu_off, "enable-method", "psci");
             }
         }
-        error_report("gh    │DTB /cpus: %d CPUs with%s PSCI",
+        error_report(gh"DTB /cpus: %d CPUs with%s PSCI",
                      num_cpus, num_cpus > 1 ? "" : "out");
     }
 
@@ -2850,7 +2793,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
             }
             fdt_setprop_cell(fdt, pool_off, "phandle", 2);
 
-            error_report("gh    │DTB reserved-memory: restricted-dma-pool at "
+            error_report(gh"DTB reserved-memory: restricted-dma-pool at "
                          "0x%"PRIx64" size 0x%"PRIx64,
                          resv_start, gs->swiotlb_size);
         }
@@ -3022,7 +2965,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
             fdt_setprop_cell(fdt, pci_off, "memory-region", 2);
         }
 
-        error_report("gh    │DTB PCI host bridge: ECAM=0x%"PRIx64
+        error_report(gh"DTB PCI host bridge: ECAM=0x%"PRIx64
                      " MMIO=0x%"PRIx64"-0x%"PRIx64
                      " PIO=0x%"PRIx64" IRQs SPI %d-%d",
                      base_ecam, base_mmio_pci,
@@ -3042,7 +2985,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_cell(fdt, clk_off, "clock-frequency", 24000000);
         fdt_setprop_string(fdt, clk_off, "clock-output-names", "clk24mhz");
         fdt_setprop_cell(fdt, clk_off, "phandle", 3);
-        error_report("gh    │DTB /apb-pclk: 24MHz fixed clock (phandle=3)");
+        error_report(gh"DTB /apb-pclk: 24MHz fixed clock (phandle=3)");
     }
 
     /*
@@ -3093,7 +3036,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
                 fdt_setprop_cell(fdt, uart_off, "memory-region", 2);
             }
         }
-        error_report("gh    │DTB /pl011@9000000: ttyAMA0, SPI 1, level-high, 24MHz");
+        error_report(gh"DTB /pl011@9000000: ttyAMA0, SPI 1, level-high, 24MHz");
     }
 
     /*
@@ -3119,7 +3062,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, fwcfg_off, "compatible", "qemu,fw-cfg-mmio");
         fdt_setprop(fdt, fwcfg_off, "reg", fwcfg_reg, sizeof(fwcfg_reg));
         fdt_setprop(fdt, fwcfg_off, "dma-coherent", NULL, 0);
-        error_report("gh    │DTB /fw-cfg@9020000: fw_cfg MMIO at 0x09020000"
+        error_report(gh"DTB /fw-cfg@9020000: fw_cfg MMIO at 0x09020000"
                      " (no DMA — MMIO-only for Gunyah safety)");
     }
 
@@ -3192,7 +3135,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
                             rsvd_reg, sizeof(rsvd_reg));
                 fdt_setprop(fdt, rsvd_fb_off, "no-map", NULL, 0);
 
-                error_report("gh    │DTB /reserved-memory/framebuffer: "
+                error_report(gh"DTB /reserved-memory/framebuffer: "
                              "0x%"PRIx64" size=0x%"PRIx64" (no-map)",
                              sfb_addr, sfb_size);
             }
@@ -3217,7 +3160,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
                 fdt_setprop_string(fdt, sfb_off, "format", "a8r8g8b8");
                 fdt_setprop_string(fdt, sfb_off, "status", "okay");
 
-                error_report("gh    │DTB /simplefb@0x%"PRIx64
+                error_report(gh"DTB /simplefb@0x%"PRIx64
                              ": %ux%u stride=%u size=0x%"PRIx64,
                              sfb_addr, sfb_width, sfb_height,
                              sfb_stride, sfb_size);
@@ -3255,7 +3198,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
                                            vms->memmap[VIRT_PLATFORM_BUS].base,
                                            vms->memmap[VIRT_PLATFORM_BUS].size,
                                            vms->irqmap[VIRT_PLATFORM_BUS]);
-            error_report("gh    │DTB platform-bus at 0x%"PRIx64" (size 0x%"PRIx64
+            error_report(gh"DTB platform-bus at 0x%"PRIx64" (size 0x%"PRIx64
                          ") with dynamic sysbus devices",
                          (uint64_t)vms->memmap[VIRT_PLATFORM_BUS].base,
                          (uint64_t)vms->memmap[VIRT_PLATFORM_BUS].size);
@@ -3269,7 +3212,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, sym_off, "intc", "/intc");
     }
 
-    error_report("gh    │Minimal DTB built with earlycon (totalsize=%u)",
+    error_report(gh"Minimal DTB built with earlycon (totalsize=%u)",
                  fdt_totalsize(fdt));
 }
 
@@ -3317,7 +3260,6 @@ static void machvirt_init(MachineState *machine)
     }
 
     /*
-     * In accelerated mode, the memory map is computed earlier in kvm_type()
      * for Linux, or hvf_get_physical_address_range() for macOS to create a
      * VM with the right number of IPA bits.
      */
@@ -3410,27 +3352,6 @@ static void machvirt_init(MachineState *machine)
         exit(1);
     }
 
-    if (vms->secure && (kvm_enabled() || hvf_enabled())) {
-        error_report("mach-virt: %s does not support providing "
-                     "Security extensions (TrustZone) to the guest CPU",
-                     current_accel_name());
-        exit(1);
-    }
-
-    if (vms->virt && (kvm_enabled() || hvf_enabled())) {
-        error_report("mach-virt: %s does not support providing "
-                     "Virtualization extensions to the guest CPU",
-                     current_accel_name());
-        exit(1);
-    }
-
-    if (vms->mte && hvf_enabled()) {
-        error_report("mach-virt: %s does not support providing "
-                     "MTE to the guest CPU",
-                     current_accel_name());
-        exit(1);
-    }
-
     create_fdt(vms);
 
     assert(possible_cpus->len == max_cpus);
@@ -3462,13 +3383,11 @@ static void machvirt_init(MachineState *machine)
             object_property_set_bool(cpuobj, "has_el2", false, NULL);
         }
 
-        if (vmc->kvm_no_adjvtime &&
-            object_property_find(cpuobj, "kvm-no-adjvtime")) {
+        if (false && object_property_find(cpuobj, "kvm-no-adjvtime")) {
             object_property_set_bool(cpuobj, "kvm-no-adjvtime", true, NULL);
         }
 
-        if (vmc->no_kvm_steal_time &&
-            object_property_find(cpuobj, "kvm-steal-time")) {
+        if (false && object_property_find(cpuobj, "kvm-steal-time")) {
             object_property_set_bool(cpuobj, "kvm-steal-time", false, NULL);
         }
 
@@ -3530,15 +3449,9 @@ static void machvirt_init(MachineState *machine)
                                              OBJECT(secure_tag_sysmem),
                                              &error_abort);
                 }
-            } else if (kvm_enabled()) {
-                if (!kvm_arm_mte_supported()) {
-                    error_report("MTE requested, but not supported by KVM");
-                    exit(1);
-                }
-                kvm_arm_enable_mte(cpuobj, &error_abort);
             } else {
-                    error_report("MTE requested, but not supported ");
-                    exit(1);
+                error_report("MTE requested, but not supported ");
+                exit(1);
             }
         }
 
@@ -3700,7 +3613,7 @@ static void machvirt_init(MachineState *machine)
     if (gunyah_enabled() && vms->bootinfo.entry) {
         GUNYAHState *gs = get_gunyah_state();
         gs->kernel_entry = vms->bootinfo.entry;
-        error_report("gh    │kernel entry from arm_load_kernel: 0x%"PRIx64,
+        error_report(gh"kernel entry from arm_load_kernel: 0x%"PRIx64,
                      gs->kernel_entry);
     }
 
@@ -4298,43 +4211,8 @@ static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
 }
 
 /*
- * for arm64 kvm_type [7-0] encodes the requested number of bits
  * in the IPA address space
  */
-static int virt_kvm_type(MachineState *ms, const char *type_str)
-{
-    VirtMachineState *vms = VIRT_MACHINE(ms);
-    int max_vm_pa_size, requested_pa_size;
-    bool fixed_ipa;
-
-    max_vm_pa_size = kvm_arm_get_max_vm_ipa_size(ms, &fixed_ipa);
-
-    /* we freeze the memory map to compute the highest gpa */
-    virt_set_memmap(vms, max_vm_pa_size);
-
-    requested_pa_size = 64 - clz64(vms->highest_gpa);
-
-    /*
-     * KVM requires the IPA size to be at least 32 bits.
-     */
-    if (requested_pa_size < 32) {
-        requested_pa_size = 32;
-    }
-
-    if (requested_pa_size > max_vm_pa_size) {
-        error_report("-m and ,maxmem option values "
-                     "require an IPA range (%d bits) larger than "
-                     "the one supported by the host (%d bits)",
-                     requested_pa_size, max_vm_pa_size);
-        return -1;
-    }
-    /*
-     * We return the requested PA log size, unless KVM only supports
-     * the implicit legacy 40b IPA setting, in which case the kvm_type
-     * must be 0.
-     */
-    return fixed_ipa ? 0 : requested_pa_size;
-}
 
 static int virt_hvf_get_physical_address_range(MachineState *ms)
 {
@@ -4392,9 +4270,9 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
 #ifdef TARGET_AARCH64
         ARM_CPU_TYPE_NAME("cortex-a53"),
         ARM_CPU_TYPE_NAME("cortex-a57"),
-#if defined(CONFIG_KVM) || defined(CONFIG_HVF) || defined(CONFIG_GUNYAH)
+#if defined(CONFIG_GUNYAH)
         ARM_CPU_TYPE_NAME("host"),
-#endif /* CONFIG_KVM || CONFIG_HVF || CONFIG_GUNYAH */
+#endif
 #endif /* TARGET_AARCH64 */
         ARM_CPU_TYPE_NAME("max"),
         NULL
@@ -4428,7 +4306,7 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
 #endif
     mc->valid_cpu_types = valid_cpu_types;
     mc->get_default_cpu_node_id = virt_get_default_cpu_node_id;
-    mc->kvm_type = virt_kvm_type;
+    
     mc->hvf_get_physical_address_range = virt_hvf_get_physical_address_range;
     assert(!mc->get_hotplug_handler);
     mc->get_hotplug_handler = virt_machine_get_hotplug_handler;
@@ -4785,7 +4663,7 @@ static void virt_machine_5_1_options(MachineClass *mc)
 
     virt_machine_5_2_options(mc);
     compat_props_add(mc->compat_props, hw_compat_5_1, hw_compat_5_1_len);
-    vmc->no_kvm_steal_time = true;
+    
 }
 DEFINE_VIRT_MACHINE(5, 1)
 
@@ -4807,7 +4685,7 @@ static void virt_machine_4_2_options(MachineClass *mc)
 
     virt_machine_5_0_options(mc);
     compat_props_add(mc->compat_props, hw_compat_4_2, hw_compat_4_2_len);
-    vmc->kvm_no_adjvtime = true;
+    
 }
 DEFINE_VIRT_MACHINE(4, 2)
 

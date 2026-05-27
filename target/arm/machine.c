@@ -1,9 +1,7 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "qemu/error-report.h"
-#include "system/kvm.h"
 #include "system/tcg.h"
-#include "kvm_arm.h"
 #include "internals.h"
 #include "cpu-features.h"
 #include "migration/cpu.h"
@@ -854,26 +852,8 @@ static int cpu_pre_save(void *opaque)
 {
     ARMCPU *cpu = opaque;
 
-    if (!kvm_enabled()) {
-        pmu_op_start(&cpu->env);
-    }
-
-    if (kvm_enabled()) {
-        if (!write_kvmstate_to_list(cpu)) {
-            /* This should never fail */
-            g_assert_not_reached();
-        }
-
-        /*
-         * kvm_arm_cpu_pre_save() must be called after
-         * write_kvmstate_to_list()
-         */
-        kvm_arm_cpu_pre_save(cpu);
-    } else {
-        if (!write_cpustate_to_list(cpu, false)) {
-            /* This should never fail. */
-            g_assert_not_reached();
-        }
+    if (!write_cpustate_to_list(cpu)) {
+        g_assert_not_reached();
     }
 
     cpu->cpreg_vmstate_array_len = cpu->cpreg_array_len;
@@ -889,9 +869,7 @@ static int cpu_post_save(void *opaque)
 {
     ARMCPU *cpu = opaque;
 
-    if (!kvm_enabled()) {
-        pmu_op_finish(&cpu->env);
-    }
+    pmu_op_finish(&cpu->env);
 
     return 0;
 }
@@ -922,9 +900,7 @@ static int cpu_pre_load(void *opaque)
      */
     env->irq_line_state = UINT32_MAX;
 
-    if (!kvm_enabled()) {
-        pmu_op_start(env);
-    }
+    pmu_op_start(env);
 
     return 0;
 }
@@ -976,20 +952,8 @@ static int cpu_post_load(void *opaque, int version_id)
         v++;
     }
 
-    if (kvm_enabled()) {
-        if (!write_list_to_kvmstate(cpu, KVM_PUT_FULL_STATE)) {
-            return -1;
-        }
-        /* Note that it's OK for the TCG side not to know about
-         * every register in the list; KVM is authoritative if
-         * we're using it.
-         */
-        write_list_to_cpustate(cpu);
-        kvm_arm_cpu_post_load(cpu);
-    } else {
-        if (!write_list_to_cpustate(cpu)) {
-            return -1;
-        }
+    if (!write_list_to_cpustate(cpu)) {
+        return -1;
     }
 
     /*
@@ -1020,9 +984,7 @@ static int cpu_post_load(void *opaque, int version_id)
         }
     }
 
-    if (!kvm_enabled()) {
-        pmu_op_finish(env);
-    }
+    pmu_op_finish(env);
 
     if (tcg_enabled()) {
         arm_rebuild_hflags(env);

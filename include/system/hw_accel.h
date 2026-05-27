@@ -12,7 +12,7 @@
 #define QEMU_HW_ACCEL_H
 
 #include "hw/core/cpu.h"
-#include "system/kvm.h"
+#include "system/gunyah.h"
 #include "system/hvf.h"
 #include "system/whpx.h"
 #include "system/nvmm.h"
