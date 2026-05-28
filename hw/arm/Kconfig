@@ -8,8 +8,6 @@ config ARM_VIRT
     imply VFIO_AMD_XGBE
     imply VFIO_PLATFORM
     imply VFIO_XGMAC
-    imply TPM_TIS_SYSBUS
-    imply TPM_TIS_I2C
     imply NVDIMM
     imply IOMMUFD
     select ARM_GIC
@@ -21,9 +19,9 @@ config ARM_VIRT
     select PCI_EXPRESS
     select PCI_EXPRESS_GENERIC_BRIDGE
     select PFLASH_CFI01
-    select PL011 # UART
-    select PL031 # RTC
-    select PL061 # GPIO
+    select PL011
+    select PL031
+    select PL061
     select GPIO_PWR
     select PLATFORM_BUS
     select SMBIOS
@@ -34,9 +32,6 @@ config ARM_VIRT
     select ACPI_HW_REDUCED
     select ACPI_APEI
     select ACPI_VIOT
-    select VIRTIO_MEM_SUPPORTED
-    select ACPI_CXL
-    select ACPI_HMAT
 
 config CUBIEBOARD
     bool
@@ -305,7 +300,6 @@ config ZYNQ
 
 config ARM_V7M
     bool
-    # currently v7M must be included in a TCG build due to translate.c
     default y
     depends on TCG && ARM
     select PTIMER

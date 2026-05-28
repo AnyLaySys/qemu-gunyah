@@ -30,7 +30,7 @@
 #include "qapi/error.h"
 #include "qemu/bitmap.h"
 #include "qemu/error-report.h"
-#include "trace.h"
+#include "trace/trace-hw_arm.h"
 #include "hw/core/cpu.h"
 #include "hw/acpi/acpi-defs.h"
 #include "hw/acpi/acpi.h"
@@ -518,9 +518,11 @@ build_srat(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     build_srat_generic_affinity_structures(table_data);
 
+#ifdef CONFIG_NVDIMM
     if (ms->nvdimms_state->is_enabled) {
         nvdimm_build_srat(table_data);
     }
+#endif
 
     if (ms->device_memory) {
         build_srat_memory(table_data, ms->device_memory->base,
@@ -962,18 +964,22 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
                        vms->oem_table_id);
         }
 
+#ifdef CONFIG_ACPI_HMAT
         if (ms->numa_state->hmat_enabled) {
             acpi_add_table(table_offsets, tables_blob);
             build_hmat(tables_blob, tables->linker, ms->numa_state,
                        vms->oem_id, vms->oem_table_id);
         }
+#endif
     }
 
+#ifdef CONFIG_NVDIMM
     if (ms->nvdimms_state->is_enabled) {
         nvdimm_build_acpi(table_offsets, tables_blob, tables->linker,
                           ms->nvdimms_state, ms->ram_slots, vms->oem_id,
                           vms->oem_table_id);
     }
+#endif
 
     if (its_class_name() && !vmc->no_its) {
         acpi_add_table(table_offsets, tables_blob);

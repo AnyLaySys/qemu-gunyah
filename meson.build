@@ -3529,7 +3529,6 @@ if have_system
   trace_events_subdirs += [
     'audio',
     'backends',
-    'backends/tpm',
     'ebpf',
     'hw/acpi',
     'hw/adc',
@@ -3557,12 +3556,10 @@ if have_system
     'hw/pci',
     'hw/pci-host',
     'hw/rtc',
-    'hw/scsi',
     'hw/sd',
     'hw/sensor',
     'hw/ssi',
     'hw/timer',
-    'hw/tpm',
     'hw/uefi',
     'hw/ufs',
     'hw/usb',
@@ -3757,18 +3754,22 @@ subdir('stats')
 subdir('tcg')
 subdir('fpu')
 subdir('accel')
-subdir('plugins')
+if get_option('plugins')
+  subdir('plugins')
+endif
 subdir('ebpf')
 
-if 'CONFIG_TCG' in config_all_accel
+if get_option('plugins') and 'CONFIG_TCG' in config_all_accel
   subdir('contrib/plugins')
 endif
 
 common_user_inc = []
 
-subdir('common-user')
-subdir('bsd-user')
-subdir('linux-user')
+if have_user
+  subdir('common-user')
+  subdir('bsd-user')
+  subdir('linux-user')
+endif
 
 
 
@@ -4297,7 +4298,9 @@ if get_option('plugins')
   endif
 endif
 
-subdir('qga')
+if have_ga
+  subdir('qga')
+endif
 
 # Don't build qemu-keymap if xkbcommon is not explicitly enabled
 # when we don't build tools or system
@@ -4599,6 +4602,7 @@ endif
 # Targets and accelerators
 summary_info = {}
 if have_system
+  summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GUNYAH')}
   summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
   summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
   summary_info += {'NVMM support':      config_all_accel.has_key('CONFIG_NVMM')}

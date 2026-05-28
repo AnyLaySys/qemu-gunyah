@@ -25,7 +25,7 @@
 #include "hw/qdev-core.h"
 #include "hw/pci/pci.h"
 #include "cpu.h"
-#include "trace.h"
+#include "trace/trace-hw_arm.h"
 #include "qemu/log.h"
 #include "qemu/error-report.h"
 #include "qapi/error.h"
@@ -2060,4 +2060,3 @@ static void smmuv3_register_types(void)
 }
 
 type_init(smmuv3_register_types)
-

@@ -17,7 +17,7 @@
  */
 
 #include "qemu/osdep.h"
-#include "trace.h"
+#include "trace/trace-hw_arm.h"
 #include "exec/target_page.h"
 #include "hw/core/cpu.h"
 #include "hw/qdev-properties.h"
@@ -994,4 +994,3 @@ static void smmu_base_register_types(void)
 }
 
 type_init(smmu_base_register_types)
-

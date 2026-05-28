@@ -528,12 +528,6 @@ case "$cpu" in
     ;;
 esac
 
-if test -n "$host_arch" && {
-    ! test -d "$source_path/linux-user/include/host/$host_arch" ||
-    ! test -d "$source_path/common-user/host/$host_arch"; }; then
-    error_exit "linux-user/include/host/$host_arch does not exist." \
-       "This is a bug in the configure script, please report it."
-fi
 if test -n "$linux_arch" && ! test -d "$source_path/linux-headers/asm-$linux_arch"; then
     error_exit "linux-headers/asm-$linux_arch does not exist." \
        "This is a bug in the configure script, please report it."

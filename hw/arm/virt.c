@@ -3579,6 +3579,7 @@ static void machvirt_init(MachineState *machine)
 
     create_platform_bus(vms);
 
+#ifdef CONFIG_NVDIMM
     if (machine->nvdimms_state->is_enabled) {
         const struct AcpiGenericAddress arm_virt_nvdimm_acpi_dsmio = {
             .space_id = AML_AS_SYSTEM_MEMORY,
@@ -3590,6 +3591,7 @@ static void machvirt_init(MachineState *machine)
                                arm_virt_nvdimm_acpi_dsmio,
                                vms->fw_cfg, OBJECT(vms));
     }
+#endif
 
     vms->bootinfo.ram_size = machine->ram_size;
     vms->bootinfo.board_id = -1;
@@ -4049,9 +4051,11 @@ static void virt_memory_plug(HotplugHandler *hotplug_dev,
 
     pc_dimm_plug(PC_DIMM(dev), MACHINE(vms));
 
+#ifdef CONFIG_NVDIMM
     if (is_nvdimm) {
         nvdimm_plug(ms->nvdimms_state);
     }
+#endif
 
     hotplug_handler_plug(HOTPLUG_HANDLER(vms->acpi_dev),
                          dev, &error_abort);
