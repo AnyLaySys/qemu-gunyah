@@ -28,6 +28,18 @@
 #include "ui/input.h"
 #include "ui/sdl2.h"
 
+static void sdl2_2d_present(struct sdl2_console *scon, bool force)
+{
+    if (!scon->texture || (!force && !scon->render_pending)) {
+        return;
+    }
+
+    SDL_RenderClear(scon->real_renderer);
+    SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
+    SDL_RenderPresent(scon->real_renderer);
+    scon->render_pending = false;
+}
+
 void sdl2_2d_update(DisplayChangeListener *dcl,
                     int x, int y, int w, int h)
 {
@@ -51,9 +63,7 @@ void sdl2_2d_update(DisplayChangeListener *dcl,
     SDL_UpdateTexture(scon->texture, &rect,
                       surface_data(surf) + surface_data_offset,
                       surface_stride(surf));
-    SDL_RenderClear(scon->real_renderer);
-    SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
-    SDL_RenderPresent(scon->real_renderer);
+    scon->render_pending = true;
 }
 
 void sdl2_2d_switch(DisplayChangeListener *dcl,
@@ -70,6 +80,7 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
     if (scon->texture) {
         SDL_DestroyTexture(scon->texture);
         scon->texture = NULL;
+        scon->render_pending = false;
     }
 
     if (surface_is_placeholder(new_surface) && qemu_console_get_index(dcl->con)) {
@@ -130,6 +141,7 @@ void sdl2_2d_refresh(DisplayChangeListener *dcl)
 
     assert(!scon->opengl);
     graphic_hw_update(dcl->con);
+    sdl2_2d_present(scon, false);
     sdl2_poll_events(scon);
 }
 
@@ -143,6 +155,7 @@ void sdl2_2d_redraw(struct sdl2_console *scon)
     sdl2_2d_update(&scon->dcl, 0, 0,
                    surface_width(scon->surface),
                    surface_height(scon->surface));
+    sdl2_2d_present(scon, true);
 }
 
 bool sdl2_2d_check_format(DisplayChangeListener *dcl,

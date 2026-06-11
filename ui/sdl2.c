@@ -65,6 +65,31 @@ static Notifier mouse_mode_notifier;
 
 static void sdl_update_caption(struct sdl2_console *scon);
 
+#ifdef __ANDROID__
+static void sdl2_android_display_bounds(SDL_Rect *bounds,
+                                        int fallback_w, int fallback_h)
+{
+    SDL_DisplayMode mode;
+
+    if (SDL_GetDisplayUsableBounds(0, bounds) == 0 &&
+        bounds->w > 0 && bounds->h > 0) {
+        return;
+    }
+    if (SDL_GetCurrentDisplayMode(0, &mode) == 0 &&
+        mode.w > 0 && mode.h > 0) {
+        bounds->x = 0;
+        bounds->y = 0;
+        bounds->w = mode.w;
+        bounds->h = mode.h;
+        return;
+    }
+    bounds->x = 0;
+    bounds->y = 0;
+    bounds->w = fallback_w;
+    bounds->h = fallback_h;
+}
+#endif
+
 static struct sdl2_console *get_scon_from_window(uint32_t window_id)
 {
     int i;
@@ -79,17 +104,34 @@ static struct sdl2_console *get_scon_from_window(uint32_t window_id)
 void sdl2_window_create(struct sdl2_console *scon)
 {
     int flags = 0;
+    int window_x = SDL_WINDOWPOS_UNDEFINED;
+    int window_y = SDL_WINDOWPOS_UNDEFINED;
+    int window_w;
+    int window_h;
 
     if (!scon->surface) {
         return;
     }
     assert(!scon->real_window);
 
+    window_w = surface_width(scon->surface);
+    window_h = surface_height(scon->surface);
+
     if (gui_fullscreen) {
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     } else {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+#ifdef __ANDROID__
+    SDL_Rect bounds;
+
+    sdl2_android_display_bounds(&bounds, window_w, window_h);
+    flags |= SDL_WINDOW_BORDERLESS;
+    window_x = bounds.x;
+    window_y = bounds.y;
+    window_w = bounds.w;
+    window_h = bounds.h;
+#endif
     if (scon->hidden) {
         flags |= SDL_WINDOW_HIDDEN;
     }
@@ -99,11 +141,18 @@ void sdl2_window_create(struct sdl2_console *scon)
     }
 #endif
 
-    scon->real_window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED,
-                                         SDL_WINDOWPOS_UNDEFINED,
-                                         surface_width(scon->surface),
-                                         surface_height(scon->surface),
+    scon->real_window = SDL_CreateWindow("", window_x, window_y,
+                                         window_w, window_h,
                                          flags);
+    if (!scon->real_window) {
+        fprintf(stderr, "SDL: failed to create window: %s\n", SDL_GetError());
+        exit(1);
+    }
+#ifdef __ANDROID__
+    SDL_SetWindowBordered(scon->real_window, SDL_FALSE);
+    SDL_SetWindowPosition(scon->real_window, window_x, window_y);
+    SDL_SetWindowSize(scon->real_window, window_w, window_h);
+#endif
     if (scon->opengl) {
         const char *driver = "opengl";
 
@@ -147,9 +196,19 @@ void sdl2_window_resize(struct sdl2_console *scon)
         return;
     }
 
+#ifdef __ANDROID__
+    SDL_Rect bounds;
+
+    sdl2_android_display_bounds(&bounds,
+                                surface_width(scon->surface),
+                                surface_height(scon->surface));
+    SDL_SetWindowPosition(scon->real_window, bounds.x, bounds.y);
+    SDL_SetWindowSize(scon->real_window, bounds.w, bounds.h);
+#else
     SDL_SetWindowSize(scon->real_window,
                       surface_width(scon->surface),
                       surface_height(scon->surface));
+#endif
 }
 
 static void sdl2_redraw(struct sdl2_console *scon)
@@ -902,7 +961,8 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
         register_displaychangelistener(&sdl2_console[i].dcl);
 
 #if defined(SDL_VIDEO_DRIVER_WINDOWS) || defined(SDL_VIDEO_DRIVER_X11)
-        if (SDL_GetWindowWMInfo(sdl2_console[i].real_window, &info)) {
+        if (sdl2_console[i].real_window &&
+            SDL_GetWindowWMInfo(sdl2_console[i].real_window, &info)) {
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
             qemu_console_set_window_id(con, (uintptr_t)info.info.win.window);
 #elif defined(SDL_VIDEO_DRIVER_X11)
@@ -912,6 +972,7 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
 #endif
     }
 
+#ifndef __ANDROID__
 #ifdef CONFIG_SDL_IMAGE
     dir = get_relocated_path(CONFIG_QEMU_ICONDIR "/hicolor/128x128/apps/qemu.png");
     icon = IMG_Load(dir);
@@ -925,9 +986,10 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
     }
 #endif
     g_free(dir);
-    if (icon) {
+    if (icon && sdl2_console[0].real_window) {
         SDL_SetWindowIcon(sdl2_console[0].real_window, icon);
     }
+#endif
 
     mouse_mode_notifier.notify = sdl_mouse_mode_change;
     qemu_add_mouse_mode_change_notifier(&mouse_mode_notifier);

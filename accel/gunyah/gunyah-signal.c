@@ -19,12 +19,14 @@ enum gh_vm_exit_type {
 static void gunyah_print_symbol(const char *label, uintptr_t addr) {
     Dl_info info;
     if (addr && dladdr((void *) addr, &info) && info.dli_sname) {
-        fprintf(stderr, "%s: 0x%llx = %s + 0x%lx [%s]\n", label, (unsigned long long) addr,
+        fprintf(stderr, "%s: 0x%llx = %s + 0x%lx [%s + 0x%lx]\n", label, (unsigned long long) addr,
                 info.dli_sname, (unsigned long) (addr - (uintptr_t) info.dli_saddr),
-                info.dli_fname ? info.dli_fname : "?");
+                info.dli_fname ? info.dli_fname : "?",
+                (unsigned long) (addr - (uintptr_t) info.dli_fbase));
     } else if (addr && dladdr((void *) addr, &info)) {
-        fprintf(stderr, "%s: 0x%llx = ??? (in %s, nearest: %s)\n", label, (unsigned long long) addr,
-                info.dli_fname ? info.dli_fname : "?", info.dli_sname ? info.dli_sname : "unknown");
+        fprintf(stderr, "%s: 0x%llx = %s + 0x%lx\n", label, (unsigned long long) addr,
+                info.dli_fname ? info.dli_fname : "?",
+                (unsigned long) (addr - (uintptr_t) info.dli_fbase));
     } else {
         fprintf(stderr, "%s: 0x%llx (no symbol info)\n", label, (unsigned long long) addr);
     }
@@ -72,11 +74,15 @@ static void gunyah_sigsegv_handler(int sig, siginfo_t *si, void *ctx) {
     }
     if (uc) {
         char buf[128];
+        uintptr_t pc = (uintptr_t) uc->uc_mcontext.pc;
+        uintptr_t lr = (uintptr_t) uc->uc_mcontext.regs[30];
         int len = snprintf(buf, sizeof(buf), "PC=0x%llx LR=0x%llx SP=0x%llx\n",
-                           (unsigned long long) uc->uc_mcontext.pc,
-                           (unsigned long long) uc->uc_mcontext.regs[30],
+                           (unsigned long long) pc,
+                           (unsigned long long) lr,
                            (unsigned long long) uc->uc_mcontext.sp);
         if (len > 0) write(STDERR_FILENO, buf, len);
+        gunyah_print_symbol("PC", pc);
+        gunyah_print_symbol("LR", lr);
     }
     for (i = 0; i < sigbus_lend_count; i++) {
         char buf[128];
@@ -111,7 +117,11 @@ static int raw_sigaction(int sig, void (*handler)(int, siginfo_t *, void *)) {
 static void gunyah_install_sigsegv_handler(void) {
     sigset_t set;
     int r1, r2;
-    r1 = raw_sigaction(SIGSEGV, gunyah_sigsegv_handler);
+    if (getenv("GUNYAH_NO_SIGSEGV_HANDLER")) {
+        r1 = 0;
+    } else {
+        r1 = raw_sigaction(SIGSEGV, gunyah_sigsegv_handler);
+    }
     r2 = raw_sigaction(SIGBUS, gunyah_sigsegv_handler);
     sigbus_handler_active = 1;
     sigemptyset(&set);
