@@ -277,6 +277,7 @@ struct VirtIOGPURutabaga {
     char *wsi;
     bool headless;
     uint32_t num_capsets;
+    GHashTable *rutabaga_contexts;
     struct rutabaga *rutabaga;
 };
 

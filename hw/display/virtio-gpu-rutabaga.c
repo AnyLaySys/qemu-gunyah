@@ -13,6 +13,8 @@
 #include "hw/virtio/virtio-gpu.h"
 #include "hw/virtio/virtio-gpu-pixman.h"
 #include "hw/virtio/virtio-iommu.h"
+#include "system/gunyah.h"
+#include "system/gunyah_int.h"
 
 #include <glib/gmem.h>
 #include <sys/mman.h>
@@ -32,6 +34,95 @@ struct rutabaga_aio_data {
     struct VirtIOGPURutabaga *vr;
     struct rutabaga_fence fence;
 };
+
+struct rutabaga_ctx_state {
+    bool pending_destroy;
+    GHashTable *resources;
+};
+
+static void rutabaga_ctx_state_free(gpointer opaque)
+{
+    struct rutabaga_ctx_state *state = opaque;
+
+    if (state->resources) {
+        g_hash_table_destroy(state->resources);
+    }
+    g_free(state);
+}
+
+static GHashTable *rutabaga_contexts(VirtIOGPURutabaga *vr)
+{
+    if (!vr->rutabaga_contexts) {
+        vr->rutabaga_contexts = g_hash_table_new_full(g_direct_hash,
+                                                      g_direct_equal,
+                                                      NULL,
+                                                      rutabaga_ctx_state_free);
+    }
+    return vr->rutabaga_contexts;
+}
+
+static struct rutabaga_ctx_state *
+rutabaga_context_lookup(VirtIOGPURutabaga *vr, uint32_t ctx_id)
+{
+    if (!vr->rutabaga_contexts) {
+        return NULL;
+    }
+    return g_hash_table_lookup(vr->rutabaga_contexts,
+                               GUINT_TO_POINTER(ctx_id));
+}
+
+static struct rutabaga_ctx_state *
+rutabaga_context_insert(VirtIOGPURutabaga *vr, uint32_t ctx_id)
+{
+    struct rutabaga_ctx_state *state = g_new0(struct rutabaga_ctx_state, 1);
+
+    state->resources = g_hash_table_new(g_direct_hash, g_direct_equal);
+    g_hash_table_insert(rutabaga_contexts(vr), GUINT_TO_POINTER(ctx_id), state);
+    return state;
+}
+
+static void rutabaga_context_remove(VirtIOGPURutabaga *vr, uint32_t ctx_id)
+{
+    if (vr->rutabaga_contexts) {
+        g_hash_table_remove(vr->rutabaga_contexts, GUINT_TO_POINTER(ctx_id));
+    }
+}
+
+static void rutabaga_context_remove_resource(VirtIOGPURutabaga *vr,
+                                             uint32_t resource_id)
+{
+    GHashTableIter iter;
+    gpointer key;
+    gpointer value;
+    GArray *ctx_ids;
+
+    if (!vr->rutabaga_contexts) {
+        return;
+    }
+
+    ctx_ids = g_array_new(false, false, sizeof(uint32_t));
+    g_hash_table_iter_init(&iter, vr->rutabaga_contexts);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        struct rutabaga_ctx_state *state = value;
+        uint32_t ctx_id;
+
+        g_hash_table_remove(state->resources, GUINT_TO_POINTER(resource_id));
+        if (!state->pending_destroy || g_hash_table_size(state->resources)) {
+            continue;
+        }
+
+        ctx_id = GPOINTER_TO_UINT(key);
+        g_array_append_val(ctx_ids, ctx_id);
+    }
+
+    for (guint i = 0; i < ctx_ids->len; i++) {
+        uint32_t ctx_id = g_array_index(ctx_ids, uint32_t, i);
+
+        rutabaga_context_remove(vr, ctx_id);
+    }
+
+    g_array_free(ctx_ids, true);
+}
 
 static void rutabaga_unref_resource(pixman_image_t *image, void *data)
 {
@@ -165,21 +256,14 @@ virtio_gpu_rutabaga_resource_unref(VirtIOGPU *g,
     int32_t result;
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
-    /*
-     * Gunyah workaround: for hostmem-mapped blob resources, skip the
-     * rutabaga_resource_unref call (which would free gfxstream's internal
-     * memory backing the SHARE'd pages).  But still remove the resource
-     * from QEMU's reslist so resource IDs can be reused normally.
-     * The gfxstream-side memory is kept alive by sPinnedRingBlobs.
-     */
+    rutabaga_context_remove_resource(vr, res->resource_id);
+
     for (uint32_t i = 0; i < MAX_SLOTS; i++) {
         if (vr->memory_regions[i].used &&
             vr->memory_regions[i].resource_id == res->resource_id) {
-            error_report(gh"RESOURCE_UNREF resource_id=%u"
+            error_report("RESOURCE_UNREF resource_id=%u"
                          " — skip rutabaga unref (SHARE'd), free QEMU resource",
                          res->resource_id);
-            /* Don't call rutabaga_resource_unref — gfxstream memory stays.
-             * But DO clean up the QEMU-side resource below. */
             goto cleanup;
         }
     }
@@ -221,7 +305,6 @@ rutabaga_cmd_resource_unref(VirtIOGPU *g,
     virtio_gpu_rutabaga_resource_unref(g, res, &local_err);
     if (local_err) {
         error_report_err(local_err);
-        /* local_err was freed, do not reuse it. */
         local_err = NULL;
         result = 1;
     }
@@ -234,6 +317,7 @@ rutabaga_cmd_context_create(VirtIOGPU *g,
 {
     int32_t result;
     struct virtio_gpu_ctx_create cc;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
@@ -241,9 +325,16 @@ rutabaga_cmd_context_create(VirtIOGPU *g,
     trace_virtio_gpu_cmd_ctx_create(cc.hdr.ctx_id,
                                     cc.debug_name);
 
+    state = rutabaga_context_lookup(vr, cc.hdr.ctx_id);
+    if (state && state->pending_destroy) {
+        rutabaga_context_remove(vr, cc.hdr.ctx_id);
+    }
+
     result = rutabaga_context_create(vr->rutabaga, cc.hdr.ctx_id,
                                      cc.context_init, cc.debug_name, cc.nlen);
     CHECK(!result, cmd);
+
+    rutabaga_context_insert(vr, cc.hdr.ctx_id);
 }
 
 static void
@@ -252,14 +343,23 @@ rutabaga_cmd_context_destroy(VirtIOGPU *g,
 {
     int32_t result;
     struct virtio_gpu_ctx_destroy cd;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
     VIRTIO_GPU_FILL_CMD(cd);
     trace_virtio_gpu_cmd_ctx_destroy(cd.hdr.ctx_id);
 
+    state = rutabaga_context_lookup(vr, cd.hdr.ctx_id);
+    CHECK(state && !state->pending_destroy, cmd);
+
     result = rutabaga_context_destroy(vr->rutabaga, cd.hdr.ctx_id);
     CHECK(!result, cmd);
+
+    state->pending_destroy = true;
+    if (!g_hash_table_size(state->resources)) {
+        rutabaga_context_remove(vr, cd.hdr.ctx_id);
+    }
 }
 
 static void
@@ -272,6 +372,17 @@ rutabaga_cmd_resource_flush(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
     struct iovec transfer_iovec;
     struct virtio_gpu_resource_flush rf;
     bool found = false;
+    pixman_format_code_t format;
+    uint32_t x;
+    uint32_t y;
+    uint32_t w;
+    uint32_t h;
+    uint32_t sx;
+    uint32_t sy;
+    uint32_t ex;
+    uint32_t ey;
+    uint32_t sw;
+    uint32_t sh;
 
     VirtIOGPUBase *vb = VIRTIO_GPU_BASE(g);
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
@@ -286,9 +397,21 @@ rutabaga_cmd_resource_flush(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
     res = virtio_gpu_find_resource(g, rf.resource_id);
     CHECK(res, cmd);
 
+    if (!res->image) {
+        format = virtio_gpu_get_pixman_format(res->format);
+        CHECK(format, cmd);
+
+        res->image = pixman_image_create_bits(format,
+                                              res->width,
+                                              res->height,
+                                              NULL, 0);
+        CHECK(res->image, cmd);
+        pixman_image_ref(res->image);
+    }
+
     for (i = 0; i < vb->conf.max_outputs; i++) {
         scanout = &vb->scanout[i];
-        if (i == res->scanout_bitmask) {
+        if (res->scanout_bitmask & (1 << i)) {
             found = true;
             break;
         }
@@ -296,6 +419,21 @@ rutabaga_cmd_resource_flush(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
 
     if (!found) {
         return;
+    }
+
+    x = rf.r.x;
+    y = rf.r.y;
+    w = rf.r.width;
+    h = rf.r.height;
+
+    if (x >= res->width || y >= res->height || !w || !h) {
+        return;
+    }
+    if (x + w > res->width) {
+        w = res->width - x;
+    }
+    if (y + h > res->height) {
+        h = res->height - y;
     }
 
     transfer.x = 0;
@@ -306,13 +444,26 @@ rutabaga_cmd_resource_flush(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
     transfer.d = 1;
 
     transfer_iovec.iov_base = pixman_image_get_data(res->image);
-    transfer_iovec.iov_len = res->width * res->height * 4;
+    transfer_iovec.iov_len = pixman_image_get_stride(res->image) * res->height;
 
     result = rutabaga_resource_transfer_read(vr->rutabaga, 0,
                                              rf.resource_id, &transfer,
                                              &transfer_iovec);
     CHECK(!result, cmd);
-    dpy_gfx_update_full(scanout->con);
+
+    sx = MAX(x, (uint32_t)scanout->x);
+    sy = MAX(y, (uint32_t)scanout->y);
+    ex = MIN(x + w, (uint32_t)(scanout->x + scanout->width));
+    ey = MIN(y + h, (uint32_t)(scanout->y + scanout->height));
+    if (sx >= ex || sy >= ey) {
+        return;
+    }
+    sw = ex - sx;
+    sh = ey - sy;
+    if (sw && sh) {
+        dpy_gfx_update(scanout->con, sx - scanout->x, sy - scanout->y,
+                       sw, sh);
+    }
 }
 
 static void
@@ -359,12 +510,6 @@ rutabaga_cmd_set_scanout(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
 
     vb->enable = 1;
 
-    /*
-     * Use the scanout rectangle (ss.r) to create the display surface.
-     * The guest may allocate a resource larger than the display (e.g. due
-     * to GPU stride alignment) and set scanout to the visible sub-rect.
-     * Without this, resolutions like 1360x768 show black padding edges.
-     */
     if (ss.r.width && ss.r.height &&
         ss.r.x + ss.r.width <= res->width &&
         ss.r.y + ss.r.height <= res->height) {
@@ -379,7 +524,6 @@ rutabaga_cmd_set_scanout(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
                                         (uint32_t *)ptr, stride);
         CHECK(rect, cmd);
 
-        /* Keep a reference to the underlying resource image */
         pixman_image_ref(res->image);
         pixman_image_set_destroy_function(rect, rutabaga_unref_resource,
                                           res->image);
@@ -387,15 +531,17 @@ rutabaga_cmd_set_scanout(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd)
         scanout->ds = qemu_create_displaysurface_pixman(rect);
         pixman_image_unref(rect);
     } else {
-        /* Fallback: use full resource image */
         scanout->ds = qemu_create_displaysurface_pixman(res->image);
     }
 
     dpy_gfx_replace_surface(scanout->con, NULL);
     dpy_gfx_replace_surface(scanout->con, scanout->ds);
+    scanout->resource_id = res->resource_id;
+    scanout->x = ss.r.x;
+    scanout->y = ss.r.y;
     scanout->width = ss.r.width;
     scanout->height = ss.r.height;
-    res->scanout_bitmask = ss.scanout_id;
+    res->scanout_bitmask |= (1 << ss.scanout_id);
 }
 
 static void
@@ -405,6 +551,7 @@ rutabaga_cmd_submit_3d(VirtIOGPU *g,
     int32_t result;
     struct virtio_gpu_cmd_submit cs;
     struct rutabaga_command rutabaga_cmd = { 0 };
+    struct rutabaga_ctx_state *state;
     g_autofree uint8_t *buf = NULL;
     size_t s;
 
@@ -412,6 +559,9 @@ rutabaga_cmd_submit_3d(VirtIOGPU *g,
 
     VIRTIO_GPU_FILL_CMD(cs);
     trace_virtio_gpu_cmd_ctx_submit(cs.hdr.ctx_id, cs.size);
+
+    state = rutabaga_context_lookup(vr, cs.hdr.ctx_id);
+    CHECK(state && !state->pending_destroy, cmd);
 
     buf = g_new0(uint8_t, cs.size);
     s = iov_to_buf(cmd->elem.out_sg, cmd->elem.out_num,
@@ -458,11 +608,15 @@ rutabaga_cmd_transfer_to_host_3d(VirtIOGPU *g,
     int32_t result;
     struct rutabaga_transfer transfer = { 0 };
     struct virtio_gpu_transfer_host_3d t3d;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
     VIRTIO_GPU_FILL_CMD(t3d);
     trace_virtio_gpu_cmd_res_xfer_toh_3d(t3d.resource_id);
+
+    state = rutabaga_context_lookup(vr, t3d.hdr.ctx_id);
+    CHECK(state && !state->pending_destroy, cmd);
 
     transfer.x = t3d.box.x;
     transfer.y = t3d.box.y;
@@ -487,11 +641,15 @@ rutabaga_cmd_transfer_from_host_3d(VirtIOGPU *g,
     int32_t result;
     struct rutabaga_transfer transfer = { 0 };
     struct virtio_gpu_transfer_host_3d t3d;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
     VIRTIO_GPU_FILL_CMD(t3d);
     trace_virtio_gpu_cmd_res_xfer_fromh_3d(t3d.resource_id);
+
+    state = rutabaga_context_lookup(vr, t3d.hdr.ctx_id);
+    CHECK(state && !state->pending_destroy, cmd);
 
     transfer.x = t3d.box.x;
     transfer.y = t3d.box.y;
@@ -568,6 +726,7 @@ rutabaga_cmd_ctx_attach_resource(VirtIOGPU *g,
 {
     int32_t result;
     struct virtio_gpu_ctx_resource att_res;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
@@ -575,9 +734,14 @@ rutabaga_cmd_ctx_attach_resource(VirtIOGPU *g,
     trace_virtio_gpu_cmd_ctx_res_attach(att_res.hdr.ctx_id,
                                         att_res.resource_id);
 
+    state = rutabaga_context_lookup(vr, att_res.hdr.ctx_id);
+    CHECK(state && !state->pending_destroy, cmd);
+
     result = rutabaga_context_attach_resource(vr->rutabaga, att_res.hdr.ctx_id,
                                               att_res.resource_id);
     CHECK(!result, cmd);
+
+    g_hash_table_add(state->resources, GUINT_TO_POINTER(att_res.resource_id));
 }
 
 static void
@@ -586,6 +750,7 @@ rutabaga_cmd_ctx_detach_resource(VirtIOGPU *g,
 {
     int32_t result;
     struct virtio_gpu_ctx_resource det_res;
+    struct rutabaga_ctx_state *state;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
@@ -593,9 +758,24 @@ rutabaga_cmd_ctx_detach_resource(VirtIOGPU *g,
     trace_virtio_gpu_cmd_ctx_res_detach(det_res.hdr.ctx_id,
                                         det_res.resource_id);
 
-    result = rutabaga_context_detach_resource(vr->rutabaga, det_res.hdr.ctx_id,
-                                              det_res.resource_id);
-    CHECK(!result, cmd);
+    state = rutabaga_context_lookup(vr, det_res.hdr.ctx_id);
+    CHECK(state, cmd);
+    CHECK(g_hash_table_contains(state->resources,
+                                GUINT_TO_POINTER(det_res.resource_id)), cmd);
+
+    if (!state->pending_destroy) {
+        result = rutabaga_context_detach_resource(vr->rutabaga,
+                                                  det_res.hdr.ctx_id,
+                                                  det_res.resource_id);
+        CHECK(!result, cmd);
+    }
+
+    g_hash_table_remove(state->resources,
+                        GUINT_TO_POINTER(det_res.resource_id));
+
+    if (state->pending_destroy && !g_hash_table_size(state->resources)) {
+        rutabaga_context_remove(vr, det_res.hdr.ctx_id);
+    }
 }
 
 static void
@@ -661,6 +841,7 @@ rutabaga_cmd_resource_create_blob(VirtIOGPU *g,
     g_autofree struct virtio_gpu_simple_resource *res = NULL;
     struct virtio_gpu_resource_create_blob cblob;
     struct rutabaga_create_blob rc_blob = { 0 };
+    struct rutabaga_ctx_state *state = NULL;
 
     VirtIOGPURutabaga *vr = VIRTIO_GPU_RUTABAGA(g);
 
@@ -668,6 +849,10 @@ rutabaga_cmd_resource_create_blob(VirtIOGPU *g,
     trace_virtio_gpu_cmd_res_create_blob(cblob.resource_id, cblob.size);
 
     CHECK(cblob.resource_id != 0, cmd);
+    if (cblob.hdr.ctx_id) {
+        state = rutabaga_context_lookup(vr, cblob.hdr.ctx_id);
+        CHECK(state && !state->pending_destroy, cmd);
+    }
 
     res = g_new0(struct virtio_gpu_simple_resource, 1);
 
@@ -789,26 +974,8 @@ rutabaga_cmd_resource_unmap_blob(VirtIOGPU *g,
     res = virtio_gpu_find_resource(g, ublob.resource_id);
     CHECK(res, cmd);
 
-    /*
-     * Gunyah workaround: DON'T actually unmap blob resources.
-     *
-     * On Gunyah, the hostmem BAR sub-regions are SHARE'd with the guest.
-     * Once SHARE'd, the mapping is permanent — we can't re-SHARE different
-     * pages at the same GPA later. If we unmap now and a new blob is created
-     * at the same BAR offset, the new blob's pages won't match the SHARE'd
-     * pages, causing the guest to read stale data.
-     *
-     * By keeping blobs alive, each new blob gets a fresh BAR offset.
-     * The 256MB hostmem BAR has room for many ~1MB ASG ring buffers.
-     *
-     * The guest kernel still processes the UNMAP response normally,
-     * unmapping the blob from userspace and freeing the GPA range for reuse
-     * (but the host-side memory and SHARE persist).
-     */
-    error_report(gh"UNMAP_BLOB resource_id=%u — keeping alive (Gunyah SHARE)",
+    error_report("UNMAP_BLOB resource_id=%u — keeping alive (Gunyah SHARE)",
                  ublob.resource_id);
-    /* Don't remove sub-region, don't unmap resource, don't free slot.
-     * The slot stays "used" so it won't be reused. */
 }
 
 static void
@@ -1147,9 +1314,6 @@ static void virtio_gpu_rutabaga_realize(DeviceState *qdev, Error **errp)
     }
 
     num_capsets = virtio_gpu_rutabaga_get_num_capsets(gpudev);
-    if (!num_capsets) {
-        return;
-    }
 
     bdev->conf.flags |= (1 << VIRTIO_GPU_FLAG_RUTABAGA_ENABLED);
     bdev->conf.flags |= (1 << VIRTIO_GPU_FLAG_BLOB_ENABLED);
