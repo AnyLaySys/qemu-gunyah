@@ -24,7 +24,6 @@
 
 #include "qemu/osdep.h"
 #include "exec/cpu-common.h"
-#include "hw/display/vga.h"
 #include "hw/loader.h"
 #include "hw/xen/xen.h"
 #include "net/net.h"
@@ -41,14 +40,11 @@ bool is_mlock_on_fault(MlockState state)
     return state == MLOCK_ON_FAULT;
 }
 
-enum vga_retrace_method vga_retrace_method = VGA_RETRACE_DUMB;
 int display_opengl;
 const char* keyboard_layout;
 MlockState mlock_state;
 bool enable_cpu_pm;
 int autostart = 1;
-int vga_interface_type = VGA_NONE;
-bool vga_interface_created;
 Chardev *parallel_hds[MAX_PARALLEL_PORTS];
 QEMUOptionRom option_rom[MAX_OPTION_ROMS];
 int nb_option_roms;

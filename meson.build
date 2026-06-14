@@ -300,7 +300,7 @@ accelerator_targets += { 'CONFIG_XEN': xen_targets }
 if cpu == 'aarch64'
   accelerator_targets += {
     'CONFIG_HVF': ['aarch64-softmmu'],
-    'CONFIG_GUNYAH': ['aarch64-softmmu']
+    'CONFIG_GH': ['aarch64-softmmu']
   }
 elif cpu == 'x86_64'
   accelerator_targets += {
@@ -844,7 +844,7 @@ endif
 
 accelerators = []
 if get_option('gunyah').allowed() and host_os == 'linux'
-  accelerators += 'CONFIG_GUNYAH'
+  accelerators += 'CONFIG_GH'
 endif
 if get_option('whpx').allowed() and host_os == 'windows'
   if get_option('whpx').enabled() and host_machine.cpu() != 'x86_64'
@@ -899,7 +899,7 @@ if get_option('tcg').allowed()
   accelerators += 'CONFIG_TCG'
 endif
 
-if 'CONFIG_GUNYAH' not in accelerators and get_option('gunyah').enabled()
+if 'CONFIG_GH' not in accelerators and get_option('gunyah').enabled()
   error('Gunyah not available on this platform')
 endif
 if 'CONFIG_HVF' not in accelerators and get_option('hvf').enabled()
@@ -1362,12 +1362,6 @@ if not get_option('virglrenderer').auto() or have_system or have_vhost_user_gpu
   virgl = dependency('virglrenderer',
                      method: 'pkg-config',
                      required: get_option('virglrenderer'))
-endif
-rutabaga = not_found
-if not get_option('rutabaga_gfx').auto() or have_system or have_vhost_user_gpu
-  rutabaga = dependency('rutabaga_gfx_ffi',
-                         method: 'pkg-config',
-                         required: get_option('rutabaga_gfx'))
 endif
 blkio = not_found
 if not get_option('blkio').auto() or have_block
@@ -4441,26 +4435,6 @@ summary_info += {'Source path':       meson.current_source_dir()}
 summary_info += {'Download dependencies': get_option('wrap_mode') != 'nodownload'}
 summary(summary_info, bool_yn: true, section: 'Build environment')
 
-# Directories
-summary_info += {'Install prefix':    get_option('prefix')}
-summary_info += {'BIOS directory':    qemu_datadir}
-pathsep = host_os == 'windows' ? ';' : ':'
-summary_info += {'firmware path':     pathsep.join(get_option('qemu_firmwarepath'))}
-summary_info += {'binary directory':  get_option('prefix') / get_option('bindir')}
-summary_info += {'library directory': get_option('prefix') / get_option('libdir')}
-summary_info += {'module directory':  qemu_moddir}
-summary_info += {'libexec directory': get_option('prefix') / get_option('libexecdir')}
-summary_info += {'include directory': get_option('prefix') / get_option('includedir')}
-summary_info += {'config directory':  get_option('prefix') / get_option('sysconfdir')}
-if host_os != 'windows'
-  summary_info += {'local state directory': get_option('prefix') / get_option('localstatedir')}
-  summary_info += {'Manual directory':      get_option('prefix') / get_option('mandir')}
-else
-  summary_info += {'local state directory': 'queried at runtime'}
-endif
-summary_info += {'Doc directory':     get_option('prefix') / get_option('docdir')}
-summary(summary_info, bool_yn: true, section: 'Directories')
-
 # Host binaries
 summary_info = {}
 summary_info += {'python':            '@0@ (version: @1@)'.format(python.full_path(), python.language_version())}
@@ -4481,37 +4455,6 @@ if slirp.found() and have_system
   summary_info += {'smbd':            have_slirp_smbd ? smbd_path : false}
 endif
 summary(summary_info, bool_yn: true, section: 'Host binaries')
-
-# Configurable features
-summary_info = {}
-summary_info += {'Documentation':     get_option('docs').enabled()}
-summary_info += {'system-mode emulation': have_system}
-summary_info += {'user-mode emulation': have_user}
-summary_info += {'block layer':       have_block}
-summary_info += {'Install blobs':     get_option('install_blobs')}
-summary_info += {'module support':    enable_modules}
-if enable_modules
-  summary_info += {'alternative module path': get_option('module_upgrades')}
-endif
-summary_info += {'fuzzing support':   get_option('fuzzing')}
-if have_system
-  summary_info += {'Audio drivers':     ' '.join(audio_drivers_selected)}
-endif
-summary_info += {'Trace backends':    ','.join(get_option('trace_backends'))}
-if 'simple' in get_option('trace_backends')
-  summary_info += {'Trace output file': get_option('trace_file') + '-<pid>'}
-endif
-summary_info += {'D-Bus display':     dbus_display}
-summary_info += {'QOM debugging':     get_option('qom_cast_debug')}
-summary_info += {'Relocatable install': get_option('relocatable')}
-summary_info += {'vhost-kernel support': have_vhost_kernel}
-summary_info += {'vhost-net support': have_vhost_net}
-summary_info += {'vhost-user support': have_vhost_user}
-summary_info += {'vhost-user-crypto support': have_vhost_user_crypto}
-summary_info += {'vhost-user-blk server support': have_vhost_user_blk_server}
-summary_info += {'vhost-vdpa support': have_vhost_vdpa}
-summary_info += {'build guest agent': have_ga}
-summary(summary_info, bool_yn: true, section: 'Configurable features')
 
 # Compilation information
 summary_info = {}
@@ -4582,27 +4525,10 @@ summary_info += {'sparse':            sparse}
 summary_info += {'mingw32 support':   host_os == 'windows'}
 summary(summary_info, bool_yn: true, section: 'Compilation')
 
-# snarf the cross-compilation information for tests
-summary_info = {}
-have_cross = false
-foreach target: target_dirs
-  tcg_mak = meson.current_build_dir() / 'tests/tcg' / target / 'config-target.mak'
-  if fs.exists(tcg_mak)
-    config_cross_tcg = keyval.load(tcg_mak)
-    if 'CC' in config_cross_tcg
-      summary_info += {config_cross_tcg['TARGET_NAME']: config_cross_tcg['CC']}
-      have_cross = true
-    endif
-  endif
-endforeach
-if have_cross
-  summary(summary_info, bool_yn: true, section: 'Cross compilers')
-endif
-
 # Targets and accelerators
 summary_info = {}
 if have_system
-  summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GUNYAH')}
+  summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GH')}
   summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
   summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
   summary_info += {'NVMM support':      config_all_accel.has_key('CONFIG_NVMM')}
@@ -4659,25 +4585,17 @@ if have_block
 endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
 
-# Crypto
+# Network backends
 summary_info = {}
-summary_info += {'TLS priority':      get_option('tls_priority')}
-summary_info += {'GNUTLS support':    gnutls}
-if gnutls.found()
-  summary_info += {'  GNUTLS crypto':   gnutls_crypto.found()}
+if host_os == 'darwin'
+  summary_info += {'vmnet.framework support': vmnet}
 endif
-summary_info += {'libgcrypt':         gcrypt}
-summary_info += {'nettle':            nettle}
-if nettle.found()
-   summary_info += {'  XTS':             xts != 'private'}
-endif
-summary_info += {'SM4 ALG support':   crypto_sm4}
-summary_info += {'SM3 ALG support':   crypto_sm3}
-summary_info += {'AF_ALG support':    have_afalg}
-summary_info += {'rng-none':          get_option('rng_none')}
-summary_info += {'Linux keyring':     have_keyring}
-summary_info += {'Linux keyutils':    keyutils}
-summary(summary_info, bool_yn: true, section: 'Crypto')
+summary_info += {'AF_XDP support':    libxdp}
+summary_info += {'slirp support':     slirp}
+summary_info += {'vde support':       vde}
+summary_info += {'netmap support':    have_netmap}
+summary_info += {'l2tpv3 support':    have_l2tpv3}
+summary(summary_info, bool_yn: true, section: 'Network backends')
 
 # UI
 summary_info = {}
@@ -4706,7 +4624,6 @@ summary(summary_info, bool_yn: true, section: 'User interface')
 # Graphics backends
 summary_info = {}
 summary_info += {'VirGL support':     virgl}
-summary_info += {'Rutabaga support':  rutabaga}
 summary(summary_info, bool_yn: true, section: 'Graphics backends')
 
 # Audio backends
@@ -4727,17 +4644,25 @@ summary_info += {'PipeWire support':  pipewire}
 summary_info += {'JACK support':      jack}
 summary(summary_info, bool_yn: true, section: 'Audio backends')
 
-# Network backends
+# Crypto
 summary_info = {}
-if host_os == 'darwin'
-  summary_info += {'vmnet.framework support': vmnet}
+summary_info += {'TLS priority':      get_option('tls_priority')}
+summary_info += {'GNUTLS support':    gnutls}
+if gnutls.found()
+  summary_info += {'  GNUTLS crypto':   gnutls_crypto.found()}
 endif
-summary_info += {'AF_XDP support':    libxdp}
-summary_info += {'slirp support':     slirp}
-summary_info += {'vde support':       vde}
-summary_info += {'netmap support':    have_netmap}
-summary_info += {'l2tpv3 support':    have_l2tpv3}
-summary(summary_info, bool_yn: true, section: 'Network backends')
+summary_info += {'libgcrypt':         gcrypt}
+summary_info += {'nettle':            nettle}
+if nettle.found()
+   summary_info += {'  XTS':             xts != 'private'}
+endif
+summary_info += {'SM4 ALG support':   crypto_sm4}
+summary_info += {'SM3 ALG support':   crypto_sm3}
+summary_info += {'AF_ALG support':    have_afalg}
+summary_info += {'rng-none':          get_option('rng_none')}
+summary_info += {'Linux keyring':     have_keyring}
+summary_info += {'Linux keyutils':    keyutils}
+summary(summary_info, bool_yn: true, section: 'Crypto')
 
 # Libraries
 summary_info = {}
@@ -4798,6 +4723,59 @@ if host_os == 'darwin'
   summary_info += {'ParavirtualizedGraphics support': pvg}
 endif
 summary(summary_info, bool_yn: true, section: 'Dependencies')
+
+# Configurable features
+summary_info = {}
+summary_info += {'Documentation':     get_option('docs').enabled()}
+summary_info += {'system-mode emulation': have_system}
+summary_info += {'user-mode emulation': have_user}
+summary_info += {'block layer':       have_block}
+summary_info += {'Install blobs':     get_option('install_blobs')}
+summary_info += {'module support':    enable_modules}
+if enable_modules
+  summary_info += {'alternative module path': get_option('module_upgrades')}
+endif
+summary_info += {'fuzzing support':   get_option('fuzzing')}
+if have_system
+  summary_info += {'Audio drivers':     ' '.join(audio_drivers_selected)}
+endif
+summary_info += {'Trace backends':    ','.join(get_option('trace_backends'))}
+if 'simple' in get_option('trace_backends')
+  summary_info += {'Trace output file': get_option('trace_file') + '-<pid>'}
+endif
+summary_info += {'D-Bus display':     dbus_display}
+summary_info += {'QOM debugging':     get_option('qom_cast_debug')}
+summary_info += {'Relocatable install': get_option('relocatable')}
+summary_info += {'vhost-kernel support': have_vhost_kernel}
+summary_info += {'vhost-net support': have_vhost_net}
+summary_info += {'vhost-user support': have_vhost_user}
+summary_info += {'vhost-user-crypto support': have_vhost_user_crypto}
+summary_info += {'vhost-user-blk server support': have_vhost_user_blk_server}
+summary_info += {'vhost-vdpa support': have_vhost_vdpa}
+summary_info += {'build guest agent': have_ga}
+summary(summary_info, bool_yn: true, section: 'Configurable features')
+
+# Directories
+summary_info = {}
+summary_info += {'Install prefix':    get_option('prefix')}
+summary_info += {'BIOS directory':    qemu_datadir}
+pathsep = host_os == 'windows' ? ';' : ':'
+summary_info += {'firmware path':     pathsep.join(get_option('qemu_firmwarepath'))}
+summary_info += {'binary directory':  get_option('prefix') / get_option('bindir')}
+summary_info += {'library directory': get_option('prefix') / get_option('libdir')}
+summary_info += {'module directory':  qemu_moddir}
+summary_info += {'libexec directory': get_option('prefix') / get_option('libexecdir')}
+summary_info += {'include directory': get_option('prefix') / get_option('includedir')}
+summary_info += {'config directory':  get_option('prefix') / get_option('sysconfdir')}
+if host_os != 'windows'
+  summary_info += {'local state directory': get_option('prefix') / get_option('localstatedir')}
+  summary_info += {'Manual directory':      get_option('prefix') / get_option('mandir')}
+else
+  summary_info += {'local state directory': 'queried at runtime'}
+endif
+summary_info += {'Doc directory':     get_option('prefix') / get_option('docdir')}
+summary(summary_info, bool_yn: true, section: 'Directories')
+
 
 if host_arch == 'unknown'
   message()

@@ -184,25 +184,7 @@ ISABus *isa_bus_from_device(ISADevice *dev)
 
 ISADevice *isa_vga_init(ISABus *bus)
 {
-    vga_interface_created = true;
-    switch (vga_interface_type) {
-    case VGA_CIRRUS:
-        return isa_create_simple(bus, "isa-cirrus-vga");
-    case VGA_QXL:
-        error_report("%s: qxl: no PCI bus", __func__);
-        return NULL;
-    case VGA_STD:
-        return isa_create_simple(bus, "isa-vga");
-    case VGA_VMWARE:
-        error_report("%s: vmware_vga: no PCI bus", __func__);
-        return NULL;
-    case VGA_VIRTIO:
-        error_report("%s: virtio-vga: no PCI bus", __func__);
-        return NULL;
-    case VGA_NONE:
-    default:
-        return NULL;
-    }
+    return NULL;
 }
 
 static void isabus_bridge_class_init(ObjectClass *klass, void *data)

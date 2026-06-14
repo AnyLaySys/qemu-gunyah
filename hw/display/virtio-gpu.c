@@ -1066,10 +1066,8 @@ void virtio_gpu_simple_process_cmd(VirtIOGPU *g,
         break;
     }
     if (!cmd->finished) {
-        if (!g->parent_obj.renderer_blocked) {
-            virtio_gpu_ctrl_response_nodata(g, cmd, cmd->error ? cmd->error :
-                                            VIRTIO_GPU_RESP_OK_NODATA);
-        }
+        virtio_gpu_ctrl_response_nodata(g, cmd, cmd->error ? cmd->error :
+                                        VIRTIO_GPU_RESP_OK_NODATA);
     }
 }
 
@@ -1096,10 +1094,6 @@ void virtio_gpu_process_cmdq(VirtIOGPU *g)
     g->processing_cmdq = true;
     while (!QTAILQ_EMPTY(&g->cmdq)) {
         cmd = QTAILQ_FIRST(&g->cmdq);
-
-        if (g->parent_obj.renderer_blocked) {
-            break;
-        }
 
         /* process command */
         vgc->process_cmd(g, cmd);
@@ -1129,30 +1123,6 @@ void virtio_gpu_process_cmdq(VirtIOGPU *g)
         }
     }
     g->processing_cmdq = false;
-}
-
-static void virtio_gpu_process_fenceq(VirtIOGPU *g)
-{
-    struct virtio_gpu_ctrl_command *cmd, *tmp;
-
-    QTAILQ_FOREACH_SAFE(cmd, &g->fenceq, next, tmp) {
-        trace_virtio_gpu_fence_resp(cmd->cmd_hdr.fence_id);
-        virtio_gpu_ctrl_response_nodata(g, cmd, VIRTIO_GPU_RESP_OK_NODATA);
-        QTAILQ_REMOVE(&g->fenceq, cmd, next);
-        g_free(cmd);
-        g->inflight--;
-        if (virtio_gpu_stats_enabled(g->parent_obj.conf)) {
-            trace_virtio_gpu_dec_inflight_fences(g->inflight);
-        }
-    }
-}
-
-static void virtio_gpu_handle_gl_flushed(VirtIOGPUBase *b)
-{
-    VirtIOGPU *g = container_of(b, VirtIOGPU, parent_obj);
-
-    virtio_gpu_process_fenceq(g);
-    virtio_gpu_process_cmdq(g);
 }
 
 static void virtio_gpu_handle_ctrl(VirtIODevice *vdev, VirtQueue *vq)
@@ -1530,36 +1500,10 @@ void virtio_gpu_device_realize(DeviceState *qdev, Error **errp)
     VirtIOGPU *g = VIRTIO_GPU(qdev);
 
     if (virtio_gpu_blob_enabled(g->parent_obj.conf)) {
-        if (!virtio_gpu_rutabaga_enabled(g->parent_obj.conf) &&
-            !virtio_gpu_virgl_enabled(g->parent_obj.conf) &&
-            !virtio_gpu_have_udmabuf()) {
-            error_setg(errp, "need rutabaga or udmabuf for blob resources");
+        if (!virtio_gpu_have_udmabuf()) {
+            error_setg(errp, "need udmabuf for blob resources");
             return;
         }
-
-#ifdef VIRGL_VERSION_MAJOR
-    #if VIRGL_VERSION_MAJOR < 1
-        if (virtio_gpu_virgl_enabled(g->parent_obj.conf)) {
-            error_setg(errp, "old virglrenderer, blob resources unsupported");
-            return;
-        }
-    #endif
-#endif
-    }
-
-    if (virtio_gpu_venus_enabled(g->parent_obj.conf)) {
-#ifdef VIRGL_VERSION_MAJOR
-    #if VIRGL_VERSION_MAJOR >= 1
-        if (!virtio_gpu_blob_enabled(g->parent_obj.conf) ||
-            !virtio_gpu_hostmem_enabled(g->parent_obj.conf)) {
-            error_setg(errp, "venus requires enabled blob and hostmem options");
-            return;
-        }
-    #else
-        error_setg(errp, "old virglrenderer, venus unsupported");
-        return;
-    #endif
-#endif
     }
 
     if (!virtio_gpu_base_device_realize(qdev,
@@ -1746,13 +1690,11 @@ static void virtio_gpu_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     VirtioDeviceClass *vdc = VIRTIO_DEVICE_CLASS(klass);
     VirtIOGPUClass *vgc = VIRTIO_GPU_CLASS(klass);
-    VirtIOGPUBaseClass *vgbc = &vgc->parent;
 
     vgc->handle_ctrl = virtio_gpu_handle_ctrl;
     vgc->process_cmd = virtio_gpu_simple_process_cmd;
     vgc->update_cursor_data = virtio_gpu_update_cursor_data;
     vgc->resource_destroy = virtio_gpu_resource_destroy;
-    vgbc->gl_flushed = virtio_gpu_handle_gl_flushed;
 
     vdc->realize = virtio_gpu_device_realize;
     vdc->unrealize = virtio_gpu_device_unrealize;

@@ -2,7 +2,7 @@ config ARM_VIRT
     bool
     default y
     depends on ARM
-    depends on TCG || KVM || HVF
+    depends on GH || KVM || HVF
     imply PCI_DEVICES
     imply TEST_DEVICES
     imply VFIO_AMD_XGBE
@@ -15,7 +15,6 @@ config ARM_VIRT
     select ARM_SMMUV3
     select GPIO_KEY
     select DEVICE_TREE
-    select FW_CFG_DMA
     select PCI_EXPRESS
     select PCI_EXPRESS_GENERIC_BRIDGE
     select PFLASH_CFI01
@@ -86,7 +85,6 @@ config INTEGRATOR
     select PL031 # RTC
     select PL041 # audio
     select PL050 # keyboard/mouse
-    select PL110 # pl111 LCD controller
     select PL181 # display
     select SMC91C111
 
@@ -140,7 +138,6 @@ config OLIMEX_STM32_H405
 
 config OMAP
     bool
-    select FRAMEBUFFER
     select I2C
     select NAND
     select PFLASH_CFI01
@@ -170,7 +167,6 @@ config REALVIEW
     select PL050  # keyboard/mouse
     select PL061  # GPIO
     select PL080  # DMA controller
-    select PL110
     select PL181  # display
     select PL310  # cache controller
     select ARM_SBCON_I2C
@@ -194,7 +190,6 @@ config SBSA_REF
     select PL061 # GPIO
     select USB_XHCI_SYSBUS
     select WDT_SBSA
-    select BOCHS_DISPLAY
     select IDE_BUS
     select IDE_DEV
 
@@ -216,8 +211,6 @@ config STELLARIS
     select PL011 # UART
     select PL022 # SPI
     select PL061 # GPIO
-    select SSD0303 # OLED display
-    select SSD0323 # OLED display
     select SSI_SD
     select STELLARIS_GAMEPAD
     select STELLARIS_ENET # ethernet
@@ -277,7 +270,6 @@ config VEXPRESS
     select PL041 # audio codec
     select PL181  # display
     select REALVIEW
-    select SII9022
     select VIRTIO_MMIO
 
 config ZYNQ
@@ -356,7 +348,6 @@ config RASPI
     bool
     default y
     depends on TCG && ARM
-    select FRAMEBUFFER
     select PL011 # UART
     select SDHCI
     select USB_DWC2
@@ -392,7 +383,6 @@ config B_L475E_IOT01A
     default y
     depends on TCG && ARM
     select STM32L4X5_SOC
-    imply DM163
 
 config STM32L4X5_SOC
     bool
@@ -413,7 +403,6 @@ config XLNX_ZYNQMP_ARM
     select CADENCE
     select CPU_CLUSTER
     select DDC
-    select DPCD
     select DEVICE_TREE
     select SDHCI
     select SSI
@@ -421,7 +410,6 @@ config XLNX_ZYNQMP_ARM
     select XILINX_AXI
     select XILINX_SPIPS
     select XLNX_CSU_DMA
-    select XLNX_DISPLAYPORT
     select XLNX_ZYNQMP
     select XLNX_ZDMA
     select USB_DWC3

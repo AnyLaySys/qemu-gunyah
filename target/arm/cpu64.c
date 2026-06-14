@@ -513,8 +513,6 @@ static Property arm_cpu_pauth_qarma5_property =
 
 void aarch64_add_pauth_properties(Object *obj)
 {
-    ARMCPU *cpu = ARM_CPU(obj);
-
     /* Default to PAUTH on, with the architected algorithm on TCG. */
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_property);
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_impdef_property);
@@ -666,7 +664,7 @@ static void aarch64_a53_initfn(Object *obj)
 
 static void aarch64_host_initfn(Object *obj)
 {
-#if defined(CONFIG_GUNYAH)
+#if defined(CONFIG_GH)
     if (gunyah_enabled()) {
         /*
          * Gunyah hypervisor passes through host CPU features transparently.
@@ -701,7 +699,7 @@ static const ARMCPUInfo aarch64_cpus[] = {
     { .name = "cortex-a57",         .initfn = aarch64_a57_initfn },
     { .name = "cortex-a53",         .initfn = aarch64_a53_initfn },
     { .name = "max",                .initfn = aarch64_max_initfn },
-#if defined(CONFIG_GUNYAH)
+#if defined(CONFIG_GH)
     { .name = "host",               .initfn = aarch64_host_initfn },
 #endif
 };

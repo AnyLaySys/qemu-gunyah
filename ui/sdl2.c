@@ -1,27 +1,5 @@
-/*
- * QEMU SDL display driver
- *
- * Copyright (c) 2003 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-/* Ported SDL 1.2 code to 2.0 by Dave Airlie. */
+
+
 
 #include "qemu/osdep.h"
 #include "qemu/module.h"
@@ -39,7 +17,7 @@ static int sdl2_num_outputs;
 static struct sdl2_console *sdl2_console;
 
 static SDL_Surface *guest_sprite_surface;
-static int gui_grab; /* if true, all keyboard/mouse events are grabbed */
+static int gui_grab; 
 static bool alt_grab;
 static bool ctrl_grab;
 
@@ -58,7 +36,7 @@ static Notifier mouse_mode_notifier;
 #define SDL2_MAX_IDLE_COUNT (2 * GUI_REFRESH_INTERVAL_DEFAULT \
                              / SDL2_REFRESH_INTERVAL_BUSY + 1)
 
-/* introduced in SDL 2.0.10 */
+
 #ifndef SDL_HINT_RENDER_BATCHING
 #define SDL_HINT_RENDER_BATCHING "SDL_RENDER_BATCHING"
 #endif
@@ -166,7 +144,7 @@ void sdl2_window_create(struct sdl2_console *scon)
         scon->winctx = SDL_GL_CreateContext(scon->real_window);
         SDL_GL_SetSwapInterval(0);
     } else {
-        /* The SDL renderer is only used by sdl2-2D, when OpenGL is disabled */
+        
         scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
     }
     sdl_update_caption(scon);
@@ -303,11 +281,7 @@ static void sdl_grab_start(struct sdl2_console *scon)
     if (!con || !qemu_console_is_graphic(con)) {
         return;
     }
-    /*
-     * If the application is not active, do not try to enter grab state. This
-     * prevents 'SDL_WM_GrabInput(SDL_GRAB_ON)' from blocking all the
-     * application (SDL bug).
-     */
+    
     if (!(SDL_GetWindowFlags(scon->real_window) & SDL_WINDOW_INPUT_FOCUS)) {
         return;
     }
@@ -483,7 +457,7 @@ static void handle_keydown(SDL_Event *ev)
         case SDL_SCANCODE_U:
             sdl2_window_resize(scon);
             if (!scon->opengl) {
-                /* re-create scon->texture */
+                
                 sdl2_2d_switch(&scon->dcl, scon->surface);
             }
             scon->gui_keysym = true;
@@ -587,7 +561,7 @@ static void handle_mousebutton(SDL_Event *ev)
     bev = &ev->button;
     if (!gui_grab && !qemu_input_is_absolute(scon->dcl.con)) {
         if (ev->type == SDL_MOUSEBUTTONUP && bev->button == SDL_BUTTON_LEFT) {
-            /* start grabbing all events */
+            
             sdl_grab_start(scon);
         }
     } else {
@@ -652,18 +626,12 @@ static void handle_windowevent(SDL_Event *ev)
         sdl2_redraw(scon);
         break;
     case SDL_WINDOWEVENT_FOCUS_GAINED:
-        /* fall through */
+        
     case SDL_WINDOWEVENT_ENTER:
         if (!gui_grab && (qemu_input_is_absolute(scon->dcl.con) || absolute_enabled)) {
             absolute_mouse_grab(scon);
         }
-        /* If a new console window opened using a hotkey receives the
-         * focus, SDL sends another KEYDOWN event to the new window,
-         * closing the console window immediately after.
-         *
-         * Work around this by ignoring further hotkey events until a
-         * key is released.
-         */
+        
         scon->ignore_hotkeys = get_mod_state();
         break;
     case SDL_WINDOWEVENT_FOCUS_LOST:
@@ -889,8 +857,6 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
     uint8_t data = 0;
     int i;
     SDL_SysWMinfo info;
-    SDL_Surface *icon = NULL;
-    char *dir;
 
     assert(o->type == DISPLAY_TYPE_SDL);
 
@@ -903,7 +869,7 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
                 SDL_GetError());
         exit(1);
     }
-#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR /* only available since SDL 2.0.8 */
+#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR 
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 #endif
     SDL_SetHint(SDL_HINT_GRAB_KEYBOARD, "1");
@@ -977,7 +943,7 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
     dir = get_relocated_path(CONFIG_QEMU_ICONDIR "/hicolor/128x128/apps/qemu.png");
     icon = IMG_Load(dir);
 #else
-    /* Load a 32x32x4 image. White pixels are transparent. */
+    
     dir = get_relocated_path(CONFIG_QEMU_ICONDIR "/hicolor/32x32/apps/qemu.bmp");
     icon = SDL_LoadBMP(dir);
     if (icon) {
@@ -1003,7 +969,7 @@ static void sdl2_display_init(DisplayState *ds, DisplayOptions *o)
 
     atexit(sdl_cleanup);
 
-    /* SDL's event polling (in dpy_refresh) must happen on the main thread. */
+    
     qemu_main = NULL;
 }
 

@@ -55,7 +55,6 @@
 #include "hw/isa/isa.h"
 #include "hw/scsi/scsi.h"
 #include "hw/sd/sd.h"
-#include "hw/display/vga.h"
 #include "hw/firmware/smbios.h"
 #include "hw/acpi/acpi.h"
 #include "hw/xen/xen.h"
@@ -213,17 +212,6 @@ static const struct {
     { .driver = "ide-hd",               .flag = &default_cdrom     },
     { .driver = "scsi-cd",              .flag = &default_cdrom     },
     { .driver = "scsi-hd",              .flag = &default_cdrom     },
-    { .driver = "VGA",                  .flag = &default_vga       },
-    { .driver = "isa-vga",              .flag = &default_vga       },
-    { .driver = "cirrus-vga",           .flag = &default_vga       },
-    { .driver = "isa-cirrus-vga",       .flag = &default_vga       },
-    { .driver = "vmware-svga",          .flag = &default_vga       },
-    { .driver = "qxl-vga",              .flag = &default_vga       },
-    { .driver = "virtio-vga",           .flag = &default_vga       },
-    { .driver = "ati-vga",              .flag = &default_vga       },
-    { .driver = "vhost-user-vga",       .flag = &default_vga       },
-    { .driver = "virtio-vga-gl",        .flag = &default_vga       },
-    { .driver = "virtio-vga-rutabaga",  .flag = &default_vga       },
 };
 
 static QemuOptsList qemu_rtc_opts = {
@@ -931,153 +919,30 @@ static const QEMUOption qemu_options[] = {
     { /* end of list */ }
 };
 
-typedef struct VGAInterfaceInfo {
-    const char *opt_name;    /* option name */
-    const char *name;        /* human-readable name */
-    /* Class names indicating that support is available.
-     * If no class is specified, the interface is always available */
-    const char *class_names[2];
-} VGAInterfaceInfo;
-
-static const VGAInterfaceInfo vga_interfaces[VGA_TYPE_MAX] = {
-    [VGA_NONE] = {
-        .opt_name = "none",
-        .name = "no graphic card",
-    },
-    [VGA_STD] = {
-        .opt_name = "std",
-        .name = "standard VGA",
-        .class_names = { "VGA", "isa-vga" },
-    },
-    [VGA_CIRRUS] = {
-        .opt_name = "cirrus",
-        .name = "Cirrus VGA",
-        .class_names = { "cirrus-vga", "isa-cirrus-vga" },
-    },
-    [VGA_VMWARE] = {
-        .opt_name = "vmware",
-        .name = "VMWare SVGA",
-        .class_names = { "vmware-svga" },
-    },
-    [VGA_VIRTIO] = {
-        .opt_name = "virtio",
-        .name = "Virtio VGA",
-        .class_names = { "virtio-vga" },
-    },
-    [VGA_QXL] = {
-        .opt_name = "qxl",
-        .name = "QXL VGA",
-        .class_names = { "qxl-vga" },
-    },
-    [VGA_TCX] = {
-        .opt_name = "tcx",
-        .name = "TCX framebuffer",
-        .class_names = { "sun-tcx" },
-    },
-    [VGA_CG3] = {
-        .opt_name = "cg3",
-        .name = "CG3 framebuffer",
-        .class_names = { "cgthree" },
-    },
-#ifdef CONFIG_XEN_BACKEND
-    [VGA_XENFB] = {
-        .opt_name = "xenfb",
-        .name = "Xen paravirtualized framebuffer",
-    },
-#endif
-};
-
-static bool vga_interface_available(VGAInterfaceType t)
-{
-    const VGAInterfaceInfo *ti = &vga_interfaces[t];
-
-    assert(t < VGA_TYPE_MAX);
-
-    if (!ti->class_names[0] || module_object_class_by_name(ti->class_names[0])) {
-        return true;
-    }
-
-    if (ti->class_names[1] && module_object_class_by_name(ti->class_names[1])) {
-        return true;
-    }
-
-    return false;
-}
-
 static const char *
 get_default_vga_model(const MachineClass *machine_class)
 {
-    if (machine_class->default_display) {
-        for (int t = 0; t < VGA_TYPE_MAX; t++) {
-            const VGAInterfaceInfo *ti = &vga_interfaces[t];
-
-            if (ti->opt_name && vga_interface_available(t) &&
-                g_str_equal(ti->opt_name, machine_class->default_display)) {
-                return machine_class->default_display;
-            }
-        }
-
+    if (machine_class->default_display &&
+        !g_str_equal(machine_class->default_display, "none")) {
         warn_report_once("Default display '%s' is not available in this binary",
                          machine_class->default_display);
-        return NULL;
-    } else if (vga_interface_available(VGA_CIRRUS)) {
-        return "cirrus";
-    } else if (vga_interface_available(VGA_STD)) {
-        return "std";
     }
 
-    return NULL;
+    return "none";
 }
 
 static void select_vgahw(const MachineClass *machine_class, const char *p)
 {
-    const char *opts;
-    int t;
-
     if (g_str_equal(p, "help")) {
-        const char *def = get_default_vga_model(machine_class);
-
-        for (t = 0; t < VGA_TYPE_MAX; t++) {
-            const VGAInterfaceInfo *ti = &vga_interfaces[t];
-
-            if (vga_interface_available(t) && ti->opt_name) {
-                printf("%-20s %s%s\n", ti->opt_name, ti->name ?: "",
-                        (def && g_str_equal(ti->opt_name, def)) ?
-                        " (default)" : "");
-            }
-        }
+        printf("%-20s %s%s\n", "none", "no graphic card",
+               g_str_equal(get_default_vga_model(machine_class), "none") ?
+               " (default)" : "");
         exit(0);
     }
 
-    assert(vga_interface_type == VGA_NONE);
-    for (t = 0; t < VGA_TYPE_MAX; t++) {
-        const VGAInterfaceInfo *ti = &vga_interfaces[t];
-        if (ti->opt_name && strstart(p, ti->opt_name, &opts)) {
-            if (!vga_interface_available(t)) {
-                error_report("%s not available", ti->name);
-                exit(1);
-            }
-            vga_interface_type = t;
-            break;
-        }
-    }
-    if (t == VGA_TYPE_MAX) {
-    invalid_vga:
+    if (!g_str_equal(p, "none")) {
         error_report("unknown vga type: %s", p);
         exit(1);
-    }
-    while (*opts) {
-        const char *nextopt;
-
-        if (strstart(opts, ",retrace=", &nextopt)) {
-            opts = nextopt;
-            if (strstart(opts, "dumb", &nextopt))
-                vga_retrace_method = VGA_RETRACE_DUMB;
-            else if (strstart(opts, "precise", &nextopt))
-                vga_retrace_method = VGA_RETRACE_PRECISE;
-            else goto invalid_vga;
-        } else goto invalid_vga;
-        opts = nextopt;
     }
 }
 
@@ -1332,10 +1197,6 @@ static void qemu_disable_default_devices(void)
     qemu_opts_foreach(qemu_find_opts("global"),
                       default_driver_check, NULL, NULL);
 
-    if (!vga_model && !default_vga) {
-        vga_interface_type = VGA_DEVICE;
-        vga_interface_created = true;
-    }
     if (!has_defaults || machine_class->no_serial) {
         default_serial = 0;
     }
@@ -1440,7 +1301,6 @@ static void qemu_create_default_devices(void)
 #endif
     }
 
-    /* If no default VGA is requested, the default is "none".  */
     if (default_vga) {
         vga_model = get_default_vga_model(machine_class);
     }
@@ -2787,12 +2647,6 @@ static bool qemu_machine_creation_done(Error **errp)
 
     foreach_device_config_or_exit(DEV_GDB, gdbserver_start);
 
-    if (!vga_interface_created && !default_vga &&
-        vga_interface_type != VGA_NONE) {
-        warn_report("A -vga option was passed but this machine "
-                    "type does not use that option; "
-                    "No VGA device has been created");
-    }
     return true;
 }
 

@@ -18,10 +18,6 @@
 #include "hw/virtio/virtio-gpu.h"
 #include "qom/object.h"
 
-
-/*
- * virtio-gpu-pci-base: This extends VirtioPCIProxy.
- */
 #define TYPE_VIRTIO_GPU_PCI_BASE "virtio-gpu-pci-base"
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOGPUPCIBase, VIRTIO_GPU_PCI_BASE)
 
@@ -30,7 +26,6 @@ struct VirtIOGPUPCIBase {
     VirtIOGPUBase *vgpu;
 };
 
-/* to share between PCI and VGA */
 #define DEFINE_VIRTIO_GPU_PCI_PROPERTIES(_state)                \
     DEFINE_PROP_BIT("ioeventfd", _state, flags,                 \
                     VIRTIO_PCI_FLAG_USE_IOEVENTFD_BIT, false),  \

@@ -1,12 +1,4 @@
-/*
- * Linux perf perf-<pid>.map and jit-<pid>.dump integration.
- *
- * The jitdump spec can be found at [1].
- *
- * [1] https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/tools/perf/Documentation/jitdump-specification.txt
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+
 
 #include "qemu/osdep.h"
 #include "elf.h"
@@ -23,16 +15,16 @@ static FILE *safe_fopen_w(const char *path)
     FILE *f;
     int fd;
 
-    /* Delete the old file, if any. */
+    
     unlink(path);
 
-    /* Avoid symlink attacks by using O_CREAT | O_EXCL. */
+    
     fd = open(path, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
     if (fd == -1) {
         return NULL;
     }
 
-    /* Convert fd to FILE*. */
+    
     f = fdopen(fd, "w");
     if (f == NULL) {
         saved_errno = errno;
@@ -58,7 +50,7 @@ void perf_enable_perfmap(void)
     }
 }
 
-/* Get PC and size of code JITed for guest instruction #INSN. */
+
 static void get_host_pc_size(uintptr_t *host_pc, uint16_t *host_size,
                              const void *start, size_t insn)
 {
@@ -74,7 +66,7 @@ static void get_host_pc_size(uintptr_t *host_pc, uint16_t *host_size,
 
 static const char *pretty_symbol(const struct debuginfo_query *q, size_t *len)
 {
-    /* Android: __thread in dlopen'd .so corrupts TLS block */
+    
     static char buf[64];
     int tmp;
 
@@ -207,11 +199,7 @@ void perf_enable_jitdump(void)
         return;
     }
 
-    /*
-     * `perf inject` will see that the mapped file name in the corresponding
-     * PERF_RECORD_MMAP or PERF_RECORD_MMAP2 event is of the form jit-%d.dump
-     * and will process it as a jitdump file.
-     */
+    
     perf_marker_size = qemu_real_host_page_size();
     perf_marker = mmap(NULL, perf_marker_size, PROT_READ | PROT_EXEC,
                        MAP_PRIVATE, fileno(jitdump), 0);
@@ -242,17 +230,17 @@ void perf_report_prologue(const void *start, size_t size)
     }
 }
 
-/* Write a JIT_CODE_DEBUG_INFO jitdump entry. */
+
 static void write_jr_code_debug_info(const void *start,
                                      const struct debuginfo_query *q,
                                      size_t icount)
 {
     struct jr_code_debug_info rec;
-    struct debug_entry ent;
+    struct debug_entry ent = {0};
     uintptr_t host_pc;
     int insn;
 
-    /* Write the header. */
+    
     rec.p.id = JIT_CODE_DEBUG_INFO;
     rec.p.total_size = sizeof(rec) + sizeof(ent) + 1;
     rec.p.timestamp = get_clock();
@@ -266,7 +254,7 @@ static void write_jr_code_debug_info(const void *start,
     }
     fwrite(&rec, sizeof(rec), 1, jitdump);
 
-    /* Write the main debug entries. */
+    
     for (insn = 0; insn < icount; insn++) {
         if (q[insn].file) {
             get_host_pc_size(&host_pc, NULL, start, insn);
@@ -278,7 +266,7 @@ static void write_jr_code_debug_info(const void *start,
         }
     }
 
-    /* Write the trailing debug_entry. */
+    
     ent.addr = (uintptr_t)start + tcg_ctx->gen_insn_end_off[icount - 1];
     ent.lineno = 0;
     ent.discrim = 0;
@@ -286,7 +274,7 @@ static void write_jr_code_debug_info(const void *start,
     fwrite("", 1, 1, jitdump);
 }
 
-/* Write a JIT_CODE_LOAD jitdump entry. */
+
 static void write_jr_code_load(const void *start, uint16_t host_size,
                                const struct debuginfo_query *q)
 {
@@ -328,12 +316,12 @@ void perf_report_code(uint64_t guest_pc, TranslationBlock *tb,
 
     debuginfo_lock();
 
-    /* Query debuginfo for each guest instruction. */
+    
     gen_insn_data = tcg_ctx->gen_insn_data;
     start_words = tcg_ctx->insn_start_words;
 
     for (insn = 0; insn < tb->icount; insn++) {
-        /* FIXME: This replicates the restore_state_to_opc() logic. */
+        
         q[insn].address = gen_insn_data[insn * start_words + 0];
         if (tb_cflags(tb) & CF_PCREL) {
             q[insn].address |= (guest_pc & qemu_target_page_mask());
@@ -342,7 +330,7 @@ void perf_report_code(uint64_t guest_pc, TranslationBlock *tb,
     }
     debuginfo_query(q, tb->icount);
 
-    /* Emit perfmap entries if needed. */
+    
     if (perfmap) {
         flockfile(perfmap);
         for (insn = 0; insn < tb->icount; insn++) {
@@ -351,7 +339,7 @@ void perf_report_code(uint64_t guest_pc, TranslationBlock *tb,
         funlockfile(perfmap);
     }
 
-    /* Emit jitdump entries if needed. */
+    
     if (jitdump) {
         flockfile(jitdump);
         write_jr_code_debug_info(start, q, tb->icount);

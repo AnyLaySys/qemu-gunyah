@@ -1,22 +1,4 @@
-/*
- * Semihosting configuration
- *
- * Copyright (c) 2015 Imagination Technologies
- * Copyright (c) 2019 Linaro Ltd
- *
- * This controls the configuration of semihosting for all guest
- * targets that support it. Architecture specific handling is handled
- * in target/HW/HW-semi.c
- *
- * Semihosting is slightly strange in that it is also supported by some
- * linux-user targets. However in that use case no configuration of
- * the outputs and command lines is supported.
- *
- * The config module is common to all system targets however as vl.c
- * needs to link against the helpers.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+
 
 #include "qemu/osdep.h"
 #include "qemu/option.h"
@@ -47,7 +29,7 @@ QemuOptsList qemu_semihosting_config_opts = {
             .name = "arg",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -57,7 +39,7 @@ typedef struct SemihostingConfig {
     SemihostingTarget target;
     char **argv;
     int argc;
-    const char *cmdline; /* concatenated argv */
+    const char *cmdline; 
 } SemihostingConfig;
 
 static SemihostingConfig semihosting;
@@ -101,7 +83,7 @@ static int add_semihosting_arg(void *opaque,
     SemihostingConfig *s = opaque;
     if (strcmp(name, "arg") == 0) {
         s->argc++;
-        /* one extra element as g_strjoinv() expects NULL-terminated array */
+        
         s->argv = g_renew(char *, s->argv, s->argc + 1);
         s->argv[s->argc - 1] = g_strdup(val);
         s->argv[s->argc] = NULL;
@@ -109,20 +91,21 @@ static int add_semihosting_arg(void *opaque,
     return 0;
 }
 
-/* Use strings passed via -kernel/-append to initialize semihosting.argv[] */
+
 void semihosting_arg_fallback(const char *file, const char *cmd)
 {
     char *cmd_token;
     g_autofree char *cmd_dup = g_strdup(cmd);
 
-    /* argv[0] */
+    
     add_semihosting_arg(&semihosting, "arg", file, NULL);
 
-    /* split -append and initialize argv[1..n] */
-    cmd_token = strtok(cmd_dup, " ");
+    
+    char *saveptr = NULL;
+    cmd_token = strtok_r(cmd_dup, " ", &saveptr);
     while (cmd_token) {
         add_semihosting_arg(&semihosting, "arg", cmd_token, NULL);
-        cmd_token = strtok(NULL, " ");
+        cmd_token = strtok_r(NULL, " ", &saveptr);
     }
 }
 
@@ -145,7 +128,7 @@ int qemu_semihosting_config_options(const char *optstr)
         semihosting.userspace_enabled = qemu_opt_get_bool(opts, "userspace",
                                                           false);
         const char *target = qemu_opt_get(opts, "target");
-        /* setup of chardev is deferred until they are initialised */
+        
         semihost_chardev = qemu_opt_get(opts, "chardev");
         if (target != NULL) {
             if (strcmp("native", target) == 0) {
@@ -162,7 +145,7 @@ int qemu_semihosting_config_options(const char *optstr)
         } else {
             semihosting.target = SEMIHOSTING_TARGET_AUTO;
         }
-        /* Set semihosting argument count and vector */
+        
         qemu_opt_foreach(opts, add_semihosting_arg,
                          &semihosting, NULL);
     } else {
@@ -173,7 +156,7 @@ int qemu_semihosting_config_options(const char *optstr)
     return 0;
 }
 
-/* We had to defer this until chardevs were created */
+
 void qemu_semihosting_chardev_init(void)
 {
     Chardev *chr = NULL;

@@ -32,15 +32,6 @@ OBJECT_DECLARE_TYPE(VirtIOGPUBase, VirtIOGPUBaseClass,
 #define TYPE_VIRTIO_GPU "virtio-gpu-device"
 OBJECT_DECLARE_TYPE(VirtIOGPU, VirtIOGPUClass, VIRTIO_GPU)
 
-#define TYPE_VIRTIO_GPU_GL "virtio-gpu-gl-device"
-OBJECT_DECLARE_SIMPLE_TYPE(VirtIOGPUGL, VIRTIO_GPU_GL)
-
-#define TYPE_VHOST_USER_GPU "vhost-user-gpu"
-OBJECT_DECLARE_SIMPLE_TYPE(VhostUserGPU, VHOST_USER_GPU)
-
-#define TYPE_VIRTIO_GPU_RUTABAGA "virtio-gpu-rutabaga-device"
-OBJECT_DECLARE_SIMPLE_TYPE(VirtIOGPURutabaga, VIRTIO_GPU_RUTABAGA)
-
 struct virtio_gpu_simple_resource {
     uint32_t resource_id;
     uint32_t width;
@@ -90,19 +81,14 @@ struct virtio_gpu_requested_state {
 };
 
 enum virtio_gpu_base_conf_flags {
-    VIRTIO_GPU_FLAG_VIRGL_ENABLED = 1,
-    VIRTIO_GPU_FLAG_STATS_ENABLED,
+    VIRTIO_GPU_FLAG_STATS_ENABLED = 1,
     VIRTIO_GPU_FLAG_EDID_ENABLED,
     VIRTIO_GPU_FLAG_DMABUF_ENABLED,
     VIRTIO_GPU_FLAG_BLOB_ENABLED,
     VIRTIO_GPU_FLAG_CONTEXT_INIT_ENABLED,
-    VIRTIO_GPU_FLAG_RUTABAGA_ENABLED,
-    VIRTIO_GPU_FLAG_VENUS_ENABLED,
     VIRTIO_GPU_FLAG_RESOURCE_UUID_ENABLED,
 };
 
-#define virtio_gpu_virgl_enabled(_cfg) \
-    (_cfg.flags & (1 << VIRTIO_GPU_FLAG_VIRGL_ENABLED))
 #define virtio_gpu_stats_enabled(_cfg) \
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_STATS_ENABLED))
 #define virtio_gpu_edid_enabled(_cfg) \
@@ -113,14 +99,10 @@ enum virtio_gpu_base_conf_flags {
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_BLOB_ENABLED))
 #define virtio_gpu_context_init_enabled(_cfg) \
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_CONTEXT_INIT_ENABLED))
-#define virtio_gpu_rutabaga_enabled(_cfg) \
-    (_cfg.flags & (1 << VIRTIO_GPU_FLAG_RUTABAGA_ENABLED))
 #define virtio_gpu_resource_uuid_enabled(_cfg) \
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_RESOURCE_UUID_ENABLED))
 #define virtio_gpu_hostmem_enabled(_cfg) \
     (_cfg.hostmem > 0)
-#define virtio_gpu_venus_enabled(_cfg) \
-    (_cfg.flags & (1 << VIRTIO_GPU_FLAG_VENUS_ENABLED))
 
 struct virtio_gpu_base_conf {
     uint32_t max_outputs;
@@ -142,13 +124,10 @@ struct virtio_gpu_ctrl_command {
 struct VirtIOGPUBase {
     VirtIODevice parent_obj;
 
-    Error *migration_blocker;
-
     struct virtio_gpu_base_conf conf;
     struct virtio_gpu_config virtio_config;
     const GraphicHwOps *hw_ops;
 
-    int renderer_blocked;
     int enable;
 
     MemoryRegion hostmem;
@@ -161,8 +140,6 @@ struct VirtIOGPUBase {
 
 struct VirtIOGPUBaseClass {
     VirtioDeviceClass parent;
-
-    void (*gl_flushed)(VirtIOGPUBase *g);
 };
 
 #define VIRTIO_GPU_BASE_PROPERTIES(_state, _conf)                       \
@@ -228,57 +205,6 @@ struct VirtIOGPUClass {
     void (*resource_destroy)(VirtIOGPU *g,
                              struct virtio_gpu_simple_resource *res,
                              Error **errp);
-};
-
-/* VirtIOGPUGL renderer states */
-typedef enum {
-    RS_START,       /* starting state */
-    RS_INIT_FAILED, /* failed initialisation */
-    RS_INITED,      /* initialised and working */
-    RS_RESET,       /* inited and reset pending, moves to start after reset */
-} RenderState;
-
-struct VirtIOGPUGL {
-    struct VirtIOGPU parent_obj;
-
-    RenderState renderer_state;
-
-    QEMUTimer *fence_poll;
-    QEMUTimer *print_stats;
-
-    QEMUBH *cmdq_resume_bh;
-};
-
-struct VhostUserGPU {
-    VirtIOGPUBase parent_obj;
-
-    VhostUserBackend *vhost;
-    int vhost_gpu_fd; /* closed by the chardev */
-    CharBackend vhost_chr;
-    QemuDmaBuf *dmabuf[VIRTIO_GPU_MAX_SCANOUTS];
-    bool backend_blocked;
-};
-
-#define MAX_SLOTS 4096
-
-struct MemoryRegionInfo {
-    int used;
-    MemoryRegion mr;
-    uint32_t resource_id;
-};
-
-struct rutabaga;
-
-struct VirtIOGPURutabaga {
-    VirtIOGPU parent_obj;
-    struct MemoryRegionInfo memory_regions[MAX_SLOTS];
-    uint64_t capset_mask;
-    char *wayland_socket_path;
-    char *wsi;
-    bool headless;
-    uint32_t num_capsets;
-    GHashTable *rutabaga_contexts;
-    struct rutabaga *rutabaga;
 };
 
 #define VIRTIO_GPU_FILL_CMD(out) do {                                   \
@@ -368,14 +294,5 @@ void virtio_gpu_update_scanout(VirtIOGPU *g,
                                struct virtio_gpu_framebuffer *fb,
                                struct virtio_gpu_rect *r);
 void virtio_gpu_disable_scanout(VirtIOGPU *g, int scanout_id);
-
-/* virtio-gpu-3d.c */
-void virtio_gpu_virgl_process_cmd(VirtIOGPU *g,
-                                  struct virtio_gpu_ctrl_command *cmd);
-void virtio_gpu_virgl_fence_poll(VirtIOGPU *g);
-void virtio_gpu_virgl_reset_scanout(VirtIOGPU *g);
-void virtio_gpu_virgl_reset(VirtIOGPU *g);
-int virtio_gpu_virgl_init(VirtIOGPU *g);
-GArray *virtio_gpu_virgl_get_capsets(VirtIOGPU *g);
 
 #endif

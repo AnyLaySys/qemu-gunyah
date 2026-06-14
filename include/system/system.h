@@ -29,13 +29,8 @@ void qemu_init_subsystems(void);
 extern int autostart;
 
 typedef enum {
-    VGA_NONE, VGA_STD, VGA_CIRRUS, VGA_VMWARE, VGA_XENFB, VGA_QXL,
-    VGA_TCX, VGA_CG3, VGA_DEVICE, VGA_VIRTIO,
-    VGA_TYPE_MAX,
+    VGA_NONE,
 } VGAInterfaceType;
-
-extern int vga_interface_type;
-extern bool vga_interface_created;
 
 extern int graphic_width;
 extern int graphic_height;

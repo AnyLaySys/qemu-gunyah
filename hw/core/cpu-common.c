@@ -1,22 +1,4 @@
-/*
- * QEMU CPU model
- *
- * Copyright (c) 2012-2014 SUSE LINUX Products GmbH
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <http://www.gnu.org/licenses/gpl-2.0.html>
- */
+
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -64,8 +46,7 @@ CPUState *cpu_create(const char *typename)
     return cpu;
 }
 
-/* Resetting the IRQ comes from across the code base so we take the
- * BQL here if we need to.  cpu_interrupt assumes it is held.*/
+
 void cpu_reset_interrupt(CPUState *cpu, int mask)
 {
     bool need_lock = !bql_locked();
@@ -82,7 +63,7 @@ void cpu_reset_interrupt(CPUState *cpu, int mask)
 void cpu_exit(CPUState *cpu)
 {
     qatomic_set(&cpu->exit_request, 1);
-    /* Ensure cpu_exec will see the exit request after TCG has exited.  */
+    
     smp_wmb();
     qatomic_set(&cpu->neg.icount_decr.u16.high, -1);
 }
@@ -157,10 +138,11 @@ static void cpu_common_parse_features(const char *typename, char *features,
 {
     char *val;
     static bool cpu_globals_initialized;
-    /* Single "key=value" string being parsed */
-    char *featurestr = features ? strtok(features, ",") : NULL;
+    
+    char *saveptr = NULL;
+    char *featurestr = features ? strtok_r(features, ",", &saveptr) : NULL;
 
-    /* should be called only once, catch invalid users */
+    
     assert(!cpu_globals_initialized);
     cpu_globals_initialized = true;
 
@@ -179,7 +161,7 @@ static void cpu_common_parse_features(const char *typename, char *features,
                        featurestr);
             return;
         }
-        featurestr = strtok(NULL, ",");
+        featurestr = strtok_r(NULL, ",", &saveptr);
     }
 }
 
@@ -189,7 +171,7 @@ bool cpu_exec_realizefn(CPUState *cpu, Error **errp)
         return false;
     }
 
-    /* Wait until cpu initialization complete before exposing cpu. */
+    
     cpu_list_add(cpu);
 
     cpu_vmstate_register(cpu);
@@ -202,10 +184,7 @@ static void cpu_common_realizefn(DeviceState *dev, Error **errp)
     CPUState *cpu = CPU(dev);
     Object *machine = qdev_get_machine();
 
-    /* qdev_get_machine() can return something that's not TYPE_MACHINE
-     * if this is one of the user-only emulators; in that case there's
-     * no need to check the ignore_memory_transaction_failures board flag.
-     */
+    
     if (object_dynamic_cast(machine, TYPE_MACHINE)) {
         MachineClass *mc = MACHINE_GET_CLASS(machine);
 
@@ -220,21 +199,21 @@ static void cpu_common_realizefn(DeviceState *dev, Error **errp)
         cpu_resume(cpu);
     }
 
-    /* NOTE: latest generic point where the cpu is fully realized */
+    
 }
 
 static void cpu_common_unrealizefn(DeviceState *dev)
 {
     CPUState *cpu = CPU(dev);
 
-    /* Call the plugin hook before clearing the cpu is fully unrealized */
+    
 #ifdef CONFIG_PLUGIN
     if (tcg_enabled()) {
         qemu_plugin_vcpu_exit_hook(cpu);
     }
 #endif
 
-    /* NOTE: latest generic point before the cpu is fully unrealized */
+    
     cpu_exec_unrealizefn(cpu);
 }
 
@@ -243,10 +222,7 @@ void cpu_exec_unrealizefn(CPUState *cpu)
     cpu_vmstate_unregister(cpu);
 
     cpu_list_remove(cpu);
-    /*
-     * Now that the vCPU has been removed from the RCU list, we can call
-     * accel_cpu_common_unrealize, which may free fields using call_rcu.
-     */
+    
     accel_cpu_common_unrealize(cpu);
 }
 
@@ -256,7 +232,7 @@ static void cpu_common_initfn(Object *obj)
 
     cpu_exec_class_post_init(CPU_GET_CLASS(obj));
 
-    /* cache the cpu class for the hotpath */
+    
     cpu->cc = CPU_GET_CLASS(cpu);
 
     gdb_init_cpu(cpu);
@@ -264,11 +240,11 @@ static void cpu_common_initfn(Object *obj)
     cpu->cluster_index = UNASSIGNED_CLUSTER_INDEX;
     cpu->as = NULL;
     cpu->num_ases = 0;
-    /* user-mode doesn't have configurable SMP topology */
-    /* the default value is changed by qemu_init_vcpu() for system-mode */
+    
+    
     cpu->nr_threads = 1;
 
-    /* allocate storage for thread info, initialise condition variables */
+    
     cpu->thread = g_new0(QemuThread, 1);
     cpu->halt_cond = g_new0(QemuCond, 1);
     qemu_cond_init(cpu->halt_cond);
@@ -281,11 +257,7 @@ static void cpu_common_initfn(Object *obj)
 
     cpu_exec_initfn(cpu);
 
-    /*
-     * Plugin initialization must wait until the cpu start executing
-     * code, but we must queue this work before the threads are
-     * created to ensure we don't race.
-     */
+    
 #ifdef CONFIG_PLUGIN
     if (tcg_enabled()) {
         cpu->plugin_state = qemu_plugin_create_vcpu_state();
@@ -304,7 +276,7 @@ static void cpu_common_finalize(Object *obj)
     }
 #endif
     free_queued_cpu_work(cpu);
-    /* If cleanup didn't happen in context to gdb_unregister_coprocessor_all */
+    
     if (cpu->gdb_regs) {
         g_array_free(cpu->gdb_regs, TRUE);
     }
@@ -335,10 +307,7 @@ static void cpu_common_class_init(ObjectClass *klass, void *data)
     dc->unrealize = cpu_common_unrealizefn;
     rc->phases.hold = cpu_common_reset_hold;
     cpu_class_init_props(dc);
-    /*
-     * Reason: CPUs still need special care by board code: wiring up
-     * IRQs, adding reset handlers, halting non-first CPUs, ...
-     */
+    
     dc->user_creatable = false;
 }
 

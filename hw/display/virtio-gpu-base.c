@@ -1,20 +1,8 @@
-/*
- * Virtio GPU Device
- *
- * Copyright Red Hat, Inc. 2013-2014
- *
- * Authors:
- *     Dave Airlie <airlied@redhat.com>
- *     Gerd Hoffmann <kraxel@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
+
 
 #include "qemu/osdep.h"
 
 #include "hw/virtio/virtio-gpu.h"
-#include "migration/blocker.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "hw/display/edid.h"
@@ -108,37 +96,9 @@ static void virtio_gpu_ui_info(void *opaque, uint32_t idx, QemuUIInfo *info)
         g->enabled_output_bitmask &= ~(1 << idx);
     }
 
-    /* send event to guest */
+    
     virtio_gpu_notify_event(g, VIRTIO_GPU_EVENT_DISPLAY);
     return;
-}
-
-static void
-virtio_gpu_gl_flushed(void *opaque)
-{
-    VirtIOGPUBase *g = opaque;
-    VirtIOGPUBaseClass *vgc = VIRTIO_GPU_BASE_GET_CLASS(g);
-
-    if (vgc->gl_flushed) {
-        vgc->gl_flushed(g);
-    }
-}
-
-static void
-virtio_gpu_gl_block(void *opaque, bool block)
-{
-    VirtIOGPUBase *g = opaque;
-
-    if (block) {
-        g->renderer_blocked++;
-    } else {
-        g->renderer_blocked--;
-    }
-    assert(g->renderer_blocked >= 0);
-
-    if (!block && g->renderer_blocked == 0) {
-        virtio_gpu_gl_flushed(g);
-    }
 }
 
 static int
@@ -146,10 +106,6 @@ virtio_gpu_get_flags(void *opaque)
 {
     VirtIOGPUBase *g = opaque;
     int flags = GRAPHIC_FLAGS_NONE;
-
-    if (virtio_gpu_virgl_enabled(g->conf)) {
-        flags |= GRAPHIC_FLAGS_GL;
-    }
 
     if (virtio_gpu_dmabuf_enabled(g->conf)) {
         flags |= GRAPHIC_FLAGS_DMABUF;
@@ -164,7 +120,6 @@ static const GraphicHwOps virtio_gpu_ops = {
     .gfx_update = virtio_gpu_update_display,
     .text_update = virtio_gpu_text_update,
     .ui_info = virtio_gpu_ui_info,
-    .gl_block = virtio_gpu_gl_block,
 };
 
 bool
@@ -182,25 +137,12 @@ virtio_gpu_base_device_realize(DeviceState *qdev,
         return false;
     }
 
-    if (virtio_gpu_virgl_enabled(g->conf)) {
-        error_setg(&g->migration_blocker, "virgl is not yet migratable");
-        if (migrate_add_blocker(&g->migration_blocker, errp) < 0) {
-            return false;
-        }
-    }
-
     g->virtio_config.num_scanouts = cpu_to_le32(g->conf.max_outputs);
     virtio_init(VIRTIO_DEVICE(g), VIRTIO_ID_GPU,
                 sizeof(struct virtio_gpu_config));
 
-    if (virtio_gpu_virgl_enabled(g->conf)) {
-        /* use larger control queue in 3d mode */
-        virtio_add_queue(vdev, 256, ctrl_cb);
-        virtio_add_queue(vdev, 16, cursor_cb);
-    } else {
-        virtio_add_queue(vdev, 64, ctrl_cb);
-        virtio_add_queue(vdev, 16, cursor_cb);
-    }
+    virtio_add_queue(vdev, 64, ctrl_cb);
+    virtio_add_queue(vdev, 16, cursor_cb);
 
     g->enabled_output_bitmask = 1;
 
@@ -222,10 +164,6 @@ virtio_gpu_base_get_features(VirtIODevice *vdev, uint64_t features,
 {
     VirtIOGPUBase *g = VIRTIO_GPU_BASE(vdev);
 
-    if (virtio_gpu_virgl_enabled(g->conf) ||
-        virtio_gpu_rutabaga_enabled(g->conf)) {
-        features |= (1 << VIRTIO_GPU_F_VIRGL);
-    }
     if (virtio_gpu_edid_enabled(g->conf)) {
         features |= (1 << VIRTIO_GPU_F_EDID);
     }
@@ -242,24 +180,14 @@ virtio_gpu_base_get_features(VirtIODevice *vdev, uint64_t features,
     return features;
 }
 
-static void
-virtio_gpu_base_set_features(VirtIODevice *vdev, uint64_t features)
-{
-    static const uint32_t virgl = (1 << VIRTIO_GPU_F_VIRGL);
-
-    trace_virtio_gpu_features(((features & virgl) == virgl));
-}
-
 void
 virtio_gpu_base_device_unrealize(DeviceState *qdev)
 {
-    VirtIOGPUBase *g = VIRTIO_GPU_BASE(qdev);
     VirtIODevice *vdev = VIRTIO_DEVICE(qdev);
 
     virtio_del_queue(vdev, 0);
     virtio_del_queue(vdev, 1);
     virtio_cleanup(vdev);
-    migrate_del_blocker(&g->migration_blocker);
 }
 
 static void
@@ -270,7 +198,6 @@ virtio_gpu_base_class_init(ObjectClass *klass, void *data)
 
     vdc->unrealize = virtio_gpu_base_device_unrealize;
     vdc->get_features = virtio_gpu_base_get_features;
-    vdc->set_features = virtio_gpu_base_set_features;
 
     set_bit(DEVICE_CATEGORY_DISPLAY, dc->categories);
     dc->hotpluggable = false;

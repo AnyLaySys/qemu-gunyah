@@ -14,7 +14,7 @@ config HVF
 config TCG
     bool
 
-config GUNYAH
+config GH
     bool
 
 config XEN
