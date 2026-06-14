@@ -36,7 +36,6 @@ system_ss.add(files(
   'machine-qmp-cmds.c',
   'machine.c',
   'nmi.c',
-  'null-machine.c',
   'numa.c',
   'qdev-fw.c',
   'qdev-hotplug.c',
