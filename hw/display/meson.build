@@ -2,6 +2,7 @@ hw_display_modules = {}
 
 system_ss.add(when: 'CONFIG_DDC', if_true: files('i2c-ddc.c'))
 system_ss.add(when: 'CONFIG_EDID', if_true: files('edid-generate.c', 'edid-region.c'))
+system_ss.add(files('ramfb.c', 'ramfb-standalone.c'))
 system_ss.add(when: 'CONFIG_VIRTIO', if_true: files('virtio-dmabuf.c'))
 
 if config_all_devices.has_key('CONFIG_VIRTIO_PCI')
