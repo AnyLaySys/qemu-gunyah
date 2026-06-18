@@ -42,7 +42,7 @@ jobs:
         cd "$srcDir"
         export CC="$toolchain/bin/aarch64-linux-android$apiLevel-clang"
         export CXX="$toolchain/bin/aarch64-linux-android$apiLevel-clang++"
-        env PATH="$toolchain/bin:$sysrootDir/bin:$PATH" PKG_CONFIG=/usr/bin/pkg-config PKG_CONFIG_LIBDIR="$sysrootDir/lib/pkgconfig" PKG_CONFIG_PATH="$sysrootDir/lib/pkgconfig" LDFLAGS="-L$sysrootDir/lib -Wl,-rpath-link,$sysrootDir/lib" AR="$toolchain/bin/llvm-ar" NM="$toolchain/bin/llvm-nm" OBJCOPY="$toolchain/bin/llvm-objcopy" RANLIB="$toolchain/bin/llvm-ranlib" STRIP="$toolchain/bin/llvm-strip" ./configure --cpu=aarch64 --cross-prefix=aarch64-linux-android- --target-list=aarch64-softmmu --enable-tcg --with-coroutine=sigaltstack --extra-cflags="-I$sysrootDir/include -I$srcDir/linux-headers" --disable-dbus-display --disable-docs --disable-gio --disable-hvf --disable-multiprocess --disable-opengl --disable-tools --disable-guest-agent --disable-usb-redir --disable-virtfs --disable-vduse-blk-export --disable-libvduse --disable-vhost-crypto --disable-vhost-kernel --disable-vhost-net --disable-vhost-user --disable-vhost-user-blk-server --disable-vhost-vdpa --disable-virglrenderer --disable-werror --disable-tpm --disable-plugins --disable-install-blobs
+        env PATH="$toolchain/bin:$sysrootDir/bin:$PATH" PKG_CONFIG=/usr/bin/pkg-config PKG_CONFIG_LIBDIR="$sysrootDir/lib/pkgconfig" PKG_CONFIG_PATH="$sysrootDir/lib/pkgconfig" LDFLAGS="-L$sysrootDir/lib -Wl,-rpath-link,$sysrootDir/lib" AR="$toolchain/bin/llvm-ar" NM="$toolchain/bin/llvm-nm" OBJCOPY="$toolchain/bin/llvm-objcopy" RANLIB="$toolchain/bin/llvm-ranlib" STRIP="$toolchain/bin/llvm-strip" ./configure --cpu=aarch64 --cross-prefix=aarch64-linux-android- --target-list=aarch64-softmmu --enable-tcg --with-coroutine=sigaltstack --extra-cflags="-I$sysrootDir/include -I$srcDir/linux-headers" --disable-dbus-display --disable-docs --disable-gio --disable-multiprocess --disable-opengl --disable-tools --disable-guest-agent --disable-usb-redir --disable-virtfs --disable-vduse-blk-export --disable-libvduse --disable-vhost-crypto --disable-vhost-kernel --disable-vhost-net --disable-vhost-user --disable-vhost-user-blk-server --disable-vhost-vdpa --disable-virglrenderer --disable-werror --disable-tpm --disable-plugins --disable-install-blobs
         ninja -C build -j$(nproc) qemu-system-aarch64
     - name: 打包
       run: |
@@ -61,6 +61,6 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: qemu-gunyah
-        path: qemu-gunyah.xz
-        archive: false
+        path: $GITHUB_WORKSPACE/qemu-gunyah
+        archive: true
         if-no-files-found: error
