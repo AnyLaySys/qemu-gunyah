@@ -61,6 +61,6 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: qemu-gunyah
-        path: $GITHUB_WORKSPACE/qemu-gunyah
+        path: qemu-gunyah
         archive: true
         if-no-files-found: error
