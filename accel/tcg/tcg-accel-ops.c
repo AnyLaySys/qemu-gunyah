@@ -1,29 +1,29 @@
-/*
- * QEMU TCG vCPU common functionality
- *
- * Functionality common to all TCG vCPU variants: mttcg, rr and icount.
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2014 Red Hat Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "system/accel-ops.h"
@@ -46,20 +46,20 @@
 #include "tcg-accel-ops-rr.h"
 #include "tcg-accel-ops-icount.h"
 
-/* common functionality among all TCG variants */
+
 
 void tcg_cpu_init_cflags(CPUState *cpu, bool parallel)
 {
     uint32_t cflags;
 
-    /*
-     * Include the cluster number in the hash we use to look up TBs.
-     * This is important because a TB that is valid for one cluster at
-     * a given physical address and set of CPU flags is not necessarily
-     * valid for another:
-     * the two clusters may have different views of physical memory, or
-     * may have different CPU features (eg FPU present or absent).
-     */
+
+
+
+
+
+
+
+
     cflags = cpu->cluster_index << CF_CLUSTER_SHIFT;
 
     cflags |= parallel ? CF_PARALLEL : 0;
@@ -89,17 +89,17 @@ static void tcg_cpu_reset_hold(CPUState *cpu)
     tlb_flush(cpu);
 }
 
-/* mask must never be zero, except for A20 change call */
+
 void tcg_handle_interrupt(CPUState *cpu, int mask)
 {
     g_assert(bql_locked());
 
     cpu->interrupt_request |= mask;
 
-    /*
-     * If called from iothread context, wake the target cpu in
-     * case its halted.
-     */
+
+
+
+
     if (!qemu_cpu_is_self(cpu)) {
         qemu_cpu_kick(cpu);
     } else {
@@ -112,7 +112,7 @@ static bool tcg_supports_guest_debug(void)
     return true;
 }
 
-/* Translate GDB watchpoint type to a flags value for cpu_watchpoint_* */
+
 static inline int xlat_gdb_type(CPUState *cpu, int gdbtype)
 {
     static const int xlat[] = {

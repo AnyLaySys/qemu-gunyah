@@ -1,17 +1,17 @@
-/*
- * Common Atomic Helper Functions
- *
- * This file should be included before the various instantiations of
- * the atomic_template.h helpers.
- *
- * Copyright (c) 2019 Linaro
- * Written by Alex Bennée <alex.bennee@linaro.org>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 static void atomic_trace_rmw_post(CPUArchState *env, uint64_t addr,
                                   uint64_t read_value_low,
@@ -30,11 +30,11 @@ static void atomic_trace_rmw_post(CPUArchState *env, uint64_t addr,
     }
 }
 
-/*
- * Atomic helpers callable from TCG.
- * These have a common interface and all defer to cpu_atomic_*
- * using the host return address from GETPC().
- */
+
+
+
+
+
 
 #define CMPXCHG_HELPER(OP, TYPE) \
     TYPE HELPER(atomic_##OP)(CPUArchState *env, uint64_t addr,      \
@@ -70,7 +70,7 @@ Int128 HELPER(nonatomic_cmpxchgo)(CPUArchState *env, uint64_t addr,
     if (int128_eq(oldv, cmpv)) {
         cpu_st16_mmu(env, addr, newv, oi, ra);
     } else {
-        /* Even with comparison failure, still need a write cycle. */
+
         probe_write(env, addr, 16, get_mmuidx(oi), ra);
     }
     return oldv;

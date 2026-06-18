@@ -1,5 +1,13 @@
 static int gunyah_handle_mmio_exit(CPUState *cpu, struct gh_vcpu_run *run) {
     uint64_t mmio_addr = run->mmio.phys_addr;
+    if (mmio_addr >= 0x0f000000 && mmio_addr < 0x10000000) {
+        static int ramfb_mmio_count;
+        if (ramfb_mmio_count < 64) {
+            gh_report("ramfb MMIO #%d: addr=0x%"PRIx64" len=%u is_write=%d",
+                      ramfb_mmio_count, mmio_addr, run->mmio.len, run->mmio.is_write);
+        }
+        ramfb_mmio_count++;
+    }
     if ((mmio_addr >= 0x09000000 && mmio_addr < 0x09001000) ||
         (mmio_addr >= 0x3f8 && mmio_addr < 0x400)) {
         if (mmio_addr >= 0x3f8 && mmio_addr < 0x400) {
@@ -33,7 +41,7 @@ static int gunyah_handle_mmio_exit(CPUState *cpu, struct gh_vcpu_run *run) {
             if (run->mmio.len == 4 && !run->mmio.is_write) {
                 memcpy(&val, run->mmio.data, 4);
             }
-            error_report(gh"non-UART MMIO #%d: addr=0x%"
+            gh_report("non-UART MMIO #%d: addr=0x%"
             PRIx64
             " len=%u is_write=%d mr=%d data=0x%08x", non_uart_count, mmio_addr, run->mmio.len, run->mmio.is_write, (int) mr, val);
         }

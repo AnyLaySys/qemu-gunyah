@@ -1,27 +1,27 @@
-/*
- * QEMU TCG Multi Threaded vCPUs implementation
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2014 Red Hat Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "system/tcg.h"
@@ -48,18 +48,18 @@ static void mttcg_force_rcu(Notifier *notify, void *data)
 {
     CPUState *cpu = container_of(notify, MttcgForceRcuNotifier, notifier)->cpu;
 
-    /*
-     * Called with rcu_registry_lock held, using async_run_on_cpu() ensures
-     * that there are no deadlocks.
-     */
+
+
+
+
     async_run_on_cpu(cpu, do_nothing, RUN_ON_CPU_NULL);
 }
 
-/*
- * In the multi-threaded case each vCPU has its own thread. The TLS
- * variable current_cpu can be used deep in the code to find the
- * current CPUState for a given thread.
- */
+
+
+
+
+
 
 static void *mttcg_cpu_thread_fn(void *arg)
 {
@@ -84,7 +84,7 @@ static void *mttcg_cpu_thread_fn(void *arg)
     cpu_thread_signal_created(cpu);
     qemu_guest_random_seed_thread_part2(cpu->random_seed);
 
-    /* process any pending work */
+
     cpu->exit_request = 1;
 
     do {
@@ -98,17 +98,17 @@ static void *mttcg_cpu_thread_fn(void *arg)
                 cpu_handle_guest_debug(cpu);
                 break;
             case EXCP_HALTED:
-                /*
-                 * Usually cpu->halted is set, but may have already been
-                 * reset by another thread by the time we arrive here.
-                 */
+
+
+
+
                 break;
             case EXCP_ATOMIC:
                 bql_unlock();
                 cpu_exec_step_atomic(cpu);
                 bql_lock();
             default:
-                /* Ignore everything else? */
+
                 break;
             }
         }
@@ -136,7 +136,7 @@ void mttcg_start_vcpu_thread(CPUState *cpu)
     g_assert(tcg_enabled());
     tcg_cpu_init_cflags(cpu, current_machine->smp.max_cpus > 1);
 
-    /* create a thread per vCPU with TCG (MTTCG) */
+
     snprintf(thread_name, VCPU_THREAD_NAME_SIZE, "CPU %d/TCG",
              cpu->cpu_index);
 

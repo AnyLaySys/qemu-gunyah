@@ -285,6 +285,7 @@ static void pc_dimm_class_init(ObjectClass *oc, void *data)
     dc->unrealize = pc_dimm_unrealize;
     device_class_set_props(dc, pc_dimm_properties);
     dc->desc = "DIMM memory module";
+    dc->user_creatable = false;
 
     mdc->get_addr = pc_dimm_md_get_addr;
     mdc->set_addr = pc_dimm_md_set_addr;

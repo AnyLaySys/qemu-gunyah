@@ -68,9 +68,9 @@ void gunyah_gic_register_irq_notifiers(EventNotifier *notifiers,
         irq_notify[base_spi + i] = notifiers[i];
     }
 
-    error_report(gh"GIC registered %d IRQ notifiers at SPI %d-%d "
-                 "(irq_notify_count=%d)",
-                 count, base_spi, base_spi + count - 1, irq_notify_count);
+    gh_report("GIC registered %d IRQ notifiers at SPI %d-%d "
+              "(irq_notify_count=%d)",
+              count, base_spi, base_spi + count - 1, irq_notify_count);
 }
 
 static void gunyah_arm_gicv3_set_irq(void *opaque, int irq, int level)
@@ -133,9 +133,9 @@ static void gunyah_arm_gicv3_realize(DeviceState *dev, Error **errp)
      */
     irq_notify = NULL;
     irq_notify_count = 0;
-    error_report(gh"GIC realized - IRQs from QEMU devices will be ignored "
-                 "(guest uses Gunyah doorbells, total SPIs=%d)",
-                 s->num_irq - GIC_INTERNAL);
+    gh_report("GIC realized - IRQs from QEMU devices will be ignored "
+              "(guest uses Gunyah doorbells, total SPIs=%d)",
+              s->num_irq - GIC_INTERNAL);
 
     state->nr_irqs = 0;
 }

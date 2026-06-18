@@ -1703,9 +1703,9 @@ static void virtio_pci_pre_plugged(DeviceState *d, Error **errp)
         
         proxy->nvectors = 0;
 
-        error_report(gh"virtio-pci %s: forcing modern-only + "
-                     "ACCESS_PLATFORM + no-MSI-X (disable legacy)",
-                     vdev->name ? vdev->name : "?");
+        gh_report("virtio-pci %s: forcing modern-only + "
+                  "ACCESS_PLATFORM + no-MSI-X (disable legacy)",
+                  vdev->name ? vdev->name : "?");
     }
 
     if (virtio_pci_modern(proxy)) {
@@ -2344,4 +2344,3 @@ static void virtio_pci_register_types(void)
 }
 
 type_init(virtio_pci_register_types)
-

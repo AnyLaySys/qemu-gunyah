@@ -3,18 +3,18 @@ static void ghdbg_hexdump(const char *label, const void *data, size_t len) {
     size_t i;
     char line[128];
     int pos = 0;
-    error_report("gh-dbg│%s (%zu bytes):", label, len);
+    gh_report("%s (%zu bytes):", label, len);
     for (i = 0; i < len; i++) {
         if (i % 16 == 0) {
             if (i > 0) {
-                error_report("gh-dbg│  %s", line);
+                gh_report("  %s", line);
             }
             pos = 0;
         }
         pos += snprintf(line + pos, sizeof(line) - pos, "%02x ", p[i]);
     }
     if (pos > 0) {
-        error_report("gh-dbg│  %s", line);
+        gh_report("  %s", line);
     }
 }
 static int gunyah_ioctl(int type, ...) {

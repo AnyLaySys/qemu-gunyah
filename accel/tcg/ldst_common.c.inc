@@ -1,16 +1,16 @@
-/*
- * Routines common to user and system emulation of load/store.
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
-/*
- * Load helpers for tcg-ldst.h
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 tcg_target_ulong helper_ldub_mmu(CPUArchState *env, uint64_t addr,
                                  MemOpIdx oi, uintptr_t retaddr)
@@ -40,10 +40,10 @@ uint64_t helper_ldq_mmu(CPUArchState *env, uint64_t addr,
     return do_ld8_mmu(env_cpu(env), addr, oi, retaddr, MMU_DATA_LOAD);
 }
 
-/*
- * Provide signed versions of the load routines as well.  We can of course
- * avoid this for 64-bit data, or for 32-bit data on 32-bit host.
- */
+
+
+
+
 
 tcg_target_ulong helper_ldsb_mmu(CPUArchState *env, uint64_t addr,
                                  MemOpIdx oi, uintptr_t retaddr)
@@ -75,9 +75,9 @@ Int128 helper_ld_i128(CPUArchState *env, uint64_t addr, uint32_t oi)
     return helper_ld16_mmu(env, addr, oi, GETPC());
 }
 
-/*
- * Store helpers for tcg-ldst.h
- */
+
+
+
 
 void helper_stb_mmu(CPUArchState *env, uint64_t addr, uint32_t val,
                     MemOpIdx oi, uintptr_t ra)
@@ -119,9 +119,9 @@ void helper_st_i128(CPUArchState *env, uint64_t addr, Int128 val, MemOpIdx oi)
     helper_st16_mmu(env, addr, val, oi, GETPC());
 }
 
-/*
- * Load helpers for cpu_ldst.h
- */
+
+
+
 
 static void plugin_load_cb(CPUArchState *env, abi_ptr addr,
                            uint64_t value_low,
@@ -189,9 +189,9 @@ Int128 cpu_ld16_mmu(CPUArchState *env, abi_ptr addr,
     return ret;
 }
 
-/*
- * Store helpers for cpu_ldst.h
- */
+
+
+
 
 static void plugin_store_cb(CPUArchState *env, abi_ptr addr,
                             uint64_t value_low,
@@ -244,9 +244,9 @@ void cpu_st16_mmu(CPUArchState *env, abi_ptr addr, Int128 val,
     plugin_store_cb(env, addr, int128_getlo(val), int128_gethi(val), oi);
 }
 
-/*
- * Wrappers of the above
- */
+
+
+
 
 uint32_t cpu_ldub_mmuidx_ra(CPUArchState *env, abi_ptr addr,
                             int mmu_idx, uintptr_t ra)
@@ -364,7 +364,7 @@ void cpu_stq_le_mmuidx_ra(CPUArchState *env, abi_ptr addr, uint64_t val,
     cpu_stq_mmu(env, addr, val, oi, ra);
 }
 
-/*--------------------------*/
+
 
 uint32_t cpu_ldub_data_ra(CPUArchState *env, abi_ptr addr, uintptr_t ra)
 {
@@ -472,7 +472,7 @@ void cpu_stq_le_data_ra(CPUArchState *env, abi_ptr addr,
     cpu_stq_le_mmuidx_ra(env, addr, val, mmu_index, ra);
 }
 
-/*--------------------------*/
+
 
 uint32_t cpu_ldub_data(CPUArchState *env, abi_ptr addr)
 {

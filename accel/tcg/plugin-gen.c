@@ -1,24 +1,24 @@
-/*
- * plugin-gen.c - TCG-related bits of plugin infrastructure
- *
- * Copyright (C) 2018, Emilio G. Cota <cota@braap.org>
- * License: GNU GPL, version 2 or later.
- *   See the COPYING file in the top-level directory.
- *
- * We support instrumentation at an instruction granularity. That is,
- * if a plugin wants to instrument the memory accesses performed by a
- * particular instruction, it can just do that instead of instrumenting
- * all memory accesses. Thus, in order to do this we first have to
- * translate a TB, so that plugins can decide what/where to instrument.
- *
- * Injecting the desired instrumentation could be done with a second
- * translation pass that combined the instrumentation requests, but that
- * would be ugly and inefficient since we would decode the guest code twice.
- * Instead, during TB translation we add "plugin_cb" marker opcodes
- * for all possible instrumentation events, and then once we collect the
- * instrumentation requests from plugins, we generate code for those markers
- * or remove them if they have no requests.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #include "qemu/osdep.h"
 #include "qemu/plugin.h"
 #include "qemu/log.h"
@@ -37,7 +37,7 @@ enum plugin_gen_from {
     PLUGIN_GEN_AFTER_TB,
 };
 
-/* called before finishing a TB with exit_tb, goto_tb or goto_ptr */
+
 void plugin_gen_disable_mem_helpers(void)
 {
     if (tcg_ctx->plugin_insn) {
@@ -51,19 +51,19 @@ static void gen_enable_mem_helper(struct qemu_plugin_tb *ptb,
     GArray *arr;
     size_t len;
 
-    /*
-     * Tracking memory accesses performed from helpers requires extra work.
-     * If an instruction is emulated with helpers, we do two things:
-     * (1) copy the CB descriptors, and keep track of it so that they can be
-     * freed later on, and (2) point CPUState.neg.plugin_mem_cbs to the
-     * descriptors, so that we can read them at run-time
-     * (i.e. when the helper executes).
-     * This run-time access is performed from qemu_plugin_vcpu_mem_cb.
-     *
-     * Note that plugin_gen_disable_mem_helpers undoes (2). Since it
-     * is possible that the code we generate after the instruction is
-     * dead, we also add checks before generating tb_exit etc.
-     */
+
+
+
+
+
+
+
+
+
+
+
+
+
     if (!insn->calls_helpers) {
         return;
     }
@@ -75,13 +75,13 @@ static void gen_enable_mem_helper(struct qemu_plugin_tb *ptb,
     insn->mem_helper = true;
     ptb->mem_helper = true;
 
-    /*
-     * TODO: It seems like we should be able to use ref/unref
-     * to avoid needing to actually copy this array.
-     * Alternately, perhaps we could allocate new memory adjacent
-     * to the TranslationBlock itself, so that we do not have to
-     * actively manage the lifetime after this.
-     */
+
+
+
+
+
+
+
     len = insn->mem_cbs->len;
     arr = g_array_sized_new(false, false,
                             sizeof(struct qemu_plugin_dyn_cb), len);
@@ -102,12 +102,12 @@ static void gen_disable_mem_helper(void)
 
 static TCGv_i32 gen_cpu_index(void)
 {
-    /*
-     * Optimize when we run with a single vcpu. All values using cpu_index,
-     * including scoreboard index, will be optimized out.
-     * User-mode calls tb_flush when setting this flag. In system-mode, all
-     * vcpus are created before generating code.
-     */
+
+
+
+
+
+
     if (!tcg_cflags_has(current_cpu, CF_PARALLEL)) {
         return tcg_constant_i32(current_cpu->cpu_index);
     }
@@ -159,7 +159,7 @@ static TCGCond plugin_cond_to_tcgcond(enum qemu_plugin_cond cond)
     case QEMU_PLUGIN_COND_GE:
         return TCG_COND_GEU;
     default:
-        /* ALWAYS and NEVER conditions should never reach */
+
         g_assert_not_reached();
     }
 }
@@ -170,7 +170,7 @@ static void gen_udata_cond_cb(struct qemu_plugin_conditional_cb *cb)
     TCGv_i64 val = tcg_temp_ebb_new_i64();
     TCGLabel *after_cb = gen_new_label();
 
-    /* Condition should be negated, as calling the cb is the "else" path */
+
     TCGCond cond = tcg_invert_cond(plugin_cond_to_tcgcond(cb->cond));
 
     tcg_gen_ld_i64(val, ptr, 0);
@@ -279,11 +279,11 @@ static void plugin_gen_inject(struct qemu_plugin_tb *plugin_tb)
         }
     }
 
-    /*
-     * While injecting code, we cannot afford to reuse any ebb temps
-     * that might be live within the existing opcode stream.
-     * The simplest solution is to release them all and create new.
-     */
+
+
+
+
+
     tcg_temp_ebb_reset_freed(tcg_ctx);
 
     QTAILQ_FOREACH_SAFE(op, &tcg_ctx->ops, link, next) {
@@ -378,7 +378,7 @@ static void plugin_gen_inject(struct qemu_plugin_tb *plugin_tb)
         }
 
         default:
-            /* plugins don't care about any other ops */
+
             break;
         }
     }
@@ -398,7 +398,7 @@ bool plugin_gen_tb_start(CPUState *cpu, const DisasContextBase *db)
     ptb = tcg_ctx->plugin_tb;
 
     if (ptb) {
-        /* Reset callbacks */
+
         if (ptb->cbs) {
             g_array_set_size(ptb->cbs, 0);
         }
@@ -457,27 +457,27 @@ void plugin_gen_insn_end(void)
     tcg_gen_plugin_cb(PLUGIN_GEN_AFTER_INSN);
 }
 
-/*
- * There are cases where we never get to finalise a translation - for
- * example a page fault during translation. As a result we shouldn't
- * do any clean-up here and make sure things are reset in
- * plugin_gen_tb_start.
- */
+
+
+
+
+
+
 void plugin_gen_tb_end(CPUState *cpu, size_t num_insns)
 {
     struct qemu_plugin_tb *ptb = tcg_ctx->plugin_tb;
 
-    /* translator may have removed instructions, update final count */
+
     g_assert(num_insns <= ptb->n);
     ptb->n = num_insns;
 
-    /* collect instrumentation requests */
+
     qemu_plugin_tb_trans_cb(cpu, ptb);
 
-    /* inject the instrumentation at the appropriate places */
+
     plugin_gen_inject(ptb);
 
-    /* reset plugin translation state (plugin_tb is reused between blocks) */
+
     tcg_ctx->plugin_db = NULL;
     tcg_ctx->plugin_insn = NULL;
 }

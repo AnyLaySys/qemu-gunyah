@@ -282,31 +282,9 @@ endif
 
 accelerator_targets = {}
 
-if cpu == 'x86'
-  xen_targets = ['i386-softmmu']
-elif cpu == 'x86_64'
-  xen_targets = ['i386-softmmu', 'x86_64-softmmu']
-elif cpu == 'arm'
-  # i386 emulator provides xenpv machine type for multiple architectures
-  xen_targets = ['i386-softmmu']
-elif cpu == 'aarch64'
-  # i386 emulator provides xenpv machine type for multiple architectures
-  xen_targets = ['i386-softmmu', 'x86_64-softmmu', 'aarch64-softmmu']
-else
-  xen_targets = []
-endif
-accelerator_targets += { 'CONFIG_XEN': xen_targets }
-
 if cpu == 'aarch64'
   accelerator_targets += {
-    'CONFIG_HVF': ['aarch64-softmmu'],
     'CONFIG_GH': ['aarch64-softmmu']
-  }
-elif cpu == 'x86_64'
-  accelerator_targets += {
-    'CONFIG_HVF': ['x86_64-softmmu'],
-    'CONFIG_NVMM': ['i386-softmmu', 'x86_64-softmmu'],
-    'CONFIG_WHPX': ['i386-softmmu', 'x86_64-softmmu'],
   }
 endif
 
@@ -846,32 +824,6 @@ accelerators = []
 if get_option('gunyah').allowed() and host_os == 'linux'
   accelerators += 'CONFIG_GH'
 endif
-if get_option('whpx').allowed() and host_os == 'windows'
-  if get_option('whpx').enabled() and host_machine.cpu() != 'x86_64'
-    error('WHPX requires 64-bit host')
-  elif cc.has_header('winhvplatform.h', required: get_option('whpx')) and \
-       cc.has_header('winhvemulation.h', required: get_option('whpx'))
-    accelerators += 'CONFIG_WHPX'
-  endif
-endif
-
-hvf = not_found
-if get_option('hvf').allowed()
-  hvf = dependency('appleframeworks', modules: 'Hypervisor',
-                   required: get_option('hvf'))
-  if hvf.found()
-    accelerators += 'CONFIG_HVF'
-  endif
-endif
-
-nvmm = not_found
-if host_os == 'netbsd'
-  nvmm = cc.find_library('nvmm', required: get_option('nvmm'))
-  if nvmm.found()
-    accelerators += 'CONFIG_NVMM'
-  endif
-endif
-
 tcg_arch = host_arch
 if get_option('tcg').allowed()
   if host_arch == 'unknown'
@@ -902,16 +854,6 @@ endif
 if 'CONFIG_GH' not in accelerators and get_option('gunyah').enabled()
   error('Gunyah not available on this platform')
 endif
-if 'CONFIG_HVF' not in accelerators and get_option('hvf').enabled()
-  error('HVF not available on this platform')
-endif
-if 'CONFIG_NVMM' not in accelerators and get_option('nvmm').enabled()
-  error('NVMM not available on this platform')
-endif
-if 'CONFIG_WHPX' not in accelerators and get_option('whpx').enabled()
-  error('WHPX not available on this platform')
-endif
-
 xen = not_found
 if get_option('xen').enabled() or (get_option('xen').auto() and have_system)
   xencontrol = dependency('xencontrol', required: false,
@@ -976,9 +918,7 @@ if get_option('xen').enabled() or (get_option('xen').auto() and have_system)
       endif
     endforeach
   endif
-  if xen.found()
-    accelerators += 'CONFIG_XEN'
-  elif get_option('xen').enabled()
+  if not xen.found() and get_option('xen').enabled()
     error('could not compile and link Xen test program')
   endif
 endif
@@ -3335,12 +3275,6 @@ foreach target : target_dirs
     target_kconfig += 'CONFIG_' + config_target['TARGET_ARCH'].to_upper() + '=y'
     target_kconfig += 'CONFIG_TARGET_BIG_ENDIAN=' + config_target['TARGET_BIG_ENDIAN']
 
-    # PVG is not cross-architecture.  Use accelerator_targets as a proxy to
-    # figure out which target can support PVG on this host
-    if pvg.found() and target in accelerator_targets.get('CONFIG_HVF', [])
-      target_kconfig += 'CONFIG_MAC_PVG=y'
-    endif
-
     config_input = meson.get_external_property(target, 'default')
     config_devices_mak = target + '-config-devices.mak'
     config_devices_mak = configure_file(
@@ -3575,9 +3509,6 @@ if have_system or have_user
     'hw/core',
     'target/arm',
   ]
-  if 'CONFIG_HVF' in config_all_accel
-    trace_events_subdirs += [ 'target/arm/hvf' ]
-  endif
 endif
 
 ###################
@@ -4254,12 +4185,6 @@ foreach target : target_dirs
         get_option('bindir') / exe_name,
         meson.current_source_dir() / icon
       ]
-      if 'CONFIG_HVF' in config_target
-        entitlements = 'accel/hvf/entitlements.plist'
-        build_input += files(entitlements)
-        install_input += meson.current_source_dir() / entitlements
-      endif
-
       emulators += {exe['name'] : custom_target(exe['name'],
                    input: build_input,
                    output: exe['name'],
@@ -4529,9 +4454,6 @@ summary(summary_info, bool_yn: true, section: 'Compilation')
 summary_info = {}
 if have_system
   summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GH')}
-  summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
-  summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
-  summary_info += {'NVMM support':      config_all_accel.has_key('CONFIG_NVMM')}
   summary_info += {'Xen support':       xen.found()}
   if xen.found()
     summary_info += {'xen ctrl version':  xen.version()}

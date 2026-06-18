@@ -872,10 +872,10 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
             if (gunyah_enabled() && gunyah_addr_is_lend(a)) {
                 static bool warned;
                 if (!warned) {
-                    error_report(gh"virtio-gpu: backing page GPA 0x%"
-                                 PRIx64 " is in LEND'd memory — using "
-                                 "local bounce buffer (display may be "
-                                 "blank)", a);
+                    gh_report("virtio-gpu: backing page GPA 0x%"
+                              PRIx64 " is in LEND'd memory - using "
+                              "local bounce buffer (display may be "
+                              "blank)", a);
                     warned = true;
                 }
                 map = g_malloc0(len);
@@ -1703,6 +1703,7 @@ static void virtio_gpu_class_init(ObjectClass *klass, void *data)
     vdc->set_config = virtio_gpu_set_config;
 
     dc->vmsd = &vmstate_virtio_gpu;
+    dc->user_creatable = false;
     device_class_set_props(dc, virtio_gpu_properties);
 }
 

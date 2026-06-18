@@ -15,8 +15,6 @@ config VMAPPLE_VIRTIO_BLK
 config VMAPPLE
     bool
     depends on ARM
-    depends on HVF
-    default y if ARM
     imply PCI_DEVICES
     select ARM_GICV3
     select PLATFORM_BUS

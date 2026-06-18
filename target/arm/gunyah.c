@@ -45,7 +45,7 @@ int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size)
     state->dtb_start = dtb_start;
     state->dtb_size = dtb_size;
 
-    error_report("gh    │set_dtb gpa=0x%"PRIx64" size=0x%"PRIx64
+    gh_report("set_dtb gpa=0x%"PRIx64" size=0x%"PRIx64
                  " (deferred to VM start)", dtb_start, dtb_size);
 
     return 0;
@@ -90,7 +90,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
      * back to QEMU for proper emulation.
      */
     qemu_fdt_setprop_u64(fdt, nodename, "base-address", 0);
-    error_report("gh    │gunyah-vm-config/memory base-address=0x0 "
+    gh_report("gunyah-vm-config/memory base-address=0x0 "
                  "(includes QEMU device I/O below 0x%"PRIx64")", mem_base);
     /*
      * Max VM size — must cover the entire IPA range from base-address (0)
@@ -112,7 +112,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
             size_max = 4 * GiB;
         }
         qemu_fdt_setprop_u64(fdt, nodename, "size-max", size_max);
-        error_report("gh    │gunyah-vm-config/memory size-max=0x%"PRIx64
+        gh_report("gunyah-vm-config/memory size-max=0x%"PRIx64
                      " (ram_top=0x%"PRIx64")", size_max, ram_top);
     }
 
@@ -156,7 +156,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
             continue;
         }
 
-        error_report("gh    │creating SHM node shm-%x gpa=0x%"PRIx64
+        gh_report("creating SHM node shm-%x gpa=0x%"PRIx64
                      " size=0x%"PRIx64, i, state->slots[i].start,
                      state->slots[i].size);
 
@@ -206,7 +206,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
         };
         int nbell = sizeof(bells) / sizeof(bells[0]);
 
-        error_report("gh    │creating %d doorbell DTB nodes (matching CrosVM)",
+        gh_report("creating %d doorbell DTB nodes (matching CrosVM)",
                      nbell);
 
         for (i = 0; i < nbell; ++i) {
@@ -236,7 +236,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
      * virtio-mmio IRQ assignment.  EDGE_RISING trigger.
      */
     {
-        error_report("gh    │creating 32 virtio doorbell DTB nodes "
+        gh_report("creating 32 virtio doorbell DTB nodes "
                      "(labels 0x10-0x2f, SPIs 16-47)");
         for (i = 0; i < 32; i++) {
             char *p;

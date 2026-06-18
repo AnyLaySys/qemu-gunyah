@@ -161,11 +161,8 @@ static void virtio_pci_input_register(void)
     type_register_static(&virtio_input_pci_info);
     type_register_static(&virtio_input_hid_pci_info);
 
-    /* Implementations: */
     virtio_pci_types_register(&virtio_keyboard_pci_info);
-    virtio_pci_types_register(&virtio_mouse_pci_info);
     virtio_pci_types_register(&virtio_tablet_pci_info);
-    virtio_pci_types_register(&virtio_multitouch_pci_info);
 }
 
 type_init(virtio_pci_input_register)

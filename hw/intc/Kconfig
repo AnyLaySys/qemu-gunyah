@@ -24,16 +24,11 @@ config APIC
 config ARM_GIC
     bool
     select ARM_GICV3 if TCG
-    select ARM_GIC_KVM if KVM
     select MSI_NONBROKEN
 
 config ARM_GICV3
     bool
     depends on ARM_GIC
-
-config ARM_GIC_KVM
-    bool
-    depends on ARM_GIC && KVM
 
 config XICS
     bool
@@ -46,10 +41,6 @@ config ALLWINNER_A10_PIC
 
 config S390_FLIC
     bool
-
-config S390_FLIC_KVM
-    bool
-    depends on S390_FLIC && KVM
 
 config OMPIC
     bool

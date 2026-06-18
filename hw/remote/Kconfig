@@ -1,8 +1,11 @@
 config MULTIPROCESS
     bool
-    depends on PCI && PCI_EXPRESS && KVM
+    depends on MULTIPROCESS_SUPPORTED
     select REMOTE_PCIHOST
 
 config VFIO_USER_SERVER
     bool
     depends on MULTIPROCESS
+
+config MULTIPROCESS_SUPPORTED
+    bool

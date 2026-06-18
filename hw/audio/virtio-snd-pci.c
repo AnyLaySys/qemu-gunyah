@@ -18,7 +18,7 @@
 /*
  * virtio-snd-pci: This extends VirtioPCIProxy.
  */
-#define TYPE_VIRTIO_SND_PCI "virtio-sound-pci"
+#define TYPE_VIRTIO_SND_PCI "virtio-snd-pci"
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOSoundPCI, VIRTIO_SND_PCI)
 
 struct VirtIOSoundPCI {

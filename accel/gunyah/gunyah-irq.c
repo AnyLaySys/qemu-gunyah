@@ -8,13 +8,13 @@ int gunyah_add_irqfd(int irqfd, int label, Error **errp) {
     ghirqfd.fd = irqfd;
     ghirqfd.label = label;
     ghirqfd.flags = GH_IRQFD_FLAGS_LEVEL;
-    error_report(gh"add_irqfd label=%d fd=%d flags=0x%x", label, irqfd, ghirqfd.flags);
+    gh_report("add_irqfd label=%d fd=%d flags=0x%x", label, irqfd, ghirqfd.flags);
     ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
     if (ret) {
-        error_report(gh"add_irqfd FAILED label=%d: %s (errno=%d)", label, strerror(errno), errno);
+        gh_report("add_irqfd FAILED label=%d: %s (errno=%d)", label, strerror(errno), errno);
         error_setg_errno(errp, errno, "GH_FN_IRQFD failed");
     } else {
-        error_report(gh"add_irqfd OK label=%d", label);
+        gh_report("add_irqfd OK label=%d", label);
     }
     return ret;
 }

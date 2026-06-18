@@ -1893,6 +1893,7 @@ static void virtio_blk_class_init(ObjectClass *klass, void *data)
 
     device_class_set_props(dc, virtio_blk_properties);
     dc->vmsd = &vmstate_virtio_blk;
+    dc->user_creatable = false;
     set_bit(DEVICE_CATEGORY_STORAGE, dc->categories);
     vdc->realize = virtio_blk_device_realize;
     vdc->unrealize = virtio_blk_device_unrealize;

@@ -1371,6 +1371,7 @@ static void virtio_snd_class_init(ObjectClass *klass, void *data)
     device_class_set_props(dc, virtio_snd_properties);
 
     dc->vmsd = &vmstate_virtio_snd;
+    dc->user_creatable = false;
     vdc->vmsd = &vmstate_virtio_snd_device;
     vdc->realize = virtio_snd_realize;
     vdc->unrealize = virtio_snd_unrealize;

@@ -35,9 +35,6 @@
 #include "system/runstate.h"
 #include "qemu/guest-random.h"
 
-#define gh0 "[31mgh:[0m"
-#define gh1 "[33mgh:[0m"
-#define gh2 "[32mgh:[0m"
 #include "gunyah-signal.c"
 #include "gunyah-ioctl.c"
 #include "gunyah-mem.c"

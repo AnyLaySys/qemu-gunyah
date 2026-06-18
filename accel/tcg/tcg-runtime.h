@@ -29,15 +29,15 @@ DEF_HELPER_FLAGS_1(lookup_tb_ptr, TCG_CALL_NO_WG_SE, cptr, env)
 DEF_HELPER_FLAGS_1(exit_atomic, TCG_CALL_NO_WG, noreturn, env)
 
 #ifndef IN_HELPER_PROTO
-/*
- * Pass calls to memset directly to libc, without a thunk in qemu.
- * Do not re-declare memset, especially since we fudge the type here;
- * we assume sizeof(void *) == sizeof(size_t), which is true for
- * all supported hosts.
- */
+
+
+
+
+
+
 #define helper_memset memset
 DEF_HELPER_FLAGS_3(memset, TCG_CALL_NO_RWG, ptr, ptr, int, ptr)
-#endif /* IN_HELPER_PROTO */
+#endif
 
 DEF_HELPER_FLAGS_3(ld_i128, TCG_CALL_NO_WG, i128, env, i64, i32)
 DEF_HELPER_FLAGS_4(st_i128, TCG_CALL_NO_WG, void, env, i64, i128, i32)
@@ -96,7 +96,7 @@ DEF_HELPER_FLAGS_5(nonatomic_cmpxchgo, TCG_CALL_NO_WG,
                        TCG_CALL_NO_WG, i32, env, i64, i32, i32)   \
     DEF_HELPER_FLAGS_4(glue(glue(atomic_, NAME), l_be),           \
                        TCG_CALL_NO_WG, i32, env, i64, i32, i32)
-#endif /* CONFIG_ATOMIC64 */
+#endif
 
 GEN_ATOMIC_HELPERS(fetch_add)
 GEN_ATOMIC_HELPERS(fetch_and)

@@ -1,15 +1,15 @@
-/*
- * Dummy cpu thread code
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "qemu/rcu.h"
@@ -37,7 +37,7 @@ static void *dummy_cpu_thread_fn(void *arg)
     sigaddset(&waitset, SIG_IPI);
 #endif
 
-    /* signal CPU creation */
+
     cpu_thread_signal_created(cpu);
     qemu_guest_random_seed_thread_part2(cpu->random_seed);
 

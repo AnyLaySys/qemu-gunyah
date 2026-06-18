@@ -1169,6 +1169,7 @@ static void virtio_serial_class_init(ObjectClass *klass, void *data)
 
     device_class_set_props(dc, virtio_serial_properties);
     dc->vmsd = &vmstate_virtio_console;
+    dc->user_creatable = false;
     set_bit(DEVICE_CATEGORY_INPUT, dc->categories);
     vdc->realize = virtio_serial_device_realize;
     vdc->unrealize = virtio_serial_device_unrealize;

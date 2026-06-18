@@ -1,27 +1,27 @@
-/*
- * QEMU System Emulator, accelerator interfaces
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2014 Red Hat Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "system/tcg.h"
@@ -58,18 +58,18 @@ typedef struct TCGState TCGState;
 DECLARE_INSTANCE_CHECKER(TCGState, TCG_STATE,
                          TYPE_TCG_ACCEL)
 
-/*
- * We default to false if we know other options have been enabled
- * which are currently incompatible with MTTCG. Otherwise when each
- * guest (target) has been updated to support:
- *   - atomic instructions
- *   - memory ordering primitives (barriers)
- * they can set the appropriate CONFIG flags in ${target}-softmmu.mak
- *
- * Once a guest architecture has been converted to the new primitives
- * there is one remaining limitation to check:
- *   - The guest can't be oversized (e.g. 64 bit guest on 32 bit host)
- */
+
+
+
+
+
+
+
+
+
+
+
+
 
 static bool default_mttcg_enabled(void)
 {
@@ -92,7 +92,7 @@ static void tcg_accel_instance_init(Object *obj)
 
     s->mttcg_enabled = default_mttcg_enabled();
 
-    /* If debugging enabled, default "auto on", otherwise off. */
+
 #if defined(CONFIG_DEBUG_TCG) && !defined(CONFIG_USER_ONLY)
     s->splitwx_enabled = -1;
 #else
@@ -120,10 +120,10 @@ static int tcg_init_machine(MachineState *ms)
     tcg_init(s->tb_size * MiB, s->splitwx_enabled, max_cpus);
 
 #if defined(CONFIG_SOFTMMU)
-    /*
-     * There's no guest base to take into account, so go ahead and
-     * initialize the prologue now.
-     */
+
+
+
+
     tcg_prologue_init();
 #endif
 
@@ -208,18 +208,18 @@ static void tcg_set_one_insn_per_tb(Object *obj, bool value, Error **errp)
 {
     TCGState *s = TCG_STATE(obj);
     s->one_insn_per_tb = value;
-    /* Set the global also: this changes the behaviour */
+
     qatomic_set(&one_insn_per_tb, value);
 }
 
 static int tcg_gdbstub_supported_sstep_flags(void)
 {
-    /*
-     * In replay mode all events will come from the log and can't be
-     * suppressed otherwise we would break determinism. However as those
-     * events are tied to the number of executed instructions we won't see
-     * them occurring every time we single step.
-     */
+
+
+
+
+
+
     if (replay_mode != REPLAY_MODE_NONE) {
         return SSTEP_ENABLE;
     } else {

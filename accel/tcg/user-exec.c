@@ -1,21 +1,21 @@
-/*
- *  User emulator execution
- *
- *  Copyright (c) 2003-2005 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #include "qemu/osdep.h"
 #include "accel/tcg/cpu-ops.h"
 #include "disas/disas.h"
@@ -41,7 +41,7 @@
 
 __thread uintptr_t helper_retaddr;
 
-//#define DEBUG_SIGNAL
+
 
 void cpu_interrupt(CPUState *cpu, int mask)
 {
@@ -50,53 +50,53 @@ void cpu_interrupt(CPUState *cpu, int mask)
     qatomic_set(&cpu->neg.icount_decr.u16.high, -1);
 }
 
-/*
- * Adjust the pc to pass to cpu_restore_state; return the memop type.
- */
+
+
+
 MMUAccessType adjust_signal_pc(uintptr_t *pc, bool is_write)
 {
     switch (helper_retaddr) {
     default:
-        /*
-         * Fault during host memory operation within a helper function.
-         * The helper's host return address, saved here, gives us a
-         * pointer into the generated code that will unwind to the
-         * correct guest pc.
-         */
+
+
+
+
+
+
         *pc = helper_retaddr;
         break;
 
     case 0:
-        /*
-         * Fault during host memory operation within generated code.
-         * (Or, a unrelated bug within qemu, but we can't tell from here).
-         *
-         * We take the host pc from the signal frame.  However, we cannot
-         * use that value directly.  Within cpu_restore_state_from_tb, we
-         * assume PC comes from GETPC(), as used by the helper functions,
-         * so we adjust the address by -GETPC_ADJ to form an address that
-         * is within the call insn, so that the address does not accidentally
-         * match the beginning of the next guest insn.  However, when the
-         * pc comes from the signal frame it points to the actual faulting
-         * host memory insn and not the return from a call insn.
-         *
-         * Therefore, adjust to compensate for what will be done later
-         * by cpu_restore_state_from_tb.
-         */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         *pc += GETPC_ADJ;
         break;
 
     case 1:
-        /*
-         * Fault during host read for translation, or loosely, "execution".
-         *
-         * The guest pc is already pointing to the start of the TB for which
-         * code is being generated.  If the guest translator manages the
-         * page crossings correctly, this is exactly the correct address
-         * (and if the translator doesn't handle page boundaries correctly
-         * there's little we can do about that here).  Therefore, do not
-         * trigger the unwinder.
-         */
+
+
+
+
+
+
+
+
+
+
         *pc = 0;
         return MMU_INST_FETCH;
     }
@@ -104,48 +104,48 @@ MMUAccessType adjust_signal_pc(uintptr_t *pc, bool is_write)
     return is_write ? MMU_DATA_STORE : MMU_DATA_LOAD;
 }
 
-/**
- * handle_sigsegv_accerr_write:
- * @cpu: the cpu context
- * @old_set: the sigset_t from the signal ucontext_t
- * @host_pc: the host pc, adjusted for the signal
- * @guest_addr: the guest address of the fault
- *
- * Return true if the write fault has been handled, and should be re-tried.
- *
- * Note that it is important that we don't call page_unprotect() unless
- * this is really a "write to nonwritable page" fault, because
- * page_unprotect() assumes that if it is called for an access to
- * a page that's writable this means we had two threads racing and
- * another thread got there first and already made the page writable;
- * so we will retry the access. If we were to call page_unprotect()
- * for some other kind of fault that should really be passed to the
- * guest, we'd end up in an infinite loop of retrying the faulting access.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool handle_sigsegv_accerr_write(CPUState *cpu, sigset_t *old_set,
                                  uintptr_t host_pc, abi_ptr guest_addr)
 {
     switch (page_unprotect(guest_addr, host_pc)) {
     case 0:
-        /*
-         * Fault not caused by a page marked unwritable to protect
-         * cached translations, must be the guest binary's problem.
-         */
+
+
+
+
         return false;
     case 1:
-        /*
-         * Fault caused by protection of cached translation; TBs
-         * invalidated, so resume execution.
-         */
+
+
+
+
         return true;
     case 2:
-        /*
-         * Fault caused by protection of cached translation, and the
-         * currently executing TB was modified and must be exited immediately.
-         */
+
+
+
+
         sigprocmask(SIG_SETMASK, old_set, NULL);
         cpu_loop_exit_noexc(cpu);
-        /* NORETURN */
+
     default:
         g_assert_not_reached();
     }
@@ -210,7 +210,7 @@ static int dump_region(void *priv, target_ulong start,
     return 0;
 }
 
-/* dump memory mappings */
+
 void page_dump(FILE *f)
 {
     const int length = sizeof(target_ulong) * 2;
@@ -224,11 +224,11 @@ int page_get_flags(target_ulong address)
 {
     PageFlagsNode *p = pageflags_find(address, address);
 
-    /*
-     * See util/interval-tree.c re lockless lookups: no false positives but
-     * there are false negatives.  If we find nothing, retry with the mmap
-     * lock acquired.
-     */
+
+
+
+
+
     if (p) {
         return p->flags;
     }
@@ -242,7 +242,7 @@ int page_get_flags(target_ulong address)
     return p ? p->flags : 0;
 }
 
-/* A subroutine of page_set_flags: insert a new node for [start,last]. */
+
 static void pageflags_create(target_ulong start, target_ulong last, int flags)
 {
     PageFlagsNode *p = g_new(PageFlagsNode, 1);
@@ -253,7 +253,7 @@ static void pageflags_create(target_ulong start, target_ulong last, int flags)
     interval_tree_insert(&p->itree, &pageflags_root);
 }
 
-/* A subroutine of page_set_flags: remove everything in [start,last]. */
+
 static bool pageflags_unset(target_ulong start, target_ulong last)
 {
     bool inval_tb = false;
@@ -274,7 +274,7 @@ static bool pageflags_unset(target_ulong start, target_ulong last)
         p_last = p->itree.last;
 
         if (p->itree.start < start) {
-            /* Truncate the node from the end, or split out the middle. */
+
             p->itree.last = start - 1;
             interval_tree_insert(&p->itree, &pageflags_root);
             if (last < p_last) {
@@ -282,10 +282,10 @@ static bool pageflags_unset(target_ulong start, target_ulong last)
                 break;
             }
         } else if (p_last <= last) {
-            /* Range completely covers node -- remove it. */
+
             g_free_rcu(p, rcu);
         } else {
-            /* Truncate the node from the start. */
+
             p->itree.start = last + 1;
             interval_tree_insert(&p->itree, &pageflags_root);
             break;
@@ -295,10 +295,10 @@ static bool pageflags_unset(target_ulong start, target_ulong last)
     return inval_tb;
 }
 
-/*
- * A subroutine of page_set_flags: nothing overlaps [start,last],
- * but check adjacent mappings and maybe merge into a single range.
- */
+
+
+
+
 static void pageflags_create_merge(target_ulong start, target_ulong last,
                                    int flags)
 {
@@ -341,16 +341,16 @@ static void pageflags_create_merge(target_ulong start, target_ulong last,
     }
 }
 
-/*
- * Allow the target to decide if PAGE_TARGET_[12] may be reset.
- * By default, they are not kept.
- */
+
+
+
+
 #ifndef PAGE_TARGET_STICKY
 #define PAGE_TARGET_STICKY  0
 #endif
 #define PAGE_STICKY  (PAGE_ANON | PAGE_PASSTHROUGH | PAGE_TARGET_STICKY)
 
-/* A subroutine of page_set_flags: add flags to [start,last]. */
+
 static bool pageflags_set_clear(target_ulong start, target_ulong last,
                                 int set_flags, int clear_flags)
 {
@@ -371,23 +371,23 @@ static bool pageflags_set_clear(target_ulong start, target_ulong last,
     p_start = p->itree.start;
     p_last = p->itree.last;
     p_flags = p->flags;
-    /* Using mprotect on a page does not change sticky bits. */
+
     merge_flags = (p_flags & ~clear_flags) | set_flags;
 
-    /*
-     * Need to flush if an overlapping executable region
-     * removes exec, or adds write.
-     */
+
+
+
+
     if ((p_flags & PAGE_EXEC)
         && (!(merge_flags & PAGE_EXEC)
             || (merge_flags & ~p_flags & PAGE_WRITE))) {
         inval_tb = true;
     }
 
-    /*
-     * If there is an exact range match, update and return without
-     * attempting to merge with adjacent regions.
-     */
+
+
+
+
     if (start == p_start && last == p_last) {
         if (merge_flags) {
             p->flags = merge_flags;
@@ -398,10 +398,10 @@ static bool pageflags_set_clear(target_ulong start, target_ulong last,
         goto done;
     }
 
-    /*
-     * If sticky bits affect the original mapping, then we must be more
-     * careful about the existing intervals and the separate flags.
-     */
+
+
+
+
     if (set_flags != merge_flags) {
         if (p_start < start) {
             interval_tree_remove(&p->itree, &pageflags_root);
@@ -449,7 +449,7 @@ static bool pageflags_set_clear(target_ulong start, target_ulong last,
         goto done;
     }
 
-    /* If flags are not changing for this range, incorporate it. */
+
     if (set_flags == p_flags) {
         if (start < p_start) {
             interval_tree_remove(&p->itree, &pageflags_root);
@@ -463,7 +463,7 @@ static bool pageflags_set_clear(target_ulong start, target_ulong last,
         goto done;
     }
 
-    /* Maybe split out head and/or tail ranges with the original flags. */
+
     interval_tree_remove(&p->itree, &pageflags_root);
     if (p_start < start) {
         p->itree.last = start - 1;
@@ -495,12 +495,12 @@ void page_set_flags(target_ulong start, target_ulong last, int flags)
     bool reset = false;
     bool inval_tb = false;
 
-    /* This function should never be called with addresses outside the
-       guest address space.  If this assert fires, it probably indicates
-       a missing call to h2g_valid.  */
+
+
+
     assert(start <= last);
     assert(last <= GUEST_ADDR_MAX);
-    /* Only set PAGE_ANON with new mappings. */
+
     assert(!(flags & PAGE_ANON) || (flags & PAGE_RESET));
     assert_memory_lock();
 
@@ -533,16 +533,16 @@ void page_set_flags(target_ulong start, target_ulong last, int flags)
 bool page_check_range(target_ulong start, target_ulong len, int flags)
 {
     target_ulong last;
-    int locked;  /* tri-state: =0: unlocked, +1: global, -1: local */
+    int locked;
     bool ret;
 
     if (len == 0) {
-        return true;  /* trivial length */
+        return true;
     }
 
     last = start + len - 1;
     if (last < start) {
-        return false; /* wrap around */
+        return false;
     }
 
     locked = have_mmap_lock();
@@ -552,42 +552,42 @@ bool page_check_range(target_ulong start, target_ulong len, int flags)
 
         if (!p) {
             if (!locked) {
-                /*
-                 * Lockless lookups have false negatives.
-                 * Retry with the lock held.
-                 */
+
+
+
+
                 mmap_lock();
                 locked = -1;
                 p = pageflags_find(start, last);
             }
             if (!p) {
-                ret = false; /* entire region invalid */
+                ret = false;
                 break;
             }
         }
         if (start < p->itree.start) {
-            ret = false; /* initial bytes invalid */
+            ret = false;
             break;
         }
 
         missing = flags & ~p->flags;
         if (missing & ~PAGE_WRITE) {
-            ret = false; /* page doesn't match */
+            ret = false;
             break;
         }
         if (missing & PAGE_WRITE) {
             if (!(p->flags & PAGE_WRITE_ORG)) {
-                ret = false; /* page not writable */
+                ret = false;
                 break;
             }
-            /* Asking about writable, but has been protected: undo. */
+
             if (!page_unprotect(start, 0)) {
                 ret = false;
                 break;
             }
-            /* TODO: page_unprotect should take a range, not a single page. */
+
             if (last - start < TARGET_PAGE_SIZE) {
-                ret = true; /* ok */
+                ret = true;
                 break;
             }
             start += TARGET_PAGE_SIZE;
@@ -595,13 +595,13 @@ bool page_check_range(target_ulong start, target_ulong len, int flags)
         }
 
         if (last <= p->itree.last) {
-            ret = true; /* ok */
+            ret = true;
             break;
         }
         start = p->itree.last + 1;
     }
 
-    /* Release the lock if acquired locally. */
+
     if (locked < 0) {
         mmap_unlock();
     }
@@ -629,11 +629,11 @@ target_ulong page_find_range_empty(target_ulong min, target_ulong max,
     len_m1 = len - 1;
     align_m1 = align - 1;
 
-    /* Iteratively narrow the search region. */
+
     while (1) {
         PageFlagsNode *p;
 
-        /* Align min and double-check there's enough space remaining. */
+
         min = (min + align_m1) & ~align_m1;
         if (min > max) {
             return -1;
@@ -644,14 +644,14 @@ target_ulong page_find_range_empty(target_ulong min, target_ulong max,
 
         p = pageflags_find(min, min + len_m1);
         if (p == NULL) {
-            /* Found! */
+
             return min;
         }
         if (max <= p->itree.last) {
-            /* Existing allocation fills the remainder of the search region. */
+
             return -1;
         }
-        /* Skip across existing allocation. */
+
         min = p->itree.last + 1;
     }
 }
@@ -680,7 +680,7 @@ void page_protect(tb_page_addr_t address)
     prot = p->flags;
 
     if (unlikely(p->itree.last < last)) {
-        /* More than one protection region covers the one host page. */
+
         assert(TARGET_PAGE_SIZE < host_page_size);
         while ((p = pageflags_next(p, start, last)) != NULL) {
             prot |= p->flags;
@@ -694,28 +694,28 @@ void page_protect(tb_page_addr_t address)
     }
 }
 
-/*
- * Called from signal handler: invalidate the code and unprotect the
- * page. Return 0 if the fault was not handled, 1 if it was handled,
- * and 2 if it was handled but the caller must cause the TB to be
- * immediately exited. (We can only return 2 if the 'pc' argument is
- * non-zero.)
- */
+
+
+
+
+
+
+
 int page_unprotect(tb_page_addr_t address, uintptr_t pc)
 {
     PageFlagsNode *p;
     bool current_tb_invalidated;
 
-    /*
-     * Technically this isn't safe inside a signal handler.  However we
-     * know this only ever happens in a synchronous SEGV handler, so in
-     * practice it seems to be ok.
-     */
+
+
+
+
+
     mmap_lock();
 
     p = pageflags_find(address, address);
 
-    /* If this address was not really writable, nothing to do. */
+
     if (!p || !(p->flags & PAGE_WRITE_ORG)) {
         mmap_unlock();
         return 0;
@@ -723,11 +723,11 @@ int page_unprotect(tb_page_addr_t address, uintptr_t pc)
 
     current_tb_invalidated = false;
     if (p->flags & PAGE_WRITE) {
-        /*
-         * If the page is actually marked WRITE then assume this is because
-         * this thread raced with another one which got here first and
-         * set the page to PAGE_WRITE and did the TB invalidate for us.
-         */
+
+
+
+
+
 #ifdef TARGET_HAS_PRECISE_SMC
         TranslationBlock *current_tb = tcg_tb_lookup(pc);
         if (current_tb) {
@@ -762,10 +762,10 @@ int page_unprotect(tb_page_addr_t address, uintptr_t pc)
                                             PAGE_WRITE, 0);
                     }
                 }
-                /*
-                 * Since the content will be modified, we must invalidate
-                 * the corresponding translated code.
-                 */
+
+
+
+
                 current_tb_invalidated |=
                     tb_invalidate_phys_page_unwind(addr, pc);
             }
@@ -777,7 +777,7 @@ int page_unprotect(tb_page_addr_t address, uintptr_t pc)
     }
     mmap_unlock();
 
-    /* If current TB was invalidated return to main loop */
+
     return current_tb_invalidated ? 2 : 1;
 }
 
@@ -809,7 +809,7 @@ static int probe_access_internal(CPUArchState *env, vaddr addr,
                 && cpu_plugin_mem_cbs_enabled(env_cpu(env))) {
                 return TLB_MMIO;
             }
-            return 0; /* success */
+            return 0;
         }
         maperr = !(page_flags & PAGE_VALID);
     } else {
@@ -862,11 +862,11 @@ tb_page_addr_t get_page_addr_code_hostp(CPUArchState *env, vaddr addr,
 }
 
 #ifdef TARGET_PAGE_DATA_SIZE
-/*
- * Allocate chunks of target data together.  For the only current user,
- * if we allocate one hunk per page, we have overhead of 40/128 or 40%.
- * Therefore, allocate memory for 64 pages at a time for overhead < 1%.
- */
+
+
+
+
+
 #define TPD_PAGES  64
 #define TBD_MASK   (TARGET_PAGE_MASK * TPD_PAGES)
 
@@ -927,12 +927,12 @@ void *page_get_target_data(target_ulong address)
 
     n = interval_tree_iter_first(&targetdata_root, page, page);
     if (!n) {
-        /*
-         * See util/interval-tree.c re lockless lookups: no false positives
-         * but there are false negatives.  If we find nothing, retry with
-         * the mmap lock acquired.  We also need the lock for the
-         * allocation + insert.
-         */
+
+
+
+
+
+
         mmap_lock();
         n = interval_tree_iter_first(&targetdata_root, page, page);
         if (!n) {
@@ -952,9 +952,9 @@ void *page_get_target_data(target_ulong address)
 }
 #else
 void page_reset_target_data(target_ulong start, target_ulong last) { }
-#endif /* TARGET_PAGE_DATA_SIZE */
+#endif
 
-/* The system-mode versions of these helpers are in cputlb.c.  */
+
 
 static void *cpu_mmu_lookup(CPUState *cpu, vaddr addr,
                             MemOp mop, uintptr_t ra, MMUAccessType type)
@@ -962,7 +962,7 @@ static void *cpu_mmu_lookup(CPUState *cpu, vaddr addr,
     int a_bits = memop_alignment_bits(mop);
     void *ret;
 
-    /* Enforce guest required alignment.  */
+
     if (unlikely(addr & ((1 << a_bits) - 1))) {
         cpu_loop_exit_sigbus(cpu, addr, type, ra);
     }
@@ -972,7 +972,7 @@ static void *cpu_mmu_lookup(CPUState *cpu, vaddr addr,
     return ret;
 }
 
-/* physical memory access (slow version, mainly for debug) */
+
 int cpu_memory_rw_debug(CPUState *cpu, vaddr addr,
                         void *ptr, size_t len, bool is_write)
 {
@@ -999,21 +999,21 @@ int cpu_memory_rw_debug(CPUState *cpu, vaddr addr,
             if (flags & PAGE_WRITE) {
                 memcpy(g2h(cpu, addr), buf, l);
             } else {
-                /* Bypass the host page protection using ptrace. */
+
                 if (fd == -1) {
                     fd = open("/proc/self/mem", O_WRONLY);
                     if (fd == -1) {
                         goto out;
                     }
                 }
-                /*
-                 * If there is a TranslationBlock and we weren't bypassing the
-                 * host page protection, the memcpy() above would SEGV,
-                 * ultimately leading to page_unprotect(). So invalidate the
-                 * translations manually. Both invalidation and pwrite() must
-                 * be under mmap_lock() in order to prevent the creation of
-                 * another TranslationBlock in between.
-                 */
+
+
+
+
+
+
+
+
                 tb_invalidate_phys_range(addr, addr + l - 1);
                 written = pwrite(fd, buf, l,
                                  (off_t)(uintptr_t)g2h_untagged(addr));
@@ -1024,7 +1024,7 @@ int cpu_memory_rw_debug(CPUState *cpu, vaddr addr,
         } else if (flags & PAGE_READ) {
             memcpy(buf, g2h(cpu, addr), l);
         } else {
-            /* Bypass the host page protection using ptrace. */
+
             if (fd == -1) {
                 fd = open("/proc/self/mem", O_RDONLY);
                 if (fd == -1) {
@@ -1313,9 +1313,9 @@ uint64_t cpu_ldq_code_mmu(CPUArchState *env, abi_ptr addr,
 
 #include "ldst_common.c.inc"
 
-/*
- * Do not allow unaligned operations to proceed.  Return the host address.
- */
+
+
+
 static void *atomic_mmu_lookup(CPUState *cpu, vaddr addr, MemOpIdx oi,
                                int size, uintptr_t retaddr)
 {
@@ -1323,12 +1323,12 @@ static void *atomic_mmu_lookup(CPUState *cpu, vaddr addr, MemOpIdx oi,
     int a_bits = memop_alignment_bits(mop);
     void *ret;
 
-    /* Enforce guest required alignment.  */
+
     if (unlikely(addr & ((1 << a_bits) - 1))) {
         cpu_loop_exit_sigbus(cpu, addr, MMU_DATA_STORE, retaddr);
     }
 
-    /* Enforce qemu required alignment.  */
+
     if (unlikely(addr & (size - 1))) {
         cpu_loop_exit_atomic(cpu, retaddr);
     }
@@ -1340,10 +1340,10 @@ static void *atomic_mmu_lookup(CPUState *cpu, vaddr addr, MemOpIdx oi,
 
 #include "atomic_common.c.inc"
 
-/*
- * First set of functions passes in OI and RETADDR.
- * This makes them callable from other helpers.
- */
+
+
+
+
 
 #define ATOMIC_NAME(X) \
     glue(glue(glue(cpu_atomic_ ## X, SUFFIX), END), _mmu)

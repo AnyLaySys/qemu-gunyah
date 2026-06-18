@@ -91,8 +91,6 @@ static void virtio_blk_pci_instance_init(Object *obj)
 static const VirtioPCIDeviceTypeInfo virtio_blk_pci_info = {
     .base_name              = TYPE_VIRTIO_BLK_PCI,
     .generic_name           = "virtio-blk-pci",
-    .transitional_name      = "virtio-blk-pci-transitional",
-    .non_transitional_name  = "virtio-blk-pci-non-transitional",
     .instance_size = sizeof(VirtIOBlkPCI),
     .instance_init = virtio_blk_pci_instance_init,
     .class_init    = virtio_blk_pci_class_init,

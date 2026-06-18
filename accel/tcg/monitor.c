@@ -1,10 +1,10 @@
-/*
- * SPDX-License-Identifier: LGPL-2.1-or-later
- *
- *  QEMU TCG monitor
- *
- *  Copyright (c) 2003-2005 Fabrice Bellard
- */
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "qemu/accel.h"
@@ -153,13 +153,13 @@ static void dump_exec_info(GString *buf)
 
     tcg_tb_foreach(tb_tree_stats_iter, &tst);
     nb_tbs = tst.nb_tbs;
-    /* XXX: avoid using doubles ? */
+
     g_string_append_printf(buf, "Translation buffer state:\n");
-    /*
-     * Report total code size including the padding and TB structs;
-     * otherwise users might think "-accel tcg,tb-size" is not honoured.
-     * For avg host size we use the precise numbers from tb_tree_stats though.
-     */
+
+
+
+
+
     g_string_append_printf(buf, "gen code size       %zu/%zu\n",
                            tcg_code_size(), tcg_code_capacity());
     g_string_append_printf(buf, "TB count            %zu\n", nb_tbs);

@@ -1,6 +1,5 @@
 config HYPERV
     bool
-    depends on KVM
 
 config HYPERV_TESTDEV
     bool

@@ -1,21 +1,21 @@
-/*
- *  Host code generation
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 
@@ -29,7 +29,7 @@
 #include <sys/param.h>
 #if __FreeBSD_version >= 700104
 #define HAVE_KINFO_GETVMMAP
-#define sigqueue sigqueue_freebsd  /* avoid redefinition */
+#define sigqueue sigqueue_freebsd
 #include <sys/proc.h>
 #include <machine/profile.h>
 #define _KERNEL
@@ -69,10 +69,10 @@
 
 TBContext tb_ctx;
 
-/*
- * Encode VAL as a signed leb128 sequence at P.
- * Return P incremented past the encoded value.
- */
+
+
+
+
 static uint8_t *encode_sleb128(uint8_t *p, int64_t val)
 {
     int more, byte;
@@ -91,10 +91,10 @@ static uint8_t *encode_sleb128(uint8_t *p, int64_t val)
     return p;
 }
 
-/*
- * Decode a signed leb128 sequence at *PP; increment *PP past the
- * decoded value.  Return the decoded value.
- */
+
+
+
+
 static int64_t decode_sleb128(const uint8_t **pp)
 {
     const uint8_t *p = *pp;
@@ -114,17 +114,17 @@ static int64_t decode_sleb128(const uint8_t **pp)
     return val;
 }
 
-/* Encode the data collected about the instructions while compiling TB.
-   Place the data at BLOCK, and return the number of bytes consumed.
 
-   The logical table consists of TARGET_INSN_START_WORDS target_ulong's,
-   which come from the target's insn_start data, followed by a uintptr_t
-   which comes from the host pc of the end of the code implementing the insn.
 
-   Each line of the table is encoded as sleb128 deltas from the previous
-   line.  The seed for the first line is { tb->pc, 0..., tb->tc.ptr }.
-   That is, the first column is seeded with the guest pc, the last column
-   with the host pc, and the middle columns with zeros.  */
+
+
+
+
+
+
+
+
+
 
 static int encode_search(TranslationBlock *tb, uint8_t *block)
 {
@@ -150,10 +150,10 @@ static int encode_search(TranslationBlock *tb, uint8_t *block)
         curr = insn_end_off[i];
         p = encode_sleb128(p, curr - prev);
 
-        /* Test for (pending) buffer overflow.  The assumption is that any
-           one row beginning below the high water mark cannot overrun
-           the buffer completely.  Thus we can test for overflow after
-           encoding a row without having to check during encoding.  */
+
+
+
+
         if (unlikely(p > highwater)) {
             return -1;
         }
@@ -180,10 +180,10 @@ static int cpu_unwind_data_from_tb(TranslationBlock *tb, uintptr_t host_pc,
         data[0] = tb->pc;
     }
 
-    /*
-     * Reconstruct the stored insn data while looking for the point
-     * at which the end of the insn exceeds host_pc.
-     */
+
+
+
+
     for (i = 0; i < num_insns; ++i) {
         for (j = 0; j < TARGET_INSN_START_WORDS; ++j) {
             data[j] += decode_sleb128(&p);
@@ -196,10 +196,10 @@ static int cpu_unwind_data_from_tb(TranslationBlock *tb, uintptr_t host_pc,
     return -1;
 }
 
-/*
- * The cpu state corresponding to 'host_pc' is restored in
- * preparation for exiting the TB.
- */
+
+
+
+
 void cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
                                uintptr_t host_pc)
 {
@@ -212,10 +212,10 @@ void cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
 
     if (tb_cflags(tb) & CF_USE_ICOUNT) {
         assert(icount_enabled());
-        /*
-         * Reset the cycle counter to the start of the block and
-         * shift if to the number of actually executed instructions.
-         */
+
+
+
+
         cpu->neg.icount_decr.u16.low += insns_left;
     }
 
@@ -224,16 +224,16 @@ void cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
 
 bool cpu_restore_state(CPUState *cpu, uintptr_t host_pc)
 {
-    /*
-     * The host_pc has to be in the rx region of the code buffer.
-     * If it is not we will not be able to resolve it here.
-     * The two cases where host_pc will not be correct are:
-     *
-     *  - fault during translation (instruction fetch)
-     *  - fault from helper (not using GETPC() macro)
-     *
-     * Either way we need return early as we can't resolve it here.
-     */
+
+
+
+
+
+
+
+
+
+
     if (in_code_gen_buffer((const void *)(host_pc - tcg_splitwx_diff))) {
         TranslationBlock *tb = tcg_tb_lookup(host_pc);
         if (tb) {
@@ -260,10 +260,10 @@ void page_init(void)
     page_table_config_init();
 }
 
-/*
- * Isolate the portion of code gen which can setjmp/longjmp.
- * Return the size of the generated code, or negative on error.
- */
+
+
+
+
 static int setjmp_gen_code(CPUArchState *env, TranslationBlock *tb,
                            vaddr pc, void *host_pc,
                            int *max_insns, int64_t *ti)
@@ -286,7 +286,7 @@ static int setjmp_gen_code(CPUArchState *env, TranslationBlock *tb,
     return tcg_gen_code(tcg_ctx, tb, pc);
 }
 
-/* Called with mmap_lock held for user mode emulation.  */
+
 TranslationBlock *tb_gen_code(CPUState *cpu,
                               vaddr pc, uint64_t cs_base,
                               uint32_t flags, int cflags)
@@ -305,7 +305,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     phys_pc = get_page_addr_code_hostp(env, pc, &host_pc);
 
     if (phys_pc == -1) {
-        /* Generate a one-shot TB with 1 insn in it */
+
         cflags = (cflags & ~CF_COUNT_MASK) | 1;
     }
 
@@ -319,10 +319,10 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     assert_no_pages_locked();
     tb = tcg_tb_alloc(tcg_ctx);
     if (unlikely(!tb)) {
-        /* flush must be done */
+
         tb_flush(cpu);
         mmap_unlock();
-        /* Make the execution loop process the flush as soon as possible.  */
+
         cpu->exception_index = EXCP_INTERRUPT;
         cpu_loop_exit(cpu);
     }
@@ -362,15 +362,15 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     if (unlikely(gen_code_size < 0)) {
         switch (gen_code_size) {
         case -1:
-            /*
-             * Overflow of code_gen_buffer, or the current slice of it.
-             *
-             * TODO: We don't need to re-do tcg_ops->translate_code, nor
-             * should we re-do the tcg optimization currently hidden
-             * inside tcg_gen_code.  All that should be required is to
-             * flush the TBs, allocate a new TB, re-initialize it per
-             * above, and re-do the actual code generation.
-             */
+
+
+
+
+
+
+
+
+
             qemu_log_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT,
                           "Restarting code generation for "
                           "code_gen_buffer overflow\n");
@@ -379,15 +379,15 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
             goto buffer_overflow;
 
         case -2:
-            /*
-             * The code generated for the TranslationBlock is too large.
-             * The maximum size allowed by the unwind info is 64k.
-             * There may be stricter constraints from relocations
-             * in the tcg backend.
-             *
-             * Try again with half as many insns as we attempted this time.
-             * If a single insn overflows, there's a bug somewhere...
-             */
+
+
+
+
+
+
+
+
+
             assert(max_insns > 1);
             max_insns /= 2;
             qemu_log_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT,
@@ -395,11 +395,11 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
                           "smaller translation block (max %d insns)\n",
                           max_insns);
 
-            /*
-             * The half-sized TB may not cross pages.
-             * TODO: Fix all targets that cross pages except with
-             * the first insn, at which point this can't be reached.
-             */
+
+
+
+
+
             phys_p2 = tb_page_addr1(tb);
             if (unlikely(phys_p2 != -1)) {
                 tb_unlock_page1(phys_pc, phys_p2);
@@ -408,12 +408,12 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
             goto restart_translate;
 
         case -3:
-            /*
-             * We had a page lock ordering problem.  In order to avoid
-             * deadlock we had to drop the lock on page0, which means
-             * that everything we translated so far is compromised.
-             * Restart with locks held on both pages.
-             */
+
+
+
+
+
+
             qemu_log_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT,
                           "Restarting code generation with re-locked pages");
             goto restart_translate;
@@ -431,10 +431,10 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     }
     tb->tc.size = gen_code_size;
 
-    /*
-     * For CF_PCREL, attribute all executions of the generated code
-     * to its first mapping.
-     */
+
+
+
+
     perf_report_code(pc, tb, tcg_splitwx_to_rx(gen_code_buf));
 
     if (qemu_loglevel_mask(CPU_LOG_TB_OUT_ASM) &&
@@ -456,7 +456,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
                 data_size = 0;
             }
 
-            /* Dump header and the first instruction */
+
             fprintf(logfile, "OUT: [size=%d]\n", gen_code_size);
             fprintf(logfile,
                     "  -- guest addr 0x%016" PRIx64 " + tb prologue\n",
@@ -464,11 +464,11 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
             chunk_start = tcg_ctx->gen_insn_end_off[insn];
             disas(logfile, tb->tc.ptr, chunk_start);
 
-            /*
-             * Dump each instruction chunk, wrapping up empty chunks into
-             * the next instruction. The whole array is offset so the
-             * first entry is the beginning of the 2nd instruction.
-             */
+
+
+
+
+
             while (insn < tb->icount) {
                 size_t chunk_end = tcg_ctx->gen_insn_end_off[insn];
                 if (chunk_end > chunk_start) {
@@ -487,7 +487,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
                       code_size - chunk_start);
             }
 
-            /* Finally dump any data we may have after the block */
+
             if (data_size) {
                 int i;
                 fprintf(logfile, "  data: [size=%d]\n", data_size);
@@ -514,7 +514,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
         ROUND_UP((uintptr_t)gen_code_buf + gen_code_size + search_size,
                  CODE_GEN_ALIGN));
 
-    /* init jump list */
+
     qemu_spin_init(&tb->jmp_lock);
     tb->jmp_list_head = (uintptr_t)NULL;
     tb->jmp_list_next[0] = (uintptr_t)NULL;
@@ -522,7 +522,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     tb->jmp_dest[0] = (uintptr_t)NULL;
     tb->jmp_dest[1] = (uintptr_t)NULL;
 
-    /* init original jump addresses which have been set during tcg_gen_code() */
+
     if (tb->jmp_reset_offset[0] != TB_JMP_OFFSET_INVALID) {
         tb_reset_jump(tb, 0);
     }
@@ -530,40 +530,40 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
         tb_reset_jump(tb, 1);
     }
 
-    /*
-     * Insert TB into the corresponding region tree before publishing it
-     * through QHT. Otherwise rewinding happened in the TB might fail to
-     * lookup itself using host PC.
-     */
+
+
+
+
+
     tcg_tb_insert(tb);
 
-    /*
-     * If the TB is not associated with a physical RAM page then it must be
-     * a temporary one-insn TB.
-     *
-     * Such TBs must be added to region trees in order to make sure that
-     * restore_state_to_opc() - which on some architectures is not limited to
-     * rewinding, but also affects exception handling! - is called when such a
-     * TB causes an exception.
-     *
-     * At the same time, temporary one-insn TBs must be executed at most once,
-     * because subsequent reads from, e.g., I/O memory may return different
-     * values. So return early before attempting to link to other TBs or add
-     * to the QHT.
-     */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     if (tb_page_addr0(tb) == -1) {
         assert_no_pages_locked();
         return tb;
     }
 
-    /*
-     * No explicit memory barrier is required -- tb_link_page() makes the
-     * TB visible in a consistent state.
-     */
+
+
+
+
     existing_tb = tb_link_page(tb);
     assert_no_pages_locked();
 
-    /* if the TB already exists, discard what we just translated */
+
     if (unlikely(existing_tb != tb)) {
         uintptr_t orig_aligned = (uintptr_t)gen_code_buf;
 
@@ -575,7 +575,7 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
     return tb;
 }
 
-/* user-mode: call with mmap_lock held */
+
 void tb_check_watchpoint(CPUState *cpu, uintptr_t retaddr)
 {
     TranslationBlock *tb;
@@ -584,12 +584,12 @@ void tb_check_watchpoint(CPUState *cpu, uintptr_t retaddr)
 
     tb = tcg_tb_lookup(retaddr);
     if (tb) {
-        /* We can use retranslation to find the PC.  */
+
         cpu_restore_state_from_tb(cpu, tb, retaddr);
         tb_phys_invalidate(tb, -1);
     } else {
-        /* The exception probably happened in a helper.  The CPU state should
-           have been saved before calling it. Fetch the PC from there.  */
+
+
         CPUArchState *env = cpu_env(cpu);
         vaddr pc;
         uint64_t cs_base;
@@ -605,12 +605,12 @@ void tb_check_watchpoint(CPUState *cpu, uintptr_t retaddr)
 }
 
 #ifndef CONFIG_USER_ONLY
-/*
- * In deterministic execution mode, instructions doing device I/Os
- * must be at the end of the TB.
- *
- * Called by softmmu_template.h, with iothread mutex not held.
- */
+
+
+
+
+
+
 void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
 {
     TranslationBlock *tb;
@@ -624,11 +624,11 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
     }
     cpu_restore_state_from_tb(cpu, tb, retaddr);
 
-    /*
-     * Some guests must re-execute the branch when re-executing a delay
-     * slot instruction.  When this is the case, adjust icount and N
-     * to account for the re-execution of the branch.
-     */
+
+
+
+
+
     n = 1;
     cc = cpu->cc;
     if (cc->tcg_ops->io_recompile_replay_branch &&
@@ -637,13 +637,13 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
         n = 2;
     }
 
-    /*
-     * Exit the loop and potentially generate a new TB executing the
-     * just the I/O insns. We also limit instrumentation to memory
-     * operations only (which execute after completion) so we don't
-     * double instrument the instruction. Also don't let an IRQ sneak
-     * in before we execute it.
-     */
+
+
+
+
+
+
+
     cpu->cflags_next_tb = curr_cflags(cpu) | CF_MEMI_ONLY | CF_NOIRQ | n;
 
     if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
@@ -657,17 +657,17 @@ void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr)
     cpu_loop_exit_noexc(cpu);
 }
 
-#endif /* CONFIG_USER_ONLY */
+#endif
 
-/*
- * Called by generic code at e.g. cpu reset after cpu creation,
- * therefore we must be prepared to allocate the jump cache.
- */
+
+
+
+
 void tcg_flush_jmp_cache(CPUState *cpu)
 {
     CPUJumpCache *jc = cpu->tb_jmp_cache;
 
-    /* During early initialization, the cache may not yet be allocated. */
+
     if (unlikely(jc == NULL)) {
         return;
     }

@@ -986,39 +986,6 @@ static void create_gpio_devices(const VirtMachineState *vms, int gpio,
  }
 }
 
-static void create_virtio_devices(const VirtMachineState *vms)
-{
- int i;
- hwaddr size = vms->memmap[VIRT_MMIO].size;
- MachineState *ms = MACHINE(vms);
-
- for (i = 0; i < NUM_VIRTIO_TRANSPORTS; i++) {
- int irq = vms->irqmap[VIRT_MMIO] + i;
- hwaddr base = vms->memmap[VIRT_MMIO].base + i * size;
-
- sysbus_create_simple("virtio-mmio", base,
- qdev_get_gpio_in(vms->gic, irq));
- }
-
- for (i = NUM_VIRTIO_TRANSPORTS - 1; i >= 0; i--) {
- char *nodename;
- int irq = vms->irqmap[VIRT_MMIO] + i;
- hwaddr base = vms->memmap[VIRT_MMIO].base + i * size;
-
- nodename = g_strdup_printf("/virtio_mmio@%" PRIx64, base);
- qemu_fdt_add_subnode(ms->fdt, nodename);
- qemu_fdt_setprop_string(ms->fdt, nodename,
- "compatible", "virtio,mmio");
- qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
- 2, base, 2, size);
- qemu_fdt_setprop_cells(ms->fdt, nodename, "interrupts",
- GIC_FDT_IRQ_TYPE_SPI, irq,
- GIC_FDT_IRQ_FLAGS_EDGE_LO_HI);
- qemu_fdt_setprop(ms->fdt, nodename, "dma-coherent", NULL, 0);
- g_free(nodename);
- }
-}
-
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
 
 static PFlashCFI01 *virt_flash_create1(VirtMachineState *vms,
@@ -1166,7 +1133,7 @@ static bool virt_firmware_init(VirtMachineState *vms,
  image_size = load_image_targphys(fname, fw_base,
  vms->memmap[VIRT_MEM].size);
  if (image_size > 0) {
- error_report("gh loaded firmware '%s' (%d bytes) "
+ gh_report("loaded firmware '%s' (%d bytes) "
  "at GPA 0x%"PRIx64, bios_name, image_size,
  (uint64_t)fw_base);
  }
@@ -1587,7 +1554,7 @@ void virt_machine_done(Notifier *notifier, void *data)
  gunyah_dtb_size);
  }
  info->dtb_limit = 0;
- error_report(gh"DTB placed at dtb_start=0x%"PRIx64
+ gh_report("DTB placed at dtb_start=0x%"PRIx64
  " dtb_size=0x%"PRIx64
  " main_mem=0x%"PRIx64" swiotlb=0x%"PRIx64
  " firmware=%d",
@@ -1948,11 +1915,11 @@ static int confidential_guest_init(MachineState *ms)
 
  if (obj->swiotlb_size) {
  gunyah_set_swiotlb_size(obj->swiotlb_size);
- error_report(gh"confidential-guest-support: "
+ gh_report("confidential-guest-support: "
  "protected_vm=true swiotlb=0x%"PRIx64,
  (uint64_t)obj->swiotlb_size);
  } else {
- error_report(gh"confidential-guest-support: "
+ gh_report("confidential-guest-support: "
  "protected_vm=true (no swiotlb specified, "
  "using default)");
  }
@@ -2003,12 +1970,12 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  uint64_t mem_size = ms->ram_size;
  int ret;
 
- error_report(gh"Building minimal DTB from scratch (mem_base=0x%"PRIx64
+ gh_report("Building minimal DTB from scratch (mem_base=0x%"PRIx64
  " mem_size=0x%"PRIx64")", mem_base, mem_size);
 
  ret = fdt_create_empty_tree(fdt, 0x100000 );
  if (ret) {
- error_report(gh"fdt_create_empty_tree failed: %s",
+ gh_report("fdt_create_empty_tree failed: %s",
  fdt_strerror(ret));
  exit(1);
  }
@@ -2037,8 +2004,8 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_string(fdt, chosen_off, "bootargs", bootargs);
  fdt_setprop_string(fdt, chosen_off, "stdout-path",
  "/pl011@9000000");
- error_report(gh"DTB /chosen/bootargs: %s", bootargs);
- error_report(gh"DTB /chosen/stdout-path: /pl011@9000000");
+ gh_report("DTB /chosen/bootargs: %s", bootargs);
+ gh_report("DTB /chosen/stdout-path: /pl011@9000000");
  }
 
  {
@@ -2055,7 +2022,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  cfg_size = 0x1000000;
  fdt_setprop_cell(fdt, cfg_off, "kernel-address", cfg_addr);
  fdt_setprop_cell(fdt, cfg_off, "kernel-size", cfg_size);
- error_report(gh"DTB /config: kernel-address=0x%x kernel-size=0x%x"
+ gh_report("DTB /config: kernel-address=0x%x kernel-size=0x%x"
  "%s", cfg_addr, cfg_size,
  binfo->firmware_loaded ? " (firmware)" : "");
  }
@@ -2074,7 +2041,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  mem_reg[0] = cpu_to_fdt64(mem_base);
  mem_reg[1] = cpu_to_fdt64(dtb_mem_size);
  fdt_setprop(fdt, memoff, "reg", mem_reg, sizeof(mem_reg));
- error_report(gh"DTB /memory: base=0x%"PRIx64" size=0x%"PRIx64
+ gh_report("DTB /memory: base=0x%"PRIx64" size=0x%"PRIx64
  " (total=0x%"PRIx64" lend_only=%d)"
  "%s", mem_base, dtb_mem_size,
  mem_size,
@@ -2102,7 +2069,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_string(fdt, cpu_off, "enable-method", "psci");
  }
  }
- error_report(gh"DTB /cpus: %d CPUs with%s PSCI",
+ gh_report("DTB /cpus: %d CPUs with%s PSCI",
  num_cpus, num_cpus > 1 ? "" : "out");
  }
 
@@ -2176,43 +2143,9 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  }
  fdt_setprop_cell(fdt, pool_off, "phandle", 2);
 
- error_report(gh"DTB reserved-memory: restricted-dma-pool at "
+ gh_report("DTB reserved-memory: restricted-dma-pool at "
  "0x%"PRIx64" size 0x%"PRIx64,
  resv_start, gs->swiotlb_size);
- }
- }
-
- {
- GUNYAHState *gs = get_gunyah_state();
- int i;
- for (i = 0; i < 32; i++) {
- int node_off;
- char nodename[64];
- uint64_t base = 0x0a000000 + i * 0x200;
- int spi = 16 + i;
- fdt64_t vmm_reg[2];
- fdt32_t vmm_irq[3];
-
- snprintf(nodename, sizeof(nodename),
- "virtio_mmio@%"PRIx64, base);
- node_off = fdt_add_subnode(fdt, 0, nodename);
-
- fdt_setprop_string(fdt, node_off, "compatible", "virtio,mmio");
-
- vmm_reg[0] = cpu_to_fdt64(base);
- vmm_reg[1] = cpu_to_fdt64(0x200);
- fdt_setprop(fdt, node_off, "reg", vmm_reg, sizeof(vmm_reg));
-
- vmm_irq[0] = cpu_to_fdt32(0);
- vmm_irq[1] = cpu_to_fdt32(spi);
- vmm_irq[2] = cpu_to_fdt32(1);
- fdt_setprop(fdt, node_off, "interrupts", vmm_irq, sizeof(vmm_irq));
-
- fdt_setprop(fdt, node_off, "dma-coherent", NULL, 0);
-
- if (gs->protected_vm && gs->swiotlb_size) {
- fdt_setprop_cell(fdt, node_off, "memory-region", 2);
- }
  }
  }
 
@@ -2316,7 +2249,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_cell(fdt, pci_off, "memory-region", 2);
  }
 
- error_report(gh"DTB PCI host bridge: ECAM=0x%"PRIx64
+ gh_report("DTB PCI host bridge: ECAM=0x%"PRIx64
  " MMIO=0x%"PRIx64"-0x%"PRIx64
  " PIO=0x%"PRIx64" IRQs SPI %d-%d",
  base_ecam, base_mmio_pci,
@@ -2331,7 +2264,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_cell(fdt, clk_off, "clock-frequency", 24000000);
  fdt_setprop_string(fdt, clk_off, "clock-output-names", "clk24mhz");
  fdt_setprop_cell(fdt, clk_off, "phandle", 3);
- error_report(gh"DTB /apb-pclk: 24MHz fixed clock (phandle=3)");
+ gh_report("DTB /apb-pclk: 24MHz fixed clock (phandle=3)");
  }
 
  {
@@ -2366,7 +2299,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_cell(fdt, uart_off, "memory-region", 2);
  }
  }
- error_report(gh"DTB /pl011@9000000: ttyAMA0, SPI 1, level-high, 24MHz");
+ gh_report("DTB /pl011@9000000: ttyAMA0, SPI 1, level-high, 24MHz");
  }
 
  {
@@ -2378,7 +2311,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_string(fdt, fwcfg_off, "compatible", "qemu,fw-cfg-mmio");
  fdt_setprop(fdt, fwcfg_off, "reg", fwcfg_reg, sizeof(fwcfg_reg));
  fdt_setprop(fdt, fwcfg_off, "dma-coherent", NULL, 0);
- error_report(gh"DTB /fw-cfg@9020000: fw_cfg MMIO at 0x09020000"
+ gh_report("DTB /fw-cfg@9020000: fw_cfg MMIO at 0x09020000"
  " (no DMA - MMIO-only for Gunyah safety)");
  }
 
@@ -2424,7 +2357,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  rsvd_reg, sizeof(rsvd_reg));
  fdt_setprop(fdt, rsvd_fb_off, "no-map", NULL, 0);
 
- error_report(gh"DTB /reserved-memory/framebuffer: "
+ gh_report("DTB /reserved-memory/framebuffer: "
  "0x%"PRIx64" size=0x%"PRIx64" (no-map)",
  sfb_addr, sfb_size);
  }
@@ -2448,7 +2381,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_string(fdt, sfb_off, "format", "a8r8g8b8");
  fdt_setprop_string(fdt, sfb_off, "status", "okay");
 
- error_report(gh"DTB /simplefb@0x%"PRIx64
+ gh_report("DTB /simplefb@0x%"PRIx64
  ": %ux%u stride=%u size=0x%"PRIx64,
  sfb_addr, sfb_width, sfb_height,
  sfb_stride, sfb_size);
@@ -2467,7 +2400,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  vms->memmap[VIRT_PLATFORM_BUS].base,
  vms->memmap[VIRT_PLATFORM_BUS].size,
  vms->irqmap[VIRT_PLATFORM_BUS]);
- error_report(gh"DTB platform-bus at 0x%"PRIx64" (size 0x%"PRIx64
+ gh_report("DTB platform-bus at 0x%"PRIx64" (size 0x%"PRIx64
  ") with dynamic sysbus devices",
  (uint64_t)vms->memmap[VIRT_PLATFORM_BUS].base,
  (uint64_t)vms->memmap[VIRT_PLATFORM_BUS].size);
@@ -2480,7 +2413,7 @@ static void virt_modify_dtb(const struct arm_boot_info *binfo, void *fdt)
  fdt_setprop_string(fdt, sym_off, "intc", "/intc");
  }
 
- error_report(gh"Minimal DTB built with earlycon (totalsize=%u)",
+ gh_report("Minimal DTB built with earlycon (totalsize=%u)",
  fdt_totalsize(fdt));
 }
 
@@ -2754,8 +2687,6 @@ static void machvirt_init(MachineState *machine)
  vms->powerdown_notifier.notify = virt_powerdown_req;
  qemu_register_powerdown_notifier(&vms->powerdown_notifier);
 
- create_virtio_devices(vms);
-
  vms->fw_cfg = create_fw_cfg(vms, &address_space_memory);
  rom_set_fw(vms->fw_cfg);
 
@@ -2791,7 +2722,7 @@ static void machvirt_init(MachineState *machine)
  if (gunyah_enabled() && vms->bootinfo.entry) {
  GUNYAHState *gs = get_gunyah_state();
  gs->kernel_entry = vms->bootinfo.entry;
- error_report(gh"kernel entry from arm_load_kernel: 0x%"PRIx64,
+ gh_report("kernel entry from arm_load_kernel: 0x%"PRIx64,
  gs->kernel_entry);
  }
 
@@ -3685,8 +3616,8 @@ static void machvirt_machine_init(void)
 }
 type_init(machvirt_machine_init);
 
-static void virt_machine_10_0_options(MachineClass *mc)
+static void virt_machine_26_6_options(MachineClass *mc)
 {
 }
-DEFINE_VIRT_MACHINE_AS_LATEST(10, 0)
+DEFINE_VIRT_MACHINE_AS_LATEST(26, 6)
 

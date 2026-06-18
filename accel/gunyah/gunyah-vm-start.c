@@ -9,11 +9,16 @@ static void gunyah_dump_vm_state(GUNYAHState *s) {
         if (s->slots[i].size == 0) {
             continue;
         }
-        error_report("slot%d│gpa=0x%"
+        error_report("slot%d gpa=0x%"
         PRIx64
-        "size=0x%"
+        " size=0x%"
         PRIx64
-        "hva=%p lend=%d id=%u flags=0x%x", i, s->slots[i].start, s->slots[i].size, s->slots[i].mem, s->slots[i].lend, s->slots[i].id, s->slots[i].flags);
+        " hva=%p lend=%d id=%u flags=0x%x", i, s->slots[i].start, s->slots[i].size, s->slots[i].mem, s->slots[i].lend, s->slots[i].id, s->slots[i].flags);
+        if (s->slots[i].start <= 0x0f000000 &&
+            s->slots[i].start + s->slots[i].size > 0x0f000000) {
+            gh_report("ramfb slot present: slot=%d gpa=0x%"PRIx64" size=0x%"PRIx64" lend=%d flags=0x%x",
+                      i, s->slots[i].start, s->slots[i].size, s->slots[i].lend, s->slots[i].flags);
+        }
     }
 }
 static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
@@ -22,7 +27,7 @@ static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
     qatomic_set(&gunyah_vm_stopped, true);
     switch (exit_status) {
         case GH_VM_STATUS_CRASHED:
-            error_report(gh"cpu %d: VM CRASHED", cpu->cpu_index);
+            gh_report("cpu %d: VM CRASHED", cpu->cpu_index);
             cpu_exec_end(cpu);
             bql_lock();
             qemu_system_guest_panicked(NULL);
@@ -33,7 +38,7 @@ static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
         default:
             switch (exit_type) {
                 case GH_RM_EXIT_TYPE_WDT_BITE:
-                    error_report(gh"cpu %d: WDT BITE", cpu->cpu_index);
+                    gh_report("cpu %d: WDT BITE", cpu->cpu_index);
                     cpu_exec_end(cpu);
                     bql_lock();
                     qemu_system_guest_panicked(NULL);
@@ -42,14 +47,14 @@ static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
                     break;
                 case GH_RM_EXIT_TYPE_PSCI_SYSTEM_RESET:
                 case GH_RM_EXIT_TYPE_PSCI_SYSTEM_RESET2:
-                    error_report(gh"cpu %d: PSCI SYSTEM_RESET — "
+                    gh_report("cpu %d: PSCI SYSTEM_RESET — "
                                  "Gunyah VMs cannot reset (LEND'd memory "
                                  "is host-inaccessible), shutting down", cpu->cpu_index);
                     _exit(0);
                 case GH_RM_EXIT_TYPE_VM_EXIT:
                 case GH_RM_EXIT_TYPE_PSCI_POWER_OFF:
                 default:
-                    error_report(gh"cpu %d: PSCI POWER_OFF / VM_EXIT "
+                    gh_report("cpu %d: PSCI POWER_OFF / VM_EXIT "
                                  "(exit_type=%d) — exiting", cpu->cpu_index, exit_type);
                     _exit(0);
             }
@@ -62,13 +67,13 @@ void gunyah_start_vm(void) {
     gunyah_dump_vm_state(s);
     gunyah_cache_lend_range();
     if (!s->protected_vm) {
-        error_report(gh"*** WARNING: protected_vm=false ***");
-        error_report(gh"This means ALL memory uses GH_VM_SET_USER_MEM_REGION "
+        gh_report("*** WARNING: protected_vm=false ***");
+        gh_report("This means ALL memory uses GH_VM_SET_USER_MEM_REGION "
                      "(SHARE), NOT GH_VM_ANDROID_LEND_USER_MEM (LEND).");
-        error_report(gh"CrosVM's --protected-vm-without-firmware uses LEND.");
-        error_report(gh"If this fails, try: -accel gunyah,protected=on");
+        gh_report("CrosVM's --protected-vm-without-firmware uses LEND.");
+        gh_report("If this fails, try: -accel gunyah,protected=on");
     } else {
-        error_report(gh"protected_vm=true: memory split into LEND + SHARE "
+        gh_report("protected_vm=true: memory split into LEND + SHARE "
                      "(swiotlb=0x%"
         PRIx64
         ")", s->swiotlb_size);
@@ -81,7 +86,7 @@ void gunyah_start_vm(void) {
         fdesc.type = GH_FN_VCPU;
         fdesc.arg_size = sizeof(struct gh_fn_vcpu_arg);
         fdesc.arg = (__u64)(&vcpu_arg);
-        error_report(gh"creating vCPU %d (BEFORE VM_START, matching CrosVM strace)", vcpu_arg.id);
+        gh_report("creating vCPU %d (BEFORE VM_START, matching CrosVM strace)", vcpu_arg.id);
         ghdbg_hexdump("VCPU gh_fn_desc", &fdesc, sizeof(fdesc));
         ghdbg_hexdump("VCPU gh_fn_vcpu_arg", &vcpu_arg, sizeof(vcpu_arg));
         ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
@@ -90,7 +95,7 @@ void gunyah_start_vm(void) {
                          errno);
             exit(1);
         }
-        error_report(gh"vCPU %d created, fd=%d", vcpu_arg.id, ret);
+        gh_report("vCPU %d created, fd=%d", vcpu_arg.id, ret);
         munmap(cpu->accel->run, 4096);
         cpu->accel->fd = ret;
         cpu->accel->run = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, ret, 0);
@@ -119,14 +124,14 @@ void gunyah_start_vm(void) {
         EventNotifier pci_notifiers[PCI_NUM_SPIS];
         int pci_notifiers_valid[PCI_NUM_SPIS];
         memset(pci_notifiers_valid, 0, sizeof(pci_notifiers_valid));
-        error_report(gh"creating %d IRQFDs (base + PCI)", nbell);
+        gh_report("creating %d IRQFDs (base + PCI)", nbell);
         for (i = 0; i < nbell; ++i) {
             struct gh_fn_desc fdesc;
             struct gh_fn_irqfd_arg ghirqfd = {0};
             int efd;
             efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
             if (efd < 0) {
-                error_report(gh"eventfd failed for bell-%x: %s", bells[i].label, strerror(errno));
+                gh_report("eventfd failed for bell-%x: %s", bells[i].label, strerror(errno));
                 exit(1);
             }
             if (bells[i].label == 0x1) {
@@ -145,21 +150,21 @@ void gunyah_start_vm(void) {
             fdesc.type = GH_FN_IRQFD;
             fdesc.arg_size = sizeof(struct gh_fn_irqfd_arg);
             fdesc.arg = (__u64)(&ghirqfd);
-            error_report(gh"IRQFD bell-%x label=%d efd=%d flags=0x%x", bells[i].label,
+            gh_report("IRQFD bell-%x label=%d efd=%d flags=0x%x", bells[i].label,
                          bells[i].label, efd, bells[i].flags);
             ghdbg_hexdump("IRQFD gh_fn_desc", &fdesc, sizeof(fdesc));
             ghdbg_hexdump("IRQFD gh_fn_irqfd_arg", &ghirqfd, sizeof(ghirqfd));
             ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
             if (ret != 0) {
-                error_report(gh"IRQFD bell-%x FAILED: %s (errno=%d)", bells[i].label,
+                gh_report("IRQFD bell-%x FAILED: %s (errno=%d)", bells[i].label,
                              strerror(errno), errno);
             } else {
-                error_report(gh"IRQFD bell-%x OK", bells[i].label);
+                gh_report("IRQFD bell-%x OK", bells[i].label);
             }
         }
         if (pl011_notifier_valid) {
             gunyah_gic_register_irq_notifiers(&pl011_notifier, 1, 1);
-            error_report(gh"PL011 GIC notifier registered for SPI 1");
+            gh_report("PL011 GIC notifier registered for SPI 1");
         }
         gunyah_gic_register_irq_notifiers(pci_notifiers, PCI_NUM_SPIS, PCI_FIRST_SPI);
 #undef PCI_FIRST_SPI
@@ -169,7 +174,7 @@ void gunyah_start_vm(void) {
 #define NUM_VIRTIO_BELLS 32
         EventNotifier virtio_notifiers[NUM_VIRTIO_BELLS];
         int virtio_ok = 0;
-        error_report(gh"creating %d virtio IRQFDs (labels 0x10-0x2f, "
+        gh_report("creating %d virtio IRQFDs (labels 0x10-0x2f, "
                      "SPIs 16-47)", NUM_VIRTIO_BELLS);
         for (i = 0; i < NUM_VIRTIO_BELLS; i++) {
             struct gh_fn_desc fdesc;
@@ -178,7 +183,7 @@ void gunyah_start_vm(void) {
             int label = 0x10 + i;
             efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
             if (efd < 0) {
-                error_report(gh"eventfd failed for virtio bell-%x: %s", label, strerror(errno));
+                gh_report("eventfd failed for virtio bell-%x: %s", label, strerror(errno));
                 continue;
             }
             event_notifier_init_fd(&virtio_notifiers[i], efd);
@@ -191,13 +196,13 @@ void gunyah_start_vm(void) {
             fdesc.arg = (__u64)(&ghirqfd);
             ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
             if (ret != 0) {
-                error_report(gh"IRQFD virtio bell-%x FAILED: %s (errno=%d)", label,
+                gh_report("IRQFD virtio bell-%x FAILED: %s (errno=%d)", label,
                              strerror(errno), errno);
             } else {
                 virtio_ok++;
             }
         }
-        error_report(gh"%d/%d virtio IRQFDs created OK", virtio_ok, NUM_VIRTIO_BELLS);
+        gh_report("%d/%d virtio IRQFDs created OK", virtio_ok, NUM_VIRTIO_BELLS);
         gunyah_gic_register_irq_notifiers(virtio_notifiers, NUM_VIRTIO_BELLS, 16);
 #undef NUM_VIRTIO_BELLS
     }
@@ -205,7 +210,7 @@ void gunyah_start_vm(void) {
         struct gh_vm_dtb_config dtb;
         dtb.guest_phys_addr = s->dtb_start;
         dtb.size = s->dtb_size;
-        error_report(gh"SET_DTB_CONFIG gpa=0x%"
+        gh_report("SET_DTB_CONFIG gpa=0x%"
         PRIx64
         " size=0x%"
         PRIx64, (uint64_t) dtb.guest_phys_addr, (uint64_t) dtb.size);
@@ -214,7 +219,7 @@ void gunyah_start_vm(void) {
             if (s->slots[i].size == 0) continue;
             uint64_t slot_end = s->slots[i].start + s->slots[i].size;
             if (dtb.guest_phys_addr >= s->slots[i].start && dtb.guest_phys_addr < slot_end) {
-                error_report(gh"DTB falls in slot[%d] gpa=0x%"
+                gh_report("DTB falls in slot[%d] gpa=0x%"
                 PRIx64
                 " size=0x%"
                 PRIx64
@@ -230,12 +235,12 @@ void gunyah_start_vm(void) {
             if (dtb.guest_phys_addr >= s->slots[i].start && dtb.guest_phys_addr < slot_end) {
                 uint64_t offset = dtb.guest_phys_addr - s->slots[i].start;
                 void *dtb_hva = (uint8_t *) s->slots[i].mem + offset;
-                error_report(gh"DTB content at HVA %p (slot[%d] + 0x%"
+                gh_report("DTB content at HVA %p (slot[%d] + 0x%"
                 PRIx64
                 "):", dtb_hva, i, offset);
                 ghdbg_hexdump("DTB first 64 bytes", dtb_hva, 64);
                 uint32_t magic = *(uint32_t *) dtb_hva;
-                error_report(gh"DTB magic=0x%08x (%s)", magic,
+                gh_report("DTB magic=0x%08x (%s)", magic,
                              magic == 0xd00dfeed ? "VALID (big-endian)" : magic == 0xedfe0dd0
                                                                           ? "VALID (needs swap)"
                                                                           : "INVALID!");
@@ -247,7 +252,7 @@ void gunyah_start_vm(void) {
             error_report("GH_VM_SET_DTB_CONFIG failed: %s (errno=%d)", strerror(errno), errno);
             exit(1);
         }
-        error_report(gh"SET_DTB_CONFIG OK");
+        gh_report("SET_DTB_CONFIG OK");
     }
     {
         uint64_t kernel_entry = 0;
@@ -265,21 +270,21 @@ void gunyah_start_vm(void) {
         kernel_entry = kernel_load_addr;
         if (s->kernel_entry) {
             kernel_entry = s->kernel_entry;
-            error_report(gh"Using kernel_entry=0x%"
+            gh_report("Using kernel_entry=0x%"
             PRIx64
             " from arm_load_kernel()", kernel_entry);
         } else if (kernel_hva_base) {
             uint32_t *insns = (uint32_t *) kernel_hva_base;
             if (insns[1] == 0xaa1f03e1 && insns[2] == 0xaa1f03e2 && insns[3] == 0xaa1f03e3) {
                 uint64_t wrapper_entry = *(uint64_t * )((uint8_t *) kernel_hva_base + 0x20);
-                error_report(gh"Detected CrosVM boot wrapper at 0x%"
+                gh_report("Detected CrosVM boot wrapper at 0x%"
                 PRIx64, kernel_load_addr);
                 kernel_entry = wrapper_entry;
-                error_report(gh"Using real kernel entry 0x%"
+                gh_report("Using real kernel entry 0x%"
                 PRIx64
                 " (skipping CrosVM wrapper)", kernel_entry);
             } else {
-                error_report(gh"WARNING: kernel_entry not set by machine "
+                gh_report("WARNING: kernel_entry not set by machine "
                              "and no CrosVM wrapper detected, "
                              "using kernel_entry=0x%"
                 PRIx64, kernel_entry);
@@ -304,7 +309,7 @@ void gunyah_start_vm(void) {
             };
             memcpy(stub_hva, stub, sizeof(stub));
         }else {
-            error_report(gh"WARNING: could not find HVA for stub "
+            gh_report("WARNING: could not find HVA for stub "
                          "GPA=0x%"
             PRIx64
             ", skipping boot stub", stub_gpa);
@@ -314,26 +319,26 @@ void gunyah_start_vm(void) {
             struct gh_vm_boot_context boot_ctx = {0};
             boot_ctx.reg = (GH_VM_BOOT_CONTEXT_REG_SET_PC << GH_VM_BOOT_CONTEXT_REG_SHIFT) | 0;
             boot_ctx.value = stub_gpa;
-            error_report(gh"SET_BOOT_CONTEXT PC=0x%"
+            gh_report("SET_BOOT_CONTEXT PC=0x%"
             PRIx64, (uint64_t) boot_ctx.value);
             ghdbg_hexdump("SET_BOOT_CONTEXT gh_vm_boot_context", &boot_ctx, sizeof(boot_ctx));
             ret = gunyah_vm_ioctl(GH_VM_SET_BOOT_CONTEXT, &boot_ctx);
             if (ret != 0) {
                 if (errno == ENOTTY) {
-                    error_report(gh"SET_BOOT_CONTEXT not supported (ENOTTY)");
+                    gh_report("SET_BOOT_CONTEXT not supported (ENOTTY)");
                 } else {
-                    error_report(gh"SET_BOOT_CONTEXT PC failed: %s (errno=%d)", strerror(errno),
+                    gh_report("SET_BOOT_CONTEXT PC failed: %s (errno=%d)", strerror(errno),
                                  errno);
                 }
             } else {
-                error_report(gh"SET_BOOT_CONTEXT PC OK");
+                gh_report("SET_BOOT_CONTEXT PC OK");
             }
         }
-        error_report(gh"skipping X0 (RM sets X0=DTB from SET_DTB_CONFIG)");
+        gh_report("skipping X0 (RM sets X0=DTB from SET_DTB_CONFIG)");
     }
     for (i = 0; i < s->nr_slots; ++i) {
         if (s->slots[i].size > 0 && s->slots[i].mem) {
-            error_report(gh"pre-VM_START slot[%d] gpa=0x%"
+            gh_report("pre-VM_START slot[%d] gpa=0x%"
             PRIx64
             " lend=%d first 32 bytes:", i, s->slots[i].start, s->slots[i].lend);
             ghdbg_hexdump("slot content", s->slots[i].mem, 32);
@@ -342,10 +347,10 @@ void gunyah_start_vm(void) {
     gunyah_install_sigsegv_handler();
     ret = gunyah_vm_ioctl(GH_VM_START);
     if (ret != 0) {
-        error_report(gh"Failed to start VM:%s (errno=%d)", strerror(errno), errno);
+        gh_report("Failed to start VM:%s (errno=%d)", strerror(errno), errno);
         exit(1);
     }
-    error_report(gh"VM_START OK");
+    gh_report("VM_START OK");
     sigbus_lend_count = 0;
     for (i = 0; i < s->nr_slots; i++) {
         gunyah_slot *slot = &s->slots[i];
@@ -356,12 +361,12 @@ void gunyah_start_vm(void) {
                 sigbus_lend_regions[sigbus_lend_count].gpa = slot->start;
                 sigbus_lend_count++;
             }
-            error_report(gh"LEND region hva=%p size=0x%zx kept mapped "
+            gh_report("LEND region hva=%p size=0x%zx kept mapped "
                          "for demand paging", slot->mem, (size_t) slot->size);
         }
     }
     __sync_synchronize();
     sigbus_handler_active = 1;
-    error_report(gh"SIGBUS handler armed with %d LEND regions", sigbus_lend_count);
+    gh_report("SIGBUS handler armed with %d LEND regions", sigbus_lend_count);
     qatomic_set(&s->vm_started, 1);
 }

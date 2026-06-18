@@ -57,7 +57,7 @@ gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa, uint64_t size, b
     gumr.guest_phys_addr = gpa;
     gumr.memory_size = size;
     gumr.userspace_addr = (__u64) hva;
-    error_report(gh"add_mem label=%u gpa=0x%"
+    gh_report("add_mem label=%u gpa=0x%"
     PRIx64
     " size=0x%"
     PRIx64
@@ -71,17 +71,17 @@ gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa, uint64_t size, b
     }
     if (ret) {
         if (!lend && errno == EEXIST) {
-            error_report(gh"SHARE gpa=0x%"
+            gh_report("SHARE gpa=0x%"
             PRIx64
             " already exists — reusing"
             " (recycled RingBlob)", gpa);
         } else {
-            error_report(gh"%s ioctl FAILED: %s (ret=%d, errno=%d)", lend ? "LEND" : "SHARE",
+            gh_report("%s ioctl FAILED: %s (ret=%d, errno=%d)", lend ? "LEND" : "SHARE",
                          strerror(errno), ret, errno);
             exit(1);
         }
     } else {
-        error_report(gh"add_mem_slot OK (gpa=0x%"
+        gh_report("add_mem_slot OK (gpa=0x%"
         PRIx64
         " size=0x%"
         PRIx64
@@ -101,7 +101,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
     uint8_t *need_thp = NULL;
     if (lend) {
         FILE *f;
-        error_report(gh"preparing LEND region: hva=0x%"PRIx64
+        gh_report("preparing LEND region: hva=0x%"PRIx64
                      " size=0x%"PRIx64" (%"PRIu64" MB)",
                      (uint64_t)(uintptr_t)base_hva, total_size,
                      total_size >> 20);
@@ -133,14 +133,14 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 fclose(f);
                 mthp_enabled++;
             }
-            error_report(gh"mTHP enabled=%d", mthp_enabled);
+            gh_report("mTHP enabled=%d", mthp_enabled);
         }
         ret = madvise(base_hva, total_size, MADV_HUGEPAGE);
-        error_report(gh"MADV_HUGEPAGE %s", ret == 0 ? "OK" : strerror(errno));
+        gh_report("MADV_HUGEPAGE %s", ret == 0 ? "OK" : strerror(errno));
         {
             const uint64_t batch_size = 512ULL * 1024 * 1024;
             uint64_t offset;
-            error_report(gh"populating %"PRIu64" MB in %"PRIu64
+            gh_report("populating %"PRIu64" MB in %"PRIu64
                          " x %"PRIu64" MB batches",
                          total_size >> 20,
                          (total_size + batch_size - 1) / batch_size,
@@ -193,7 +193,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 }
                 goto skip_phase3;
             }
-            error_report(gh"cascading MADV_COLLAPSE 2MB -> 64KB");
+            gh_report("cascading MADV_COLLAPSE 2MB -> 64KB");
             for (level = 0; level < (int)(sizeof(collapse_levels) / sizeof(collapse_levels[0])); level++) {
                 uint64_t csize = collapse_levels[level].size;
                 int corder = collapse_levels[level].order;
@@ -229,7 +229,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                         last_err = errno;
                     }
                 }
-                error_report(gh"%s collapse: %"PRIu64" OK, %"PRIu64
+                gh_report("%s collapse: %"PRIu64" OK, %"PRIu64
                              " skipped, %"PRIu64" failed (err=%d)",
                              collapse_levels[level].name, collapsed, skipped,
                              failed, last_err);
@@ -272,15 +272,15 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
             free(order_map);
         }
     skip_phase3:
-        error_report(gh"large-page coverage: %"PRIu64" / %"PRIu64
+        gh_report("large-page coverage: %"PRIu64" / %"PRIu64
                      " MB (%.1f%%)", large_page_bytes >> 20,
                      total_size >> 20,
                      (double)large_page_bytes * 100.0 / (double)total_size);
         ret = mlock(base_hva, total_size);
         if (ret == 0) {
-            error_report(gh"mlock: OK");
+            gh_report("mlock: OK");
         } else {
-            error_report(gh"mlock FAILED: %s", strerror(errno));
+            gh_report("mlock FAILED: %s", strerror(errno));
         }
     }
     if (lend && total_size > GUNYAH_LEND_CHUNK_SIZE) {
@@ -294,7 +294,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 else
                     thp_ok++;
             }
-            error_report(gh"THP-aware LEND split: %"
+            gh_report("THP-aware LEND split: %"
             PRIu64
             " MB total, %"
             PRIu64
@@ -314,7 +314,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                     uint64_t sub_sz = run_size - sub_off;
                     if (sub_sz > GUNYAH_LEND_CHUNK_SIZE)
                         sub_sz = GUNYAH_LEND_CHUNK_SIZE;
-                    error_report(gh"%s-chunk[%d] gpa=0x%"PRIx64
+                    gh_report("%s-chunk[%d] gpa=0x%"PRIx64
                                  " size=0x%"PRIx64,
                                  is_small ? "mTHP" : "THP", chunk_idx,
                                  base_gpa + run_offset + sub_off, sub_sz);
@@ -324,13 +324,13 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                     chunk_idx++;
                 }
             }
-            error_report(gh"THP-aware split done: %d LEND slots used", chunk_idx);
+            gh_report("THP-aware split done: %d LEND slots used", chunk_idx);
             free(need_thp);
             return;
         }
         {
             uint64_t offset = 0;
-            error_report(gh"splitting %"PRIu64" MB LEND into %"PRIu64
+            gh_report("splitting %"PRIu64" MB LEND into %"PRIu64
                          " x %"PRIu64" MB chunks",
                          total_size >> 20,
                          (uint64_t)((total_size + GUNYAH_LEND_CHUNK_SIZE - 1) /
@@ -340,7 +340,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
                 uint64_t chunk_sz = total_size - offset;
                 if (chunk_sz > GUNYAH_LEND_CHUNK_SIZE)
                     chunk_sz = GUNYAH_LEND_CHUNK_SIZE;
-                error_report(gh"chunk[%d] gpa=0x%"PRIx64" size=0x%"PRIx64,
+                gh_report("chunk[%d] gpa=0x%"PRIx64" size=0x%"PRIx64,
                              chunk_idx, base_gpa + offset, chunk_sz);
                 gunyah_add_mem_slot(s, base_hva + offset, base_gpa + offset, chunk_sz, lend, flags);
                 offset += chunk_sz;
@@ -383,25 +383,26 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     MemoryRegionSection mrs = *section;
     bool lend = is_confidential_guest(), split = false;
     struct gunyah_slot *slot;
-    error_report(gh"set_phys_mem gpa=0x%"
+    gh_report("set_phys_mem gpa=0x%"
     PRIx64
     " size=0x%"
     PRIx64
     " add=%d is_ram=%d writable=%d lend=%d", (uint64_t) section->offset_within_address_space, (uint64_t) int128_get64(
             section->size), add, memory_region_is_ram(area), writable, lend);
     bool is_hostmem_blob = false;
+    bool is_ramfb_mmio = memory_region_is_ram(area) && area->name && strcmp(area->name, "ramfb-mmio") == 0;
     if (memory_region_is_ram(area) && area->name && strcmp(area->name, "blob") == 0) {
         MemoryRegion *parent = area->container;
         if (parent && parent->name && strcmp(parent->name, "virtio-gpu-hostmem") == 0) {
             is_hostmem_blob = true;
         }
     }
-    if (section->offset_within_address_space < GiB && !is_hostmem_blob) {
+    if (section->offset_within_address_space < GiB && !is_hostmem_blob && !is_ramfb_mmio) {
         static uint64_t last_skip_gpa = UINT64_MAX;
         uint64_t gpa = (uint64_t) section->offset_within_address_space;
         if (gpa != last_skip_gpa) {
             last_skip_gpa = gpa;
-            error_report(gh"skipping region gpa=0x%"
+            gh_report("skipping region gpa=0x%"
             PRIx64
             " size=0x%"
             PRIx64
@@ -428,7 +429,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     if (!add) {
         if (slot) {
             if (is_hostmem_blob) {
-                error_report(gh"hostmem blob removal at gpa=0x%"
+                gh_report("hostmem blob removal at gpa=0x%"
                 PRIx64
                 " size=0x%"
                 PRIx64
@@ -444,7 +445,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
     } else {
         if (slot) {
             if (is_hostmem_blob) {
-                error_report(gh"hostmem blob reuse at gpa=0x%"
+                gh_report("hostmem blob reuse at gpa=0x%"
                 PRIx64
                 " — freeing old slot", (uint64_t) section->offset_within_address_space);
                 slot->size = 0;
@@ -454,15 +455,24 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section, bo
                 exit(1);
             }
         }
-        if (qatomic_read(&s->vm_started) && !is_hostmem_blob) {
+        if (qatomic_read(&s->vm_started) && !is_hostmem_blob && !is_ramfb_mmio) {
             error_report("Memory map changes after VM start not supported!");
             exit(1);
         }
     }
-    if (is_hostmem_blob) {
+    if (is_ramfb_mmio) {
         lend = false;
         flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE;
-        error_report(gh"hostmem blob region at gpa=0x%"
+        gh_report("ramfb-mmio region at gpa=0x%"
+        PRIx64
+        " size=0x%"
+        PRIx64
+        " using SHARE", (uint64_t) section->offset_within_address_space, (uint64_t) int128_get64(
+                section->size));
+    } else if (is_hostmem_blob) {
+        lend = false;
+        flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE;
+        gh_report("hostmem blob region at gpa=0x%"
         PRIx64
         " size=0x%"
         PRIx64
@@ -524,7 +534,7 @@ static void gunyah_cache_lend_range(void) {
         }
     }
     if (found) {
-        error_report(gh"cached LEND range: 0x%"PRIx64" - 0x%"PRIx64,
+        gh_report("cached LEND range: 0x%"PRIx64" - 0x%"PRIx64,
                      gunyah_lend_start, gunyah_lend_end);
     }
 }
@@ -541,13 +551,13 @@ int gunyah_create_vm(void) {
         error_report("Could not access Gunyah kernel module at /dev/gunyah: %s", strerror(errno));
         exit(1);
     }
-    error_report(gh"/dev/gunyah opened, fd=%d", s->fd);
+    gh_report("/dev/gunyah opened, fd=%d", s->fd);
     s->vmfd = gunyah_ioctl(GH_CREATE_VM, 0);
     if (s->vmfd < 0) {
         error_report("Could not create VM: %s (errno=%d)", strerror(errno), errno);
         exit(1);
     }
-    error_report(gh"VM created, vmfd=%d", s->vmfd);
+    gh_report("VM created, vmfd=%d", s->vmfd);
     qemu_mutex_init(&s->slots_lock);
     s->nr_slots = GUNYAH_MAX_MEM_SLOTS;
     for (i = 0; i < s->nr_slots; ++i) {

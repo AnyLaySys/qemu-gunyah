@@ -69,12 +69,6 @@ option('malloc_trim', type : 'feature', value : 'auto',
 option('malloc', type : 'combo', choices : ['system', 'tcmalloc', 'jemalloc'],
        value: 'system', description: 'choose memory allocator to use')
 
-option('whpx', type: 'feature', value: 'auto',
-       description: 'WHPX acceleration support')
-option('hvf', type: 'feature', value: 'auto',
-       description: 'HVF acceleration support')
-option('nvmm', type: 'feature', value: 'auto',
-       description: 'NVMM acceleration support')
 option('gunyah', type: 'feature', value: 'auto',
        description: 'Gunyah acceleration support')
 option('xen', type: 'feature', value: 'auto',

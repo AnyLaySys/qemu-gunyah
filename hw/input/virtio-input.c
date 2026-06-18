@@ -311,6 +311,7 @@ static void virtio_input_class_init(ObjectClass *klass, void *data)
 
     device_class_set_props(dc, virtio_input_properties);
     dc->vmsd           = &vmstate_virtio_input;
+    dc->user_creatable = false;
     set_bit(DEVICE_CATEGORY_INPUT, dc->categories);
     vdc->realize      = virtio_input_device_realize;
     vdc->unrealize    = virtio_input_device_unrealize;

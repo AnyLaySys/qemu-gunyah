@@ -1,11 +1,11 @@
-/*
- * Generic intermediate code generation.
- *
- * Copyright (C) 2016-2017 Lluís Vilanova <vilanova@ac.upc.edu>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
+
+
+
+
+
+
+
+
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -31,10 +31,10 @@ static void set_can_do_io(DisasContextBase *db, bool val)
 
 bool translator_io_start(DisasContextBase *db)
 {
-    /*
-     * Ensure that this instruction will be the last in the TB.
-     * The target may override this to something more forceful.
-     */
+
+
+
+
     if (db->is_jmp == DISAS_NEXT) {
         db->is_jmp = DISAS_TOO_MANY;
     }
@@ -54,22 +54,22 @@ static TCGOp *gen_tb_start(DisasContextBase *db, uint32_t cflags)
     }
 
     if (cflags & CF_USE_ICOUNT) {
-        /*
-         * We emit a sub with a dummy immediate argument. Keep the insn index
-         * of the sub so that we later (when we know the actual insn count)
-         * can update the argument with the actual insn count.
-         */
+
+
+
+
+
         tcg_gen_sub_i32(count, count, tcg_constant_i32(0));
         icount_start_insn = tcg_last_op();
     }
 
-    /*
-     * Emit the check against icount_decr.u32 to see if we should exit
-     * unless we suppress the check with CF_NOIRQ. If we are using
-     * icount and have suppressed interruption the higher level code
-     * should have ensured we don't run more instructions than the
-     * budget.
-     */
+
+
+
+
+
+
+
     if (cflags & CF_NOIRQ) {
         tcg_ctx->exitreq_label = NULL;
     } else {
@@ -90,10 +90,10 @@ static void gen_tb_end(const TranslationBlock *tb, uint32_t cflags,
                        TCGOp *icount_start_insn, int num_insns)
 {
     if (cflags & CF_USE_ICOUNT) {
-        /*
-         * Update the num_insn immediate parameter now that we know
-         * the actual insn count.
-         */
+
+
+
+
         tcg_set_insn_param(icount_start_insn, 2,
                            tcgv_i32_arg(tcg_constant_i32(num_insns)));
     }
@@ -111,12 +111,12 @@ bool translator_is_same_page(const DisasContextBase *db, vaddr addr)
 
 bool translator_use_goto_tb(DisasContextBase *db, vaddr dest)
 {
-    /* Suppress goto_tb if requested. */
+
     if (tb_cflags(db->tb) & CF_NO_GOTO_TB) {
         return false;
     }
 
-    /* Check for the dest on the same page as the start of the TB.  */
+
     return translator_is_same_page(db, dest);
 }
 
@@ -129,7 +129,7 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     TCGOp *first_insn_start = NULL;
     bool plugin_enabled;
 
-    /* Initialize DisasContext */
+
     db->tb = tb;
     db->pc_first = pc;
     db->pc_next = pc;
@@ -144,12 +144,12 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     db->record_len = 0;
 
     ops->init_disas_context(db, cpu);
-    tcg_debug_assert(db->is_jmp == DISAS_NEXT);  /* no early exit */
+    tcg_debug_assert(db->is_jmp == DISAS_NEXT);
 
-    /* Start translating.  */
+
     icount_start_insn = gen_tb_start(db, cflags);
     ops->tb_start(db, cpu);
-    tcg_debug_assert(db->is_jmp == DISAS_NEXT);  /* no early exit */
+    tcg_debug_assert(db->is_jmp == DISAS_NEXT);
 
     plugin_enabled = plugin_gen_tb_start(cpu, db);
     db->plugin_enabled = plugin_enabled;
@@ -161,54 +161,54 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
         if (first_insn_start == NULL) {
             first_insn_start = db->insn_start;
         }
-        tcg_debug_assert(db->is_jmp == DISAS_NEXT);  /* no early exit */
+        tcg_debug_assert(db->is_jmp == DISAS_NEXT);
 
         if (plugin_enabled) {
             plugin_gen_insn_start(cpu, db);
         }
 
-        /*
-         * Disassemble one instruction.  The translate_insn hook should
-         * update db->pc_next and db->is_jmp to indicate what should be
-         * done next -- either exiting this loop or locate the start of
-         * the next instruction.
-         */
+
+
+
+
+
+
         ops->translate_insn(db, cpu);
 
-        /*
-         * We can't instrument after instructions that change control
-         * flow although this only really affects post-load operations.
-         *
-         * Calling plugin_gen_insn_end() before we possibly stop translation
-         * is important. Even if this ends up as dead code, plugin generation
-         * needs to see a matching plugin_gen_insn_{start,end}() pair in order
-         * to accurately track instrumented helpers that might access memory.
-         */
+
+
+
+
+
+
+
+
+
         if (plugin_enabled) {
             plugin_gen_insn_end();
         }
 
-        /* Stop translation if translate_insn so indicated.  */
+
         if (db->is_jmp != DISAS_NEXT) {
             break;
         }
 
-        /* Stop translation if the output buffer is full,
-           or we have executed all of the allowed instructions.  */
+
+
         if (tcg_op_buf_full() || db->num_insns >= db->max_insns) {
             db->is_jmp = DISAS_TOO_MANY;
             break;
         }
     }
 
-    /* Emit code to exit the TB, as indicated by db->is_jmp.  */
+
     ops->tb_stop(db, cpu);
     gen_tb_end(tb, cflags, icount_start_insn, db->num_insns);
 
-    /*
-     * Manage can_do_io for the translation block: set to false before
-     * the first insn and set to true before the last insn.
-     */
+
+
+
+
     if (db->num_insns == 1) {
         tcg_debug_assert(first_insn_start == db->insn_start);
     } else {
@@ -220,7 +220,7 @@ void translator_loop(CPUState *cpu, TranslationBlock *tb, int *max_insns,
     set_can_do_io(db, true);
     tcg_ctx->emit_before_op = NULL;
 
-    /* May be used by disas_log or plugin callbacks. */
+
     tb->size = db->pc_next - db->pc_first;
     tb->icount = db->num_insns;
 
@@ -253,9 +253,9 @@ static bool translator_ld(CPUArchState *env, DisasContextBase *db,
     void *host;
     vaddr base;
 
-    /* Use slow path if first page is MMIO. */
+
     if (unlikely(tb_page_addr0(tb) == -1)) {
-        /* We capped translation with first page MMIO in tb_gen_code. */
+
         tcg_debug_assert(db->max_insns == 1);
         return false;
     }
@@ -264,13 +264,13 @@ static bool translator_ld(CPUArchState *env, DisasContextBase *db,
     base = db->pc_first;
 
     if (likely(((base ^ last) & TARGET_PAGE_MASK) == 0)) {
-        /* Entire read is from the first page. */
+
         memcpy(dest, host + (pc - base), len);
         return true;
     }
 
     if (unlikely(((base ^ pc) & TARGET_PAGE_MASK) == 0)) {
-        /* Read begins on the first page and extends to the second. */
+
         size_t len0 = -(pc | TARGET_PAGE_MASK);
         memcpy(dest, host + (pc - base), len0);
         pc += len0;
@@ -278,16 +278,16 @@ static bool translator_ld(CPUArchState *env, DisasContextBase *db,
         len -= len0;
     }
 
-    /*
-     * The read must conclude on the second page and not extend to a third.
-     *
-     * TODO: We could allow the two pages to be virtually discontiguous,
-     * since we already allow the two pages to be physically discontiguous.
-     * The only reasonable use case would be executing an insn at the end
-     * of the address space wrapping around to the beginning.  For that,
-     * we would need to know the current width of the address space.
-     * In the meantime, assert.
-     */
+
+
+
+
+
+
+
+
+
+
     base = (base & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
     assert(((base ^ pc) & TARGET_PAGE_MASK) == 0);
     assert(((base ^ last) & TARGET_PAGE_MASK) == 0);
@@ -298,25 +298,25 @@ static bool translator_ld(CPUArchState *env, DisasContextBase *db,
 
         new_page1 = get_page_addr_code_hostp(env, base, &db->host_addr[1]);
 
-        /*
-         * If the second page is MMIO, treat as if the first page
-         * was MMIO as well, so that we do not cache the TB.
-         */
+
+
+
+
         if (unlikely(new_page1 == -1)) {
             tb_unlock_pages(tb);
             tb_set_page_addr0(tb, -1);
-            /* Require that this be the final insn. */
+
             db->max_insns = db->num_insns;
             return false;
         }
 
-        /*
-         * If this is not the first time around, and page1 matches,
-         * then we already have the page locked.  Alternately, we're
-         * not doing anything to prevent the PTE from changing, so
-         * we might wind up with a different page, requiring us to
-         * re-do the locking.
-         */
+
+
+
+
+
+
+
         old_page1 = tb_page_addr1(tb);
         if (likely(new_page1 != old_page1)) {
             page0 = tb_page_addr0(tb);
@@ -338,22 +338,22 @@ static void record_save(DisasContextBase *db, vaddr pc,
 {
     int offset;
 
-    /* Do not record probes before the start of TB. */
+
     if (pc < db->pc_first) {
         return;
     }
 
-    /*
-     * In translator_access, we verified that pc is within 2 pages
-     * of pc_first, thus this will never overflow.
-     */
+
+
+
+
     offset = pc - db->pc_first;
 
-    /*
-     * Either the first or second page may be I/O.  If it is the second,
-     * then the first byte we need to record will be at a non-zero offset.
-     * In either case, we should not need to record but a single insn.
-     */
+
+
+
+
+
     if (db->record_len == 0) {
         db->record_start = offset;
         db->record_len = size;
@@ -388,7 +388,7 @@ bool translator_st(const DisasContextBase *db, void *dest,
     if (!db->fake_insn) {
         size_t offset_page1 = -(db->pc_first | TARGET_PAGE_MASK);
 
-        /* Get all the bytes from the first page. */
+
         if (db->host_addr[0]) {
             if (offset_end <= offset_page1) {
                 memcpy(dest, db->host_addr[0] + offset, len);
@@ -402,7 +402,7 @@ bool translator_st(const DisasContextBase *db, void *dest,
             }
         }
 
-        /* Get any bytes from the second page. */
+
         if (db->host_addr[1] && offset >= offset_page1) {
             memcpy(dest, db->host_addr[1] + (offset - offset_page1),
                    offset_end - offset);
@@ -410,7 +410,7 @@ bool translator_st(const DisasContextBase *db, void *dest,
         }
     }
 
-    /* Else get recorded bytes. */
+
     if (db->record_len != 0 &&
         offset >= db->record_start &&
         offset_end <= db->record_start + db->record_len) {

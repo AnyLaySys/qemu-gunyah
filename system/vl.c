@@ -1613,29 +1613,6 @@ static void qemu_apply_legacy_machine_options(QDict *qdict)
         qdict_del(qdict, "accel");
     }
 
-    value = qdict_get_try_str(qdict, "igd-passthru");
-    if (value) {
-        object_register_sugar_prop(ACCEL_CLASS_NAME("xen"), "igd-passthru", value,
-                                   false);
-        qdict_del(qdict, "igd-passthru");
-    }
-
-    value = qdict_get_try_str(qdict, "kvm-shadow-mem");
-    if (value) {
-        object_register_sugar_prop(ACCEL_CLASS_NAME("kvm"), "kvm-shadow-mem", value,
-                                   false);
-        qdict_del(qdict, "kvm-shadow-mem");
-    }
-
-    value = qdict_get_try_str(qdict, "kernel-irqchip");
-    if (value) {
-        object_register_sugar_prop(ACCEL_CLASS_NAME("kvm"), "kernel-irqchip", value,
-                                   false);
-        object_register_sugar_prop(ACCEL_CLASS_NAME("whpx"), "kernel-irqchip", value,
-                                   false);
-        qdict_del(qdict, "kernel-irqchip");
-    }
-
     value = qdict_get_try_str(qdict, "memory-backend");
     if (value) {
         if (mem_path) {
@@ -2242,19 +2219,14 @@ static int do_configure_accelerator(void *opaque, QemuOpts *opts, Error **errp)
     AccelClass *ac = accel_find(acc);
     AccelState *accel;
     int ret;
-    bool qtest_with_kvm;
 
     if (!acc) {
         error_setg(errp, QERR_MISSING_PARAMETER, "accel");
         goto bad;
     }
 
-    qtest_with_kvm = g_str_equal(acc, "kvm") && qtest_chrdev != NULL;
-
     if (!ac) {
-        if (!qtest_with_kvm) {
-            error_report("invalid accelerator %s", acc);
-        }
+        error_report("invalid accelerator %s", acc);
         goto bad;
     }
     accel = ACCEL(object_new_with_class(OBJECT_CLASS(ac)));
@@ -2265,9 +2237,7 @@ static int do_configure_accelerator(void *opaque, QemuOpts *opts, Error **errp)
 
     ret = accel_init_machine(accel, current_machine);
     if (ret < 0) {
-        if (!qtest_with_kvm || ret != -ENOENT) {
-            error_report("failed to initialize %s: %s", acc, strerror(-ret));
-        }
+        error_report("failed to initialize %s: %s", acc, strerror(-ret));
         goto bad;
     }
 
@@ -2291,22 +2261,9 @@ static void configure_accelerators(const char *progname)
         if (accelerators == NULL) {
             /* Select the default accelerator */
             bool have_tcg = accel_find("tcg");
-            bool have_kvm = accel_find("kvm");
-            bool have_hvf = accel_find("hvf");
 
-            if (have_tcg && have_kvm) {
-                if (g_str_has_suffix(progname, "kvm")) {
-                    /* If the program name ends with "kvm", we prefer KVM */
-                    accelerators = "kvm:tcg";
-                } else {
-                    accelerators = "tcg:kvm";
-                }
-            } else if (have_kvm) {
-                accelerators = "kvm";
-            } else if (have_tcg) {
+            if (have_tcg) {
                 accelerators = "tcg";
-            } else if (have_hvf) {
-                accelerators = "hvf";
             } else {
                 error_report("No accelerator selected and"
                              " no default accelerator available");
@@ -3249,9 +3206,6 @@ void qemu_init(int argc, char **argv)
             case QEMU_OPTION_preconfig:
                 preconfig_requested = true;
                 break;
-            case QEMU_OPTION_enable_kvm:
-                qdict_put_str(machine_opts_dict, "accel", "kvm");
-                break;
             case QEMU_OPTION_M:
             case QEMU_OPTION_machine:
                 {
@@ -3411,21 +3365,21 @@ void qemu_init(int argc, char **argv)
                 has_defaults = 0;
                 break;
             case QEMU_OPTION_xen_domid:
-                if (!(accel_find("xen")) && !(accel_find("kvm"))) {
+                if (!xen_enabled()) {
                     error_report("Option not supported for this target");
                     exit(1);
                 }
                 xen_domid = atoi(optarg);
                 break;
             case QEMU_OPTION_xen_attach:
-                if (!(accel_find("xen"))) {
+                if (!xen_enabled()) {
                     error_report("Option not supported for this target");
                     exit(1);
                 }
                 xen_mode = XEN_ATTACH;
                 break;
             case QEMU_OPTION_xen_domid_restrict:
-                if (!(accel_find("xen"))) {
+                if (!xen_enabled()) {
                     error_report("Option not supported for this target");
                     exit(1);
                 }
