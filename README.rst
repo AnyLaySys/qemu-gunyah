@@ -5,23 +5,39 @@ QEMU-Gunyah README
 What is gunyah?什么是gunyah？
 ================================
 Gunyah Hypervisor 是 高通（Qualcomm）推出的一种开源 Type-1（裸机型）虚拟机管理程序，主要面向 嵌入式设备、车载系统、物联网和移动终端 的虚拟化与隔离需求
+Gunyah™ is a high performance and scalable Type-1 hypervisor built for demanding battery-powered, real-time, safety critical systems
 
 What is qemu-gunyah?什么是qemu-gunyah？
 =========================================
 为 QEMU 添加 gunyah hypervisor 加速支持的 AArch64 后端。 QEMU 通过 gunyah accelerator 访问宿主内核 /dev/gunyah 驱动， 将 guest VM 运行在 Gunyah 之上。
+This repository adds gunyah hypervisor acceleration to QEMU for
+AArch64. The ``gunyah`` accelerator interfaces with the host kernel's
+``/dev/gunyah`` driver to run virtual machines on the Gunyah hypervisor.
 
 How to use?如何使用？
 ======================
-Example使用示例：
-::
 
-LD_LIBRARY_PATH=$DIR/libs nice -n -20 taskset $(printf '%x' $(( (1 << $(nproc)) - 1 ))) $DIR/qemu-system-aarch64 -L $DIR/pc-bios -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp $(nproc),sockets=1,cores=$(nproc),threads=1 -m 2G -object arm-confidential-guest,id=prot0,swiotlb-size=64M -bios $DIR/QEMU_EFI.fd -object iothread,id=io0 -drive file=/storage/emulated/0/gunyah/PE.iso,if=none,id=dr1,format=raw,aio=threads,media=cdrom -device virtio-blk-pci,drive=dr1,bootindex=1 -drive file=/data/local/tmp/als/resolute-desktop-arm64.rw,if=none,id=dr0,cache=unsafe,aio=threads,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=2 -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=net0,disable-legacy=on,disable-modern=off -audiodev aaudio,id=snd0 -device virtio-sound-pci,audiodev=snd0,disable-legacy=on,disable-modern=off -device virtio-gpu-pci,disable-legacy=on,disable-modern=off -device qemu-xhci,id=usb-bus,p2=15,p3=15 -device usb-tablet,bus=usb-bus.0 -device usb-kbd,bus=usb-bus.0 -qmp unix:/data/local/tmp/als/dev/Windows.sock,server,nowait -serial stdio
+Example使用示例：
+-----------------
+
+.. code-block:: shell
+
+  LD_LIBRARY_PATH=$DIR/libs nice -n -20 taskset $(printf '%x' $(( (1 << $(nproc)) - 1 ))) $DIR/qemu-system-aarch64 -L $DIR/pc-bios -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp $(nproc),sockets=1,cores=$(nproc),threads=1 -m 2G -object arm-confidential-guest,id=prot0,swiotlb-size=64M -bios $DIR/QEMU_EFI.fd -object iothread,id=io0 -drive file=/storage/emulated/0/gunyah/PE.iso,if=none,id=dr1,format=raw,aio=threads,media=cdrom -device virtio-blk-pci,drive=dr1,bootindex=1 -drive file=/data/local/tmp/als/resolute-desktop-arm64.rw,if=none,id=dr0,cache=unsafe,aio=threads,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=2 -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=net0,disable-legacy=on,disable-modern=off -audiodev aaudio,id=snd0 -device virtio-sound-pci,audiodev=snd0,disable-legacy=on,disable-modern=off -device virtio-gpu-pci,disable-legacy=on,disable-modern=off -device qemu-xhci,id=usb-bus,p2=15,p3=15 -device usb-tablet,bus=usb-bus.0 -device usb-kbd,bus=usb-bus.0 -qmp unix:/data/local/tmp/als/dev/Windows.sock,server,nowait -serial stdio
+
 
 Note注意:
 ============
 qemu-gunyah目前还不支持启动Windows操作系统.
 Windows operating system is not supported up to now.
 
+使用use ``--accel gunyah`` 选择gunyah加速器
+
+
+编译
+==========
+无需--enable-gunyah。
+
+--enable-gunyah is unnecessary.
 
 ===========
 QEMU README
