@@ -132,6 +132,9 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
                                       SDL_TEXTUREACCESS_STREAMING,
                                       surface_width(new_surface),
                                       surface_height(new_surface));
+#if SDL_VERSION_ATLEAST(2, 0, 12)
+    SDL_SetTextureScaleMode(scon->texture, SDL_ScaleModeNearest);
+#endif
     sdl2_2d_redraw(scon);
 }
 
@@ -140,9 +143,9 @@ void sdl2_2d_refresh(DisplayChangeListener *dcl)
     struct sdl2_console *scon = container_of(dcl, struct sdl2_console, dcl);
 
     assert(!scon->opengl);
+    sdl2_poll_events(scon);
     graphic_hw_update(dcl->con);
     sdl2_2d_present(scon, false);
-    sdl2_poll_events(scon);
 }
 
 void sdl2_2d_redraw(struct sdl2_console *scon)

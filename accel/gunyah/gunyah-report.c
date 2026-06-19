@@ -18,6 +18,16 @@ typedef enum GhStatus {
 
 static GhStatus gh_status_for(const char *msg)
 {
+    uint64_t ok, skipped, failed;
+
+    if (sscanf(msg, "%*s collapse: %"SCNu64" OK, %"SCNu64
+               " skipped, %"SCNu64" failed", &ok, &skipped, &failed) == 3) {
+        if (failed == 0 && ok > 0) {
+            return GH_STATUS_OK;
+        }
+        return GH_STATUS_INFO;
+    }
+
     if (strstr(msg, "FAILED") || strstr(msg, "failed") ||
         strstr(msg, "ERROR") || strstr(msg, "Error") ||
         strstr(msg, "CRASHED") || strstr(msg, "WDT BITE") ||
@@ -147,7 +157,7 @@ void gh_report(const char *file, const char *func, int line,
 
     gh_capitalize(msg);
     status = gh_status_for(msg);
-    fprintf(stderr, "[%s%s%s] %s %s:%s:%d\n",
+    fprintf(stderr, "%s%s%s %s %s:%s:%d\n",
             gh_status_color(status), gh_status_word(status), gh_normal,
             msg, gh_file_name(file), func, line);
 }

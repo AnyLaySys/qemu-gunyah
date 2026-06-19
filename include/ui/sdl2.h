@@ -40,7 +40,6 @@ struct sdl2_console {
     int hidden;
     int opengl;
     int updates;
-    int idle_counter;
     int ignore_hotkeys;
     bool gui_keysym;
     bool render_pending;

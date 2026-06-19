@@ -32,16 +32,147 @@ static int guest_x, guest_y;
 static SDL_Cursor *guest_sprite;
 static Notifier mouse_mode_notifier;
 
-#define SDL2_REFRESH_INTERVAL_BUSY 10
-#define SDL2_MAX_IDLE_COUNT (2 * GUI_REFRESH_INTERVAL_DEFAULT \
-                             / SDL2_REFRESH_INTERVAL_BUSY + 1)
-
-
 #ifndef SDL_HINT_RENDER_BATCHING
 #define SDL_HINT_RENDER_BATCHING "SDL_RENDER_BATCHING"
 #endif
 
+#ifndef SDL_HINT_RENDER_SCALE_QUALITY
+#define SDL_HINT_RENDER_SCALE_QUALITY "SDL_RENDER_SCALE_QUALITY"
+#endif
+
 static void sdl_update_caption(struct sdl2_console *scon);
+
+static uint32_t sdl2_window_refresh_rate(struct sdl2_console *scon)
+{
+    SDL_DisplayMode mode;
+    int display = 0;
+
+    if (scon->real_window) {
+        display = SDL_GetWindowDisplayIndex(scon->real_window);
+        if (display < 0) {
+            display = 0;
+        }
+    }
+
+    if (SDL_GetCurrentDisplayMode(display, &mode) == 0 && mode.refresh_rate > 0) {
+        return mode.refresh_rate * 1000;
+    }
+    if (SDL_GetDesktopDisplayMode(display, &mode) == 0 && mode.refresh_rate > 0) {
+        return mode.refresh_rate * 1000;
+    }
+    return 60000;
+}
+
+static uint64_t sdl2_refresh_interval(uint32_t refresh_rate)
+{
+    if (!refresh_rate) {
+        refresh_rate = 60000;
+    }
+    return MAX(1, 1000 * 1000 / refresh_rate);
+}
+
+static void sdl2_output_size(struct sdl2_console *scon, int *w, int *h)
+{
+    *w = surface_width(scon->surface);
+    *h = surface_height(scon->surface);
+
+    if (scon->real_renderer &&
+        SDL_GetRendererOutputSize(scon->real_renderer, w, h) == 0 &&
+        *w > 0 && *h > 0) {
+        return;
+    }
+#ifdef CONFIG_OPENGL
+    if (scon->winctx) {
+        SDL_GL_GetDrawableSize(scon->real_window, w, h);
+        if (*w > 0 && *h > 0) {
+            return;
+        }
+    }
+#endif
+    if (scon->real_window) {
+        SDL_GetWindowSize(scon->real_window, w, h);
+    }
+}
+
+static void sdl2_mouse_bounds(struct sdl2_console *scon, int *w, int *h)
+{
+    if (scon->real_renderer) {
+        SDL_RenderGetLogicalSize(scon->real_renderer, w, h);
+        if (*w > 0 && *h > 0) {
+            return;
+        }
+    }
+    SDL_GetWindowSize(scon->real_window, w, h);
+}
+
+static uint32_t sdl2_update_refresh_rate(struct sdl2_console *scon)
+{
+    uint32_t refresh_rate = sdl2_window_refresh_rate(scon);
+    uint64_t interval;
+
+    interval = sdl2_refresh_interval(refresh_rate);
+    if (scon->dcl.ds) {
+        update_displaychangelistener(&scon->dcl, interval);
+    } else {
+        scon->dcl.update_interval = interval;
+    }
+    return refresh_rate;
+}
+
+static void sdl2_update_ui_info(struct sdl2_console *scon, bool delay)
+{
+    QemuUIInfo info;
+    uint32_t refresh_rate;
+    int width, height;
+
+    if (!scon->surface || !qemu_console_is_graphic(scon->dcl.con)) {
+        return;
+    }
+
+    refresh_rate = sdl2_update_refresh_rate(scon);
+
+    if (!dpy_ui_info_supported(scon->dcl.con)) {
+        return;
+    }
+
+    sdl2_output_size(scon, &width, &height);
+    info = *dpy_get_ui_info(scon->dcl.con);
+    info.width = width;
+    info.height = height;
+    info.refresh_rate = refresh_rate;
+    dpy_set_ui_info(scon->dcl.con, &info, delay);
+}
+
+#ifndef __ANDROID__
+static void sdl2_window_size_for_surface(struct sdl2_console *scon,
+                                         int *w, int *h)
+{
+    int window_w, window_h;
+    int output_w, output_h;
+    double scale_x = 1.0;
+    double scale_y = 1.0;
+
+    *w = surface_width(scon->surface);
+    *h = surface_height(scon->surface);
+
+    if (!scon->real_window) {
+        return;
+    }
+
+    SDL_GetWindowSize(scon->real_window, &window_w, &window_h);
+    sdl2_output_size(scon, &output_w, &output_h);
+
+    if (window_w > 0 && output_w > 0) {
+        scale_x = (double)output_w / window_w;
+    }
+    if (window_h > 0 && output_h > 0) {
+        scale_y = (double)output_h / window_h;
+    }
+
+    *w = MAX(1, (int)((surface_width(scon->surface) / scale_x) + 0.5));
+    *h = MAX(1, (int)((surface_height(scon->surface) / scale_y) + 0.5));
+}
+#endif
 
 #ifdef __ANDROID__
 static void sdl2_android_display_bounds(SDL_Rect *bounds,
@@ -100,6 +231,7 @@ void sdl2_window_create(struct sdl2_console *scon)
     } else {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+    flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 #ifdef __ANDROID__
     SDL_Rect bounds;
 
@@ -144,9 +276,26 @@ void sdl2_window_create(struct sdl2_console *scon)
         scon->winctx = SDL_GL_CreateContext(scon->real_window);
         SDL_GL_SetSwapInterval(0);
     } else {
-        
-        scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
+        SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
+        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
+        scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1,
+                                                 SDL_RENDERER_ACCELERATED |
+                                                 SDL_RENDERER_PRESENTVSYNC);
+        if (!scon->real_renderer) {
+            scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1,
+                                                     SDL_RENDERER_ACCELERATED);
+        }
+        if (!scon->real_renderer) {
+            scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
+        }
+        if (!scon->real_renderer) {
+            fprintf(stderr, "SDL: failed to create renderer: %s\n",
+                    SDL_GetError());
+            exit(1);
+        }
     }
+    sdl2_update_ui_info(scon, false);
     sdl_update_caption(scon);
 }
 
@@ -183,10 +332,12 @@ void sdl2_window_resize(struct sdl2_console *scon)
     SDL_SetWindowPosition(scon->real_window, bounds.x, bounds.y);
     SDL_SetWindowSize(scon->real_window, bounds.w, bounds.h);
 #else
-    SDL_SetWindowSize(scon->real_window,
-                      surface_width(scon->surface),
-                      surface_height(scon->surface));
+    int window_w, window_h;
+
+    sdl2_window_size_for_surface(scon, &window_w, &window_h);
+    SDL_SetWindowSize(scon->real_window, window_w, window_h);
 #endif
+    sdl2_update_ui_info(scon, false);
 }
 
 static void sdl2_redraw(struct sdl2_console *scon)
@@ -311,7 +462,7 @@ static void absolute_mouse_grab(struct sdl2_console *scon)
     int mouse_x, mouse_y;
     int scr_w, scr_h;
     SDL_GetMouseState(&mouse_x, &mouse_y);
-    SDL_GetWindowSize(scon->real_window, &scr_w, &scr_h);
+    sdl2_mouse_bounds(scon, &scr_w, &scr_h);
     if (mouse_x > 0 && mouse_x < scr_w - 1 &&
         mouse_y > 0 && mouse_y < scr_h - 1) {
         sdl_grab_start(scon);
@@ -385,6 +536,7 @@ static void toggle_full_screen(struct sdl2_console *scon)
         }
         SDL_SetWindowFullscreen(scon->real_window, 0);
     }
+    sdl2_update_ui_info(scon, false);
     sdl2_redraw(scon);
 }
 
@@ -528,7 +680,7 @@ static void handle_mousemotion(SDL_Event *ev)
 
     if (qemu_input_is_absolute(scon->dcl.con) || absolute_enabled) {
         int scr_w, scr_h;
-        SDL_GetWindowSize(scon->real_window, &scr_w, &scr_h);
+        sdl2_mouse_bounds(scon, &scr_w, &scr_h);
         max_x = scr_w - 1;
         max_y = scr_h - 1;
         if (gui_grab && !gui_fullscreen
@@ -613,14 +765,13 @@ static void handle_windowevent(SDL_Event *ev)
 
     switch (ev->window.event) {
     case SDL_WINDOWEVENT_RESIZED:
-        {
-            QemuUIInfo info;
-            memset(&info, 0, sizeof(info));
-            info.width = ev->window.data1;
-            info.height = ev->window.data2;
-            dpy_set_ui_info(scon->dcl.con, &info, true);
-        }
+    case SDL_WINDOWEVENT_SIZE_CHANGED:
+        sdl2_update_ui_info(scon, true);
         sdl2_redraw(scon);
+        break;
+    case SDL_WINDOWEVENT_MOVED:
+    case SDL_WINDOWEVENT_DISPLAY_CHANGED:
+        sdl2_update_ui_info(scon, false);
         break;
     case SDL_WINDOWEVENT_EXPOSED:
         sdl2_redraw(scon);
@@ -640,7 +791,7 @@ static void handle_windowevent(SDL_Event *ev)
         }
         break;
     case SDL_WINDOWEVENT_RESTORED:
-        update_displaychangelistener(&scon->dcl, GUI_REFRESH_INTERVAL_DEFAULT);
+        sdl2_update_ui_info(scon, false);
         break;
     case SDL_WINDOWEVENT_MINIMIZED:
         update_displaychangelistener(&scon->dcl, 500);
@@ -661,6 +812,7 @@ static void handle_windowevent(SDL_Event *ev)
         break;
     case SDL_WINDOWEVENT_SHOWN:
         scon->hidden = false;
+        sdl2_update_ui_info(scon, false);
         break;
     case SDL_WINDOWEVENT_HIDDEN:
         scon->hidden = true;
@@ -672,7 +824,6 @@ void sdl2_poll_events(struct sdl2_console *scon)
 {
     SDL_Event ev1, *ev = &ev1;
     bool allow_close = true;
-    int idle = 1;
 
     if (scon->last_vm_running != runstate_is_running()) {
         scon->last_vm_running = runstate_is_running();
@@ -682,15 +833,12 @@ void sdl2_poll_events(struct sdl2_console *scon)
     while (SDL_PollEvent(ev)) {
         switch (ev->type) {
         case SDL_KEYDOWN:
-            idle = 0;
             handle_keydown(ev);
             break;
         case SDL_KEYUP:
-            idle = 0;
             handle_keyup(ev);
             break;
         case SDL_TEXTINPUT:
-            idle = 0;
             handle_textinput(ev);
             break;
         case SDL_QUIT:
@@ -703,16 +851,13 @@ void sdl2_poll_events(struct sdl2_console *scon)
             }
             break;
         case SDL_MOUSEMOTION:
-            idle = 0;
             handle_mousemotion(ev);
             break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
-            idle = 0;
             handle_mousebutton(ev);
             break;
         case SDL_MOUSEWHEEL:
-            idle = 0;
             handle_mousewheel(ev);
             break;
         case SDL_WINDOWEVENT:
@@ -721,18 +866,6 @@ void sdl2_poll_events(struct sdl2_console *scon)
         default:
             break;
         }
-    }
-
-    if (idle) {
-        if (scon->idle_counter < SDL2_MAX_IDLE_COUNT) {
-            scon->idle_counter++;
-            if (scon->idle_counter >= SDL2_MAX_IDLE_COUNT) {
-                scon->dcl.update_interval = GUI_REFRESH_INTERVAL_DEFAULT;
-            }
-        }
-    } else {
-        scon->idle_counter = 0;
-        scon->dcl.update_interval = SDL2_REFRESH_INTERVAL_BUSY;
     }
 }
 
