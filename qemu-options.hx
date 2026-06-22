@@ -715,9 +715,8 @@ SRST
 ``-k language``
     Use keyboard layout language (for example ``fr`` for French). This
     option is only needed where it is not easy to get raw PC keycodes
-    (e.g. on Macs, with some X11 servers or with a VNC or curses
-    display). You don't normally need to use it on PC/Linux or
-    PC/Windows hosts.
+    (e.g. on Macs, with some X11 servers or with a curses display).
+    You don't normally need to use it on PC/Linux or PC/Windows hosts.
 
     The available layouts are:
 
@@ -1188,9 +1187,9 @@ DEF("name", HAS_ARG, QEMU_OPTION_name,
 SRST
 ``-name name``
     Sets the name of the guest. This name will be displayed in the SDL
-    window caption. The name will also be used for the VNC server. Also
-    optionally set the top visible process name in Linux. Naming of
-    individual threads can also be enabled on Linux to aid debugging.
+    window caption. Also optionally set the top visible process name in
+    Linux. Naming of individual threads can also be enabled on Linux to
+    aid debugging.
 ERST
 
 DEF("uuid", HAS_ARG, QEMU_OPTION_uuid,
@@ -2050,9 +2049,6 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "            [,show-tabs=on|off][,show-cursor=on|off][,window-close=on|off]\n"
     "            [,show-menubar=on|off][,zoom-to-fit=on|off]\n"
 #endif
-#if defined(CONFIG_VNC)
-    "-display vnc=<display>[,<optargs>]\n"
-#endif
 #if defined(CONFIG_CURSES)
     "-display curses[,charset=<encoding>]\n"
 #endif
@@ -2077,8 +2073,6 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
             "\"-display sdl\"\n"
 #elif defined(CONFIG_COCOA)
             "\"-display cocoa\"\n"
-#elif defined(CONFIG_VNC)
-            "\"-vnc localhost:0,to=99,id=default\"\n"
 #else
             "\"-display none\"\n"
 #endif
@@ -2183,11 +2177,8 @@ SRST
 
     ``egl-headless[,rendernode=<file>]``
         Offload all OpenGL operations to a local DRI device. For any
-        graphical display, this display needs to be paired with either
-        VNC or SPICE displays.
-
-    ``vnc=<display>``
-        Start a VNC server on display <display>
+        graphical display, this display needs to be paired with another
+        display backend.
 
     ``none``
         Do not display video output. The guest will still see an
@@ -2282,8 +2273,7 @@ SRST
         Set the TCP port spice is listening on for encrypted channels.
 
     ``x509-dir=<dir>``
-        Set the x509 file directory. Expects same filenames as -vnc
-        $display,x509=$dir
+        Set the x509 file directory.
 
     ``x509-key-file=<file>``; \ ``x509-key-password=<file>``; \ ``x509-cert-file=<file>``; \ ``x509-cacert-file=<file>``; \ ``x509-dh-key-file=<file>``
         The x509 file names can also be configured individually.
@@ -2396,189 +2386,6 @@ SRST
     with the option of 1024x768x24. For cgthree, the default is
     1024x768x8 with the option of 1152x900x8 for people who wish to use
     OBP.
-ERST
-
-#ifdef CONFIG_VNC
-DEF("vnc", HAS_ARG, QEMU_OPTION_vnc ,
-    "-vnc <display>  shorthand for -display vnc=<display>\n", QEMU_ARCH_ALL)
-#endif
-SRST
-``-vnc display[,option[,option[,...]]]``
-    Normally, if QEMU is compiled with graphical window support, it
-    displays output such as guest graphics, guest console, and the QEMU
-    monitor in a window. With this option, you can have QEMU listen on
-    VNC display display and redirect the VGA display over the VNC
-    session. It is very useful to enable the usb tablet device when
-    using this option (option ``-device usb-tablet``). When using the
-    VNC display, you must use the ``-k`` parameter to set the keyboard
-    layout if you are not using en-us. Valid syntax for the display is
-
-    ``to=L``
-        With this option, QEMU will try next available VNC displays,
-        until the number L, if the originally defined "-vnc display" is
-        not available, e.g. port 5900+display is already used by another
-        application. By default, to=0.
-
-    ``host:d``
-        TCP connections will only be allowed from host on display d. By
-        convention the TCP port is 5900+d. Optionally, host can be
-        omitted in which case the server will accept connections from
-        any host.
-
-    ``unix:path``
-        Connections will be allowed over UNIX domain sockets where path
-        is the location of a unix socket to listen for connections on.
-
-    ``none``
-        VNC is initialized but not started. The monitor ``change``
-        command can be used to later start the VNC server.
-
-    Following the display value there may be one or more option flags
-    separated by commas. Valid options are
-
-    ``reverse=on|off``
-        Connect to a listening VNC client via a "reverse" connection.
-        The client is specified by the display. For reverse network
-        connections (host:d,``reverse``), the d argument is a TCP port
-        number, not a display number.
-
-    ``websocket=on|off``
-        Opens an additional TCP listening port dedicated to VNC
-        Websocket connections. If a bare websocket option is given, the
-        Websocket port is 5700+display. An alternative port can be
-        specified with the syntax ``websocket``\ =port.
-
-        If host is specified connections will only be allowed from this
-        host. It is possible to control the websocket listen address
-        independently, using the syntax ``websocket``\ =host:port.
-
-        Websocket could be allowed over UNIX domain socket, using the syntax
-        ``websocket``\ =unix:path, where path is the location of a unix socket
-        to listen for connections on.
-
-        If no TLS credentials are provided, the websocket connection
-        runs in unencrypted mode. If TLS credentials are provided, the
-        websocket connection requires encrypted client connections.
-
-    ``password=on|off``
-        Require that password based authentication is used for client
-        connections.
-
-        The password must be set separately using the ``set_password``
-        command in the :ref:`QEMU monitor`. The
-        syntax to change your password is:
-        ``set_password <protocol> <password>`` where <protocol> could be
-        either "vnc" or "spice".
-
-        If you would like to change <protocol> password expiration, you
-        should use ``expire_password <protocol> <expiration-time>``
-        where expiration time could be one of the following options:
-        now, never, +seconds or UNIX time of expiration, e.g. +60 to
-        make password expire in 60 seconds, or 1335196800 to make
-        password expire on "Mon Apr 23 12:00:00 EDT 2012" (UNIX time for
-        this date and time).
-
-        You can also use keywords "now" or "never" for the expiration
-        time to allow <protocol> password to expire immediately or never
-        expire.
-
-    ``password-secret=<secret-id>``
-        Require that password based authentication is used for client
-        connections, using the password provided by the ``secret``
-        object identified by ``secret-id``.
-
-    ``tls-creds=ID``
-        Provides the ID of a set of TLS credentials to use to secure the
-        VNC server. They will apply to both the normal VNC server socket
-        and the websocket socket (if enabled). Setting TLS credentials
-        will cause the VNC server socket to enable the VeNCrypt auth
-        mechanism. The credentials should have been previously created
-        using the ``-object tls-creds`` argument.
-
-    ``tls-authz=ID``
-        Provides the ID of the QAuthZ authorization object against which
-        the client's x509 distinguished name will validated. This object
-        is only resolved at time of use, so can be deleted and recreated
-        on the fly while the VNC server is active. If missing, it will
-        default to denying access.
-
-    ``sasl=on|off``
-        Require that the client use SASL to authenticate with the VNC
-        server. The exact choice of authentication method used is
-        controlled from the system / user's SASL configuration file for
-        the 'qemu' service. This is typically found in
-        /etc/sasl2/qemu.conf. If running QEMU as an unprivileged user,
-        an environment variable SASL\_CONF\_PATH can be used to make it
-        search alternate locations for the service config. While some
-        SASL auth methods can also provide data encryption (eg GSSAPI),
-        it is recommended that SASL always be combined with the 'tls'
-        and 'x509' settings to enable use of SSL and server
-        certificates. This ensures a data encryption preventing
-        compromise of authentication credentials. See the
-        :ref:`VNC security` section in the System Emulation Users Guide
-        for details on using SASL authentication.
-
-    ``sasl-authz=ID``
-        Provides the ID of the QAuthZ authorization object against which
-        the client's SASL username will validated. This object is only
-        resolved at time of use, so can be deleted and recreated on the
-        fly while the VNC server is active. If missing, it will default
-        to denying access.
-
-    ``acl=on|off``
-        Legacy method for enabling authorization of clients against the
-        x509 distinguished name and SASL username. It results in the
-        creation of two ``authz-list`` objects with IDs of
-        ``vnc.username`` and ``vnc.x509dname``. The rules for these
-        objects must be configured with the HMP ACL commands.
-
-        This option is deprecated and should no longer be used. The new
-        ``sasl-authz`` and ``tls-authz`` options are a replacement.
-
-    ``lossy=on|off``
-        Enable lossy compression methods (gradient, JPEG, ...). If this
-        option is set, VNC client may receive lossy framebuffer updates
-        depending on its encoding settings. Enabling this option can
-        save a lot of bandwidth at the expense of quality.
-
-    ``non-adaptive=on|off``
-        Disable adaptive encodings. Adaptive encodings are enabled by
-        default. An adaptive encoding will try to detect frequently
-        updated screen regions, and send updates in these regions using
-        a lossy encoding (like JPEG). This can be really helpful to save
-        bandwidth when playing videos. Disabling adaptive encodings
-        restores the original static behavior of encodings like Tight.
-
-    ``share=[allow-exclusive|force-shared|ignore]``
-        Set display sharing policy. 'allow-exclusive' allows clients to
-        ask for exclusive access. As suggested by the rfb spec this is
-        implemented by dropping other connections. Connecting multiple
-        clients in parallel requires all clients asking for a shared
-        session (vncviewer: -shared switch). This is the default.
-        'force-shared' disables exclusive client access. Useful for
-        shared desktop sessions, where you don't want someone forgetting
-        specify -shared disconnect everybody else. 'ignore' completely
-        ignores the shared flag and allows everybody connect
-        unconditionally. Doesn't conform to the rfb spec but is
-        traditional QEMU behavior.
-
-    ``key-delay-ms``
-        Set keyboard delay, for key down and key up events, in
-        milliseconds. Default is 10. Keyboards are low-bandwidth
-        devices, so this slowdown can help the device and guest to keep
-        up and not lose events in case events are arriving in bulk.
-        Possible causes for the latter are flaky network connections, or
-        scripts for automated testing.
-
-    ``audiodev=audiodev``
-        Use the specified audiodev when the VNC client requests audio
-        transmission. When not using an -audiodev argument, this option
-        must be omitted, otherwise is must be present and specify a
-        valid audiodev.
-
-    ``power-control=on|off``
-        Permit the remote client to issue shutdown, reboot or reset power
-        control requests.
 ERST
 
 ARCHHEADING(, QEMU_ARCH_I386)
@@ -3889,29 +3696,23 @@ The available backends are:
     For example, the following is a use case of 2 backend devices:
     virtual console ``vc0`` and a pseudo TTY ``pty0`` connected to
     a single virtio hvc console frontend device with a hub ``hub0``
-    help. Virtual console renders text to an image, which can be
-    shared over the VNC protocol. In turn, pty backend provides
-    bidirectional communication to the virtio hvc console over the
-    pseudo TTY file. The example configuration can be as follows:
+    help. Virtual console renders text to an image, while pty backend
+    provides bidirectional communication to the virtio hvc console over
+    the pseudo TTY file. The example configuration can be as follows:
 
     ::
 
        -chardev pty,path=/tmp/pty,id=pty0 \
        -chardev vc,id=vc0 \
        -chardev hub,id=hub0,chardevs.0=pty0,chardevs.1=vc0 \
-       -device virtconsole,chardev=hub0 \
-       -vnc 0.0.0.0:0
+       -device virtconsole,chardev=hub0
 
-    Once QEMU starts VNC client and any TTY emulator can be used to
-    control a single hvc console:
+    Any TTY emulator can be used to control a single hvc console:
 
     ::
 
        # Start TTY emulator
        tio /tmp/pty
-
-       # Start VNC client and switch to virtual console Ctrl-Alt-2
-       vncviewer :0
 
     Several frontend devices is not supported. Stacking of multiplexers
     and hub devices is not supported as well.
@@ -6000,7 +5801,7 @@ SRST
 
              # |qemu_system| \\
                  ... \\
-                 -object authz-simple,id=auth0,filename=/etc/qemu/vnc-sasl.acl,refresh=on \\
+                 -object authz-simple,id=auth0,filename=/etc/qemu/sasl.acl,refresh=on \\
                  ...
 
     ``-object authz-pam,id=id,service=string``
@@ -6019,18 +5820,18 @@ SRST
 
              # |qemu_system| \\
                  ... \\
-                 -object authz-pam,id=auth0,service=qemu-vnc \\
+                 -object authz-pam,id=auth0,service=qemu-tls \\
                  ...
 
         There would then be a corresponding config file for PAM at
-        ``/etc/pam.d/qemu-vnc`` that contains:
+        ``/etc/pam.d/qemu-tls`` that contains:
 
         ::
 
             account requisite  pam_listfile.so item=user sense=allow \
-                       file=/etc/qemu/vnc.allow
+                       file=/etc/qemu/tls.allow
 
-        Finally the ``/etc/qemu/vnc.allow`` file would contain the list
+        Finally the ``/etc/qemu/tls.allow`` file would contain the list
         of x509 distinguished names that are permitted access
 
         ::

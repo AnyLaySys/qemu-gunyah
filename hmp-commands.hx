@@ -241,15 +241,6 @@ SRST
     read-write
       Makes the device writable.
 
-  ``change vnc password`` [*password*]
-
-    Change the password associated with the VNC server. If the new password
-    is not supplied, the monitor will prompt for it to be entered. VNC
-    passwords are only significant up to 8 letters. eg::
-
-      (qemu) change vnc password
-      Password: ********
-
 ERST
 
 #ifdef CONFIG_PIXMAN
@@ -1553,14 +1544,13 @@ ERST
         .name       = "set_password",
         .args_type  = "protocol:s,password:s,display:-ds,connected:s?",
         .params     = "protocol password [-d display] [action-if-connected]",
-        .help       = "set spice/vnc password",
+        .help       = "set spice password",
         .cmd        = hmp_set_password,
     },
 
 SRST
-``set_password [ vnc | spice ] password [ -d display ] [ action-if-connected ]``
-  Change spice/vnc password.  *display* can be used with 'vnc' to specify
-  which display to set the password on.  *action-if-connected* specifies
+``set_password spice password [ action-if-connected ]``
+  Change spice password.  *action-if-connected* specifies
   what should happen in case a connection is established: *fail* makes
   the password change fail.  *disconnect* changes the password and
   disconnects the client.  *keep* changes the password and keeps the
@@ -1571,14 +1561,13 @@ ERST
         .name       = "expire_password",
         .args_type  = "protocol:s,time:s,display:-ds",
         .params     = "protocol time [-d display]",
-        .help       = "set spice/vnc password expire-time",
+        .help       = "set spice password expire-time",
         .cmd        = hmp_expire_password,
     },
 
 SRST
-``expire_password [ vnc | spice ] expire-time [ -d display ]``
-  Specify when a password for spice/vnc becomes invalid.
-  *display* behaves the same as in ``set_password``.
+``expire_password spice expire-time``
+  Specify when a password for spice becomes invalid.
   *expire-time* accepts:
 
   ``now``

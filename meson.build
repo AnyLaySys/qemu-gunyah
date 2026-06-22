@@ -1893,25 +1893,6 @@ if get_option('png').allowed() and have_system
    png = dependency('libpng', version: '>=1.6.34', required: get_option('png'),
                     method: 'pkg-config')
 endif
-vnc = not_found
-jpeg = not_found
-sasl = not_found
-if get_option('vnc') \
-             .disable_auto_if(not have_system) \
-             .require(pixman.found(),
-                      error_message: 'cannot enable VNC if pixman is not available') \
-             .allowed()
-  vnc = declare_dependency() # dummy dependency
-  jpeg = dependency('libjpeg', required: get_option('vnc_jpeg'),
-                    method: 'pkg-config')
-  sasl = cc.find_library('sasl2', has_headers: ['sasl/sasl.h'],
-                         required: get_option('vnc_sasl'))
-  if sasl.found()
-    sasl = declare_dependency(dependencies: sasl,
-                              compile_args: '-DSTRUCT_IOVEC_DEFINED')
-  endif
-endif
-
 pam = not_found
 if not get_option('auth_pam').auto() or have_system
   pam = cc.find_library('pam', has_headers: ['security/pam_appl.h'],
@@ -2453,9 +2434,6 @@ config_host_data.set('CONFIG_VMNET', vmnet.found())
 config_host_data.set('CONFIG_VHOST_USER_BLK_SERVER', have_vhost_user_blk_server)
 config_host_data.set('CONFIG_VDUSE_BLK_EXPORT', have_vduse_blk_export)
 config_host_data.set('CONFIG_PNG', png.found())
-config_host_data.set('CONFIG_VNC', vnc.found())
-config_host_data.set('CONFIG_VNC_JPEG', jpeg.found())
-config_host_data.set('CONFIG_VNC_SASL', sasl.found())
 if virgl.found()
   config_host_data.set('VIRGL_VERSION_MAJOR', virgl.version().split('.')[0])
 endif
@@ -4530,11 +4508,6 @@ summary_info += {'GTK support':       gtk}
 summary_info += {'pixman':            pixman}
 summary_info += {'VTE support':       vte}
 summary_info += {'PNG support':       png}
-summary_info += {'VNC support':       vnc}
-if vnc.found()
-  summary_info += {'VNC SASL support':  sasl}
-  summary_info += {'VNC JPEG support':  jpeg}
-endif
 summary_info += {'spice protocol support': spice_protocol}
 if spice_protocol.found()
   summary_info += {'  spice server support': spice}

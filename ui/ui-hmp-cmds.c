@@ -97,95 +97,6 @@ void hmp_info_mice(Monitor *mon, const QDict *qdict)
     qapi_free_MouseInfoList(mice_list);
 }
 
-#ifdef CONFIG_VNC
-/* Helper for hmp_info_vnc_clients, _servers */
-static void hmp_info_VncBasicInfo(Monitor *mon, VncBasicInfo *info,
-                                  const char *name)
-{
-    monitor_printf(mon, "  %s: %s:%s (%s%s)\n",
-                   name,
-                   info->host,
-                   info->service,
-                   NetworkAddressFamily_str(info->family),
-                   info->websocket ? " (Websocket)" : "");
-}
-
-/* Helper displaying and auth and crypt info */
-static void hmp_info_vnc_authcrypt(Monitor *mon, const char *indent,
-                                   VncPrimaryAuth auth,
-                                   VncVencryptSubAuth *vencrypt)
-{
-    monitor_printf(mon, "%sAuth: %s (Sub: %s)\n", indent,
-                   VncPrimaryAuth_str(auth),
-                   vencrypt ? VncVencryptSubAuth_str(*vencrypt) : "none");
-}
-
-static void hmp_info_vnc_clients(Monitor *mon, VncClientInfoList *client)
-{
-    while (client) {
-        VncClientInfo *cinfo = client->value;
-
-        hmp_info_VncBasicInfo(mon, qapi_VncClientInfo_base(cinfo), "Client");
-        monitor_printf(mon, "    x509_dname: %s\n",
-                       cinfo->x509_dname ?: "none");
-        monitor_printf(mon, "    sasl_username: %s\n",
-                       cinfo->sasl_username ?: "none");
-
-        client = client->next;
-    }
-}
-
-static void hmp_info_vnc_servers(Monitor *mon, VncServerInfo2List *server)
-{
-    while (server) {
-        VncServerInfo2 *sinfo = server->value;
-        hmp_info_VncBasicInfo(mon, qapi_VncServerInfo2_base(sinfo), "Server");
-        hmp_info_vnc_authcrypt(mon, "    ", sinfo->auth,
-                               sinfo->has_vencrypt ? &sinfo->vencrypt : NULL);
-        server = server->next;
-    }
-}
-
-void hmp_info_vnc(Monitor *mon, const QDict *qdict)
-{
-    VncInfo2List *info2l, *info2l_head;
-    Error *err = NULL;
-
-    info2l = qmp_query_vnc_servers(&err);
-    info2l_head = info2l;
-    if (hmp_handle_error(mon, err)) {
-        return;
-    }
-    if (!info2l) {
-        monitor_printf(mon, "None\n");
-        return;
-    }
-
-    while (info2l) {
-        VncInfo2 *info = info2l->value;
-        monitor_printf(mon, "%s:\n", info->id);
-        hmp_info_vnc_servers(mon, info->server);
-        hmp_info_vnc_clients(mon, info->clients);
-        if (!info->server) {
-            /*
-             * The server entry displays its auth, we only need to
-             * display in the case of 'reverse' connections where
-             * there's no server.
-             */
-            hmp_info_vnc_authcrypt(mon, "  ", info->auth,
-                               info->has_vencrypt ? &info->vencrypt : NULL);
-        }
-        if (info->display) {
-            monitor_printf(mon, "  Display: %s\n", info->display);
-        }
-        info2l = info2l->next;
-    }
-
-    qapi_free_VncInfo2List(info2l_head);
-
-}
-#endif
-
 #ifdef CONFIG_SPICE
 void hmp_info_spice(Monitor *mon, const QDict *qdict)
 {
@@ -278,13 +189,9 @@ void hmp_set_password(Monitor *mon, const QDict *qdict)
     }
 
     opts.protocol = qapi_enum_parse(&DisplayProtocol_lookup, protocol,
-                                    DISPLAY_PROTOCOL_VNC, &err);
+                                    DISPLAY_PROTOCOL_SPICE, &err);
     if (err) {
         goto out;
-    }
-
-    if (opts.protocol == DISPLAY_PROTOCOL_VNC) {
-        opts.u.vnc.display = (char *)display;
     }
 
     qmp_set_password(&opts, &err);
@@ -305,13 +212,9 @@ void hmp_expire_password(Monitor *mon, const QDict *qdict)
     };
 
     opts.protocol = qapi_enum_parse(&DisplayProtocol_lookup, protocol,
-                                    DISPLAY_PROTOCOL_VNC, &err);
+                                    DISPLAY_PROTOCOL_SPICE, &err);
     if (err) {
         goto out;
-    }
-
-    if (opts.protocol == DISPLAY_PROTOCOL_VNC) {
-        opts.u.vnc.display = (char *)display;
     }
 
     qmp_expire_password(&opts, &err);
@@ -319,35 +222,6 @@ void hmp_expire_password(Monitor *mon, const QDict *qdict)
 out:
     hmp_handle_error(mon, err);
 }
-
-#ifdef CONFIG_VNC
-static void hmp_change_read_arg(void *opaque, const char *password,
-                                void *readline_opaque)
-{
-    qmp_change_vnc_password(password, NULL);
-    monitor_read_command(opaque, 1);
-}
-
-void hmp_change_vnc(Monitor *mon, const char *device, const char *target,
-                    const char *arg, const char *read_only, bool force,
-                    Error **errp)
-{
-    if (read_only) {
-        error_setg(errp, "Parameter 'read-only-mode' is invalid for VNC");
-        return;
-    }
-    if (strcmp(target, "passwd") && strcmp(target, "password")) {
-        error_setg(errp, "Expected 'password' after 'vnc'");
-        return;
-    }
-    if (!arg) {
-        MonitorHMP *hmp_mon = container_of(mon, MonitorHMP, common);
-        monitor_read_password(hmp_mon, hmp_change_read_arg, NULL);
-    } else {
-        qmp_change_vnc_password(arg, errp);
-    }
-}
-#endif
 
 void hmp_sendkey(Monitor *mon, const QDict *qdict)
 {

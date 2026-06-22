@@ -31,24 +31,6 @@ if host_os == 'linux'
 endif
 system_ss.add(when: cocoa, if_true: files('cocoa.m'))
 
-vnc_ss = ss.source_set()
-vnc_ss.add(files(
-  'vnc.c',
-  'vnc-enc-zlib.c',
-  'vnc-enc-hextile.c',
-  'vnc-enc-tight.c',
-  'vnc-palette.c',
-  'vnc-enc-zrle.c',
-  'vnc-auth-vencrypt.c',
-  'vnc-ws.c',
-  'vnc-jobs.c',
-  'vnc-clipboard.c',
-))
-vnc_ss.add(zlib, jpeg)
-vnc_ss.add(when: sasl, if_true: files('vnc-auth-sasl.c'))
-system_ss.add_all(when: [vnc, pixman], if_true: vnc_ss)
-system_ss.add(when: vnc, if_false: files('vnc-stubs.c'))
-
 ui_modules = {}
 
 if curses.found()

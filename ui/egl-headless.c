@@ -281,7 +281,7 @@ static void egl_scanout_flush(DisplayChangeListener *dcl,
 
     egl_fb_read_flipped(edpy->ds, &edpy->guest_fb, edpy->y_0_top);
 
-    /* Don't software-blend cursor — VNC handles it via dpy_cursor_define */
+    /* Don't software-blend cursor; display backends handle it separately. */
 
     (void)glGetError(); /* consume any read error */
 #else

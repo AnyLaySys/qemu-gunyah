@@ -213,9 +213,6 @@ meson_options_help() {
   printf "%s\n" '  virtfs          virtio-9p support'
   printf "%s\n" '  vmdk            vmdk image format support'
   printf "%s\n" '  vmnet           vmnet.framework network backend support'
-  printf "%s\n" '  vnc             VNC server'
-  printf "%s\n" '  vnc-jpeg        JPEG lossy compression for VNC server'
-  printf "%s\n" '  vnc-sasl        SASL authentication for VNC server'
   printf "%s\n" '  vpc             vpc image format support'
   printf "%s\n" '  vte             vte support for the gtk UI'
   printf "%s\n" '  vvfat           vvfat image format support'
@@ -544,12 +541,6 @@ _meson_option_parse() {
     --disable-vmdk) printf "%s" -Dvmdk=disabled ;;
     --enable-vmnet) printf "%s" -Dvmnet=enabled ;;
     --disable-vmnet) printf "%s" -Dvmnet=disabled ;;
-    --enable-vnc) printf "%s" -Dvnc=enabled ;;
-    --disable-vnc) printf "%s" -Dvnc=disabled ;;
-    --enable-vnc-jpeg) printf "%s" -Dvnc_jpeg=enabled ;;
-    --disable-vnc-jpeg) printf "%s" -Dvnc_jpeg=disabled ;;
-    --enable-vnc-sasl) printf "%s" -Dvnc_sasl=enabled ;;
-    --disable-vnc-sasl) printf "%s" -Dvnc_sasl=disabled ;;
     --enable-vpc) printf "%s" -Dvpc=enabled ;;
     --disable-vpc) printf "%s" -Dvpc=disabled ;;
     --enable-vte) printf "%s" -Dvte=enabled ;;

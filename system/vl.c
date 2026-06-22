@@ -379,8 +379,7 @@ static QemuOptsList qemu_name_opts = {
             .name = "guest",
             .type = QEMU_OPT_STRING,
             .help = "Sets the name of the guest.\n"
-                    "This name will be displayed in the SDL window caption.\n"
-                    "The name will also be used for the VNC server",
+                    "This name will be displayed in the SDL window caption.",
         }, {
             .name = "process",
             .type = QEMU_OPT_STRING,
@@ -972,25 +971,6 @@ static void parse_display(const char *p)
         exit(0);
     }
 
-#ifdef CONFIG_VNC
-    const char *opts;
-
-    if (strstart(p, "vnc", &opts)) {
-        /*
-         * vnc isn't a (local) DisplayType but a protocol for remote
-         * display access.
-         */
-        if (*opts == '=') {
-            vnc_parse(opts + 1);
-            display_remote++;
-        } else {
-            error_report("VNC requires a display argument vnc=<display>");
-            exit(1);
-        }
-        return;
-    }
-#endif
-
     parse_display_qapi(p);
 }
 
@@ -1232,10 +1212,6 @@ static void qemu_setup_display(void)
     if (dpy.type == DISPLAY_TYPE_DEFAULT && !display_remote) {
         if (!qemu_display_find_default(&dpy)) {
             dpy.type = DISPLAY_TYPE_NONE;
-#if defined(CONFIG_VNC)
-            vnc_parse("localhost:0,to=99,id=default");
-            display_remote++;
-#endif
         }
     }
     if (dpy.type == DISPLAY_TYPE_DEFAULT) {
@@ -2506,11 +2482,6 @@ static void qemu_init_displays(void)
     os_setup_signal_handling();
 
     /* init remote displays */
-#ifdef CONFIG_VNC
-    qemu_opts_foreach(qemu_find_opts("vnc"),
-                      vnc_init_func, NULL, &error_fatal);
-#endif
-
     if (using_spice) {
         qemu_spice.display_init();
     }
@@ -3269,12 +3240,6 @@ void qemu_init(int argc, char **argv)
                 machine_parse_property_opt(qemu_find_opts("smp-opts"),
                                            "smp", optarg);
                 break;
-#ifdef CONFIG_VNC
-            case QEMU_OPTION_vnc:
-                vnc_parse(optarg);
-                display_remote++;
-                break;
-#endif
             case QEMU_OPTION_no_reboot:
                 olist = qemu_find_opts("action");
                 qemu_opts_parse_noisily(olist, "reboot=shutdown", false);

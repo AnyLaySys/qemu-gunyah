@@ -238,12 +238,6 @@ option('virglrenderer', type : 'feature', value : 'auto',
        description: 'virgl rendering support')
 option('png', type : 'feature', value : 'auto',
        description: 'PNG support with libpng')
-option('vnc', type : 'feature', value : 'auto',
-       description: 'VNC server')
-option('vnc_jpeg', type : 'feature', value : 'auto',
-       description: 'JPEG lossy compression for VNC server')
-option('vnc_sasl', type : 'feature', value : 'auto',
-       description: 'SASL authentication for VNC server')
 option('vte', type : 'feature', value : 'auto',
        description: 'vte support for the gtk UI')
 

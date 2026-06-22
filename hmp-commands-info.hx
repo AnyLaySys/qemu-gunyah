@@ -400,21 +400,6 @@ SRST
     Show which guest mouse is receiving events.
 ERST
 
-#if defined(CONFIG_VNC)
-    {
-        .name       = "vnc",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show the vnc server status",
-        .cmd        = hmp_info_vnc,
-    },
-#endif
-
-SRST
-  ``info vnc``
-    Show the vnc server status.
-ERST
-
 #if defined(CONFIG_SPICE)
     {
         .name       = "spice",

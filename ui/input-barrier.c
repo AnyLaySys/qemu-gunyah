@@ -11,7 +11,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "system/system.h"
 #include "qemu/main-loop.h"
 #include "qemu/sockets.h"
 #include "qapi/error.h"
@@ -19,7 +18,6 @@
 #include "io/channel-socket.h"
 #include "ui/input.h"
 #include "qom/object.h"
-#include "ui/vnc_keysym.h" /* use name2keysym from VNC as we use X11 values */
 #include "qemu/cutils.h"
 #include "qapi/qmp/qerror.h"
 #include "input-barrier.h"
@@ -82,8 +80,6 @@ static const char *cmd_names[] = {
     [barrierCmdHelloBack]      = "Barrier",
 };
 
-static kbd_layout_t *kbd_layout;
-
 static int input_barrier_to_qcode(uint16_t keyid, uint16_t keycode)
 {
     /* keycode is optional, if it is not provided use keyid */
@@ -93,13 +89,6 @@ static int input_barrier_to_qcode(uint16_t keyid, uint16_t keycode)
 
     if (keyid >= 0xE000 && keyid <= 0xEFFF) {
         keyid += 0x1000;
-    }
-
-    /* keyid is the X11 key id */
-    if (kbd_layout) {
-        keycode = keysym2scancode(kbd_layout, keyid, NULL, false);
-
-        return qemu_input_key_number_to_qcode(keycode);
     }
 
     return qemu_input_map_x11_to_qcode[keyid];
@@ -678,13 +667,6 @@ static char *input_barrier_get_height(Object *obj, Error **errp)
 static void input_barrier_instance_init(Object *obj)
 {
     InputBarrier *ib = INPUT_BARRIER(obj);
-
-    /* always use generic keymaps */
-    if (keyboard_layout && !kbd_layout) {
-        /* We use X11 key id, so use VNC name2keysym */
-        kbd_layout = init_keyboard_layout(name2keysym, keyboard_layout,
-                                          &error_fatal);
-    }
 
     ib->saddr.type = SOCKET_ADDRESS_TYPE_INET;
     ib->saddr.u.inet.host = g_strdup("localhost");

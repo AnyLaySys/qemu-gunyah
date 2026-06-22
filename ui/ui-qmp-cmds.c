@@ -33,27 +33,12 @@ void qmp_set_password(SetPasswordOptions *opts, Error **errp)
 {
     int rc;
 
-    if (opts->protocol == DISPLAY_PROTOCOL_SPICE) {
-        if (!qemu_using_spice(errp)) {
-            return;
-        }
-        rc = qemu_spice.set_passwd(opts->password,
-                opts->connected == SET_PASSWORD_ACTION_FAIL,
-                opts->connected == SET_PASSWORD_ACTION_DISCONNECT);
-    } else {
-        assert(opts->protocol == DISPLAY_PROTOCOL_VNC);
-        if (opts->connected != SET_PASSWORD_ACTION_KEEP) {
-            /* vnc supports "connected=keep" only */
-            error_setg(errp, "parameter 'connected' must be 'keep'"
-                       " when 'protocol' is 'vnc'");
-            return;
-        }
-        /*
-         * Note that setting an empty password will not disable login
-         * through this interface.
-         */
-        rc = vnc_display_password(opts->u.vnc.display, opts->password);
+    if (!qemu_using_spice(errp)) {
+        return;
     }
+    rc = qemu_spice.set_passwd(opts->password,
+            opts->connected == SET_PASSWORD_ACTION_FAIL,
+            opts->connected == SET_PASSWORD_ACTION_DISCONNECT);
 
     if (rc != 0) {
         error_setg(errp, "Could not set password");
@@ -89,29 +74,15 @@ void qmp_expire_password(ExpirePasswordOptions *opts, Error **errp)
         when += num;
     }
 
-    if (opts->protocol == DISPLAY_PROTOCOL_SPICE) {
-        if (!qemu_using_spice(errp)) {
-            return;
-        }
-        rc = qemu_spice.set_pw_expire(when);
-    } else {
-        assert(opts->protocol == DISPLAY_PROTOCOL_VNC);
-        rc = vnc_display_pw_expire(opts->u.vnc.display, when);
+    if (!qemu_using_spice(errp)) {
+        return;
     }
+    rc = qemu_spice.set_pw_expire(when);
 
     if (rc != 0) {
         error_setg(errp, "Could not set password expire time");
     }
 }
-
-#ifdef CONFIG_VNC
-void qmp_change_vnc_password(const char *password, Error **errp)
-{
-    if (vnc_display_password(NULL, password) < 0) {
-        error_setg(errp, "Could not set password");
-    }
-}
-#endif
 
 bool qmp_add_client_spice(int fd, bool has_skipauth, bool skipauth,
                           bool has_tls, bool tls, Error **errp)
@@ -128,16 +99,6 @@ bool qmp_add_client_spice(int fd, bool has_skipauth, bool skipauth,
     return true;
 }
 
-#ifdef CONFIG_VNC
-bool qmp_add_client_vnc(int fd, bool has_skipauth, bool skipauth,
-                        bool has_tls, bool tls, Error **errp)
-{
-    skipauth = has_skipauth ? skipauth : false;
-    vnc_display_add_client(NULL, fd, skipauth);
-    return true;
-}
-#endif
-
 #ifdef CONFIG_DBUS_DISPLAY
 bool qmp_add_client_dbus_display(int fd, bool has_skipauth, bool skipauth,
                                  bool has_tls, bool tls, Error **errp)
@@ -151,38 +112,6 @@ bool qmp_add_client_dbus_display(int fd, bool has_skipauth, bool skipauth,
     return true;
 }
 #endif
-
-void qmp_display_reload(DisplayReloadOptions *arg, Error **errp)
-{
-    switch (arg->type) {
-    case DISPLAY_RELOAD_TYPE_VNC:
-#ifdef CONFIG_VNC
-        if (arg->u.vnc.has_tls_certs && arg->u.vnc.tls_certs) {
-            vnc_display_reload_certs(NULL, errp);
-        }
-#else
-        error_setg(errp, "vnc is invalid, missing 'CONFIG_VNC'");
-#endif
-        break;
-    default:
-        abort();
-    }
-}
-
-void qmp_display_update(DisplayUpdateOptions *arg, Error **errp)
-{
-    switch (arg->type) {
-    case DISPLAY_UPDATE_TYPE_VNC:
-#ifdef CONFIG_VNC
-        vnc_display_update(&arg->u.vnc, errp);
-#else
-        error_setg(errp, "vnc is invalid, missing 'CONFIG_VNC'");
-#endif
-        break;
-    default:
-        abort();
-    }
-}
 
 void qmp_client_migrate_info(const char *protocol, const char *hostname,
                              bool has_port, int64_t port,

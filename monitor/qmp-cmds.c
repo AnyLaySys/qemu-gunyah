@@ -122,9 +122,6 @@ void qmp_add_client(const char *protocol, const char *fdname,
                            bool has_tls, bool tls, Error **errp);
     } protocol_table[] = {
         { "spice", qmp_add_client_spice },
-#ifdef CONFIG_VNC
-        { "vnc", qmp_add_client_vnc },
-#endif
 #ifdef CONFIG_DBUS_DISPLAY
         { "@dbus-display", qmp_add_client_dbus_display },
 #endif

@@ -17,7 +17,7 @@
 # Since: 7.0
 ##
 { 'enum': 'DisplayProtocol',
-  'data': [ 'vnc', 'spice' ] }
+  'data': [ 'spice' ] }
 
 ##
 # @SetPasswordAction:
@@ -42,36 +42,19 @@
 # Options for set_password.
 #
 # @protocol:
-#     - 'vnc' to modify the VNC server password
 #     - 'spice' to modify the Spice server password
 #
 # @password: the new password
 #
 # @connected: How to handle existing clients when changing the
-#     password.  If nothing is specified, defaults to 'keep'.  For
-#     VNC, only 'keep' is currently implemented.
+#     password.  If nothing is specified, defaults to 'keep'.
 #
 # Since: 7.0
 ##
-{ 'union': 'SetPasswordOptions',
-  'base': { 'protocol': 'DisplayProtocol',
+{ 'struct': 'SetPasswordOptions',
+  'data': { 'protocol': 'DisplayProtocol',
             'password': 'str',
-            '*connected': 'SetPasswordAction' },
-  'discriminator': 'protocol',
-  'data': { 'vnc': 'SetPasswordOptionsVnc' } }
-
-##
-# @SetPasswordOptionsVnc:
-#
-# Options for set_password specific to the VNC protocol.
-#
-# @display: The id of the display where the password should be
-#     changed.  Defaults to the first.
-#
-# Since: 7.0
-##
-{ 'struct': 'SetPasswordOptionsVnc',
-  'data': { '*display': 'str' } }
+            '*connected': 'SetPasswordAction' } }
 
 ##
 # @set_password:
@@ -85,7 +68,7 @@
 #
 # .. qmp-example::
 #
-#     -> { "execute": "set_password", "arguments": { "protocol": "vnc",
+#     -> { "execute": "set_password", "arguments": { "protocol": "spice",
 #                                                    "password": "secret" } }
 #     <- { "return": {} }
 ##
@@ -97,7 +80,6 @@
 # General options for expire_password.
 #
 # @protocol:
-#     - 'vnc' to modify the VNC server expiration
 #     - 'spice' to modify the Spice server expiration
 #
 # @time: when to expire the password.
@@ -115,24 +97,9 @@
 #
 # Since: 7.0
 ##
-{ 'union': 'ExpirePasswordOptions',
-  'base': { 'protocol': 'DisplayProtocol',
-            'time': 'str' },
-  'discriminator': 'protocol',
-  'data': { 'vnc': 'ExpirePasswordOptionsVnc' } }
-
-##
-# @ExpirePasswordOptionsVnc:
-#
-# Options for expire_password specific to the VNC protocol.
-#
-# @display: The id of the display where the expiration should be
-#     changed.  Defaults to the first.
-#
-# Since: 7.0
-##
-{ 'struct': 'ExpirePasswordOptionsVnc',
-  'data': { '*display': 'str' } }
+{ 'struct': 'ExpirePasswordOptions',
+  'data': { 'protocol': 'DisplayProtocol',
+            'time': 'str' } }
 
 ##
 # @expire_password:
@@ -147,7 +114,7 @@
 #
 # .. qmp-example::
 #
-#     -> { "execute": "expire_password", "arguments": { "protocol": "vnc",
+#     -> { "execute": "expire_password", "arguments": { "protocol": "spice",
 #                                                       "time": "+60" } }
 #     <- { "return": {} }
 ##
@@ -459,339 +426,6 @@
 ##
 { 'event': 'SPICE_MIGRATE_COMPLETED',
   'if': 'CONFIG_SPICE' }
-
-##
-# == VNC
-##
-
-##
-# @VncBasicInfo:
-#
-# The basic information for vnc network connection
-#
-# @host: IP address
-#
-# @service: The service name of the vnc port.  This may depend on the
-#     host system's service database so symbolic names should not be
-#     relied on.
-#
-# @family: address family
-#
-# @websocket: true in case the socket is a websocket (since 2.3).
-#
-# Since: 2.1
-##
-{ 'struct': 'VncBasicInfo',
-  'data': { 'host': 'str',
-            'service': 'str',
-            'family': 'NetworkAddressFamily',
-            'websocket': 'bool' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncServerInfo:
-#
-# The network connection information for server
-#
-# @auth: authentication method used for the plain (non-websocket) VNC
-#     server
-#
-# Since: 2.1
-##
-{ 'struct': 'VncServerInfo',
-  'base': 'VncBasicInfo',
-  'data': { '*auth': 'str' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncClientInfo:
-#
-# Information about a connected VNC client.
-#
-# @x509_dname: If x509 authentication is in use, the Distinguished
-#     Name of the client.
-#
-# @sasl_username: If SASL authentication is in use, the SASL username
-#     used for authentication.
-#
-# Since: 0.14
-##
-{ 'struct': 'VncClientInfo',
-  'base': 'VncBasicInfo',
-  'data': { '*x509_dname': 'str', '*sasl_username': 'str' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncInfo:
-#
-# Information about the VNC session.
-#
-# @enabled: true if the VNC server is enabled, false otherwise
-#
-# @host: The hostname the VNC server is bound to.  This depends on the
-#     name resolution on the host and may be an IP address.
-#
-# @family:
-#     - 'ipv6' if the host is listening for IPv6 connections
-#     - 'ipv4' if the host is listening for IPv4 connections
-#     - 'unix' if the host is listening on a unix domain socket
-#     - 'unknown' otherwise
-#
-# @service: The service name of the server's port.  This may depends
-#     on the host system's service database so symbolic names should
-#     not be relied on.
-#
-# @auth: the current authentication type used by the server
-#
-#     - 'none' if no authentication is being used
-#     - 'vnc' if VNC authentication is being used
-#     - 'vencrypt+plain' if VEncrypt is used with plain text
-#       authentication
-#     - 'vencrypt+tls+none' if VEncrypt is used with TLS and no
-#       authentication
-#     - 'vencrypt+tls+vnc' if VEncrypt is used with TLS and VNC
-#       authentication
-#     - 'vencrypt+tls+plain' if VEncrypt is used with TLS and plain
-#       text auth
-#     - 'vencrypt+x509+none' if VEncrypt is used with x509 and no auth
-#     - 'vencrypt+x509+vnc' if VEncrypt is used with x509 and VNC auth
-#     - 'vencrypt+x509+plain' if VEncrypt is used with x509 and plain
-#       text auth
-#     - 'vencrypt+tls+sasl' if VEncrypt is used with TLS and SASL auth
-#     - 'vencrypt+x509+sasl' if VEncrypt is used with x509 and SASL
-#       auth
-#
-# @clients: a list of @VncClientInfo of all currently connected
-#     clients
-#
-# Since: 0.14
-##
-{ 'struct': 'VncInfo',
-  'data': {'enabled': 'bool', '*host': 'str',
-           '*family': 'NetworkAddressFamily',
-           '*service': 'str', '*auth': 'str', '*clients': ['VncClientInfo']},
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncPrimaryAuth:
-#
-# vnc primary authentication method.
-#
-# Since: 2.3
-##
-{ 'enum': 'VncPrimaryAuth',
-  'data': [ 'none', 'vnc', 'ra2', 'ra2ne', 'tight', 'ultra',
-            'tls', 'vencrypt', 'sasl' ],
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncVencryptSubAuth:
-#
-# vnc sub authentication method with vencrypt.
-#
-# Since: 2.3
-##
-{ 'enum': 'VncVencryptSubAuth',
-  'data': [ 'plain',
-            'tls-none',  'x509-none',
-            'tls-vnc',   'x509-vnc',
-            'tls-plain', 'x509-plain',
-            'tls-sasl',  'x509-sasl' ],
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncServerInfo2:
-#
-# The network connection information for server
-#
-# @auth: The current authentication type used by the servers
-#
-# @vencrypt: The vencrypt sub authentication type used by the servers,
-#     only specified in case auth == vencrypt.
-#
-# Since: 2.9
-##
-{ 'struct': 'VncServerInfo2',
-  'base': 'VncBasicInfo',
-  'data': { 'auth'      : 'VncPrimaryAuth',
-            '*vencrypt' : 'VncVencryptSubAuth' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VncInfo2:
-#
-# Information about a vnc server
-#
-# @id: vnc server name.
-#
-# @server: A list of @VncBasincInfo describing all listening sockets.
-#     The list can be empty (in case the vnc server is disabled).  It
-#     also may have multiple entries: normal + websocket, possibly
-#     also ipv4 + ipv6 in the future.
-#
-# @clients: A list of @VncClientInfo of all currently connected
-#     clients.  The list can be empty, for obvious reasons.
-#
-# @auth: The current authentication type used by the non-websockets
-#     servers
-#
-# @vencrypt: The vencrypt authentication type used by the servers,
-#     only specified in case auth == vencrypt.
-#
-# @display: The display device the vnc server is linked to.
-#
-# Since: 2.3
-##
-{ 'struct': 'VncInfo2',
-  'data': { 'id'        : 'str',
-            'server'    : ['VncServerInfo2'],
-            'clients'   : ['VncClientInfo'],
-            'auth'      : 'VncPrimaryAuth',
-            '*vencrypt' : 'VncVencryptSubAuth',
-            '*display'  : 'str' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @query-vnc:
-#
-# Returns information about the current VNC server
-#
-# Returns: @VncInfo
-#
-# Since: 0.14
-#
-# .. qmp-example::
-#
-#     -> { "execute": "query-vnc" }
-#     <- { "return": {
-#              "enabled":true,
-#              "host":"0.0.0.0",
-#              "service":"50402",
-#              "auth":"vnc",
-#              "family":"ipv4",
-#              "clients":[
-#                 {
-#                    "host":"127.0.0.1",
-#                    "service":"50401",
-#                    "family":"ipv4",
-#                    "websocket":false
-#                 }
-#              ]
-#           }
-#        }
-##
-{ 'command': 'query-vnc', 'returns': 'VncInfo',
-  'if': 'CONFIG_VNC' }
-##
-# @query-vnc-servers:
-#
-# Returns a list of vnc servers.  The list can be empty.
-#
-# Returns: a list of @VncInfo2
-#
-# Since: 2.3
-##
-{ 'command': 'query-vnc-servers', 'returns': ['VncInfo2'],
-  'if': 'CONFIG_VNC' }
-
-##
-# @change-vnc-password:
-#
-# Change the VNC server password.
-#
-# @password: the new password to use with VNC authentication
-#
-# Since: 1.1
-#
-# .. note:: An empty password in this command will set the password to
-#    the empty string.  Existing clients are unaffected by executing
-#    this command.
-##
-{ 'command': 'change-vnc-password',
-  'data': { 'password': 'str' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VNC_CONNECTED:
-#
-# Emitted when a VNC client establishes a connection
-#
-# @server: server information
-#
-# @client: client information
-#
-# .. note:: This event is emitted before any authentication takes
-#    place, thus the authentication ID is not provided.
-#
-# Since: 0.13
-#
-# .. qmp-example::
-#
-#     <- { "event": "VNC_CONNECTED",
-#          "data": {
-#                "server": { "auth": "sasl", "family": "ipv4", "websocket": false,
-#                            "service": "5901", "host": "0.0.0.0" },
-#                "client": { "family": "ipv4", "service": "58425",
-#                            "host": "127.0.0.1", "websocket": false } },
-#          "timestamp": { "seconds": 1262976601, "microseconds": 975795 } }
-##
-{ 'event': 'VNC_CONNECTED',
-  'data': { 'server': 'VncServerInfo',
-            'client': 'VncBasicInfo' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VNC_INITIALIZED:
-#
-# Emitted after authentication takes place (if any) and the VNC
-# session is made active
-#
-# @server: server information
-#
-# @client: client information
-#
-# Since: 0.13
-#
-# .. qmp-example::
-#
-#     <-  { "event": "VNC_INITIALIZED",
-#           "data": {
-#                "server": { "auth": "sasl", "family": "ipv4", "websocket": false,
-#                            "service": "5901", "host": "0.0.0.0"},
-#                "client": { "family": "ipv4", "service": "46089", "websocket": false,
-#                            "host": "127.0.0.1", "sasl_username": "luiz" } },
-#           "timestamp": { "seconds": 1263475302, "microseconds": 150772 } }
-##
-{ 'event': 'VNC_INITIALIZED',
-  'data': { 'server': 'VncServerInfo',
-            'client': 'VncClientInfo' },
-  'if': 'CONFIG_VNC' }
-
-##
-# @VNC_DISCONNECTED:
-#
-# Emitted when the connection is closed
-#
-# @server: server information
-#
-# @client: client information
-#
-# Since: 0.13
-#
-# .. qmp-example::
-#
-#     <- { "event": "VNC_DISCONNECTED",
-#          "data": {
-#                "server": { "auth": "sasl", "family": "ipv4", "websocket": false,
-#                            "service": "5901", "host": "0.0.0.0" },
-#                "client": { "family": "ipv4", "service": "58425", "websocket": false,
-#                            "host": "127.0.0.1", "sasl_username": "luiz" } },
-#          "timestamp": { "seconds": 1262976601, "microseconds": 975795 } }
-##
-{ 'event': 'VNC_DISCONNECTED',
-  'data': { 'server': 'VncServerInfo',
-            'client': 'VncClientInfo' },
-  'if': 'CONFIG_VNC' }
 
 ##
 # = Input
@@ -1570,120 +1204,6 @@
 ##
 { 'command': 'query-display-options',
   'returns': 'DisplayOptions' }
-
-##
-# @DisplayReloadType:
-#
-# Available DisplayReload types.
-#
-# @vnc: VNC display
-#
-# Since: 6.0
-##
-{ 'enum': 'DisplayReloadType',
-  'data': ['vnc'] }
-
-##
-# @DisplayReloadOptionsVNC:
-#
-# Specify the VNC reload options.
-#
-# @tls-certs: reload tls certs or not.
-#
-# Since: 6.0
-##
-{ 'struct': 'DisplayReloadOptionsVNC',
-  'data': { '*tls-certs': 'bool' } }
-
-##
-# @DisplayReloadOptions:
-#
-# Options of the display configuration reload.
-#
-# @type: Specify the display type.
-#
-# Since: 6.0
-##
-{ 'union': 'DisplayReloadOptions',
-  'base': {'type': 'DisplayReloadType'},
-  'discriminator': 'type',
-  'data': { 'vnc': 'DisplayReloadOptionsVNC' } }
-
-##
-# @display-reload:
-#
-# Reload display configuration.
-#
-# Since: 6.0
-#
-# .. qmp-example::
-#
-#     -> { "execute": "display-reload",
-#          "arguments": { "type": "vnc", "tls-certs": true  } }
-#     <- { "return": {} }
-##
-{ 'command': 'display-reload',
-  'data': 'DisplayReloadOptions',
-  'boxed' : true }
-
-##
-# @DisplayUpdateType:
-#
-# Available DisplayUpdate types.
-#
-# @vnc: VNC display
-#
-# Since: 7.1
-##
-{ 'enum': 'DisplayUpdateType',
-  'data': ['vnc'] }
-
-##
-# @DisplayUpdateOptionsVNC:
-#
-# Specify the VNC reload options.
-#
-# @addresses: If specified, change set of addresses to listen for
-#     connections.  Addresses configured for websockets are not
-#     touched.
-#
-# Since: 7.1
-##
-{ 'struct': 'DisplayUpdateOptionsVNC',
-  'data': { '*addresses': ['SocketAddress'] } }
-
-##
-# @DisplayUpdateOptions:
-#
-# Options of the display configuration reload.
-#
-# @type: Specify the display type.
-#
-# Since: 7.1
-##
-{ 'union': 'DisplayUpdateOptions',
-  'base': {'type': 'DisplayUpdateType'},
-  'discriminator': 'type',
-  'data': { 'vnc': 'DisplayUpdateOptionsVNC' } }
-
-##
-# @display-update:
-#
-# Update display configuration.
-#
-# Since: 7.1
-#
-# .. qmp-example::
-#
-#     -> { "execute": "display-update",
-#          "arguments": { "type": "vnc", "addresses":
-#                         [ { "type": "inet", "host": "0.0.0.0",
-#                             "port": "5901" } ] } }
-#     <- { "return": {} }
-##
-{ 'command': 'display-update',
-  'data': 'DisplayUpdateOptions',
-  'boxed' : true }
 
 ##
 # @client_migrate_info:

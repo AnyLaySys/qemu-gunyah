@@ -13,7 +13,7 @@
  * and get notifications for clipboard updates.
  *
  * Typical users are user interfaces (gtk), remote access protocols
- * (vnc) and devices talking to the guest (vdagent).
+ * and devices talking to the guest (vdagent).
  *
  * Even though the design allows different data types only plain text
  * is supported for now.

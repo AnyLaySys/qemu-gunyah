@@ -155,14 +155,7 @@ void hmp_change(Monitor *mon, const QDict *qdict)
     bool force = qdict_get_try_bool(qdict, "force", false);
     Error *err = NULL;
 
-#ifdef CONFIG_VNC
-    if (strcmp(device, "vnc") == 0) {
-        hmp_change_vnc(mon, device, target, arg, read_only, force, &err);
-    } else
-#endif
-    {
-        hmp_change_medium(mon, device, target, arg, read_only, force, &err);
-    }
+    hmp_change_medium(mon, device, target, arg, read_only, force, &err);
 
     hmp_handle_error(mon, err);
 }

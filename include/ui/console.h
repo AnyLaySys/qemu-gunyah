@@ -450,17 +450,6 @@ void qemu_display_init(DisplayState *ds, DisplayOptions *opts);
 const char *qemu_display_get_vc(DisplayOptions *opts);
 void qemu_display_help(void);
 
-/* vnc.c */
-void vnc_display_init(const char *id, Error **errp);
-void vnc_display_open(const char *id, Error **errp);
-void vnc_display_add_client(const char *id, int csock, bool skipauth);
-int vnc_display_password(const char *id, const char *password);
-int vnc_display_pw_expire(const char *id, time_t expires);
-void vnc_parse(const char *str);
-int vnc_init_func(void *opaque, QemuOpts *opts, Error **errp);
-bool vnc_display_reload_certs(const char *id,  Error **errp);
-bool vnc_display_update(DisplayUpdateOptionsVNC *arg, Error **errp);
-
 /* input.c */
 int index_from_key(const char *key, size_t key_length);
 
