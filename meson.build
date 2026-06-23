@@ -1854,40 +1854,7 @@ if nettle.found() and gmp.found()
 endif
 
 
-gtk = not_found
-gtkx11 = not_found
-vte = not_found
-have_gtk_clipboard = get_option('gtk_clipboard').enabled()
-
-if get_option('gtk') \
-             .disable_auto_if(not have_system) \
-             .require(pixman.found(),
-                      error_message: 'cannot enable GTK if pixman is not available') \
-             .allowed()
-  gtk = dependency('gtk+-3.0', version: '>=3.22.0',
-                   method: 'pkg-config',
-                   required: get_option('gtk'))
-  if gtk.found()
-    gtkx11 = dependency('gtk+-x11-3.0', version: '>=3.22.0',
-                        method: 'pkg-config',
-                        required: false)
-    gtk = declare_dependency(dependencies: [gtk, gtkx11],
-                             version: gtk.version())
-
-    if not get_option('vte').auto() or have_system
-      vte = dependency('vte-2.91',
-                       method: 'pkg-config',
-                       required: get_option('vte'))
-    endif
-  elif have_gtk_clipboard
-    error('GTK clipboard requested, but GTK not found')
-  endif
-endif
-
 x11 = not_found
-if gtkx11.found()
-  x11 = dependency('x11', method: 'pkg-config', required: gtkx11.found())
-endif
 png = not_found
 if get_option('png').allowed() and have_system
    png = dependency('libpng', version: '>=1.6.34', required: get_option('png'),
@@ -2376,9 +2343,6 @@ if glusterfs.found()
   config_host_data.set('CONFIG_GLUSTERFS_FTRUNCATE_HAS_STAT', glusterfs_ftruncate_has_stat)
   config_host_data.set('CONFIG_GLUSTERFS_IOCB_HAS_STAT', glusterfs_iocb_has_stat)
 endif
-config_host_data.set('CONFIG_GTK', gtk.found())
-config_host_data.set('CONFIG_VTE', vte.found())
-config_host_data.set('CONFIG_GTK_CLIPBOARD', have_gtk_clipboard)
 config_host_data.set('CONFIG_HEXAGON_IDEF_PARSER', get_option('hexagon_idef_parser'))
 config_host_data.set('CONFIG_LIBATTR', have_old_libattr)
 config_host_data.set('CONFIG_LIBCAP_NG', libcap_ng.found())
@@ -2438,7 +2402,6 @@ if virgl.found()
   config_host_data.set('VIRGL_VERSION_MAJOR', virgl.version().split('.')[0])
 endif
 config_host_data.set('CONFIG_VIRTFS', have_virtfs)
-config_host_data.set('CONFIG_VTE', vte.found())
 config_host_data.set('CONFIG_XKBCOMMON', xkbcommon.found())
 config_host_data.set('CONFIG_KEYUTILS', keyutils.found())
 config_host_data.set('CONFIG_GETTID', has_gettid)
@@ -3307,10 +3270,6 @@ if have_system and vfio_user_server_allowed
 endif
 
 vhost_user = not_found
-if host_os == 'linux' and have_vhost_user
-  libvhost_user = subproject('libvhost-user')
-  vhost_user = libvhost_user.get_variable('vhost_user_dep')
-endif
 
 libvduse = not_found
 if have_libvduse
@@ -3469,7 +3428,6 @@ if have_system
     'hw/uefi',
     'hw/ufs',
     'hw/usb',
-    'hw/vfio',
     'hw/virtio',
     'hw/vmapple',
     'hw/watchdog',
@@ -3483,10 +3441,12 @@ if have_system
 endif
 if have_system or have_user
   trace_events_subdirs += [
-    'accel/tcg',
     'hw/core',
     'target/arm',
   ]
+  if get_option('tcg').allowed()
+    trace_events_subdirs += ['accel/tcg']
+  endif
 endif
 
 ###################
@@ -3654,7 +3614,9 @@ subdir('net')
 subdir('replay')
 subdir('semihosting')
 subdir('stats')
-subdir('tcg')
+if get_option('tcg').allowed()
+  subdir('tcg')
+endif
 subdir('fpu')
 subdir('accel')
 if get_option('plugins')
@@ -4116,7 +4078,7 @@ foreach target : target_dirs
       'sources': files('system/main.c'),
       'dependencies': [sdl]
     }]
-    if host_os == 'windows' and (sdl.found() or gtk.found())
+    if host_os == 'windows' and sdl.found()
       execs += [{
         'name': 'qemu-system-' + target_name + 'w',
         'win_subsystem': 'windows',
@@ -4234,13 +4196,6 @@ if have_tools
              dependencies: [qemuutil, rt],
              install: true)
 
-  if have_vhost_user
-    subdir('contrib/vhost-user-blk')
-    subdir('contrib/vhost-user-gpu')
-    subdir('contrib/vhost-user-input')
-    subdir('contrib/vhost-user-scsi')
-  endif
-
   if host_os == 'linux'
     executable('qemu-bridge-helper', files('qemu-bridge-helper.c'),
                dependencies: [qemuutil, libcap_ng],
@@ -4297,10 +4252,6 @@ subdir('tools')
 subdir('pc-bios')
 # vectras android: disable test
 #subdir('tests')
-if gtk.found()
-  subdir('po')
-endif
-
 if host_machine.system() == 'windows'
   nsis_cmd = [
     find_program('scripts/nsis.py'),
@@ -4315,10 +4266,6 @@ if host_machine.system() == 'windows'
   if get_option('docs').enabled()
     nsis_cmd += '-DCONFIG_DOCUMENTATION=y'
   endif
-  if gtk.found()
-    nsis_cmd += '-DCONFIG_GTK=y'
-  endif
-
   nsis = custom_target('nsis',
                        output: 'qemu-setup-' + meson.project_version() + '.exe',
                        input: files('qemu.nsi'),
@@ -4504,9 +4451,7 @@ if host_os == 'darwin'
 endif
 summary_info += {'SDL support':       sdl}
 summary_info += {'SDL image support': sdl_image}
-summary_info += {'GTK support':       gtk}
 summary_info += {'pixman':            pixman}
-summary_info += {'VTE support':       vte}
 summary_info += {'PNG support':       png}
 summary_info += {'spice protocol support': spice_protocol}
 if spice_protocol.found()

@@ -73,7 +73,7 @@
 #
 # @aes-256: AES with 256 bit / 32 byte keys
 #
-# @des: DES with 56 bit / 8 byte keys.  Do not use except in VNC.
+# @des: DES with 56 bit / 8 byte keys.  Do not use for new code.
 #     (since 6.1)
 #
 # @3des: 3DES(EDE) with 192 bit / 24 byte keys (since 2.9)

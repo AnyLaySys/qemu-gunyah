@@ -49,7 +49,7 @@ union QIOChannelWebsockMask {
  * a websocket server and is a pretty crude implementation
  * of it, not supporting the full websockets protocol feature
  * set. It is sufficient to use with a simple websockets
- * client for encapsulating VNC for noVNC in-browser client.
+ * client for encapsulating stream protocols in a browser client.
  */
 
 struct QIOChannelWebsock {

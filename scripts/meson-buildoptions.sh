@@ -121,12 +121,9 @@ meson_options_help() {
   printf "%s\n" '  fuse            FUSE block device export'
   printf "%s\n" '  fuse-lseek      SEEK_HOLE/SEEK_DATA support for FUSE exports'
   printf "%s\n" '  gcrypt          libgcrypt cryptography support'
-  printf "%s\n" '  gettext         Localization of the GTK+ user interface'
   printf "%s\n" '  gio             use libgio for D-Bus support'
   printf "%s\n" '  glusterfs       Glusterfs block device driver'
   printf "%s\n" '  gnutls          GNUTLS cryptography support'
-  printf "%s\n" '  gtk             GTK+ user interface'
-  printf "%s\n" '  gtk-clipboard   clipboard support for the gtk UI (EXPERIMENTAL, MAY HANG)'
   printf "%s\n" '  guest-agent     Build QEMU Guest Agent'
   printf "%s\n" '  guest-agent-msi Build MSI package for the QEMU Guest Agent'
   printf "%s\n" '  hv-balloon      hv-balloon driver (requires Glib 2.68+ GTree API)'
@@ -214,7 +211,6 @@ meson_options_help() {
   printf "%s\n" '  vmdk            vmdk image format support'
   printf "%s\n" '  vmnet           vmnet.framework network backend support'
   printf "%s\n" '  vpc             vpc image format support'
-  printf "%s\n" '  vte             vte support for the gtk UI'
   printf "%s\n" '  vvfat           vvfat image format support'
   printf "%s\n" '  werror          Treat warnings as errors'
   printf "%s\n" '  xen             Xen backend support'
@@ -319,18 +315,12 @@ _meson_option_parse() {
     --disable-fuzzing) printf "%s" -Dfuzzing=false ;;
     --enable-gcrypt) printf "%s" -Dgcrypt=enabled ;;
     --disable-gcrypt) printf "%s" -Dgcrypt=disabled ;;
-    --enable-gettext) printf "%s" -Dgettext=enabled ;;
-    --disable-gettext) printf "%s" -Dgettext=disabled ;;
     --enable-gio) printf "%s" -Dgio=enabled ;;
     --disable-gio) printf "%s" -Dgio=disabled ;;
     --enable-glusterfs) printf "%s" -Dglusterfs=enabled ;;
     --disable-glusterfs) printf "%s" -Dglusterfs=disabled ;;
     --enable-gnutls) printf "%s" -Dgnutls=enabled ;;
     --disable-gnutls) printf "%s" -Dgnutls=disabled ;;
-    --enable-gtk) printf "%s" -Dgtk=enabled ;;
-    --disable-gtk) printf "%s" -Dgtk=disabled ;;
-    --enable-gtk-clipboard) printf "%s" -Dgtk_clipboard=enabled ;;
-    --disable-gtk-clipboard) printf "%s" -Dgtk_clipboard=disabled ;;
     --enable-guest-agent) printf "%s" -Dguest_agent=enabled ;;
     --disable-guest-agent) printf "%s" -Dguest_agent=disabled ;;
     --enable-guest-agent-msi) printf "%s" -Dguest_agent_msi=enabled ;;
@@ -543,8 +533,6 @@ _meson_option_parse() {
     --disable-vmnet) printf "%s" -Dvmnet=disabled ;;
     --enable-vpc) printf "%s" -Dvpc=enabled ;;
     --disable-vpc) printf "%s" -Dvpc=disabled ;;
-    --enable-vte) printf "%s" -Dvte=enabled ;;
-    --disable-vte) printf "%s" -Dvte=disabled ;;
     --enable-vvfat) printf "%s" -Dvvfat=enabled ;;
     --disable-vvfat) printf "%s" -Dvvfat=disabled ;;
     --enable-werror) printf "%s" -Dwerror=true ;;

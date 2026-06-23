@@ -48,18 +48,18 @@ OBJECT_DECLARE_SIMPLE_TYPE(QAuthZPAM,
  *      "qom-type": "authz-pam",
  *      "id": "authz0",
  *      "parameters": {
- *        "service": "qemu-vnc-tls"
+ *        "service": "qemu-tls"
  *      }
  *    }
  *  }
  *
  * The driver only uses the PAM "account" verification
  * subsystem. The above config would require a config
- * file /etc/pam.d/qemu-vnc-tls. For a simple file
+ * file /etc/pam.d/qemu-tls. For a simple file
  * lookup it would contain
  *
  *   account requisite  pam_listfile.so item=user sense=allow \
- *           file=/etc/qemu/vnc.allow
+ *           file=/etc/qemu/access.allow
  *
  * The external file would then contain a list of usernames.
  * If x509 cert was being used as the username, a suitable
@@ -69,7 +69,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(QAuthZPAM,
  *
  * On the command line it can be created using
  *
- *   -object authz-pam,id=authz0,service=qemu-vnc-tls
+ *   -object authz-pam,id=authz0,service=qemu-tls
  *
  */
 struct QAuthZPAM {

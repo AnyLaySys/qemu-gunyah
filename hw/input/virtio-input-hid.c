@@ -627,7 +627,9 @@ static void virtio_register_types(void)
 {
     type_register_static(&virtio_input_hid_info);
     type_register_static(&virtio_keyboard_info);
+    type_register_static(&virtio_mouse_info);
     type_register_static(&virtio_tablet_info);
+    type_register_static(&virtio_multitouch_info);
 }
 
 type_init(virtio_register_types)

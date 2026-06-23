@@ -48,6 +48,7 @@
 #include "hw/boards.h"
 #include "hw/nvram/fw_cfg.h"
 #include "qapi/error.h"
+#include "qapi/visitor.h"
 #include "qemu/cutils.h"
 #include "pci-internal.h"
 

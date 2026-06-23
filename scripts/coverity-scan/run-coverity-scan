@@ -415,8 +415,8 @@ echo "Configuring..."
 # accidentally reduce the scope of the analysis by doing the build on
 # the system that's missing a dependency that we need to build part of
 # the codebase.
-../configure --disable-modules --enable-sdl --enable-gtk \
-    --enable-opengl --enable-vte --enable-gnutls \
+../configure --disable-modules --enable-sdl \
+    --enable-opengl --enable-gnutls \
     --enable-nettle --enable-curses --enable-curl \
     --audio-drv-list=oss,alsa,sdl,pa --enable-virtfs \
     --enable-png \

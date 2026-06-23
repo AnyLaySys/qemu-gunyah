@@ -2044,11 +2044,6 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "-display sdl[,gl=on|core|es|off][,grab-mod=<mod>][,show-cursor=on|off]\n"
     "            [,window-close=on|off]\n"
 #endif
-#if defined(CONFIG_GTK)
-    "-display gtk[,full-screen=on|off][,gl=on|off][,grab-on-hover=on|off]\n"
-    "            [,show-tabs=on|off][,show-cursor=on|off][,window-close=on|off]\n"
-    "            [,show-menubar=on|off][,zoom-to-fit=on|off]\n"
-#endif
 #if defined(CONFIG_CURSES)
     "-display curses[,charset=<encoding>]\n"
 #endif
@@ -2067,9 +2062,7 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "-display none\n"
     "                select display backend type\n"
     "                The default display is equivalent to\n                "
-#if defined(CONFIG_GTK)
-            "\"-display gtk\"\n"
-#elif defined(CONFIG_SDL)
+#if defined(CONFIG_SDL)
             "\"-display sdl\"\n"
 #elif defined(CONFIG_COCOA)
             "\"-display cocoa\"\n"
@@ -2114,27 +2107,6 @@ SRST
         ``show-cursor=on|off`` :  Force showing the mouse cursor
 
         ``window-close=on|off`` : Allow to quit qemu with window close button
-
-    ``gtk``
-        Display video output in a GTK window. This interface provides
-        drop-down menus and other UI elements to configure and control
-        the VM during runtime. Valid parameters are:
-
-        ``full-screen=on|off`` : Start in fullscreen mode
-
-        ``gl=on|off`` : Use OpenGL for displaying
-
-        ``grab-on-hover=on|off`` : Grab keyboard input on mouse hover
-
-        ``show-tabs=on|off`` : Display the tab bar for switching between the
-                               various graphical interfaces (e.g. VGA and
-                               virtual console character devices) by default.
-
-        ``show-cursor=on|off`` :  Force showing the mouse cursor
-
-        ``window-close=on|off`` : Allow to quit qemu with window close button
-
-        ``show-menubar=on|off`` : Display the main window menubar, defaults to "on"
 
         ``zoom-to-fit=on|off`` : Expand video output to the window size,
                                  defaults to "off"

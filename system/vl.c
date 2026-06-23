@@ -1832,14 +1832,8 @@ static void qemu_create_early_backends(void)
 #else
     const bool use_sdl = false;
 #endif
-#if defined(CONFIG_GTK)
-    const bool use_gtk = (dpy.type == DISPLAY_TYPE_GTK);
-#else
-    const bool use_gtk = false;
-#endif
-
-    if (dpy.has_window_close && !use_gtk && !use_sdl) {
-        error_report("window-close is only valid for GTK and SDL, "
+    if (dpy.has_window_close && !use_sdl) {
+        error_report("window-close is only valid for SDL, "
                      "ignoring option");
     }
 

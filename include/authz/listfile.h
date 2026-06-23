@@ -48,7 +48,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(QAuthZListFile,
  *      "qom-type": "authz-list-file",
  *      "id": "authz0",
  *      "props": {
- *        "filename": "/etc/qemu/myvm-vnc.acl",
+ *        "filename": "/etc/qemu/myvm.acl",
  *        "refresh": true
  *      }
  *    }
@@ -57,7 +57,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(QAuthZListFile,
  * If 'refresh' is 'yes', inotify is used to monitor for changes
  * to the file and auto-reload the rules.
  *
- * The myvm-vnc.acl file should contain the parameters for
+ * The myvm.acl file should contain the parameters for
  * the QAuthZList object in JSON format:
  *
  *      {
@@ -73,7 +73,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(QAuthZListFile,
  * The object can be created on the command line using
  *
  *   -object authz-list-file,id=authz0,\
- *           filename=/etc/qemu/myvm-vnc.acl,refresh=on
+ *           filename=/etc/qemu/myvm.acl,refresh=on
  *
  */
 struct QAuthZListFile {

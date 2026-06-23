@@ -27,9 +27,7 @@ struct VirtIOInputPCI {
 
 #define TYPE_VIRTIO_INPUT_HID_PCI  "virtio-input-hid-pci"
 #define TYPE_VIRTIO_KEYBOARD_PCI   "virtio-keyboard-pci"
-#define TYPE_VIRTIO_MOUSE_PCI      "virtio-mouse-pci"
 #define TYPE_VIRTIO_TABLET_PCI     "virtio-tablet-pci"
-#define TYPE_VIRTIO_MULTITOUCH_PCI "virtio-multitouch-pci"
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOInputHIDPCI, VIRTIO_INPUT_HID_PCI)
 
 struct VirtIOInputHIDPCI {
@@ -70,14 +68,6 @@ static void virtio_input_hid_kbd_pci_class_init(ObjectClass *klass, void *data)
     pcidev_k->class_id = PCI_CLASS_INPUT_KEYBOARD;
 }
 
-static void virtio_input_hid_mouse_pci_class_init(ObjectClass *klass,
-                                                  void *data)
-{
-    PCIDeviceClass *pcidev_k = PCI_DEVICE_CLASS(klass);
-
-    pcidev_k->class_id = PCI_CLASS_INPUT_MOUSE;
-}
-
 static void virtio_keyboard_initfn(Object *obj)
 {
     VirtIOInputHIDPCI *dev = VIRTIO_INPUT_HID_PCI(obj);
@@ -86,28 +76,12 @@ static void virtio_keyboard_initfn(Object *obj)
                                 TYPE_VIRTIO_KEYBOARD);
 }
 
-static void virtio_mouse_initfn(Object *obj)
-{
-    VirtIOInputHIDPCI *dev = VIRTIO_INPUT_HID_PCI(obj);
-
-    virtio_instance_init_common(obj, &dev->vdev, sizeof(dev->vdev),
-                                TYPE_VIRTIO_MOUSE);
-}
-
 static void virtio_tablet_initfn(Object *obj)
 {
     VirtIOInputHIDPCI *dev = VIRTIO_INPUT_HID_PCI(obj);
 
     virtio_instance_init_common(obj, &dev->vdev, sizeof(dev->vdev),
                                 TYPE_VIRTIO_TABLET);
-}
-
-static void virtio_multitouch_initfn(Object *obj)
-{
-    VirtIOInputHIDPCI *dev = VIRTIO_INPUT_HID_PCI(obj);
-
-    virtio_instance_init_common(obj, &dev->vdev, sizeof(dev->vdev),
-                                TYPE_VIRTIO_MULTITOUCH);
 }
 
 static const TypeInfo virtio_input_pci_info = {
@@ -133,26 +107,11 @@ static const VirtioPCIDeviceTypeInfo virtio_keyboard_pci_info = {
     .instance_init = virtio_keyboard_initfn,
 };
 
-static const VirtioPCIDeviceTypeInfo virtio_mouse_pci_info = {
-    .generic_name  = TYPE_VIRTIO_MOUSE_PCI,
-    .parent        = TYPE_VIRTIO_INPUT_HID_PCI,
-    .class_init    = virtio_input_hid_mouse_pci_class_init,
-    .instance_size = sizeof(VirtIOInputHIDPCI),
-    .instance_init = virtio_mouse_initfn,
-};
-
 static const VirtioPCIDeviceTypeInfo virtio_tablet_pci_info = {
     .generic_name  = TYPE_VIRTIO_TABLET_PCI,
     .parent        = TYPE_VIRTIO_INPUT_HID_PCI,
     .instance_size = sizeof(VirtIOInputHIDPCI),
     .instance_init = virtio_tablet_initfn,
-};
-
-static const VirtioPCIDeviceTypeInfo virtio_multitouch_pci_info = {
-    .generic_name  = TYPE_VIRTIO_MULTITOUCH_PCI,
-    .parent        = TYPE_VIRTIO_INPUT_HID_PCI,
-    .instance_size = sizeof(VirtIOInputHIDPCI),
-    .instance_init = virtio_multitouch_initfn,
 };
 
 static void virtio_pci_input_register(void)

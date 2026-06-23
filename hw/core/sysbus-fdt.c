@@ -24,7 +24,7 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include <libfdt.h>
-#ifdef CONFIG_LINUX
+#if defined(CONFIG_LINUX) && defined(CONFIG_VFIO)
 #include <linux/vfio.h>
 #endif
 #include "hw/core/sysbus-fdt.h"
@@ -32,9 +32,11 @@
 #include "system/device_tree.h"
 #include "system/tpm.h"
 #include "hw/platform-bus.h"
+#ifdef CONFIG_VFIO
 #include "hw/vfio/vfio-platform.h"
 #include "hw/vfio/vfio-calxeda-xgmac.h"
 #include "hw/vfio/vfio-amd-xgbe.h"
+#endif
 #include "hw/display/ramfb.h"
 #include "hw/uefi/var-service-api.h"
 #include "hw/arm/fdt.h"
@@ -65,7 +67,7 @@ typedef struct HostProperty {
     bool optional;
 } HostProperty;
 
-#ifdef CONFIG_LINUX
+#if defined(CONFIG_LINUX) && defined(CONFIG_VFIO)
 
 /**
  * copy_properties_from_host
@@ -437,7 +439,7 @@ static bool vfio_platform_match(SysBusDevice *sbdev,
 #define VFIO_PLATFORM_BINDING(compat, add_fn) \
     {TYPE_VFIO_PLATFORM, (compat), (add_fn), vfio_platform_match}
 
-#endif /* CONFIG_LINUX */
+#endif /* CONFIG_LINUX && CONFIG_VFIO */
 
 #ifdef CONFIG_TPM
 /*
@@ -509,7 +511,7 @@ static bool type_match(SysBusDevice *sbdev, const BindingEntry *entry)
 
 /* list of supported dynamic sysbus bindings */
 static const BindingEntry bindings[] = {
-#ifdef CONFIG_LINUX
+#if defined(CONFIG_LINUX) && defined(CONFIG_VFIO)
     TYPE_BINDING(TYPE_VFIO_CALXEDA_XGMAC, add_calxeda_midway_xgmac_fdt_node),
     TYPE_BINDING(TYPE_VFIO_AMD_XGBE, add_amd_xgbe_fdt_node),
     VFIO_PLATFORM_BINDING("amd,xgbe-seattle-v1a", add_amd_xgbe_fdt_node),

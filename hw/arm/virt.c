@@ -11,8 +11,10 @@
 #include "hw/arm/primecell.h"
 #include "hw/arm/virt.h"
 #include "hw/block/flash.h"
+#ifdef CONFIG_VFIO
 #include "hw/vfio/vfio-calxeda-xgmac.h"
 #include "hw/vfio/vfio-amd-xgbe.h"
+#endif
 #include "hw/display/ramfb.h"
 #include "hw/char/serial-mm.h"
 #include "net/net.h"
@@ -20,6 +22,7 @@
 #include <libfdt.h>
 #include "system/numa.h"
 #include "system/runstate.h"
+#include "system/system.h"
 #include "system/tpm.h"
 #include "system/tcg.h"
 #include "system/hvf.h"
@@ -3381,10 +3384,14 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  mc->init = machvirt_init;
 
  mc->max_cpus = 512;
+#ifdef CONFIG_VFIO
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_AMD_XGBE);
+#endif
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_RAMFB_DEVICE);
+#ifdef CONFIG_VFIO
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_PLATFORM);
+#endif
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_UEFI_VARS_SYSBUS);
 #ifdef CONFIG_TPM
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_TPM_TIS_SYSBUS);

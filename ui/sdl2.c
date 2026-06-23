@@ -42,31 +42,15 @@ static Notifier mouse_mode_notifier;
 
 static void sdl_update_caption(struct sdl2_console *scon);
 
-static uint32_t sdl2_window_refresh_rate(struct sdl2_console *scon)
+static uint32_t sdl2_window_refresh_rate(void)
 {
-    SDL_DisplayMode mode;
-    int display = 0;
-
-    if (scon->real_window) {
-        display = SDL_GetWindowDisplayIndex(scon->real_window);
-        if (display < 0) {
-            display = 0;
-        }
-    }
-
-    if (SDL_GetCurrentDisplayMode(display, &mode) == 0 && mode.refresh_rate > 0) {
-        return mode.refresh_rate * 1000;
-    }
-    if (SDL_GetDesktopDisplayMode(display, &mode) == 0 && mode.refresh_rate > 0) {
-        return mode.refresh_rate * 1000;
-    }
-    return 60000;
+    return 120000;
 }
 
 static uint64_t sdl2_refresh_interval(uint32_t refresh_rate)
 {
     if (!refresh_rate) {
-        refresh_rate = 60000;
+        refresh_rate = 120000;
     }
     return MAX(1, 1000 * 1000 / refresh_rate);
 }
@@ -107,7 +91,7 @@ static void sdl2_mouse_bounds(struct sdl2_console *scon, int *w, int *h)
 
 static uint32_t sdl2_update_refresh_rate(struct sdl2_console *scon)
 {
-    uint32_t refresh_rate = sdl2_window_refresh_rate(scon);
+    uint32_t refresh_rate = sdl2_window_refresh_rate();
     uint64_t interval;
 
     interval = sdl2_refresh_interval(refresh_rate);
@@ -280,12 +264,7 @@ void sdl2_window_create(struct sdl2_console *scon)
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
         scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1,
-                                                 SDL_RENDERER_ACCELERATED |
-                                                 SDL_RENDERER_PRESENTVSYNC);
-        if (!scon->real_renderer) {
-            scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1,
-                                                     SDL_RENDERER_ACCELERATED);
-        }
+                                                 SDL_RENDERER_ACCELERATED);
         if (!scon->real_renderer) {
             scon->real_renderer = SDL_CreateRenderer(scon->real_window, -1, 0);
         }

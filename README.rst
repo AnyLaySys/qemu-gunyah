@@ -1,212 +1,264 @@
-==========================
-QEMU-Gunyah README
-==========================
-
-What is gunyah?什么是gunyah？
-================================
-Gunyah Hypervisor 是 高通（Qualcomm）推出的一种开源 Type-1（裸机型）虚拟机管理程序，主要面向 嵌入式设备、车载系统、物联网和移动终端 的虚拟化与隔离需求
-Gunyah™ is a high performance and scalable Type-1 hypervisor built for demanding battery-powered, real-time, safety critical systems
-
-What is qemu-gunyah?什么是qemu-gunyah？
-=========================================
-为 QEMU 添加 gunyah hypervisor 加速支持的 AArch64 后端。 QEMU 通过 gunyah accelerator 访问宿主内核 /dev/gunyah 驱动， 将 guest VM 运行在 Gunyah 之上。
-This repository adds gunyah hypervisor acceleration to QEMU for
-AArch64. The ``gunyah`` accelerator interfaces with the host kernel's
-``/dev/gunyah`` driver to run virtual machines on the Gunyah hypervisor.
-
-How to use?如何使用？
-======================
-
-Example使用示例：
------------------
-
-.. code-block:: shell
-
-  LD_LIBRARY_PATH=$DIR/libs nice -n -20 taskset $(printf '%x' $(( (1 << $(nproc)) - 1 ))) $DIR/qemu-system-aarch64 -L $DIR/pc-bios -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp $(nproc),sockets=1,cores=$(nproc),threads=1 -m 2G -object arm-confidential-guest,id=prot0,swiotlb-size=64M -bios $DIR/QEMU_EFI.fd -object iothread,id=io0 -drive file=/storage/emulated/0/gunyah/PE.iso,if=none,id=dr1,format=raw,aio=threads,media=cdrom -device virtio-blk-pci,drive=dr1,bootindex=1 -drive file=/data/local/tmp/als/resolute-desktop-arm64.rw,if=none,id=dr0,cache=unsafe,aio=threads,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=2 -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=net0,disable-legacy=on,disable-modern=off -audiodev aaudio,id=snd0 -device virtio-sound-pci,audiodev=snd0,disable-legacy=on,disable-modern=off -device virtio-gpu-pci,disable-legacy=on,disable-modern=off -device qemu-xhci,id=usb-bus,p2=15,p3=15 -device usb-tablet,bus=usb-bus.0 -device usb-kbd,bus=usb-bus.0 -qmp unix:/data/local/tmp/als/dev/Windows.sock,server,nowait -serial stdio
-
-
-Note注意:
 ============
-qemu-gunyah目前还不支持启动Windows操作系统.
-Windows operating system is not supported up to now.
+qemu-gunyah
+============
 
-使用use ``--accel gunyah`` 选择gunyah加速器
+🚀 一个面向 AArch64 / Android / Gunyah 场景的精简版 QEMU。
 
+它不是上游 QEMU 的完整发行形态，也不追求覆盖所有平台和设备。这个版本的目标比较
+明确：
 
-编译
-==========
-无需--enable-gunyah。
+**在支持 Gunyah 的 Arm64 设备上，把 Linux 虚拟机尽量轻、尽量直接地跑起来。**
 
---enable-gunyah is unnecessary.
-
-===========
-QEMU README
-===========
-
-QEMU is a generic and open source machine & userspace emulator and
-virtualizer.
-
-QEMU is capable of emulating a complete machine in software without any
-need for hardware virtualization support. By using dynamic translation,
-it achieves very good performance. QEMU can also integrate with the Xen
-and KVM hypervisors to provide emulated hardware while allowing the
-hypervisor to manage the CPU. With hypervisor support, QEMU can achieve
-near native performance for CPUs. When QEMU emulates CPUs directly it is
-capable of running operating systems made for one machine (e.g. an ARMv7
-board) on a different machine (e.g. an x86_64 PC board).
-
-QEMU is also capable of providing userspace API virtualization for Linux
-and BSD kernel interfaces. This allows binaries compiled against one
-architecture ABI (e.g. the Linux PPC64 ABI) to be run on a host using a
-different architecture ABI (e.g. the Linux x86_64 ABI). This does not
-involve any hardware emulation, simply CPU and syscall emulation.
-
-QEMU aims to fit into a variety of use cases. It can be invoked directly
-by users wishing to have full control over its behaviour and settings.
-It also aims to facilitate integration into higher level management
-layers, by providing a stable command line interface and monitor API.
-It is commonly invoked indirectly via the libvirt library when using
-open source applications such as oVirt, OpenStack and virt-manager.
-
-QEMU as a whole is released under the GNU General Public License,
-version 2. For full licensing details, consult the LICENSE file.
+它保留图形、网络、音频、键鼠、块设备和串口调试这些常用能力；同时关闭或删除当前
+启动路径不需要的组件，让构建更轻，运行路径也更清楚。🙂
 
 
-Documentation
-=============
+Gunyah 是什么 🤔
+=================
 
-Documentation can be found hosted online at
-`<https://www.qemu.org/documentation/>`_. The documentation for the
-current development version that is available at
-`<https://www.qemu.org/docs/master/>`_ is generated from the ``docs/``
-folder in the source tree, and is built by `Sphinx
-<https://www.sphinx-doc.org/en/master/>`_.
+Gunyah 是 Qualcomm 开源的 Type-1 Hypervisor。
 
+Type-1 Hypervisor 不是跑在普通应用层里的软件模拟器，而是更靠近系统底层的虚拟化
+层。它主要面向移动设备、嵌入式、安全隔离和实时性要求更高的场景。
 
-Building
-========
+在这个项目里，QEMU 和 Gunyah 的分工大致是：
 
-QEMU is multi-platform software intended to be buildable on all modern
-Linux platforms, OS-X, Win32 (via the Mingw64 toolchain) and a variety
-of other UNIX targets. The simple steps to build QEMU are:
+* QEMU 负责命令行、固件、虚拟设备、镜像、显示、音频等外围工作。
+* Gunyah 负责运行 vCPU，并处理虚拟机隔离。
+* 宿主内核通过 ``/dev/gunyah`` 向 QEMU 暴露接口。
 
+所以启动参数里核心是：
 
 .. code-block:: shell
 
-  mkdir build
-  cd build
-  ../configure
-  make
+  -accel gunyah -cpu host
 
-Additional information can also be found online via the QEMU website:
-
-* `<https://wiki.qemu.org/Hosts/Linux>`_
-* `<https://wiki.qemu.org/Hosts/Mac>`_
-* `<https://wiki.qemu.org/Hosts/W32>`_
+这个构建已经裁掉 TCG。也就是说，它不会在 Gunyah 不可用时退回纯软件模拟；宿主环境
+需要真正支持 Gunyah。
 
 
-Submitting patches
+这个版本的定位
+================
+
+一句话：**把 ``qemu-system-aarch64`` 做成一个更适合 Android + Gunyah 的专用构建。**
+
+目前只保留：
+
+* ``qemu-system-aarch64``
+* ``qemu-img``
+
+``qemu-img`` 仍然保留，用来处理镜像。被移除的主要是当前启动路径不会用到、但会
+增加依赖、体积和构建时间的组件。
+
+
+当前支持的主要设备 ✅
+=====================
+
+机器 / 加速
+------------
+
+* ``-M virt``
+* ``-accel gunyah``
+* ``-cpu host``
+* ``arm-confidential-guest``
+* ``iothread``
+
+这是标准 Arm ``virt`` 机器配合 Gunyah 加速，目标集中在 Arm64。
+
+
+存储 💿
+-------
+
+* ``virtio-blk-pci``
+* raw 镜像
+* ISO 启动
+* ``aio=threads``
+* ``discard=unmap``
+* ``qemu-img``
+
+当前重点是挂载磁盘、挂载 ISO 并启动系统。SCSI 相关设备没有保留。
+
+
+网络 🌐
+-------
+
+* ``-netdev user``
+* ``virtio-net-pci``
+* ``hostfwd``
+
+例如把 guest 的 SSH 转到宿主 ``2222`` 端口：
+
+.. code-block:: shell
+
+  -netdev user,id=usernet,hostfwd=tcp::2222-:22
+  -device virtio-net-pci,netdev=usernet
+
+这样可以满足日常联网和 SSH 调试。
+
+
+图形 🖥️
+-------
+
+* ``virtio-gpu-pci``
+* ``-display sdl``
+* SDL 走 X11
+
+这里需要说明清楚：``virtio-gpu-pci`` 负责把画面显示出来，但它不是 GPU 直通，也
+不是 gfxstream/VirGL。这个构建里 OpenGL / VirGL 是关闭的，所以 guest 里看到
+llvmpipe 是正常现象。
+
+运行桌面环境可以；硬件 3D 加速不在当前目标里。
+
+
+输入 ⌨️
+-------
+
+* ``virtio-keyboard-pci``
+* ``virtio-tablet-pci``
+
+``virtio-mouse-pci`` 和 ``virtio-multitouch-pci`` 已经移除。当前 SDL 桌面使用
+tablet + keyboard 更直接，也减少了不必要的设备类型。
+
+
+音频 🔊
+-------
+
+* ``-audiodev aaudio``
+* ``virtio-snd-pci``
+
+AAudio 更贴近 Android 侧的运行环境，不依赖 PulseAudio/ALSA 这类桌面 Linux 音频栈。
+
+
+串口 / Monitor 🛠️
+------------------
+
+* ``-serial mon:stdio``
+
+用于启动日志、调试和 QEMU monitor 交互。排查启动问题时，这个参数很有用。
+
+
+已经裁掉的内容 ✂️
 ==================
 
-The QEMU source code is maintained under the GIT version control system.
+这个版本主要做减法。已经关闭或删除的大项包括：
 
-.. code-block:: shell
+* TCG
+* VNC
+* GTK
+* VFIO
+* CXL
+* IOMMUFD
+* Xen
+* vhost-user / vhost-vdpa / VDUSE
+* virtio-scsi
+* virtio-serial
+* virtio-rng
+* virtio-balloon
+* virtio-mem
+* virtio-pmem
+* virtio-crypto
+* 多数当前用不到的块格式
+* 除 ``aarch64-softmmu`` 以外的 system emulator
 
-   git clone https://gitlab.com/qemu-project/qemu.git
-
-When submitting patches, one common approach is to use 'git
-format-patch' and/or 'git send-email' to format & send the mail to the
-qemu-devel@nongnu.org mailing list. All patches submitted must contain
-a 'Signed-off-by' line from the author. Patches should follow the
-guidelines set out in the `style section
-<https://www.qemu.org/docs/master/devel/style.html>`_ of
-the Developers Guide.
-
-Additional information on submitting patches can be found online via
-the QEMU website:
-
-* `<https://wiki.qemu.org/Contribute/SubmitAPatch>`_
-* `<https://wiki.qemu.org/Contribute/TrivialPatches>`_
-
-The QEMU website is also maintained under source control.
-
-.. code-block:: shell
-
-  git clone https://gitlab.com/qemu-project/qemu-web.git
-
-* `<https://www.qemu.org/2017/02/04/the-new-qemu-website-is-up/>`_
-
-A 'git-publish' utility was created to make above process less
-cumbersome, and is highly recommended for making regular contributions,
-or even just for sending consecutive patch series revisions. It also
-requires a working 'git send-email' setup, and by default doesn't
-automate everything, so you may want to go through the above steps
-manually for once.
-
-For installation instructions, please go to:
-
-*  `<https://github.com/stefanha/git-publish>`_
-
-The workflow with 'git-publish' is:
-
-.. code-block:: shell
-
-  $ git checkout master -b my-feature
-  $ # work on new commits, add your 'Signed-off-by' lines to each
-  $ git publish
-
-Your patch series will be sent and tagged as my-feature-v1 if you need to refer
-back to it in the future.
-
-Sending v2:
-
-.. code-block:: shell
-
-  $ git checkout my-feature # same topic branch
-  $ # making changes to the commits (using 'git rebase', for example)
-  $ git publish
-
-Your patch series will be sent with 'v2' tag in the subject and the git tip
-will be tagged as my-feature-v2.
-
-Bug reporting
-=============
-
-The QEMU project uses GitLab issues to track bugs. Bugs
-found when running code built from QEMU git or upstream released sources
-should be reported via:
-
-* `<https://gitlab.com/qemu-project/qemu/-/issues>`_
-
-If using QEMU via an operating system vendor pre-built binary package, it
-is preferable to report bugs to the vendor's own bug tracker first. If
-the bug is also known to affect latest upstream code, it can also be
-reported via GitLab.
-
-For additional information on bug reporting consult:
-
-* `<https://wiki.qemu.org/Contribute/ReportABug>`_
+这些组件并不是“不好”，只是当前目标不需要。保留它们会增加构建复杂度，也会让调试
+路径变得更长。
 
 
-ChangeLog
-=========
-
-For version history and release notes, please visit
-`<https://wiki.qemu.org/ChangeLog/>`_ or look at the git history for
-more detailed information.
-
-
-Contact
+构建 🔧
 =======
 
-The QEMU community can be contacted in a number of ways, with the two
-main methods being email and IRC:
+在仓库根目录运行：
 
-* `<mailto:qemu-devel@nongnu.org>`_
-* `<https://lists.nongnu.org/mailman/listinfo/qemu-devel>`_
-* #qemu on irc.oftc.net
+.. code-block:: shell
 
-Information on additional methods of contacting the community can be
-found online via the QEMU website:
+  ./2.sh
 
-* `<https://wiki.qemu.org/Contribute/StartHere>`_
+脚本会准备 Android aarch64 交叉编译环境、SDL2/X11/AAudio 相关依赖，并只构建
+``aarch64-softmmu`` 目标。
+
+最终输出目录是 ``qemu-gunyah/``：
+
+.. code-block:: text
+
+  qemu-gunyah/
+  ├── qemu-system-aarch64
+  ├── qemu-img
+  ├── fw/
+  └── lib/
+
+
+启动示例 🚀
+============
+
+下面是当前比较贴近实际使用的启动命令。路径按自己的设备调整。
+
+.. code-block:: shell
+
+  export DISPLAY=:1
+  export XAUTHORITY=/data/data/com.termux/files/home/.Xauthority
+  export HOME=/data/data/com.termux/files/home
+  export TMPDIR=/data/data/com.termux/files/usr/tmp
+  export XDG_RUNTIME_DIR=/data/data/com.termux/files/usr/tmp
+  export LD_LIBRARY_PATH=/data/local/tmp/als/qemu-gunyah/lib:/system/lib64:/vendor/lib64
+  export SDL_VIDEODRIVER=x11
+  export SDL_AUDIODRIVER=aaudio
+  export LANG=C
+  export LC_ALL=C
+
+  ./qemu-system-aarch64 \
+    -L ./fw \
+    -bios edk2-aarch64-gunyah.fd \
+    -M virt,confidential-guest-support=prot0 \
+    -accel gunyah \
+    -cpu host \
+    -smp 4 \
+    -m 4G \
+    -object arm-confidential-guest,id=prot0,swiotlb-size=64M \
+    -object iothread,id=io0 \
+    -drive file=/sdcard/ubuntu-26.04-desktop-arm64.iso,format=raw,if=none,id=dr0,media=cdrom,readonly=on,cache=unsafe,aio=threads,discard=unmap \
+    -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=1 \
+    -netdev user,id=usernet,hostfwd=tcp::2222-:22 \
+    -device virtio-net-pci,netdev=usernet \
+    -device virtio-tablet-pci \
+    -device virtio-keyboard-pci \
+    -device virtio-gpu-pci,xres=2376,yres=1080 \
+    -display sdl \
+    -audiodev aaudio,id=aa \
+    -device virtio-snd-pci,audiodev=aa \
+    -serial mon:stdio
+
+
+优点 😎
+=======
+
+* CPU 不走 TCG，而是走 Gunyah。
+* 只保留当前实际使用的设备。
+* SDL/X11/AAudio 更贴近 Android 侧运行环境。
+* 源码树和构建目标更轻，减少无关依赖。
+* 排查问题时路径更短，不容易被未启用的后端干扰。
+
+重点是实用：能启动、能显示、能交互、能调试。
+
+
+限制 ⚠️
+=======
+
+* 这不是完整 QEMU。
+* 这不是硬件 GPU 加速方案。
+* 这不是 Windows 启动方案。
+* 这不是跨架构模拟器。
+* 这版没有 TCG fallback。
+
+它更像一个专用构建：Arm64 Linux + Gunyah + virtio + SDL + AAudio。范围更小，目标
+也更清楚。🙂
+
+
+License
+=======
+
+基于 QEMU，许可证继续按 QEMU 原来的来。看 ``LICENSE``、``COPYING`` 和源码头部。
+
+
+----
+
+由 Codex 撰写。

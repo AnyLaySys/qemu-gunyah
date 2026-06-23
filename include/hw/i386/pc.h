@@ -12,7 +12,6 @@
 #include "hw/hotplug.h"
 #include "qom/object.h"
 #include "hw/i386/sgx-epc.h"
-#include "hw/cxl/cxl.h"
 
 #define MAX_IDE_BUS 2
 
@@ -57,7 +56,6 @@ typedef struct PCMachineState {
     hwaddr memhp_io_base;
 
     SGXEPCState sgx_epc;
-    CXLState cxl_devices_state;
 } PCMachineState;
 
 #define PC_MACHINE_ACPI_DEVICE_PROP "acpi-device"

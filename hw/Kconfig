@@ -5,7 +5,6 @@ source audio/Kconfig
 source block/Kconfig
 source char/Kconfig
 source core/Kconfig
-source cxl/Kconfig
 source display/Kconfig
 source dma/Kconfig
 source fsi/Kconfig
@@ -38,7 +37,6 @@ source uefi/Kconfig
 source ufs/Kconfig
 source usb/Kconfig
 source virtio/Kconfig
-source vfio/Kconfig
 source vmapple/Kconfig
 source watchdog/Kconfig
 
@@ -74,6 +72,16 @@ config XEN_BUS
 config PC
     bool
 config PC_PCI
+    bool
+config VFIO
+    bool
+config VFIO_PCI
+    bool
+config VFIO_PLATFORM
+    bool
+config VFIO_XGMAC
+    bool
+config VFIO_AMD_XGBE
     bool
 config MIPS
     bool

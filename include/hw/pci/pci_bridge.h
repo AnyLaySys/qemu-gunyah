@@ -28,7 +28,6 @@
 
 #include "hw/pci/pci_device.h"
 #include "hw/pci/pci_bus.h"
-#include "hw/cxl/cxl.h"
 #include "qom/object.h"
 
 typedef struct PCIBridgeWindows PCIBridgeWindows;

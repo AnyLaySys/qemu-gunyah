@@ -22,7 +22,9 @@
 #include "internals.h"
 #include "gdbstub/helpers.h"
 #include "gdbstub/commands.h"
+#ifdef CONFIG_TCG
 #include "tcg/mte_helper.h"
+#endif
 #if defined(CONFIG_USER_ONLY) && defined(CONFIG_LINUX)
 #include <sys/prctl.h>
 #include "mte_user_helper.h"

@@ -25,6 +25,7 @@
 #include "qemu/osdep.h"
 #include "hw/pci/pci.h"
 #include "hw/pci/pci_bridge.h"
+#include "hw/pci/pci_host.h"
 #include "pci-internal.h"
 #include "qapi/qapi-commands-pci.h"
 

@@ -94,22 +94,6 @@ if dbus_display
   ui_modules += {'dbus' : dbus_ss}
 endif
 
-if gtk.found()
-  if host_os == 'windows'
-    system_ss.add(files('win32-kbd-hook.c'))
-  endif
-
-  gtk_ss = ss.source_set()
-  gtk_ss.add(gtk, vte, pixman, files('gtk.c'))
-  if have_gtk_clipboard
-    gtk_ss.add(files('gtk-clipboard.c'))
-  endif
-  gtk_ss.add(when: x11, if_true: files('x_keymap.c'))
-  gtk_ss.add(when: opengl, if_true: files('gtk-gl-area.c'))
-  gtk_ss.add(when: [x11, opengl], if_true: files('gtk-egl.c'))
-  ui_modules += {'gtk' : gtk_ss}
-endif
-
 if sdl.found()
   sdl_ss = ss.source_set()
   sdl_ss.add(sdl, sdl_image, pixman, glib, files(
