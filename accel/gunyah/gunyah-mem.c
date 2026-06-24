@@ -35,7 +35,7 @@ static gunyah_slot *gunyah_get_free_slot(GUNYAHState *s) {
     }
     return NULL;
 }
-#define GUNYAH_LEND_CHUNK_SIZE  (256ULL * 1024 * 1024)
+#define GUNYAH_LEND_CHUNK_SIZE  (64ULL * 1024 * 1024)
 static void
 gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa, uint64_t size, bool lend,
                     enum gh_mem_flags flags) {
@@ -138,7 +138,7 @@ gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section, bool lend, enum gh_
         ret = madvise(base_hva, total_size, MADV_HUGEPAGE);
         gh_report("MADV_HUGEPAGE %s", ret == 0 ? "OK" : strerror(errno));
         {
-            const uint64_t batch_size = 512ULL * 1024 * 1024;
+            const uint64_t batch_size = 2048ULL * 1024 * 1024;
             uint64_t offset;
             gh_report("populating %"PRIu64" MB in %"PRIu64
                          " x %"PRIu64" MB batches",
