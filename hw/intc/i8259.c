@@ -25,10 +25,8 @@
 #include "qemu/osdep.h"
 #include "hw/intc/i8259.h"
 #include "hw/irq.h"
-#include "hw/isa/isa.h"
 #include "qemu/timer.h"
 #include "qemu/log.h"
-#include "hw/isa/i8259_internal.h"
 #include "trace.h"
 #include "qom/object.h"
 

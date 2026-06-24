@@ -1,6 +1,5 @@
 config APPLESMC
     bool
-    depends on ISA_BUS
 
 config ARMSSE_CPUID
     bool
@@ -13,12 +12,10 @@ config ARMSSE_CPU_PWRCTRL
 
 config ISA_DEBUG
     bool
-    depends on ISA_BUS
 
 config ISA_TESTDEV
     bool
     default y if TEST_DEVICES
-    depends on ISA_BUS
 
 config PCI_TESTDEV
     bool
@@ -33,7 +30,6 @@ config EDU
 config I2C_ECHO
     bool
     default y if TEST_DEVICES
-    depends on I2C
 
 config PL310
     bool
@@ -54,7 +50,6 @@ config MACIO
     bool
     select CUDA
     select ESCC
-    select IDE_MACIO
     select MAC_DBDMA
     select MAC_NVRAM
     select MOS6522
@@ -75,7 +70,6 @@ config ECCMEMCTL
 config IMX
     bool
     select PTIMER
-    select SSI
     select USB_EHCI_SYSBUS
 
 config FSL_IMX8MP_ANALOG
@@ -145,7 +139,6 @@ config PVPANIC_PCI
 
 config PVPANIC_ISA
     bool
-    depends on ISA_BUS
     select PVPANIC_COMMON
 
 config PVPANIC_MMIO
@@ -154,7 +147,6 @@ config PVPANIC_MMIO
 
 config AUX
     bool
-    select I2C
 
 config UNIMP
     bool
@@ -211,7 +203,6 @@ config ALLWINNER_A10_DRAMC
 
 config AXP2XX_PMU
     bool
-    depends on I2C
 
 config DJMEMC
     bool

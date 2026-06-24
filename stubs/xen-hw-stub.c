@@ -8,9 +8,12 @@
 
 #include "qemu/osdep.h"
 #include "hw/xen/xen.h"
-#include "hw/xen/xen-x86.h"
 #include "system/xen.h"
 #include "qapi/qapi-commands-migration.h"
+
+typedef struct PCMachineState PCMachineState;
+
+void xen_hvm_init_pc(PCMachineState *pcms, MemoryRegion **ram_memory);
 
 bool xen_allowed;
 

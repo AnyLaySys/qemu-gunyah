@@ -60,7 +60,7 @@ def symbol_lookup(addr):
     except:
         return f"??? ({result})"
 
-    # Example: Line 321 of "../util/coroutine-ucontext.c" starts at address
+    # Example: Line 321 of a coroutine backend starts at address
     # 0x55cf3894d993 <qemu_coroutine_switch+99> and ends at 0x55cf3894d9ab
     # <qemu_coroutine_switch+123>.
     result = gdb.execute(f"info line *{hex(addr)}", to_string=True).strip()

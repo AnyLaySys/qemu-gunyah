@@ -26,8 +26,6 @@
 
 #include "target/rx/cpu.h"
 #include "hw/intc/rx_icu.h"
-#include "hw/timer/renesas_tmr.h"
-#include "hw/timer/renesas_cmt.h"
 #include "hw/char/renesas_sci.h"
 #include "qom/object.h"
 

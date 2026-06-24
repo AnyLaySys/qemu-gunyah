@@ -9,7 +9,6 @@
 #ifndef PCA9552_H
 #define PCA9552_H
 
-#include "hw/i2c/i2c.h"
 #include "qom/object.h"
 
 #define TYPE_PCA9552 "pca9552"

@@ -1,6 +1,5 @@
 #include "qemu/osdep.h"
 #include "hw/irq.h"
-#include "hw/isa/vt82c686.h"
 #include "hcd-uhci.h"
 
 static void uhci_isa_set_irq(void *opaque, int irq_num, int level)

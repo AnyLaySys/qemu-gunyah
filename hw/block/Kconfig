@@ -3,7 +3,6 @@ config FDC
 
 config FDC_ISA
     bool
-    depends on ISA_BUS
     select FDC
 
 config FDC_SYSBUS

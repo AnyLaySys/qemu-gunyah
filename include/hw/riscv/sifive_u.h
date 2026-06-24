@@ -21,15 +21,12 @@
 
 #include "hw/boards.h"
 #include "hw/cpu/cluster.h"
-#include "hw/dma/sifive_pdma.h"
 #include "hw/net/cadence_gem.h"
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_cpu.h"
 #include "hw/gpio/sifive_gpio.h"
 #include "hw/misc/sifive_u_otp.h"
 #include "hw/misc/sifive_u_prci.h"
-#include "hw/ssi/sifive_spi.h"
-#include "hw/timer/sifive_pwm.h"
 
 #define TYPE_RISCV_U_SOC "riscv.sifive.u.soc"
 #define RISCV_U_SOC(obj) \

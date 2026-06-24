@@ -23,7 +23,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/isa/isa.h"
 #include "hw/net/ne2000-isa.h"
 #include "migration/vmstate.h"
 #include "ne2000.h"

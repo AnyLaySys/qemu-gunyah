@@ -4,7 +4,6 @@ config ADB
 config PCKBD
     bool
     select PS2
-    depends on ISA_BUS
 
 config PL050
     bool

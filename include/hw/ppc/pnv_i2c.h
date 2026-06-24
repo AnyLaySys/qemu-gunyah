@@ -10,7 +10,6 @@
 #define PPC_PNV_I2C_H
 
 #include "hw/ppc/pnv.h"
-#include "hw/i2c/i2c.h"
 #include "qemu/fifo8.h"
 
 #define TYPE_PNV_I2C "pnv-i2c"

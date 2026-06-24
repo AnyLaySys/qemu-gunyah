@@ -63,8 +63,6 @@
 #include "hw/mem/pc-dimm.h"
 #include "hw/mem/nvdimm.h"
 #include "hw/acpi/generic_event_device.h"
-#include "hw/uefi/var-service-api.h"
-#include "hw/virtio/virtio-md-pci.h"
 #include "hw/virtio/virtio-iommu.h"
 #include "hw/char/pl011.h"
 #include "qemu/guest-random.h"
@@ -3178,8 +3176,6 @@ static void virt_machine_device_pre_plug_cb(HotplugHandler *hotplug_dev,
 
  if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
  virt_memory_pre_plug(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_MD_PCI)) {
- virtio_md_pci_pre_plug(VIRTIO_MD_PCI(dev), MACHINE(hotplug_dev), errp);
  } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
  hwaddr db_start = 0, db_end = 0;
  QList *reserved_regions;
@@ -3232,8 +3228,6 @@ static void virt_machine_device_plug_cb(HotplugHandler *hotplug_dev,
 
  if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
  virt_memory_plug(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_MD_PCI)) {
- virtio_md_pci_plug(VIRTIO_MD_PCI(dev), MACHINE(hotplug_dev), errp);
  }
 
  if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
@@ -3288,9 +3282,6 @@ static void virt_machine_device_unplug_request_cb(HotplugHandler *hotplug_dev,
 {
  if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
  virt_dimm_unplug_request(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_MD_PCI)) {
- virtio_md_pci_unplug_request(VIRTIO_MD_PCI(dev), MACHINE(hotplug_dev),
- errp);
  } else {
  error_setg(errp, "device unplug request for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
@@ -3302,8 +3293,6 @@ static void virt_machine_device_unplug_cb(HotplugHandler *hotplug_dev,
 {
  if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
  virt_dimm_unplug(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_MD_PCI)) {
- virtio_md_pci_unplug(VIRTIO_MD_PCI(dev), MACHINE(hotplug_dev), errp);
  } else {
  error_setg(errp, "virt: device unplug for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
@@ -3317,7 +3306,6 @@ static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
 
  if (device_is_dynamic_sysbus(mc, dev) ||
  object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM) ||
- object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_MD_PCI) ||
  object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
  return HOTPLUG_HANDLER(machine);
  }
@@ -3392,7 +3380,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
 #ifdef CONFIG_VFIO
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_PLATFORM);
 #endif
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_UEFI_VARS_SYSBUS);
 #ifdef CONFIG_TPM
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_TPM_TIS_SYSBUS);
 #endif

@@ -12,7 +12,6 @@
 #define MIPS_GIC_H
 
 #include "qemu/units.h"
-#include "hw/timer/mips_gictimer.h"
 #include "hw/sysbus.h"
 #include "cpu.h"
 #include "qom/object.h"

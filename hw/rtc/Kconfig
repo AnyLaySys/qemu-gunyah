@@ -1,12 +1,8 @@
 config DS1338
     bool
-    depends on I2C
-    default y if I2C_DEVICES
 
 config M41T80
     bool
-    depends on I2C
-    default y if I2C_DEVICES
 
 config M48T59
     bool
@@ -15,7 +11,6 @@ config PL031
     bool
 
 config MC146818RTC
-    depends on ISA_BUS
     bool
 
 config SUN4V_RTC
@@ -29,5 +24,3 @@ config LS7A_RTC
 
 config RS5C372_RTC
     bool
-    depends on I2C
-    default y if I2C_DEVICES

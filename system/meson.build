@@ -28,10 +28,12 @@ system_ss.add(files(
 ), sdl, libpmem, libdaxctl)
 
 if have_tpm
-  system_ss.add(files('tpm.c'))
+  error('TPM support was removed from this trimmed build')
 endif
 
-system_ss.add(when: seccomp, if_true: files('qemu-seccomp.c'))
+if seccomp.found()
+  error('seccomp support was removed from this trimmed build')
+endif
 system_ss.add(when: 'CONFIG_DEVICE_TREE',
               if_true: [fdt, files('device_tree.c')],
               if_false: files('device_tree-stub.c'))

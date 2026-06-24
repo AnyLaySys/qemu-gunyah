@@ -13,7 +13,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
-#include "hw/isa/vt82c686.h"
 #include "ac97.h"
 #include "trace.h"
 

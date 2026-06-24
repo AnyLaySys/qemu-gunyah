@@ -26,9 +26,7 @@
 #define HW_ARM_MSF2_SOC_H
 
 #include "hw/arm/armv7m.h"
-#include "hw/timer/mss-timer.h"
 #include "hw/misc/msf2-sysreg.h"
-#include "hw/ssi/mss-spi.h"
 #include "hw/net/msf2-emac.h"
 #include "hw/clock.h"
 #include "qom/object.h"

@@ -29,18 +29,6 @@ input_event_sync(void) ""
 # sdl2-input.c
 sdl2_process_key(int sdl_scancode, int qcode, const char *action) "translated SDL scancode %d to QKeyCode %d (%s)"
 
-# spice-display.c
-qemu_spice_add_memslot(int qid, uint32_t slot_id, unsigned long virt_start, unsigned long virt_end, int async) "%d %u: host virt 0x%lx - 0x%lx async=%d"
-qemu_spice_del_memslot(int qid, uint32_t gid, uint32_t slot_id) "%d gid=%u sid=%u"
-qemu_spice_create_primary_surface(int qid, uint32_t sid, void *surface, int async) "%d sid=%u surface=%p async=%d"
-qemu_spice_destroy_primary_surface(int qid, uint32_t sid, int async) "%d sid=%u async=%d"
-qemu_spice_wakeup(uint32_t qid) "%d"
-qemu_spice_create_update(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) "lr %d -> %d,  tb -> %d -> %d"
-qemu_spice_display_update(int qid, uint32_t x, uint32_t y, uint32_t w, uint32_t h) "%d +%d+%d %dx%d"
-qemu_spice_display_surface(int qid, uint32_t w, uint32_t h, int fast) "%d %dx%d, fast %d"
-qemu_spice_display_refresh(int qid, int notify) "%d notify %d"
-qemu_spice_ui_info(int qid, uint32_t width, uint32_t height) "%d %dx%d"
-
 qemu_spice_gl_surface(int qid, uint32_t w, uint32_t h, uint32_t fourcc) "%d %dx%d, fourcc 0x%x"
 qemu_spice_gl_scanout_disable(int qid) "%d"
 qemu_spice_gl_scanout_texture(int qid, uint32_t w, uint32_t h, uint32_t fourcc) "%d %dx%d, fourcc 0x%x"
@@ -54,51 +42,7 @@ keymap_parse(const char *file) "file %s"
 keymap_add(int sym, int code, const char *line) "sym=0x%04x code=0x%04x (line: %s)"
 keymap_unmapped(int sym) "sym=0x%04x"
 
-# x_keymap.c
-xkeymap_extension(const char *name) "extension '%s'"
-xkeymap_vendor(const char *name) "vendor '%s'"
-xkeymap_keycodes(const char *name) "keycodes '%s'"
-xkeymap_keymap(const char *name) "keymap '%s'"
-
 # clipboard.c
 clipboard_check_serial(int cur, int recv, bool ok) "cur:%d recv:%d %d"
 clipboard_reset_serial(void) ""
 
-# vdagent.c
-vdagent_fe_open(bool fe_open) "fe_open=%d"
-vdagent_close(void) ""
-vdagent_disconnect(void) ""
-vdagent_send(const char *name) "msg %s"
-vdagent_send_empty_clipboard(void) ""
-vdagent_recv_chunk(uint32_t size) "size %d"
-vdagent_recv_msg(const char *name, uint32_t size) "msg %s, size %d"
-vdagent_peer_cap(const char *name) "cap %s"
-vdagent_cb_grab_selection(const char *name) "selection %s"
-vdagent_cb_grab_discard(const char *name, int cur, int recv) "selection %s, cur:%d recv:%d"
-vdagent_cb_grab_type(const char *name) "type %s"
-vdagent_cb_serial_discard(uint32_t current, uint32_t received) "current=%u, received=%u"
-
-# dbus.c
-dbus_registered_listener(const char *bus_name) "peer %s"
-dbus_listener_vanished(const char *bus_name) "peer %s"
-dbus_kbd_press(unsigned int keycode) "keycode %u"
-dbus_kbd_release(unsigned int keycode) "keycode %u"
-dbus_mouse_press(unsigned int button) "button %u"
-dbus_mouse_release(unsigned int button) "button %u"
-dbus_mouse_set_pos(unsigned int x, unsigned int y) "x=%u, y=%u"
-dbus_mouse_rel_motion(int dx, int dy) "dx=%d, dy=%d"
-dbus_touch_send_event(unsigned int kind, uint32_t num_slot, uint32_t x, uint32_t y) "kind=%u, num_slot=%u, x=%d, y=%d"
-dbus_update(int x, int y, int w, int h) "x=%d, y=%d, w=%d, h=%d"
-dbus_update_gl(int x, int y, int w, int h) "x=%d, y=%d, w=%d, h=%d"
-dbus_clipboard_grab(int selection, unsigned int serial) "selection=%d serial=%u"
-dbus_clipboard_grab_failed(void) ""
-dbus_clipboard_qemu_request(int type) "type=%d"
-dbus_clipboard_register(const char *bus_name) "peer %s"
-dbus_clipboard_unregister(const char *bus_name) "peer %s"
-dbus_scanout_texture(uint32_t tex_id, bool backing_y_0_top, uint32_t backing_width, uint32_t backing_height, uint32_t x, uint32_t y, uint32_t w, uint32_t h) "tex_id:%u y0top:%d back:%ux%u %u+%u-%ux%u"
-dbus_gl_gfx_switch(void *p) "surf: %p"
-dbus_filter(unsigned int serial, unsigned int filter) "serial=%u (<= %u)"
-dbus_can_share_map(bool share) "can_share_map: %d"
-
-# egl-helpers.c
-egl_init_d3d11_device(void *p) "d3d device: %p"

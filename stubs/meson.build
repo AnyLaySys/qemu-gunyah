@@ -32,12 +32,6 @@ if have_block or have_ga
   stub_ss.add(files('cpus-virtual-clock.c'))
   stub_ss.add(files('icount.c'))
   stub_ss.add(files('graph-lock.c'))
-  if linux_io_uring.found()
-    stub_ss.add(files('io_uring.c'))
-  endif
-  if libaio.found()
-    stub_ss.add(files('linux-aio.c'))
-  endif
   stub_ss.add(files('qemu-timer-notify-cb.c'))
 
   # stubs for monitor
@@ -52,18 +46,6 @@ if have_block or have_user
   stub_ss.add(files('vmstate.c'))
 endif
 
-if have_user
-  # Symbols that are used by hw/core.
-  stub_ss.add(files('cpu-synchronize-state.c'))
-
-  # Stubs for QAPI events.  Those can always be included in the build, but
-  # they are not built at all for --disable-system builds.
-  if not have_system
-    stub_ss.add(files('qdev.c'))
-  endif
-
-  stub_ss.add(files('monitor-internal.c'))
-endif
 
 if have_system
   # Symbols that are only needed in some configurations.  Try not

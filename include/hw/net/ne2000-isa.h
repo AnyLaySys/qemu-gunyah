@@ -10,7 +10,6 @@
 #ifndef HW_NET_NE2000_ISA_H
 #define HW_NET_NE2000_ISA_H
 
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "net/net.h"
 #include "qapi/error.h"

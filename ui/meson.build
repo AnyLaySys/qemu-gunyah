@@ -21,78 +21,27 @@ system_ss.add(files(
 ))
 system_ss.add(when: pixman, if_true: files('console-vc.c'), if_false: files('console-vc-stubs.c'))
 if dbus_display
-  system_ss.add(files('dbus-module.c'))
+  error('DBus display was removed from this trimmed build')
 endif
-system_ss.add([spice_headers, files('spice-module.c')])
-system_ss.add(when: spice_protocol, if_true: files('vdagent.c'))
+system_ss.add(files('spice-module.c'))
 
 if host_os == 'linux'
   system_ss.add(files('input-linux.c', 'udmabuf.c'))
 endif
-system_ss.add(when: cocoa, if_true: files('cocoa.m'))
-
-ui_modules = {}
-
-if curses.found()
-  curses_ss = ss.source_set()
-  curses_ss.add(when: [curses, iconv], if_true: [files('curses.c'), pixman])
-  ui_modules += {'curses' : curses_ss}
+if cocoa.found()
+  error('Cocoa UI was removed from this trimmed build')
 endif
 
 system_ss.add(opengl)
 if opengl.found()
-  opengl_ss = ss.source_set()
-  if gbm.found()
-    opengl_ss.add(gbm, pixman)
-  else
-    opengl_ss.add(pixman)
-  endif
-  opengl_ss.add(when: [opengl],
-               if_true: files('shader.c', 'console-gl.c', 'egl-helpers.c', 'egl-context.c'))
-  ui_modules += {'opengl' : opengl_ss}
-endif
-
-if opengl.found()
-  egl_headless_ss = ss.source_set()
-  if gbm.found()
-    egl_headless_ss.add(when: [opengl, pixman],
-                        if_true: [files('egl-headless.c'), gbm])
-  else
-    egl_headless_ss.add(when: [opengl, pixman],
-                        if_true: files('egl-headless.c'))
-  endif
-  ui_modules += {'egl-headless' : egl_headless_ss}
+  error('OpenGL UI was removed from this trimmed build')
 endif
 
 if dbus_display
-  dbus_ss = ss.source_set()
-  env = environment()
-  env.set('HOST_OS', host_os)
-  xml = custom_target('dbus-display preprocess',
-                      input: 'dbus-display1.xml',
-                      output: 'dbus-display1.xml',
-                      env: env,
-                      command: [xml_pp, '@INPUT@', '@OUTPUT@'])
-  dbus_display1 = custom_target('dbus-display gdbus-codegen',
-                                output: ['dbus-display1.h', 'dbus-display1.c'],
-                                input: xml,
-                                command: [gdbus_codegen, '@INPUT@',
-                                          '--glib-min-required', '2.64',
-                                          '--output-directory', meson.current_build_dir(),
-                                          '--interface-prefix', 'org.qemu.',
-                                          '--c-namespace', 'QemuDBus',
-                                          '--generate-c-code', '@BASENAME@'])
-  dbus_ss.add(when: gio,
-              if_true: [files(
-                'dbus-chardev.c',
-                'dbus-clipboard.c',
-                'dbus-console.c',
-                'dbus-error.c',
-                'dbus-listener.c',
-                'dbus.c',
-              ), opengl, gbm, pixman, dbus_display1])
-  ui_modules += {'dbus' : dbus_ss}
+  error('DBus UI was removed from this trimmed build')
 endif
+
+ui_modules = {}
 
 if sdl.found()
   sdl_ss = ss.source_set()
@@ -101,25 +50,7 @@ if sdl.found()
     'sdl2-input.c',
     'sdl2.c',
   ))
-  sdl_ss.add(when: opengl, if_true: files('sdl2-gl.c'))
-  sdl_ss.add(when: x11, if_true: files('x_keymap.c'))
   ui_modules += {'sdl' : sdl_ss}
-endif
-
-if spice.found()
-  spice_core_ss = ss.source_set()
-  spice_core_ss.add(spice, pixman, files(
-    'spice-core.c',
-    'spice-input.c',
-    'spice-display.c'
-  ))
-  ui_modules += {'spice-core' : spice_core_ss}
-
-  if gio.found()
-    spice_ss = ss.source_set()
-    spice_ss.add(spice, gio, pixman, files('spice-app.c'))
-    ui_modules += {'spice-app': spice_ss}
-  endif
 endif
 
 keymaps = [

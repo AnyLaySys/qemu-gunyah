@@ -1,7 +1,5 @@
 config SB16
     bool
-    default y
-    depends on ISA_BUS
 
 config ES1370
     bool
@@ -15,18 +13,12 @@ config AC97
 
 config ADLIB
     bool
-    default y
-    depends on ISA_BUS
 
 config GUS
     bool
-    default y
-    depends on ISA_BUS
 
 config CS4231A
     bool
-    default y
-    depends on ISA_BUS
 
 config HDA
     bool
@@ -35,12 +27,9 @@ config HDA
 
 config PCSPK
     bool
-    default y
-    depends on I8254
 
 config WM8750
     bool
-    depends on I2C
 
 config PL041
     bool

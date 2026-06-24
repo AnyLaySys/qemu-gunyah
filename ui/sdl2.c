@@ -42,19 +42,6 @@ static Notifier mouse_mode_notifier;
 
 static void sdl_update_caption(struct sdl2_console *scon);
 
-static uint32_t sdl2_window_refresh_rate(void)
-{
-    return 120000;
-}
-
-static uint64_t sdl2_refresh_interval(uint32_t refresh_rate)
-{
-    if (!refresh_rate) {
-        refresh_rate = 120000;
-    }
-    return MAX(1, 1000 * 1000 / refresh_rate);
-}
-
 static void sdl2_output_size(struct sdl2_console *scon, int *w, int *h)
 {
     *w = surface_width(scon->surface);
@@ -91,10 +78,9 @@ static void sdl2_mouse_bounds(struct sdl2_console *scon, int *w, int *h)
 
 static uint32_t sdl2_update_refresh_rate(struct sdl2_console *scon)
 {
-    uint32_t refresh_rate = sdl2_window_refresh_rate();
-    uint64_t interval;
+    uint32_t refresh_rate = 59400;
+    uint64_t interval = MAX(1, 1000 * 1000 / refresh_rate);
 
-    interval = sdl2_refresh_interval(refresh_rate);
     if (scon->dcl.ds) {
         update_displaychangelistener(&scon->dcl, interval);
     } else {

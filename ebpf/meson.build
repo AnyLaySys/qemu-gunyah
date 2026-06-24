@@ -1,1 +1,4 @@
-system_ss.add(when: libbpf, if_true: files('ebpf.c', 'ebpf_rss.c'), if_false: files('ebpf_rss-stub.c'))
+if libbpf.found()
+  error('eBPF RSS support was removed from this trimmed build')
+endif
+system_ss.add(files('ebpf_rss-stub.c'))

@@ -46,15 +46,12 @@ qemu_co_mutex_unlock_entry(void *mutex, void *self) "mutex %p self %p"
 qemu_co_mutex_unlock_return(void *mutex, void *self) "mutex %p self %p"
 
 # oslib-posix.c
-# oslib-win32.c
-qemu_memalign(size_t alignment, size_t size, void *ptr) "alignment %zu size %zu ptr %p"
 qemu_anon_ram_alloc(size_t size, void *ptr) "size %zu ptr %p"
-qemu_vfree(void *ptr) "ptr %p"
 qemu_anon_ram_free(void *ptr, size_t size) "ptr %p size %zu"
 
-# oslib-win32.c
-win32_map_alloc(size_t size) "size:%zd"
-win32_map_free(void *ptr, void *h) "ptr:%p handle:%p"
+# memalign.c
+qemu_memalign(size_t alignment, size_t size, void *ptr) "alignment %zu size %zu ptr %p"
+qemu_vfree(void *ptr) "ptr %p"
 
 # hbitmap.c
 hbitmap_iter_skip_words(const void *hb, void *hbi, uint64_t pos, unsigned long cur) "hb %p hbi %p pos %"PRId64" cur 0x%lx"
@@ -75,12 +72,11 @@ lockcnt_futex_wake(const void *lockcnt) "lockcnt %p waking up one waiter"
 socket_listen(int num) "backlog: %d"
 
 # qemu-thread-common.h
-# qemu-thread-posix.c
-# qemu-thread-win32.c
-qemu_mutex_lock(void *mutex, const char *file, const int line) "waiting on mutex %p (%s:%d)"
-qemu_mutex_locked(void *mutex, const char *file, const int line) "taken mutex %p (%s:%d)"
-qemu_mutex_unlock(void *mutex, const char *file, const int line) "released mutex %p (%s:%d)"
+qemu_mutex_lock(void *mutex, const char *file, int line) "waiting on mutex %p (%s:%d)"
+qemu_mutex_locked(void *mutex, const char *file, int line) "taken mutex %p (%s:%d)"
+qemu_mutex_unlock(void *mutex, const char *file, int line) "released mutex %p (%s:%d)"
 
+# qemu-thread-posix.c
 # vfio-helpers.c
 qemu_vfio_dma_reset_temporary(void *s) "s %p"
 qemu_vfio_ram_block_added(void *s, void *p, size_t size) "s %p host %p size 0x%zx"

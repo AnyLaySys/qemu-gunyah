@@ -1,9 +1,7 @@
 config A9MPCORE
     bool
-    select A9_GTIMER
     select A9SCU       # snoop control unit
     select ARM_GIC
-    select ARM_MPTIMER
 
 config A15MPCORE
     bool

@@ -21,14 +21,10 @@
 #define HW_ARM_ALLWINNER_R40_H
 
 #include "qom/object.h"
-#include "hw/timer/allwinner-a10-pit.h"
-#include "hw/ide/ahci-sysbus.h"
 #include "hw/intc/arm_gic.h"
-#include "hw/sd/allwinner-sdhost.h"
 #include "hw/misc/allwinner-r40-ccu.h"
 #include "hw/misc/allwinner-r40-dramc.h"
 #include "hw/misc/allwinner-sramc.h"
-#include "hw/i2c/allwinner-i2c.h"
 #include "hw/net/allwinner_emac.h"
 #include "hw/net/allwinner-sun8i-emac.h"
 #include "hw/usb/hcd-ohci.h"

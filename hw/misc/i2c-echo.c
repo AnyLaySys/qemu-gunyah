@@ -12,7 +12,6 @@
 #include "qemu/timer.h"
 #include "qemu/main-loop.h"
 #include "block/aio.h"
-#include "hw/i2c/i2c.h"
 #include "trace.h"
 
 #define TYPE_I2C_ECHO "i2c-echo"

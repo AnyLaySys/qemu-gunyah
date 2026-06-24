@@ -20,7 +20,6 @@
 #define I2C_DDC_H
 
 #include "hw/display/edid.h"
-#include "hw/i2c/i2c.h"
 #include "qom/object.h"
 
 /* A simple I2C slave which just returns the contents of its EDID blob. */

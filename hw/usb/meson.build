@@ -50,43 +50,10 @@ endif
 # smartcard
 system_ss.add(when: 'CONFIG_USB_SMARTCARD', if_true: files('dev-smartcard-reader.c'))
 
-if cacard.found()
-  usbsmartcard_ss = ss.source_set()
-  usbsmartcard_ss.add(when: 'CONFIG_USB_SMARTCARD',
-                      if_true: [cacard, files('ccid-card-emulated.c', 'ccid-card-passthru.c')])
-  hw_usb_modules += {'smartcard': usbsmartcard_ss}
-endif
-
 # U2F
 system_ss.add(when: 'CONFIG_USB_U2F', if_true: files('u2f.c'))
 if host_os == 'linux'
   system_ss.add(when: 'CONFIG_USB_U2F', if_true: [libudev, files('u2f-passthru.c')])
 endif
-if u2f.found()
-  system_ss.add(when: 'CONFIG_USB_U2F', if_true: [u2f, files('u2f-emulated.c')])
-endif
-
-# CanoKey
-if canokey.found()
-  system_ss.add(when: 'CONFIG_USB_CANOKEY', if_true: [canokey, files('canokey.c')])
-endif
-
-# usb redirect
-if usbredir.found()
-  usbredir_ss = ss.source_set()
-  usbredir_ss.add(when: 'CONFIG_USB',
-                  if_true: [usbredir, files('redirect.c', 'quirks.c')])
-  hw_usb_modules += {'redirect': usbredir_ss}
-endif
-
-# usb pass-through
-if libusb.found()
-  usbhost_ss = ss.source_set()
-  usbhost_ss.add(when: ['CONFIG_USB', libusb],
-                 if_true: files('host-libusb.c'))
-  hw_usb_modules += {'host': usbhost_ss}
-endif
-
-system_ss.add(when: ['CONFIG_USB', 'CONFIG_XEN_BUS', libusb], if_true: files('xen-usb.c'))
 
 modules += { 'hw-usb': hw_usb_modules }

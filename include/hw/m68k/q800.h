@@ -34,7 +34,6 @@
 #include "hw/or-irq.h"
 #include "hw/scsi/esp.h"
 #include "hw/block/swim.h"
-#include "hw/nubus/mac-nubus-bridge.h"
 #include "hw/display/macfb.h"
 #include "hw/misc/djmemc.h"
 #include "hw/misc/iosb.h"

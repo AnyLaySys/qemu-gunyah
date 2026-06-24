@@ -31,6 +31,7 @@
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
+#include "exec/ioport.h"
 #include "hw/irq.h"
 #include "hw/pci/pci_bus.h"
 #include "hw/pci-host/gpex.h"

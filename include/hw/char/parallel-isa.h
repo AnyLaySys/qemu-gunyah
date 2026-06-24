@@ -13,7 +13,6 @@
 #include "parallel.h"
 
 #include "exec/ioport.h"
-#include "hw/isa/isa.h"
 #include "qom/object.h"
 
 #define TYPE_ISA_PARALLEL "isa-parallel"

@@ -8,7 +8,6 @@
 #ifndef PCA9554_H
 #define PCA9554_H
 
-#include "hw/i2c/i2c.h"
 #include "qom/object.h"
 
 #define TYPE_PCA9554 "pca9554"

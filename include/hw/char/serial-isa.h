@@ -26,7 +26,6 @@
 #ifndef HW_SERIAL_ISA_H
 #define HW_SERIAL_ISA_H
 
-#include "hw/isa/isa.h"
 
 #define MAX_ISA_SERIAL_PORTS 4
 

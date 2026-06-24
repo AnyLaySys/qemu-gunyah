@@ -17,11 +17,9 @@
 #define NPCM7XX_H
 
 #include "hw/boards.h"
-#include "hw/adc/npcm7xx_adc.h"
 #include "hw/core/split-irq.h"
 #include "hw/cpu/a9mpcore.h"
 #include "hw/gpio/npcm7xx_gpio.h"
-#include "hw/i2c/npcm7xx_smbus.h"
 #include "hw/mem/npcm7xx_mc.h"
 #include "hw/misc/npcm_clk.h"
 #include "hw/misc/npcm_gcr.h"
@@ -31,13 +29,9 @@
 #include "hw/net/npcm7xx_emc.h"
 #include "hw/net/npcm_gmac.h"
 #include "hw/nvram/npcm7xx_otp.h"
-#include "hw/timer/npcm7xx_timer.h"
-#include "hw/ssi/npcm7xx_fiu.h"
-#include "hw/ssi/npcm_pspi.h"
 #include "hw/usb/hcd-ehci.h"
 #include "hw/usb/hcd-ohci.h"
 #include "target/arm/cpu.h"
-#include "hw/sd/npcm7xx_sdhci.h"
 
 #define NPCM7XX_MAX_NUM_CPUS    (2)
 

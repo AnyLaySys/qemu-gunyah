@@ -80,11 +80,8 @@ if 'ust' in get_option('trace_backends')
   genh += trace_ust_all_h
 endif
 
-if 'simple' in get_option('trace_backends')
-  trace_ss.add(files('simple.c'))
-endif
-if 'ftrace' in get_option('trace_backends')
-  trace_ss.add(files('ftrace.c'))
+if 'simple' in get_option('trace_backends') or 'ftrace' in get_option('trace_backends')
+  error('Only the log trace backend is kept in this trimmed build')
 endif
 trace_ss.add(files('control.c'))
 if have_system or have_tools or have_ga

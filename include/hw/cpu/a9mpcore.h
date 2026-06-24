@@ -13,8 +13,6 @@
 #include "hw/sysbus.h"
 #include "hw/intc/arm_gic.h"
 #include "hw/misc/a9scu.h"
-#include "hw/timer/arm_mptimer.h"
-#include "hw/timer/a9gtimer.h"
 #include "qom/object.h"
 
 #define TYPE_A9MPCORE_PRIV "a9mpcore_priv"

@@ -6,4 +6,6 @@ authz_ss.add(files(
   'simple.c',
 ))
 
-authz_ss.add(when: pam, if_true: files('pamacct.c'))
+if pam.found()
+  error('PAM authorization support was removed from this trimmed build')
+endif

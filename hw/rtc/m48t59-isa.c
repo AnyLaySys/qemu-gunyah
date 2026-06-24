@@ -24,7 +24,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "hw/rtc/m48t59.h"
 #include "m48t59-internal.h"

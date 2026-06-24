@@ -14,7 +14,6 @@
 #ifndef BCM2835_GPIO_H
 #define BCM2835_GPIO_H
 
-#include "hw/sd/sd.h"
 #include "hw/sysbus.h"
 #include "qom/object.h"
 

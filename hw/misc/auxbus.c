@@ -31,7 +31,6 @@
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "hw/misc/auxbus.h"
-#include "hw/i2c/i2c.h"
 #include "monitor/monitor.h"
 #include "qapi/error.h"
 

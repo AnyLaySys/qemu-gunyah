@@ -5,9 +5,6 @@
 #include "system/dma.h"
 #include "system/host_iommu_device.h"
 
-/* PCI includes legacy ISA access.  */
-#include "hw/isa/isa.h"
-
 extern bool pci_available;
 
 /* PCI bus */

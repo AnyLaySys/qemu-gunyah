@@ -11,7 +11,6 @@
 
 #include "qemu/osdep.h"
 #include "system/system.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "hw/char/parallel-isa.h"
 #include "hw/char/parallel.h"

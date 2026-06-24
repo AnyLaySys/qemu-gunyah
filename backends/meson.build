@@ -19,16 +19,7 @@ if host_os == 'linux'
   system_ss.add(files('hostmem-memfd.c'))
   system_ss.add(files('host_iommu_device.c'))
 endif
-if keyutils.found()
-    system_ss.add(keyutils, files('cryptodev-lkcf.c'))
-endif
-if have_vhost_user
-  system_ss.add(when: 'CONFIG_VIRTIO', if_true: files('vhost-user.c'))
-endif
 system_ss.add(when: 'CONFIG_VIRTIO_CRYPTO', if_true: files('cryptodev-vhost.c'))
-if have_vhost_user_crypto
-  system_ss.add(when: 'CONFIG_VIRTIO_CRYPTO', if_true: files('cryptodev-vhost-user.c'))
-endif
 system_ss.add(when: gio, if_true: files('dbus-vmstate.c'))
 system_ss.add(when: 'CONFIG_SGX', if_true: files('hostmem-epc.c'))
 

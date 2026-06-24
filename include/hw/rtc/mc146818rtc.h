@@ -12,7 +12,6 @@
 #include "qapi/qapi-types-machine.h"
 #include "qemu/queue.h"
 #include "qemu/timer.h"
-#include "hw/isa/isa.h"
 #include "qom/object.h"
 
 #define TYPE_MC146818_RTC "mc146818rtc"

@@ -10,7 +10,6 @@
 #define BCM2838_PERIPHERALS_H
 
 #include "hw/arm/bcm2835_peripherals.h"
-#include "hw/sd/sdhci.h"
 #include "hw/gpio/bcm2838_gpio.h"
 
 /* SPI */

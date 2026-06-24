@@ -7,7 +7,6 @@
 #ifndef EEPROM_AT24C_H
 #define EEPROM_AT24C_H
 
-#include "hw/i2c/i2c.h"
 
 /*
  * Create and realize an AT24C EEPROM device on the heap.

@@ -23,7 +23,6 @@
 #include "qemu/module.h"
 #include "qemu/timer.h"
 #include "system/watchdog.h"
-#include "hw/isa/isa.h"
 #include "migration/vmstate.h"
 #include "qom/object.h"
 

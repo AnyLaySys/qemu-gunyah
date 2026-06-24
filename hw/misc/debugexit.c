@@ -8,7 +8,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "qemu/module.h"
 #include "qom/object.h"

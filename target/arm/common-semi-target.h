@@ -1,5 +1,5 @@
 /*
- * Target-specific parts of semihosting/arm-compat-semi.c.
+ * Target-specific semihosting helpers.
  *
  * Copyright (c) 2005, 2007 CodeSourcery.
  * Copyright (c) 2019, 2022 Linaro

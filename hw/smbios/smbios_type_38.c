@@ -8,7 +8,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/ipmi/ipmi.h"
 #include "hw/firmware/smbios.h"
 #include "qemu/error-report.h"
 #include "smbios_build.h"

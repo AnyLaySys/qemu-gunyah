@@ -1,7 +1,6 @@
 #ifndef HW_SOUTHBRIDGE_ICH9_H
 #define HW_SOUTHBRIDGE_ICH9_H
 
-#include "hw/isa/apm.h"
 #include "hw/acpi/ich9.h"
 #include "hw/intc/ioapic.h"
 #include "hw/pci/pci.h"

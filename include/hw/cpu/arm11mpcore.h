@@ -13,7 +13,6 @@
 #include "hw/sysbus.h"
 #include "hw/misc/arm11scu.h"
 #include "hw/intc/arm_gic.h"
-#include "hw/timer/arm_mptimer.h"
 #include "qom/object.h"
 
 #define TYPE_ARM11MPCORE_PRIV "arm11mpcore_priv"

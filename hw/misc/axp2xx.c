@@ -31,7 +31,6 @@
 #include "qemu/log.h"
 #include "qom/object.h"
 #include "trace.h"
-#include "hw/i2c/i2c.h"
 #include "migration/vmstate.h"
 
 #define TYPE_AXP2XX     "axp2xx_pmu"

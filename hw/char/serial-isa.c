@@ -30,7 +30,6 @@
 #include "hw/acpi/acpi_aml_interface.h"
 #include "hw/char/serial.h"
 #include "hw/char/serial-isa.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "migration/vmstate.h"
 #include "qom/object.h"

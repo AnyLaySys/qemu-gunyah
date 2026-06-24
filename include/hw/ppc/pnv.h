@@ -23,7 +23,6 @@
 #include "cpu.h"
 #include "hw/boards.h"
 #include "hw/sysbus.h"
-#include "hw/ipmi/ipmi.h"
 #include "hw/ppc/pnv_pnor.h"
 
 #define TYPE_PNV_CHIP "pnv-chip"

@@ -1,36 +1,23 @@
 util_ss.add(files('osdep.c', 'cutils.c', 'unicode.c', 'qemu-timer-common.c'))
 util_ss.add(files('thread-context.c'), numa)
 if not config_host_data.get('CONFIG_ATOMIC64')
-  util_ss.add(files('atomic64.c'))
+  error('atomic64 fallback was removed from this trimmed build')
 endif
-if host_os != 'windows'
-  util_ss.add(files('aio-posix.c'))
-  util_ss.add(files('fdmon-poll.c'))
-  if config_host_data.get('CONFIG_EPOLL_CREATE1')
-    util_ss.add(files('fdmon-epoll.c'))
-  endif
-  util_ss.add(files('compatfd.c'))
-  util_ss.add(files('event_notifier-posix.c'))
-  util_ss.add(files('mmap-alloc.c'))
-  freebsd_dep = []
-  if host_os == 'freebsd'
-    freebsd_dep = util
-  endif
-  util_ss.add(files('oslib-posix.c'), freebsd_dep)
-  util_ss.add(files('qemu-thread-posix.c'))
-  util_ss.add(files('memfd.c'))
-  util_ss.add(files('drm.c'))
-else
-  util_ss.add(files('aio-win32.c'))
-  util_ss.add(files('event_notifier-win32.c'))
-  util_ss.add(files('oslib-win32.c'))
-  util_ss.add(files('qemu-thread-win32.c'))
-  util_ss.add(winmm, pathcch)
+if host_os == 'windows'
+  error('Windows util backend was removed from this trimmed build')
 endif
-util_ss.add(when: linux_io_uring, if_true: files('fdmon-io_uring.c'))
-if glib_has_gslice
-  util_ss.add(files('qtree.c'))
+util_ss.add(files('aio-posix.c'))
+util_ss.add(files('fdmon-poll.c'))
+if config_host_data.get('CONFIG_EPOLL_CREATE1')
+  util_ss.add(files('fdmon-epoll.c'))
 endif
+util_ss.add(files('compatfd.c'))
+util_ss.add(files('event_notifier-posix.c'))
+util_ss.add(files('mmap-alloc.c'))
+util_ss.add(files('oslib-posix.c'))
+util_ss.add(files('qemu-thread-posix.c'))
+util_ss.add(files('memfd.c'))
+util_ss.add(files('drm.c'))
 util_ss.add(files('defer-call.c'))
 util_ss.add(files('envlist.c', 'path.c', 'module.c'))
 util_ss.add(files('host-utils.c'))
@@ -47,9 +34,6 @@ util_ss.add(files('crc32c.c'))
 util_ss.add(files('uuid.c'))
 util_ss.add(files('getauxval.c'))
 util_ss.add(files('rcu.c'))
-if have_membarrier
-  util_ss.add(files('sys_membarrier.c'))
-endif
 util_ss.add(files('log.c'))
 util_ss.add(files('qdist.c'))
 util_ss.add(files('qht.c'))
@@ -66,7 +50,7 @@ util_ss.add(files('interval-tree.c'))
 util_ss.add(files('lockcnt.c'))
 
 if have_user
-  util_ss.add(files('selfmap.c'))
+  error('User-mode util support was removed from this trimmed build')
 endif
 
 if have_system
@@ -105,13 +89,9 @@ if have_block
   util_ss.add(files('throttle.c'))
   util_ss.add(files('timed-average.c'))
   if config_host_data.get('CONFIG_INOTIFY1')
-    freebsd_dep = []
-    if host_os == 'freebsd'
-      freebsd_dep = inotify
-    endif
-    util_ss.add(files('filemonitor-inotify.c'), freebsd_dep)
+    util_ss.add(files('filemonitor-inotify.c'))
   else
-    util_ss.add(files('filemonitor-stub.c'))
+    error('filemonitor stub was removed from this trimmed build')
   endif
   if host_os == 'linux'
     util_ss.add(files('vfio-helpers.c'))
@@ -120,14 +100,7 @@ if have_block
   util_ss.add(files('yank.c'))
 endif
 
-if cpu == 'aarch64'
-  util_ss.add(files('cpuinfo-aarch64.c'))
-elif cpu in ['x86', 'x86_64']
-  util_ss.add(files('cpuinfo-i386.c'))
-elif cpu == 'loongarch64'
-  util_ss.add(files('cpuinfo-loongarch.c'))
-elif cpu in ['ppc', 'ppc64']
-  util_ss.add(files('cpuinfo-ppc.c'))
-elif cpu in ['riscv32', 'riscv64']
-  util_ss.add(files('cpuinfo-riscv.c'))
+if cpu != 'aarch64'
+  error('Only aarch64 cpuinfo is kept in this trimmed build')
 endif
+util_ss.add(files('cpuinfo-aarch64.c'))

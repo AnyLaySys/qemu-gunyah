@@ -11,7 +11,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/i2c/i2c.h"
 #include "migration/vmstate.h"
 #include "qemu/bcd.h"
 #include "qom/object.h"

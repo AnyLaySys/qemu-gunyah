@@ -26,7 +26,6 @@
 #define HW_ARM_STM32F100_SOC_H
 
 #include "hw/char/stm32f2xx_usart.h"
-#include "hw/ssi/stm32f2xx_spi.h"
 #include "hw/arm/armv7m.h"
 #include "qom/object.h"
 #include "hw/clock.h"

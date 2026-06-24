@@ -8,7 +8,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/ipmi/ipmi.h"
 #include "hw/acpi/aml-build.h"
 #include "hw/acpi/acpi.h"
 #include "hw/acpi/ipmi.h"

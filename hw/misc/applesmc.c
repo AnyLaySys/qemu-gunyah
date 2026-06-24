@@ -31,7 +31,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "ui/console.h"
 #include "qemu/error-report.h"

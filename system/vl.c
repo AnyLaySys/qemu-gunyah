@@ -52,9 +52,7 @@
 #include "qemu/accel.h"
 #include "qemu/async-teardown.h"
 #include "hw/usb.h"
-#include "hw/isa/isa.h"
 #include "hw/scsi/scsi.h"
-#include "hw/sd/sd.h"
 #include "hw/firmware/smbios.h"
 #include "hw/acpi/acpi.h"
 #include "hw/xen/xen.h"
@@ -75,9 +73,8 @@
 #include "qemu/bitmap.h"
 #include "qemu/log.h"
 #include "system/blockdev.h"
+#include "hw/boards.h"
 #include "hw/block/block.h"
-#include "hw/i386/x86.h"
-#include "hw/i386/pc.h"
 #include "hw/core/cpu.h"
 #include "migration/cpr.h"
 #include "migration/misc.h"
@@ -2483,26 +2480,11 @@ static void qemu_init_displays(void)
 
 static void qemu_init_board(void)
 {
-    MachineClass *machine_class = MACHINE_GET_CLASS(current_machine);
-
     /* process plugin before CPUs are created, but once -smp has been parsed */
     qemu_plugin_load_list(&plugin_list, &error_fatal);
 
     /* From here on we enter MACHINE_PHASE_INITIALIZED.  */
     machine_run_board_init(current_machine, mem_path, &error_fatal);
-
-    if (machine_class->auto_create_sdcard) {
-        bool ambigous;
-
-        /* Ensure there is a SD bus available to create SD card on */
-        Object *obj = object_resolve_path_type("", TYPE_SD_BUS, &ambigous);
-        if (!obj && !ambigous) {
-            fprintf(stderr, "Can not create sd-card on '%s' machine"
-                            " because it lacks a sd-bus\n",
-                            machine_class->name);
-            abort();
-        }
-    }
 
     drive_check_orphaned();
 

@@ -33,5 +33,6 @@ system_ss.add(gdb_system)
 
 common_ss.add(files('syscalls.c'))
 
-# The user-target is specialised by the guest
-specific_ss.add(when: 'CONFIG_USER_ONLY', if_true: files('user-target.c'))
+if have_user
+  error('User-mode gdbstub target support was removed from this trimmed build')
+endif

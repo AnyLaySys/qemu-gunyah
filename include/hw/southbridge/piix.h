@@ -14,7 +14,6 @@
 
 #include "hw/pci/pci_device.h"
 #include "hw/acpi/piix4.h"
-#include "hw/ide/pci.h"
 #include "hw/rtc/mc146818rtc.h"
 #include "hw/usb/hcd-uhci.h"
 

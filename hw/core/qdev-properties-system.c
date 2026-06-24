@@ -32,10 +32,12 @@
 #include "system/block-backend.h"
 #include "system/blockdev.h"
 #include "net/net.h"
+#include "hw/boards.h"
 #include "hw/pci/pci.h"
 #include "hw/pci/pcie.h"
-#include "hw/i386/x86.h"
 #include "util/block-helpers.h"
+
+#define TYPE_X86_MACHINE MACHINE_TYPE_NAME("x86")
 
 static bool check_prop_still_unset(Object *obj, const char *name,
                                    const void *old_val, const char *new_val,

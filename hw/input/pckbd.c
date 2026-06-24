@@ -27,7 +27,6 @@
 #include "qemu/log.h"
 #include "qemu/timer.h"
 #include "qapi/error.h"
-#include "hw/isa/isa.h"
 #include "migration/vmstate.h"
 #include "hw/acpi/acpi_aml_interface.h"
 #include "hw/input/ps2.h"

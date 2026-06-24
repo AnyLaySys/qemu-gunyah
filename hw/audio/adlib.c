@@ -27,7 +27,6 @@
 #include "qemu/module.h"
 #include "hw/audio/soundhw.h"
 #include "audio/audio.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "qom/object.h"
 

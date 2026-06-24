@@ -855,72 +855,8 @@ if 'CONFIG_GH' not in accelerators and get_option('gunyah').enabled()
   error('Gunyah not available on this platform')
 endif
 xen = not_found
-if get_option('xen').enabled() or (get_option('xen').auto() and have_system)
-  xencontrol = dependency('xencontrol', required: false,
-                          method: 'pkg-config')
-  if xencontrol.found()
-    xen_pc = declare_dependency(version: xencontrol.version(),
-      dependencies: [
-        xencontrol,
-        # disabler: true makes xen_pc.found() return false if any is not found
-        dependency('xenstore', required: false,
-                   method: 'pkg-config',
-                   disabler: true),
-        dependency('xenforeignmemory', required: false,
-                   method: 'pkg-config',
-                   disabler: true),
-        dependency('xengnttab', required: false,
-                   method: 'pkg-config',
-                   disabler: true),
-        dependency('xenevtchn', required: false,
-                   method: 'pkg-config',
-                   disabler: true),
-        dependency('xendevicemodel', required: false,
-                   method: 'pkg-config',
-                   disabler: true),
-        # optional, no "disabler: true"
-        dependency('xentoolcore', required: false,
-                   method: 'pkg-config')])
-    if xen_pc.found()
-      xen = xen_pc
-    endif
-  endif
-  if not xen.found()
-    xen_tests = [ '4.11.0', '4.10.0', '4.9.0', '4.8.0', '4.7.1' ]
-    xen_libs = {
-      '4.11.0': [ 'xenstore', 'xenctrl', 'xendevicemodel', 'xenforeignmemory', 'xengnttab', 'xenevtchn', 'xentoolcore' ],
-      '4.10.0': [ 'xenstore', 'xenctrl', 'xendevicemodel', 'xenforeignmemory', 'xengnttab', 'xenevtchn', 'xentoolcore' ],
-      '4.9.0': [ 'xenstore', 'xenctrl', 'xendevicemodel', 'xenforeignmemory', 'xengnttab', 'xenevtchn' ],
-      '4.8.0': [ 'xenstore', 'xenctrl', 'xenforeignmemory', 'xengnttab', 'xenevtchn' ],
-      '4.7.1': [ 'xenstore', 'xenctrl', 'xenforeignmemory', 'xengnttab', 'xenevtchn' ],
-    }
-    xen_deps = {}
-    foreach ver: xen_tests
-      # cache the various library tests to avoid polluting the logs
-      xen_test_deps = []
-      foreach l: xen_libs[ver]
-        if l not in xen_deps
-          xen_deps += { l: cc.find_library(l, required: false) }
-        endif
-        xen_test_deps += xen_deps[l]
-      endforeach
-
-      # Use -D to pick just one of the test programs in scripts/xen-detect.c
-      xen_version = ver.split('.')
-      xen_ctrl_version = xen_version[0] + \
-        ('0' + xen_version[1]).substring(-2) + \
-        ('0' + xen_version[2]).substring(-2)
-      if cc.links(files('scripts/xen-detect.c'),
-                  args: '-DCONFIG_XEN_CTRL_INTERFACE_VERSION=' + xen_ctrl_version,
-                  dependencies: xen_test_deps)
-        xen = declare_dependency(version: ver, dependencies: xen_test_deps)
-        break
-      endif
-    endforeach
-  endif
-  if not xen.found() and get_option('xen').enabled()
-    error('could not compile and link Xen test program')
-  endif
+if get_option('xen').enabled()
+  error('Xen support was removed from this trimmed build')
 endif
 have_xen_pci_passthrough = get_option('xen_pci_passthrough') \
   .require(xen.found(),
@@ -1982,11 +1918,6 @@ endif
 u2f = not_found
 if not get_option('u2f').auto() or have_system
   u2f = dependency('u2f-emu', required: get_option('u2f'),
-                   method: 'pkg-config')
-endif
-canokey = not_found
-if not get_option('canokey').auto() or have_system
-  canokey = dependency('canokey-qemu', required: get_option('canokey'),
                    method: 'pkg-config')
 endif
 usbredir = not_found
@@ -3396,47 +3327,32 @@ if have_system
     'backends',
     'ebpf',
     'hw/acpi',
-    'hw/adc',
     'hw/arm',
     'hw/audio',
     'hw/block',
     'hw/char',
     'hw/display',
-    'hw/dma',
-    'hw/fsi',
     'hw/hyperv',
-    'hw/i2c',
-    'hw/ide',
     'hw/input',
     'hw/intc',
-    'hw/isa',
     'hw/mem',
     'hw/misc',
     'hw/misc/macio',
     'hw/net',
     'hw/net/can',
-    'hw/nubus',
-    'hw/nvme',
     'hw/nvram',
     'hw/pci',
     'hw/pci-host',
     'hw/rtc',
-    'hw/sd',
-    'hw/sensor',
-    'hw/ssi',
-    'hw/timer',
     'hw/uefi',
-    'hw/ufs',
     'hw/usb',
     'hw/virtio',
-    'hw/vmapple',
     'hw/watchdog',
     'hw/gpio',
     'migration',
     'net',
     'system',
     'ui',
-    'hw/remote',
   ]
 endif
 if have_system or have_user
@@ -3502,8 +3418,7 @@ else
 endif
 
 if enable_modules
-  libmodulecommon = static_library('module-common', files('module-common.c') + genh, pic: true, c_args: '-DBUILD_DSO')
-  modulecommon = declare_dependency(objects: libmodulecommon.extract_all_objects(recursive: false), compile_args: '-DBUILD_DSO')
+  error('Loadable modules were removed from this trimmed build')
 endif
 
 qom_ss = qom_ss.apply({})
@@ -3540,7 +3455,6 @@ if have_system or have_user
   decodetree = generator(find_program('scripts/decodetree.py'),
                          output: 'decode-@BASENAME@.c.inc',
                          arguments: ['@INPUT@', '@EXTRA_ARGS@', '-o', '@OUTPUT@'])
-  subdir('libdecnumber')
   subdir('target')
 endif
 
@@ -3558,7 +3472,7 @@ if have_block
     'qemu-io-cmds.c',
   ))
   if config_host_data.get('CONFIG_REPLICATION')
-    block_ss.add(files('replication.c'))
+    error('Block replication was removed from this trimmed build')
   endif
 
   subdir('nbd')
@@ -3572,13 +3486,7 @@ if have_block
     'job-qmp.c',
   ))
 
-  # os-posix.c contains POSIX-specific functions used by qemu-storage-daemon,
-  # os-win32.c does not
-  if host_os == 'windows'
-    system_ss.add(files('os-win32.c'))
-  else
-    blockdev_ss.add(files('os-posix.c'))
-  endif
+  blockdev_ss.add(files('os-posix.c'))
 endif
 
 common_ss.add(files('cpu-common.c'))
@@ -4163,34 +4071,19 @@ endif
 
 # Don't build qemu-keymap if xkbcommon is not explicitly enabled
 # when we don't build tools or system
-if xkbcommon.found()
-  # used for the update-keymaps target, so include rules even if !have_tools
-  qemu_keymap = executable('qemu-keymap', files('qemu-keymap.c', 'ui/input-keymap.c') + genh,
-                           dependencies: [qemuutil, xkbcommon], install: have_tools)
-endif
+qemu_keymap = []
 
 if have_tools
   qemu_img = executable('qemu-img', [files('qemu-img.c'), hxdep],
              link_args: '@block.syms', link_depends: block_syms,
              dependencies: [authz, block, crypto, io, qom, qemuutil], install: true)
-  qemu_io = executable('qemu-io', files('qemu-io.c'),
-             link_args: '@block.syms', link_depends: block_syms,
-             dependencies: [block, qemuutil], install: true)
-  qemu_nbd = executable('qemu-nbd', files('qemu-nbd.c'),
-               link_args: '@block.syms', link_depends: block_syms,
-               dependencies: [blockdev, qemuutil, selinux],
-               install: true)
 
-  subdir('storage-daemon')
-
-  foreach exe: [ 'qemu-img', 'qemu-io', 'qemu-nbd', 'qemu-storage-daemon']
+  foreach exe: [ 'qemu-img']
     traceable += [{
       'exe': exe,
       'probe-prefix': 'qemu.' + exe.substring(5).replace('-', '_')
     }]
   endforeach
-
-  subdir('contrib/elf2dmp')
 
   executable('qemu-edid', files('qemu-edid.c', 'hw/display/edid-generate.c'),
              dependencies: [qemuutil, rt],
@@ -4207,18 +4100,8 @@ if have_tools
                               libcap_ng, mpathpersist],
                install: true)
 
-    if cpu in ['x86', 'x86_64']
-      executable('qemu-vmsr-helper', files('tools/i386/qemu-vmsr-helper.c'),
-               dependencies: [authz, crypto, io, qom, qemuutil,
-                              libcap_ng, mpathpersist],
-               install: true)
-    endif
   endif
 
-  if have_ivshmem
-    subdir('contrib/ivshmem-client')
-    subdir('contrib/ivshmem-server')
-  endif
 endif
 
 if stap.found()

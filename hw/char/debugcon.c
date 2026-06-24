@@ -28,7 +28,6 @@
 #include "qapi/error.h"
 #include "qemu/module.h"
 #include "chardev/char-fe.h"
-#include "hw/isa/isa.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
 #include "qom/object.h"
