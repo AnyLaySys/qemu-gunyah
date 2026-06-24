@@ -74,7 +74,6 @@ config INTEGRATOR
     select INTEGRATOR_DEBUG
     select PL011 # UART
     select PL031 # RTC
-    select PL041 # audio
     select PL050 # keyboard/mouse
     select SMC91C111
 
@@ -105,7 +104,6 @@ config MUSICPAL
     select PTIMER
     select PFLASH_CFI02
     select SERIAL_MM
-    select WM8750
 
 config NETDUINO2
     bool
@@ -143,12 +141,10 @@ config REALVIEW
     select A15MPCORE
     select ARM11MPCORE
     select VERSATILE_PCI
-    select WM8750 # audio codec
     select LSI_SCSI_PCI
     select PCI
     select PL011 # UART
     select PL031  # RTC
-    select PL041  # audio codec
     select PL050  # keyboard/mouse
     select PL061  # GPIO
     select PL310  # cache controller
@@ -235,7 +231,6 @@ config VEXPRESS
     select LAN9118
     select PFLASH_CFI01
     select PL011 # UART
-    select PL041 # audio codec
     select REALVIEW
     select VIRTIO_MMIO
 

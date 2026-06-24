@@ -753,8 +753,8 @@ SRST
 
     .. parsed-literal::
 
-        |qemu_system| -audiodev pa,id=pa -device sb16,audiodev=pa
-        |qemu_system| -audio pa,model=sb16
+        |qemu_system| -audiodev pa,id=pa -device virtio-snd-pci,audiodev=pa
+        |qemu_system| -audio pa,model=virtio
 
     If the ``model`` option is not specified, ``-audio`` is used to
     configure a default audio backend that will be used whenever the

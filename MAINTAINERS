@@ -1232,7 +1232,6 @@ F: hw/display/macfb.c
 F: hw/block/swim.c
 F: hw/misc/djmemc.c
 F: hw/misc/iosb.c
-F: hw/audio/asc.c
 F: hw/m68k/bootinfo.h
 F: include/standard-headers/asm-m68k/bootinfo.h
 F: include/standard-headers/asm-m68k/bootinfo-mac.h
@@ -1851,10 +1850,6 @@ M: Gerd Hoffmann <kraxel@redhat.com>
 S: Odd Fixes
 F: hw/audio/
 F: include/hw/audio/
-F: tests/qtest/ac97-test.c
-F: tests/qtest/es1370-test.c
-F: tests/qtest/intel-hda-test.c
-F: tests/qtest/fuzz-sb16-test.c
 
 Xilinx CAN
 M: Francisco Iglesias <francisco.iglesias@amd.com>
