@@ -43,7 +43,6 @@ def gen_header():
 #include "block/coroutines.h"
 #include "block/block-gen.h"
 #include "block/block_int.h"
-#include "block/dirty-bitmap.h"
 """
 
 

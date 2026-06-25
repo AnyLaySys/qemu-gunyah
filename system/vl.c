@@ -91,9 +91,6 @@
 #include "qemu/option.h"
 #include "qemu/config-file.h"
 #include "qemu/main-loop.h"
-#ifdef CONFIG_VIRTFS
-#include "fsdev/qemu-fsdev.h"
-#endif
 #include "system/qtest.h"
 #ifdef CONFIG_TCG
 #include "tcg/perf.h"
@@ -1071,13 +1068,6 @@ static int chardev_init_func(void *opaque, QemuOpts *opts, Error **errp)
     return 0;
 }
 
-#ifdef CONFIG_VIRTFS
-static int fsdev_init_func(void *opaque, QemuOpts *opts, Error **errp)
-{
-    return qemu_fsdev_add(opts, errp);
-}
-#endif
-
 static int mon_init_func(void *opaque, QemuOpts *opts, Error **errp)
 {
     return monitor_init_opts(opts, errp);
@@ -1771,13 +1761,6 @@ static bool object_create_early(const char *type)
         return false;
     }
 
-#if defined(CONFIG_VHOST_USER) && defined(CONFIG_LINUX)
-    /* Reason: cryptodev-vhost-user property "chardev" */
-    if (g_str_equal(type, "cryptodev-vhost-user")) {
-        return false;
-    }
-#endif
-
     /* Reason: vhost-user-blk-server property "node-name" */
     if (g_str_equal(type, "vhost-user-blk-server")) {
         return false;
@@ -1842,11 +1825,6 @@ static void qemu_create_early_backends(void)
 
     qemu_opts_foreach(qemu_find_opts("chardev"),
                       chardev_init_func, NULL, &error_fatal);
-
-#ifdef CONFIG_VIRTFS
-    qemu_opts_foreach(qemu_find_opts("fsdev"),
-                      fsdev_init_func, NULL, &error_fatal);
-#endif
 
     /*
      * Note: we need to create audio and block backends before
@@ -2985,94 +2963,6 @@ void qemu_init(int argc, char **argv)
                     exit(1);
                 }
                 break;
-            case QEMU_OPTION_fsdev:
-                olist = qemu_find_opts("fsdev");
-                if (!olist) {
-                    error_report("fsdev support is disabled");
-                    exit(1);
-                }
-                opts = qemu_opts_parse_noisily(olist, optarg, true);
-                if (!opts) {
-                    exit(1);
-                }
-                break;
-            case QEMU_OPTION_virtfs: {
-                QemuOpts *fsdev;
-                QemuOpts *device;
-                const char *writeout, *sock_fd, *socket, *path, *security_model,
-                           *multidevs;
-
-                olist = qemu_find_opts("virtfs");
-                if (!olist) {
-                    error_report("virtfs support is disabled");
-                    exit(1);
-                }
-                opts = qemu_opts_parse_noisily(olist, optarg, true);
-                if (!opts) {
-                    exit(1);
-                }
-
-                if (qemu_opt_get(opts, "fsdriver") == NULL ||
-                    qemu_opt_get(opts, "mount_tag") == NULL) {
-                    error_report("Usage: -virtfs fsdriver,mount_tag=tag");
-                    exit(1);
-                }
-                fsdev = qemu_opts_create(qemu_find_opts("fsdev"),
-                                         qemu_opts_id(opts) ?:
-                                         qemu_opt_get(opts, "mount_tag"),
-                                         1, NULL);
-                if (!fsdev) {
-                    error_report("duplicate or invalid fsdev id: %s",
-                                 qemu_opt_get(opts, "mount_tag"));
-                    exit(1);
-                }
-
-                writeout = qemu_opt_get(opts, "writeout");
-                if (writeout) {
-#ifdef CONFIG_SYNC_FILE_RANGE
-                    qemu_opt_set(fsdev, "writeout", writeout, &error_abort);
-#else
-                    error_report("writeout=immediate not supported "
-                                 "on this platform");
-                    exit(1);
-#endif
-                }
-                qemu_opt_set(fsdev, "fsdriver",
-                             qemu_opt_get(opts, "fsdriver"), &error_abort);
-                path = qemu_opt_get(opts, "path");
-                if (path) {
-                    qemu_opt_set(fsdev, "path", path, &error_abort);
-                }
-                security_model = qemu_opt_get(opts, "security_model");
-                if (security_model) {
-                    qemu_opt_set(fsdev, "security_model", security_model,
-                                 &error_abort);
-                }
-                socket = qemu_opt_get(opts, "socket");
-                if (socket) {
-                    qemu_opt_set(fsdev, "socket", socket, &error_abort);
-                }
-                sock_fd = qemu_opt_get(opts, "sock_fd");
-                if (sock_fd) {
-                    qemu_opt_set(fsdev, "sock_fd", sock_fd, &error_abort);
-                }
-
-                qemu_opt_set_bool(fsdev, "readonly",
-                                  qemu_opt_get_bool(opts, "readonly", 0),
-                                  &error_abort);
-                multidevs = qemu_opt_get(opts, "multidevs");
-                if (multidevs) {
-                    qemu_opt_set(fsdev, "multidevs", multidevs, &error_abort);
-                }
-                device = qemu_opts_create(qemu_find_opts("device"), NULL, 0,
-                                          &error_abort);
-                qemu_opt_set(device, "driver", "virtio-9p-pci", &error_abort);
-                qemu_opt_set(device, "fsdev",
-                             qemu_opts_id(fsdev), &error_abort);
-                qemu_opt_set(device, "mount_tag",
-                             qemu_opt_get(opts, "mount_tag"), &error_abort);
-                break;
-            }
             case QEMU_OPTION_serial:
                 add_device_config(DEV_SERIAL, optarg);
                 default_serial = 0;

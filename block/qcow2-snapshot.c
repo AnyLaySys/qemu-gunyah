@@ -134,7 +134,7 @@ int qcow2_do_read_snapshots(BlockDriverState *bs, bool repair,
                 error_setg(errp, "Too much extra metadata in snapshot table "
                            "entry %i", i);
                 error_append_hint(errp, "You can force-remove this extra "
-                                  "metadata with qemu-img check -r all\n");
+                                  "metadata during offline repair\n");
                 goto fail;
             }
 
@@ -229,8 +229,8 @@ int qcow2_do_read_snapshots(BlockDriverState *bs, bool repair,
                 ret = -EFBIG;
                 error_setg(errp, "Snapshot table is too big");
                 error_append_hint(errp, "You can force-remove all %u "
-                                  "overhanging snapshots with qemu-img check "
-                                  "-r all\n", s->nb_snapshots - i);
+                                  "overhanging snapshots during offline "
+                                  "repair\n", s->nb_snapshots - i);
                 goto fail;
             }
 
@@ -473,7 +473,7 @@ int coroutine_fn qcow2_check_read_snapshot_table(BlockDriverState *bs,
 
         if (s->nb_snapshots > QCOW_MAX_SNAPSHOTS) {
             fprintf(stderr, "You can force-remove all %u overhanging snapshots "
-                    "with qemu-img check -r all\n",
+                    "during offline repair\n",
                     s->nb_snapshots - QCOW_MAX_SNAPSHOTS);
         }
 

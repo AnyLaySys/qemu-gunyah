@@ -86,7 +86,6 @@ if have_block
   util_ss.add(files('qemu-co-shared-resource.c'))
   util_ss.add(files('qemu-co-timeout.c'))
   util_ss.add(files('readline.c'))
-  util_ss.add(files('throttle.c'))
   util_ss.add(files('timed-average.c'))
   if config_host_data.get('CONFIG_INOTIFY1')
     util_ss.add(files('filemonitor-inotify.c'))

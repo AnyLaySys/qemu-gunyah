@@ -1955,11 +1955,6 @@ endif
 
 has_gettid = cc.has_function('gettid')
 
-# libselinux
-selinux = dependency('libselinux',
-                     required: get_option('selinux'),
-                     method: 'pkg-config')
-
 # Malloc tests
 
 malloc = []
@@ -2004,47 +1999,6 @@ have_vhost_user_blk_server = get_option('vhost_user_blk_server') \
            error_message: 'vhost_user_blk_server requires vhost-user support') \
   .disable_auto_if(not have_tools and not have_system) \
   .allowed()
-
-if get_option('fuse').disabled() and get_option('fuse_lseek').enabled()
-  error('Cannot enable fuse-lseek while fuse is disabled')
-endif
-
-fuse = dependency('fuse3', required: get_option('fuse'),
-                  version: '>=3.1', method: 'pkg-config')
-
-fuse_lseek = not_found
-if get_option('fuse_lseek').allowed()
-  if fuse.version().version_compare('>=3.8')
-    # Dummy dependency
-    fuse_lseek = declare_dependency()
-  elif get_option('fuse_lseek').enabled()
-    if fuse.found()
-      error('fuse-lseek requires libfuse >=3.8, found ' + fuse.version())
-    else
-      error('fuse-lseek requires libfuse, which was not found')
-    endif
-  endif
-endif
-
-have_libvduse = (host_os == 'linux')
-if get_option('libvduse').enabled()
-    if host_os != 'linux'
-        error('libvduse requires linux')
-    endif
-elif get_option('libvduse').disabled()
-    have_libvduse = false
-endif
-
-have_vduse_blk_export = (have_libvduse and host_os == 'linux')
-if get_option('vduse_blk_export').enabled()
-    if host_os != 'linux'
-        error('vduse_blk_export requires linux')
-    elif not have_libvduse
-        error('vduse_blk_export requires libvduse support')
-    endif
-elif get_option('vduse_blk_export').disabled()
-    have_vduse_blk_export = false
-endif
 
 # libbpf
 bpf_version = '1.1.0'
@@ -2327,7 +2281,6 @@ config_host_data.set('CONFIG_VHOST_CRYPTO', have_vhost_user_crypto)
 config_host_data.set('CONFIG_VHOST_VDPA', have_vhost_vdpa)
 config_host_data.set('CONFIG_VMNET', vmnet.found())
 config_host_data.set('CONFIG_VHOST_USER_BLK_SERVER', have_vhost_user_blk_server)
-config_host_data.set('CONFIG_VDUSE_BLK_EXPORT', have_vduse_blk_export)
 config_host_data.set('CONFIG_PNG', png.found())
 if virgl.found()
   config_host_data.set('VIRGL_VERSION_MAJOR', virgl.version().split('.')[0])
@@ -2350,8 +2303,6 @@ config_host_data.set('CONFIG_ZSTD', zstd.found())
 config_host_data.set('CONFIG_QPL', qpl.found())
 config_host_data.set('CONFIG_UADK', uadk.found())
 config_host_data.set('CONFIG_QATZIP', qatzip.found())
-config_host_data.set('CONFIG_FUSE', fuse.found())
-config_host_data.set('CONFIG_FUSE_LSEEK', fuse_lseek.found())
 config_host_data.set('CONFIG_SPICE_PROTOCOL', spice_protocol.found())
 if spice_protocol.found()
 config_host_data.set('CONFIG_SPICE_PROTOCOL_MAJOR', spice_protocol.version().split('.')[0])
@@ -2362,7 +2313,6 @@ config_host_data.set('CONFIG_SPICE', spice.found())
 config_host_data.set('CONFIG_X11', x11.found())
 config_host_data.set('CONFIG_DBUS_DISPLAY', dbus_display)
 config_host_data.set('CONFIG_CFI', get_option('cfi'))
-config_host_data.set('CONFIG_SELINUX', selinux.found())
 config_host_data.set('CONFIG_XEN_BACKEND', xen.found())
 config_host_data.set('CONFIG_LIBDW', libdw.found())
 if xen.found()
@@ -3202,12 +3152,6 @@ endif
 
 vhost_user = not_found
 
-libvduse = not_found
-if have_libvduse
-  libvduse_proj = subproject('libvduse')
-  libvduse = libvduse_proj.get_variable('libvduse_dep')
-endif
-
 #####################
 # Generated sources #
 #####################
@@ -3274,7 +3218,6 @@ genh += qemu_version
 hxdep = []
 hx_headers = [
   ['qemu-options.hx', 'qemu-options.def'],
-  ['qemu-img-cmds.hx', 'qemu-img-cmds.h'],
 ]
 if have_system
   hx_headers += [
@@ -3317,7 +3260,6 @@ if have_block
     'block',
     'chardev',
     'io',
-    'nbd',
     'scsi',
   ]
 endif
@@ -3458,27 +3400,22 @@ endif
 subdir('audio')
 subdir('io')
 subdir('chardev')
-subdir('fsdev')
 subdir('dump')
 
 if have_block
   block_ss.add(files(
     'block.c',
-    'blockjob.c',
     'job.c',
-    'qemu-io-cmds.c',
   ))
   if config_host_data.get('CONFIG_REPLICATION')
     error('Block replication was removed from this trimmed build')
   endif
 
-  subdir('nbd')
   subdir('scsi')
   subdir('block')
 
   blockdev_ss.add(files(
     'blockdev.c',
-    'blockdev-nbd.c',
     'iothread.c',
     'job-qmp.c',
   ))
@@ -4071,29 +4008,7 @@ endif
 qemu_keymap = []
 
 if have_tools
-  qemu_img = executable('qemu-img', [files('qemu-img.c'), hxdep],
-             link_args: '@block.syms', link_depends: block_syms,
-             dependencies: [authz, block, crypto, io, qom, qemuutil], install: true)
-
-  foreach exe: [ 'qemu-img']
-    traceable += [{
-      'exe': exe,
-      'probe-prefix': 'qemu.' + exe.substring(5).replace('-', '_')
-    }]
-  endforeach
-
-  executable('qemu-edid', files('qemu-edid.c', 'hw/display/edid-generate.c'),
-             dependencies: [qemuutil, rt],
-             install: true)
-
-  if host_os == 'linux'
-    executable('qemu-pr-helper', files('scsi/qemu-pr-helper.c', 'scsi/utils.c'),
-               dependencies: [authz, crypto, io, qom, qemuutil,
-                              libcap_ng, mpathpersist],
-               install: true)
-
-  endif
-
+  error('QEMU tools were removed from this trimmed build')
 endif
 
 if stap.found()
@@ -4302,8 +4217,6 @@ if have_block
   summary_info += {'vvfat support':     get_option('vvfat').allowed()}
   summary_info += {'qed support':       get_option('qed').allowed()}
   summary_info += {'parallels support': get_option('parallels').allowed()}
-  summary_info += {'FUSE exports':      fuse}
-  summary_info += {'VDUSE block exports': have_vduse_blk_export}
 endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
 
@@ -4427,9 +4340,6 @@ summary_info += {'libpmem support':   libpmem}
 summary_info += {'libdaxctl support': libdaxctl}
 summary_info += {'libcbor support':   libcbor}
 summary_info += {'libudev':           libudev}
-# Dummy dependency, keep .found()
-summary_info += {'FUSE lseek':        fuse_lseek.found()}
-summary_info += {'selinux':           selinux}
 summary_info += {'libdw':             libdw}
 if host_os == 'freebsd'
   summary_info += {'libinotify-kqueue': inotify}

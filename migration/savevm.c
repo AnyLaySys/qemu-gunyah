@@ -2071,21 +2071,9 @@ static void *postcopy_ram_listen_thread(void *opaque)
     trace_postcopy_ram_listen_thread_exit();
     if (load_res < 0) {
         qemu_file_set_error(f, load_res);
-        dirty_bitmap_mig_cancel_incoming();
-        if (postcopy_state_get() == POSTCOPY_INCOMING_RUNNING &&
-            !migrate_postcopy_ram() && migrate_dirty_bitmaps())
-        {
-            error_report("%s: loadvm failed during postcopy: %d. All states "
-                         "are migrated except dirty bitmaps. Some dirty "
-                         "bitmaps may be lost, and present migrated dirty "
-                         "bitmaps are correctly migrated and valid.",
-                         __func__, load_res);
-            load_res = 0; /* prevent further exit() */
-        } else {
-            error_report("%s: loadvm failed: %d", __func__, load_res);
-            migrate_set_state(&mis->state, MIGRATION_STATUS_POSTCOPY_ACTIVE,
-                                           MIGRATION_STATUS_FAILED);
-        }
+        error_report("%s: loadvm failed: %d", __func__, load_res);
+        migrate_set_state(&mis->state, MIGRATION_STATUS_POSTCOPY_ACTIVE,
+                                       MIGRATION_STATUS_FAILED);
     }
     if (load_res >= 0) {
         /*
@@ -2197,8 +2185,6 @@ static void loadvm_postcopy_handle_run_bh(void *opaque)
     qemu_announce_self(&mis->announce_timer, migrate_announce_params());
 
     trace_vmstate_downtime_checkpoint("dst-postcopy-bh-announced");
-
-    dirty_bitmap_mig_before_vm_start();
 
     if (autostart) {
         /*
@@ -3037,9 +3023,6 @@ out:
     if (ret < 0) {
         qemu_file_set_error(f, ret);
 
-        /* Cancel bitmaps incoming regardless of recovery */
-        dirty_bitmap_mig_cancel_incoming();
-
         /*
          * If we are during an active postcopy, then we pause instead
          * of bail out to at least keep the VM's dirty data.  Note
@@ -3219,111 +3202,8 @@ bool qemu_loadvm_load_state_buffer(const char *idstr, uint32_t instance_id,
 bool save_snapshot(const char *name, bool overwrite, const char *vmstate,
                   bool has_devices, strList *devices, Error **errp)
 {
-    BlockDriverState *bs;
-    QEMUSnapshotInfo sn1, *sn = &sn1;
-    int ret = -1, ret2;
-    QEMUFile *f;
-    RunState saved_state = runstate_get();
-    uint64_t vm_state_size;
-    g_autoptr(GDateTime) now = g_date_time_new_now_local();
-
-    GLOBAL_STATE_CODE();
-
-    if (migration_is_blocked(errp)) {
-        return false;
-    }
-
-    if (!replay_can_snapshot()) {
-        error_setg(errp, "Record/replay does not allow making snapshot "
-                   "right now. Try once more later.");
-        return false;
-    }
-
-    if (!bdrv_all_can_snapshot(has_devices, devices, errp)) {
-        return false;
-    }
-
-    /* Delete old snapshots of the same name */
-    if (name) {
-        if (overwrite) {
-            if (bdrv_all_delete_snapshot(name, has_devices,
-                                         devices, errp) < 0) {
-                return false;
-            }
-        } else {
-            ret2 = bdrv_all_has_snapshot(name, has_devices, devices, errp);
-            if (ret2 < 0) {
-                return false;
-            }
-            if (ret2 == 1) {
-                error_setg(errp,
-                           "Snapshot '%s' already exists in one or more devices",
-                           name);
-                return false;
-            }
-        }
-    }
-
-    bs = bdrv_all_find_vmstate_bs(vmstate, has_devices, devices, errp);
-    if (bs == NULL) {
-        return false;
-    }
-
-    global_state_store();
-    vm_stop(RUN_STATE_SAVE_VM);
-
-    bdrv_drain_all_begin();
-
-    memset(sn, 0, sizeof(*sn));
-
-    /* fill auxiliary fields */
-    sn->date_sec = g_date_time_to_unix(now);
-    sn->date_nsec = g_date_time_get_microsecond(now) * 1000;
-    sn->vm_clock_nsec = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    if (replay_mode != REPLAY_MODE_NONE) {
-        sn->icount = replay_get_current_icount();
-    } else {
-        sn->icount = -1ULL;
-    }
-
-    if (name) {
-        pstrcpy(sn->name, sizeof(sn->name), name);
-    } else {
-        g_autofree char *autoname = g_date_time_format(now,  "vm-%Y%m%d%H%M%S");
-        pstrcpy(sn->name, sizeof(sn->name), autoname);
-    }
-
-    /* save the VM state */
-    f = qemu_fopen_bdrv(bs, 1);
-    if (!f) {
-        error_setg(errp, "Could not open VM state file");
-        goto the_end;
-    }
-    ret = qemu_savevm_state(f, errp);
-    vm_state_size = qemu_file_transferred(f);
-    ret2 = qemu_fclose(f);
-    if (ret < 0) {
-        goto the_end;
-    }
-    if (ret2 < 0) {
-        ret = ret2;
-        goto the_end;
-    }
-
-    ret = bdrv_all_create_snapshot(sn, bs, vm_state_size,
-                                   has_devices, devices, errp);
-    if (ret < 0) {
-        bdrv_all_delete_snapshot(sn->name, has_devices, devices, NULL);
-        goto the_end;
-    }
-
-    ret = 0;
-
- the_end:
-    bdrv_drain_all_end();
-
-    vm_resume(saved_state);
-    return ret == 0;
+    error_setg(errp, "internal snapshots were removed");
+    return false;
 }
 
 void qmp_xen_save_devices_state(const char *filename, bool has_live, bool live,
@@ -3407,83 +3287,7 @@ void qmp_xen_load_devices_state(const char *filename, Error **errp)
 bool load_snapshot(const char *name, const char *vmstate,
                    bool has_devices, strList *devices, Error **errp)
 {
-    BlockDriverState *bs_vm_state;
-    QEMUSnapshotInfo sn;
-    QEMUFile *f;
-    int ret;
-    MigrationIncomingState *mis = migration_incoming_get_current();
-
-    if (!bdrv_all_can_snapshot(has_devices, devices, errp)) {
-        return false;
-    }
-    ret = bdrv_all_has_snapshot(name, has_devices, devices, errp);
-    if (ret < 0) {
-        return false;
-    }
-    if (ret == 0) {
-        error_setg(errp, "Snapshot '%s' does not exist in one or more devices",
-                   name);
-        return false;
-    }
-
-    bs_vm_state = bdrv_all_find_vmstate_bs(vmstate, has_devices, devices, errp);
-    if (!bs_vm_state) {
-        return false;
-    }
-
-    /* Don't even try to load empty VM states */
-    ret = bdrv_snapshot_find(bs_vm_state, &sn, name);
-    if (ret < 0) {
-        error_setg(errp, "Snapshot can not be found");
-        return false;
-    } else if (sn.vm_state_size == 0) {
-        error_setg(errp, "This is a disk-only snapshot. Revert to it "
-                   " offline using qemu-img");
-        return false;
-    }
-
-    /*
-     * Flush the record/replay queue. Now the VM state is going
-     * to change. Therefore we don't need to preserve its consistency
-     */
-    replay_flush_events();
-
-    /* Flush all IO requests so they don't interfere with the new state.  */
-    bdrv_drain_all_begin();
-
-    ret = bdrv_all_goto_snapshot(name, has_devices, devices, errp);
-    if (ret < 0) {
-        goto err_drain;
-    }
-
-    /* restore the VM state */
-    f = qemu_fopen_bdrv(bs_vm_state, 0);
-    if (!f) {
-        error_setg(errp, "Could not open VM state file");
-        goto err_drain;
-    }
-
-    qemu_system_reset(SHUTDOWN_CAUSE_SNAPSHOT_LOAD);
-    mis->from_src_file = f;
-
-    if (!yank_register_instance(MIGRATION_YANK_INSTANCE, errp)) {
-        ret = -EINVAL;
-        goto err_drain;
-    }
-    ret = qemu_loadvm_state(f);
-    migration_incoming_state_destroy();
-
-    bdrv_drain_all_end();
-
-    if (ret < 0) {
-        error_setg(errp, "Error %d while loading VM state", ret);
-        return false;
-    }
-
-    return true;
-
-err_drain:
-    bdrv_drain_all_end();
+    error_setg(errp, "internal snapshots were removed");
     return false;
 }
 
@@ -3498,15 +3302,8 @@ void load_snapshot_resume(RunState state)
 bool delete_snapshot(const char *name, bool has_devices,
                      strList *devices, Error **errp)
 {
-    if (!bdrv_all_can_snapshot(has_devices, devices, errp)) {
-        return false;
-    }
-
-    if (bdrv_all_delete_snapshot(name, has_devices, devices, errp) < 0) {
-        return false;
-    }
-
-    return true;
+    error_setg(errp, "internal snapshots were removed");
+    return false;
 }
 
 void vmstate_register_ram(MemoryRegion *mr, DeviceState *dev)

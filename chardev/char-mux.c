@@ -163,9 +163,6 @@ static int mux_proc_byte(Chardev *chr, MuxChardev *d, int ch)
                  qmp_quit(NULL);
                  break;
             }
-        case 's':
-            blk_commit_all();
-            break;
         case 'b':
             qemu_chr_be_event(chr, CHR_EVENT_BREAK);
             break;

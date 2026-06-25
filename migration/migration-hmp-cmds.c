@@ -14,7 +14,6 @@
  */
 
 #include "qemu/osdep.h"
-#include "block/qapi.h"
 #include "migration/snapshot.h"
 #include "monitor/hmp.h"
 #include "monitor/monitor.h"
@@ -773,34 +772,9 @@ void migrate_set_parameter_completion(ReadLineState *rs, int nb_args,
 static void vm_completion(ReadLineState *rs, const char *str)
 {
     size_t len;
-    BlockDriverState *bs;
-    BdrvNextIterator it;
-
-    GRAPH_RDLOCK_GUARD_MAINLOOP();
 
     len = strlen(str);
     readline_set_completion_index(rs, len);
-
-    for (bs = bdrv_first(&it); bs; bs = bdrv_next(&it)) {
-        SnapshotInfoList *snapshots, *snapshot;
-        bool ok = false;
-
-        if (bdrv_can_snapshot(bs)) {
-            ok = bdrv_query_snapshot_info_list(bs, &snapshots, NULL) == 0;
-        }
-        if (!ok) {
-            continue;
-        }
-
-        snapshot = snapshots;
-        while (snapshot) {
-            readline_add_completion_of(rs, str, snapshot->value->name);
-            readline_add_completion_of(rs, str, snapshot->value->id);
-            snapshot = snapshot->next;
-        }
-        qapi_free_SnapshotInfoList(snapshots);
-    }
-
 }
 
 void delvm_completion(ReadLineState *rs, int nb_args, const char *str)

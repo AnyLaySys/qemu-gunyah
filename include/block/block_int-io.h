@@ -103,13 +103,6 @@ const char * GRAPH_RDLOCK bdrv_get_parent_name(const BlockDriverState *bs);
 bool blk_dev_has_tray(BlockBackend *blk);
 bool blk_dev_is_tray_open(BlockBackend *blk);
 
-void bdrv_set_dirty(BlockDriverState *bs, int64_t offset, int64_t bytes);
-
-void bdrv_clear_dirty_bitmap(BdrvDirtyBitmap *bitmap, HBitmap **out);
-void bdrv_dirty_bitmap_merge_internal(BdrvDirtyBitmap *dest,
-                                      const BdrvDirtyBitmap *src,
-                                      HBitmap **backup, bool lock);
-
 void bdrv_inc_in_flight(BlockDriverState *bs);
 void bdrv_dec_in_flight(BlockDriverState *bs);
 

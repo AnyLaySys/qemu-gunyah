@@ -209,42 +209,6 @@
   'allow-preconfig': true }
 
 ##
-# @CryptodevBackendProperties:
-#
-# Properties for cryptodev-backend and cryptodev-backend-builtin
-# objects.
-#
-# @queues: the number of queues for the cryptodev backend.  Ignored
-#     for cryptodev-backend and must be 1 for
-#     cryptodev-backend-builtin.  (default: 1)
-#
-# @throttle-bps: limit total bytes per second (Since 8.0)
-#
-# @throttle-ops: limit total operations per second (Since 8.0)
-#
-# Since: 2.8
-##
-{ 'struct': 'CryptodevBackendProperties',
-  'data': { '*queues': 'uint32',
-            '*throttle-bps': 'uint64',
-            '*throttle-ops': 'uint64' } }
-
-##
-# @CryptodevVhostUserProperties:
-#
-# Properties for cryptodev-vhost-user objects.
-#
-# @chardev: the name of a Unix domain socket character device that
-#     connects to the vhost-user server
-#
-# Since: 2.12
-##
-{ 'struct': 'CryptodevVhostUserProperties',
-  'base': 'CryptodevBackendProperties',
-  'data': { 'chardev': 'str' },
-  'if': 'CONFIG_VHOST_CRYPTO' }
-
-##
 # @DBusVMStateProperties:
 #
 # Properties for dbus-vmstate objects.
@@ -901,11 +865,6 @@
     'authz-listfile',
     'authz-pam',
     'authz-simple',
-    'cryptodev-backend',
-    'cryptodev-backend-builtin',
-    'cryptodev-backend-lkcf',
-    { 'name': 'cryptodev-vhost-user',
-      'if': 'CONFIG_VHOST_CRYPTO' },
     'dbus-vmstate',
     'input-barrier',
     { 'name': 'input-linux',
@@ -937,7 +896,6 @@
     'thread-context',
     'arm-confidential-guest',
     's390-pv-guest',
-    'throttle-group',
     'tls-creds-anon',
     'tls-creds-psk',
     'tls-creds-x509',
@@ -969,11 +927,6 @@
       'authz-listfile':             'AuthZListFileProperties',
       'authz-pam':                  'AuthZPAMProperties',
       'authz-simple':               'AuthZSimpleProperties',
-      'cryptodev-backend':          'CryptodevBackendProperties',
-      'cryptodev-backend-builtin':  'CryptodevBackendProperties',
-      'cryptodev-backend-lkcf':     'CryptodevBackendProperties',
-      'cryptodev-vhost-user':       { 'type': 'CryptodevVhostUserProperties',
-                                      'if': 'CONFIG_VHOST_CRYPTO' },
       'dbus-vmstate':               'DBusVMStateProperties',
       'input-barrier':              'InputBarrierProperties',
       'input-linux':                { 'type': 'InputLinuxProperties',
@@ -1002,7 +955,6 @@
       'sev-guest':                  'SevGuestProperties',
       'sev-snp-guest':              'SevSnpGuestProperties',
       'thread-context':             'ThreadContextProperties',
-      'throttle-group':             'ThrottleGroupProperties',
       'tls-creds-anon':             'TlsCredsAnonProperties',
       'tls-creds-psk':              'TlsCredsPskProperties',
       'tls-creds-x509':             'TlsCredsX509Properties',

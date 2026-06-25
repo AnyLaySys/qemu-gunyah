@@ -59,46 +59,6 @@ SRST
 ERST
 
     {
-        .name       = "block",
-        .args_type  = "nodes:-n,verbose:-v,device:B?",
-        .params     = "[-n] [-v] [device]",
-        .help       = "show info of one block device or all block devices "
-                      "(-n: show named nodes; -v: show details)",
-        .cmd        = hmp_info_block,
-    },
-
-SRST
-  ``info block``
-    Show info of one block device or all block devices.
-ERST
-
-    {
-        .name       = "blockstats",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show block device statistics",
-        .cmd        = hmp_info_blockstats,
-    },
-
-SRST
-  ``info blockstats``
-    Show block device statistics.
-ERST
-
-    {
-        .name       = "block-jobs",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show progress of ongoing block device operations",
-        .cmd        = hmp_info_block_jobs,
-    },
-
-SRST
-  ``info block-jobs``
-    Show progress of ongoing block device operations.
-ERST
-
-    {
         .name       = "registers",
         .args_type  = "cpustate_all:-a,vcpu:i?",
         .params     = "[-a|vcpu]",
@@ -345,19 +305,6 @@ ERST
 SRST
   ``info usbhost``
     Show host USB devices.
-ERST
-
-    {
-        .name       = "snapshots",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show the currently saved VM snapshots",
-        .cmd        = hmp_info_snapshots,
-    },
-
-SRST
-  ``info snapshots``
-    Show the currently saved VM snapshots.
 ERST
 
     {
@@ -884,18 +831,4 @@ ERST
 SRST
   ``info virtio-queue-element`` *path* *queue* [*index*]
     Display element of a given virtio queue
-ERST
-
-    {
-        .name       = "cryptodev",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show the crypto devices",
-        .cmd        = hmp_info_cryptodev,
-        .flags      = "p",
-    },
-
-SRST
-  ``info cryptodev``
-    Show the crypto devices.
 ERST

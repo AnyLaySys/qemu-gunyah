@@ -27,9 +27,6 @@
 #include "block/trace.h"
 #include "block/block_int.h"
 #include "block/blockjob.h"
-#include "block/dirty-bitmap.h"
-#include "block/fuse.h"
-#include "block/nbd.h"
 #include "block/qdict.h"
 #include "qemu/error-report.h"
 #include "block/module_block.h"
@@ -46,7 +43,6 @@
 #include "qemu/notify.h"
 #include "qemu/option.h"
 #include "qemu/coroutine.h"
-#include "block/qapi.h"
 #include "qemu/timer.h"
 #include "qemu/cutils.h"
 #include "qemu/id.h"
@@ -416,12 +412,10 @@ BlockDriverState *bdrv_new(void)
     GLOBAL_STATE_CODE();
 
     bs = g_new0(BlockDriverState, 1);
-    QLIST_INIT(&bs->dirty_bitmaps);
     for (i = 0; i < BLOCK_OP_TYPE_MAX; i++) {
         QLIST_INIT(&bs->op_blockers[i]);
     }
     qemu_mutex_init(&bs->reqs_lock);
-    qemu_mutex_init(&bs->dirty_bitmap_mutex);
     bs->refcnt = 1;
     bs->aio_context = qemu_get_aio_context();
 
@@ -3888,70 +3882,6 @@ BlockDriverState *bdrv_open_blockdev_ref(BlockdevRef *ref, Error **errp)
     return bs;
 }
 
-static BlockDriverState *bdrv_append_temp_snapshot(BlockDriverState *bs,
-                                                   int flags,
-                                                   QDict *snapshot_options,
-                                                   Error **errp)
-{
-    ERRP_GUARD();
-    g_autofree char *tmp_filename = NULL;
-    int64_t total_size;
-    QemuOpts *opts = NULL;
-    BlockDriverState *bs_snapshot = NULL;
-    int ret;
-
-    GLOBAL_STATE_CODE();
-
-    /* if snapshot, we create a temporary backing file and open it
-       instead of opening 'filename' directly */
-
-    /* Get the required size from the image */
-    total_size = bdrv_getlength(bs);
-
-    if (total_size < 0) {
-        error_setg_errno(errp, -total_size, "Could not get image size");
-        goto out;
-    }
-
-    /* Create the temporary image */
-    tmp_filename = create_tmp_file(errp);
-    if (!tmp_filename) {
-        goto out;
-    }
-
-    opts = qemu_opts_create(bdrv_qcow2.create_opts, NULL, 0,
-                            &error_abort);
-    qemu_opt_set_number(opts, BLOCK_OPT_SIZE, total_size, &error_abort);
-    ret = bdrv_create(&bdrv_qcow2, tmp_filename, opts, errp);
-    qemu_opts_del(opts);
-    if (ret < 0) {
-        error_prepend(errp, "Could not create temporary overlay '%s': ",
-                      tmp_filename);
-        goto out;
-    }
-
-    /* Prepare options QDict for the temporary file */
-    qdict_put_str(snapshot_options, "file.driver", "file");
-    qdict_put_str(snapshot_options, "file.filename", tmp_filename);
-    qdict_put_str(snapshot_options, "driver", "qcow2");
-
-    bs_snapshot = bdrv_open(NULL, NULL, snapshot_options, flags, errp);
-    snapshot_options = NULL;
-    if (!bs_snapshot) {
-        goto out;
-    }
-
-    ret = bdrv_append(bs_snapshot, bs, errp);
-    if (ret < 0) {
-        bs_snapshot = NULL;
-        goto out;
-    }
-
-out:
-    qobject_unref(snapshot_options);
-    return bs_snapshot;
-}
-
 /*
  * Opens a disk image (raw, qcow2, vmdk, ...)
  *
@@ -3981,8 +3911,6 @@ bdrv_open_inherit(const char *filename, const char *reference, QDict *options,
     const char *drvname;
     const char *backing;
     Error *local_err = NULL;
-    QDict *snapshot_options = NULL;
-    int snapshot_flags = 0;
 
     assert(!child_class || !flags);
     assert(!child_class == !parent);
@@ -4066,16 +3994,6 @@ bdrv_open_inherit(const char *filename, const char *reference, QDict *options,
         flags |= (BDRV_O_RDWR | BDRV_O_ALLOW_RDWR);
     } else {
         flags &= ~BDRV_O_RDWR;
-    }
-
-    if (flags & BDRV_O_SNAPSHOT) {
-        snapshot_options = qdict_new();
-        bdrv_temp_snapshot_options(&snapshot_flags, snapshot_options,
-                                   flags, options);
-        /* Let bdrv_backing_options() override "read-only" */
-        qdict_del(options, BDRV_OPT_READ_ONLY);
-        bdrv_inherited_options(BDRV_CHILD_COW, true,
-                               &flags, options, flags, options);
     }
 
     bs->open_flags = flags;
@@ -4221,29 +4139,10 @@ bdrv_open_inherit(const char *filename, const char *reference, QDict *options,
     qobject_unref(options);
     options = NULL;
 
-    /* For snapshot=on, create a temporary qcow2 overlay. bs points to the
-     * temporary snapshot afterwards. */
-    if (snapshot_flags) {
-        BlockDriverState *snapshot_bs;
-        snapshot_bs = bdrv_append_temp_snapshot(bs, snapshot_flags,
-                                                snapshot_options, &local_err);
-        snapshot_options = NULL;
-        if (local_err) {
-            goto close_and_fail;
-        }
-        /* We are not going to return bs but the overlay on top of it
-         * (snapshot_bs); thus, we have to drop the strong reference to bs
-         * (which we obtained by calling bdrv_new()). bs will not be deleted,
-         * though, because the overlay still has a reference to it. */
-        bdrv_unref(bs);
-        bs = snapshot_bs;
-    }
-
     return bs;
 
 fail:
     blk_unref(file);
-    qobject_unref(snapshot_options);
     qobject_unref(bs->explicit_options);
     qobject_unref(bs->options);
     qobject_unref(options);
@@ -4255,7 +4154,6 @@ fail:
 
 close_and_fail:
     bdrv_unref(bs);
-    qobject_unref(snapshot_options);
     qobject_unref(options);
     error_propagate(errp, local_err);
     return NULL;
@@ -5181,9 +5079,6 @@ static void bdrv_close(BlockDriverState *bs)
     bs->full_open_options = NULL;
     g_free(bs->block_status_cache);
     bs->block_status_cache = NULL;
-
-    bdrv_release_named_dirty_bitmaps(bs);
-    assert(QLIST_EMPTY(&bs->dirty_bitmaps));
 
     QLIST_FOREACH_SAFE(ban, &bs->aio_notifiers, list, ban_next) {
         g_free(ban);
@@ -6247,163 +6142,6 @@ BlockDriverState *bdrv_find_node(const char *node_name)
     return NULL;
 }
 
-/* Put this QMP function here so it can access the static graph_bdrv_states. */
-BlockDeviceInfoList *bdrv_named_nodes_list(bool flat,
-                                           Error **errp)
-{
-    BlockDeviceInfoList *list;
-    BlockDriverState *bs;
-
-    GLOBAL_STATE_CODE();
-    GRAPH_RDLOCK_GUARD_MAINLOOP();
-
-    list = NULL;
-    QTAILQ_FOREACH(bs, &graph_bdrv_states, node_list) {
-        BlockDeviceInfo *info = bdrv_block_device_info(NULL, bs, flat, errp);
-        if (!info) {
-            qapi_free_BlockDeviceInfoList(list);
-            return NULL;
-        }
-        QAPI_LIST_PREPEND(list, info);
-    }
-
-    return list;
-}
-
-typedef struct XDbgBlockGraphConstructor {
-    XDbgBlockGraph *graph;
-    GHashTable *graph_nodes;
-} XDbgBlockGraphConstructor;
-
-static XDbgBlockGraphConstructor *xdbg_graph_new(void)
-{
-    XDbgBlockGraphConstructor *gr = g_new(XDbgBlockGraphConstructor, 1);
-
-    gr->graph = g_new0(XDbgBlockGraph, 1);
-    gr->graph_nodes = g_hash_table_new(NULL, NULL);
-
-    return gr;
-}
-
-static XDbgBlockGraph *xdbg_graph_finalize(XDbgBlockGraphConstructor *gr)
-{
-    XDbgBlockGraph *graph = gr->graph;
-
-    g_hash_table_destroy(gr->graph_nodes);
-    g_free(gr);
-
-    return graph;
-}
-
-static uintptr_t xdbg_graph_node_num(XDbgBlockGraphConstructor *gr, void *node)
-{
-    uintptr_t ret = (uintptr_t)g_hash_table_lookup(gr->graph_nodes, node);
-
-    if (ret != 0) {
-        return ret;
-    }
-
-    /*
-     * Start counting from 1, not 0, because 0 interferes with not-found (NULL)
-     * answer of g_hash_table_lookup.
-     */
-    ret = g_hash_table_size(gr->graph_nodes) + 1;
-    g_hash_table_insert(gr->graph_nodes, node, (void *)ret);
-
-    return ret;
-}
-
-static void xdbg_graph_add_node(XDbgBlockGraphConstructor *gr, void *node,
-                                XDbgBlockGraphNodeType type, const char *name)
-{
-    XDbgBlockGraphNode *n;
-
-    n = g_new0(XDbgBlockGraphNode, 1);
-
-    n->id = xdbg_graph_node_num(gr, node);
-    n->type = type;
-    n->name = g_strdup(name);
-
-    QAPI_LIST_PREPEND(gr->graph->nodes, n);
-}
-
-static void xdbg_graph_add_edge(XDbgBlockGraphConstructor *gr, void *parent,
-                                const BdrvChild *child)
-{
-    BlockPermission qapi_perm;
-    XDbgBlockGraphEdge *edge;
-    GLOBAL_STATE_CODE();
-
-    edge = g_new0(XDbgBlockGraphEdge, 1);
-
-    edge->parent = xdbg_graph_node_num(gr, parent);
-    edge->child = xdbg_graph_node_num(gr, child->bs);
-    edge->name = g_strdup(child->name);
-
-    for (qapi_perm = 0; qapi_perm < BLOCK_PERMISSION__MAX; qapi_perm++) {
-        uint64_t flag = bdrv_qapi_perm_to_blk_perm(qapi_perm);
-
-        if (flag & child->perm) {
-            QAPI_LIST_PREPEND(edge->perm, qapi_perm);
-        }
-        if (flag & child->shared_perm) {
-            QAPI_LIST_PREPEND(edge->shared_perm, qapi_perm);
-        }
-    }
-
-    QAPI_LIST_PREPEND(gr->graph->edges, edge);
-}
-
-
-XDbgBlockGraph *bdrv_get_xdbg_block_graph(Error **errp)
-{
-    BlockBackend *blk;
-    BlockJob *job;
-    BlockDriverState *bs;
-    BdrvChild *child;
-    XDbgBlockGraphConstructor *gr = xdbg_graph_new();
-
-    GLOBAL_STATE_CODE();
-
-    for (blk = blk_all_next(NULL); blk; blk = blk_all_next(blk)) {
-        char *allocated_name = NULL;
-        const char *name = blk_name(blk);
-
-        if (!*name) {
-            name = allocated_name = blk_get_attached_dev_id(blk);
-        }
-        xdbg_graph_add_node(gr, blk, XDBG_BLOCK_GRAPH_NODE_TYPE_BLOCK_BACKEND,
-                           name);
-        g_free(allocated_name);
-        if (blk_root(blk)) {
-            xdbg_graph_add_edge(gr, blk, blk_root(blk));
-        }
-    }
-
-    WITH_JOB_LOCK_GUARD() {
-        for (job = block_job_next_locked(NULL); job;
-             job = block_job_next_locked(job)) {
-            GSList *el;
-
-            xdbg_graph_add_node(gr, job, XDBG_BLOCK_GRAPH_NODE_TYPE_BLOCK_JOB,
-                                job->job.id);
-            for (el = job->nodes; el; el = el->next) {
-                xdbg_graph_add_edge(gr, job, (BdrvChild *)el->data);
-            }
-        }
-    }
-
-    QTAILQ_FOREACH(bs, &graph_bdrv_states, node_list) {
-        xdbg_graph_add_node(gr, bs, XDBG_BLOCK_GRAPH_NODE_TYPE_BLOCK_DRIVER,
-                           bs->node_name);
-        QLIST_FOREACH(child, &bs->children, next) {
-            xdbg_graph_add_edge(gr, bs, child);
-        }
-    }
-
-    return xdbg_graph_finalize(gr);
-}
-
 BlockDriverState *bdrv_lookup_bs(const char *device,
                                  const char *node_name,
                                  Error **errp)
@@ -6854,7 +6592,6 @@ int bdrv_activate(BlockDriverState *bs, Error **errp)
     BdrvChild *child, *parent;
     Error *local_err = NULL;
     int ret;
-    BdrvDirtyBitmap *bm;
 
     GLOBAL_STATE_CODE();
     GRAPH_RDLOCK_GUARD_MAINLOOP();
@@ -6896,10 +6633,6 @@ int bdrv_activate(BlockDriverState *bs, Error **errp)
         if (ret < 0) {
             bs->open_flags |= BDRV_O_INACTIVE;
             return ret;
-        }
-
-        FOR_EACH_DIRTY_BITMAP(bs, bm) {
-            bdrv_dirty_bitmap_skip_store(bm, false);
         }
 
         ret = bdrv_refresh_total_sectors(bs, bs->total_sectors);
@@ -8039,7 +7772,7 @@ void bdrv_refresh_filename(BlockDriverState *bs)
 
     if (bs->open_flags & BDRV_O_NO_IO) {
         /* Without I/O, the backing file does not change anything.
-         * Therefore, in such a case (primarily qemu-img), we can
+         * Therefore, in such a metadata-only case, we can
          * pretend the backing file has not been overridden even if
          * it technically has been. */
         backing_overridden = false;

@@ -233,9 +233,7 @@ bool migrate_colo(void)
 
 bool migrate_dirty_bitmaps(void)
 {
-    MigrationState *s = migrate_get_current();
-
-    return s->capabilities[MIGRATION_CAPABILITY_DIRTY_BITMAPS];
+    return false;
 }
 
 bool migrate_dirty_limit(void)
@@ -368,7 +366,7 @@ bool migrate_multifd_flush_after_each_section(void)
 
 bool migrate_postcopy(void)
 {
-    return migrate_postcopy_ram() || migrate_dirty_bitmaps();
+    return migrate_postcopy_ram();
 }
 
 bool migrate_rdma(void)
@@ -428,7 +426,6 @@ typedef struct MigrateCapsSet MigrateCapsSet;
 static const
 INITIALIZE_MIGRATE_CAPS_SET(check_caps_background_snapshot,
     MIGRATION_CAPABILITY_POSTCOPY_RAM,
-    MIGRATION_CAPABILITY_DIRTY_BITMAPS,
     MIGRATION_CAPABILITY_POSTCOPY_BLOCKTIME,
     MIGRATION_CAPABILITY_LATE_BLOCK_ACTIVATE,
     MIGRATION_CAPABILITY_RETURN_PATH,
@@ -1112,9 +1109,8 @@ bool migrate_params_check(MigrationParameters *params, Error **errp)
        return false;
     }
 
-    if (params->has_block_bitmap_mapping &&
-        !check_dirty_bitmap_mig_alias_map(params->block_bitmap_mapping, errp)) {
-        error_prepend(errp, "Invalid mapping given for block-bitmap-mapping: ");
+    if (params->has_block_bitmap_mapping) {
+        error_setg(errp, "block dirty bitmap migration was removed");
         return false;
     }
 

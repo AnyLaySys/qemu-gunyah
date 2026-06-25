@@ -22,9 +22,9 @@ option('audio_drv_list', type: 'array', value: ['default'],
        choices: ['aaudio', 'alsa', 'coreaudio', 'default', 'dsound', 'jack', 'oss', 'pa', 'pipewire', 'sdl', 'sndio'],
        description: 'Set audio driver list')
 option('block_drv_rw_whitelist', type : 'string', value : '',
-       description: 'set block driver read-write whitelist (by default affects only QEMU, not tools like qemu-img)')
+       description: 'set block driver read-write whitelist')
 option('block_drv_ro_whitelist', type : 'string', value : '',
-       description: 'set block driver read-only whitelist (by default affects only QEMU, not tools like qemu-img)')
+       description: 'set block driver read-only whitelist')
 option('interp_prefix', type : 'string', value : '/usr/gnemul/qemu-%M',
        description: 'where to find shared libraries etc., use %M for cpu name')
 option('rtsig_map', type : 'string', value : 'NULL',
@@ -57,7 +57,7 @@ option('guest_agent', type : 'feature', value : 'auto',
        description: 'Build QEMU Guest Agent')
 option('guest_agent_msi', type : 'feature', value : 'auto',
        description: 'Build MSI package for the QEMU Guest Agent')
-option('tools', type : 'feature', value : 'auto',
+option('tools', type : 'feature', value : 'disabled',
        description: 'build support utilities that come with QEMU')
 option('qga_vss', type : 'feature', value: 'auto',
        description: 'build QGA VSS support (broken with MinGW)')
@@ -242,11 +242,6 @@ option('uadk', type : 'feature', value : 'auto',
        description: 'UADK Library support')
 option('qatzip', type: 'feature', value: 'auto',
        description: 'QATzip compression support')
-option('fuse', type: 'feature', value: 'auto',
-       description: 'FUSE block device export')
-option('fuse_lseek', type : 'feature', value : 'auto',
-       description: 'SEEK_HOLE/SEEK_DATA support for FUSE exports')
-
 option('trace_backends', type: 'array', value: ['log'],
        choices: ['dtrace', 'ftrace', 'log', 'nop', 'simple', 'syslog', 'ust'],
        description: 'Set available tracing backends')
@@ -282,10 +277,6 @@ option('vhost_user_blk_server', type: 'feature', value: 'auto',
        description: 'build vhost-user-blk server')
 option('virtfs', type: 'feature', value: 'auto',
        description: 'virtio-9p support')
-option('libvduse', type: 'feature', value: 'auto',
-       description: 'build VDUSE Library')
-option('vduse_blk_export', type: 'feature', value: 'auto',
-       description: 'VDUSE block export support')
 
 option('capstone', type: 'feature', value: 'auto',
        description: 'Whether and how to find the capstone library')
@@ -293,8 +284,6 @@ option('fdt', type: 'combo', value: 'auto',
        choices: ['disabled', 'enabled', 'auto', 'system', 'internal'],
        description: 'Whether and how to find the libfdt library')
 
-option('selinux', type: 'feature', value: 'auto',
-       description: 'SELinux support in qemu-nbd')
 option('replication', type: 'feature', value: 'auto',
        description: 'replication support')
 option('colo_proxy', type: 'feature', value: 'auto',

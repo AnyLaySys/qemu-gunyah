@@ -25,7 +25,6 @@
 #include "qemu/osdep.h"
 #include "audio/audio.h"
 #include "block/block.h"
-#include "block/export.h"
 #include "chardev/char.h"
 #include "crypto/cipher.h"
 #include "crypto/init.h"
@@ -908,15 +907,6 @@ void qemu_cleanup(int status)
      * try to do this early so that it also stops using devices.
      */
     migration_shutdown();
-
-    /*
-     * Close the exports before draining the block layer. The export
-     * drivers may have coroutines yielding on it, so we need to clean
-     * them up before the drain, as otherwise they may be get stuck in
-     * blk_wait_while_drained().
-     */
-    blk_exp_close_all();
-
 
     /* No more vcpu or device emulation activity beyond this point */
     vm_shutdown();

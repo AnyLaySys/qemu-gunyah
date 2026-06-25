@@ -30,8 +30,6 @@
 #include "block/blockjob_int.h"
 #include "block/block_int.h"
 #include "block/coroutines.h"
-#include "block/dirty-bitmap.h"
-#include "block/write-threshold.h"
 #include "qemu/cutils.h"
 #include "qemu/memalign.h"
 #include "qapi/error.h"
@@ -2005,7 +2003,6 @@ bdrv_co_write_req_prepare(BdrvChild *child, int64_t offset, int64_t bytes,
         } else {
             assert(child->perm & BLK_PERM_WRITE);
         }
-        bdrv_write_threshold_check_write(bs, offset, bytes);
         return 0;
     case BDRV_TRACKED_TRUNCATE:
         assert(child->perm & BLK_PERM_RESIZE);
@@ -2039,15 +2036,12 @@ bdrv_co_write_req_finish(BdrvChild *child, int64_t offset, int64_t bytes,
         req->type != BDRV_TRACKED_DISCARD) {
         bs->total_sectors = end_sector;
         bdrv_parent_cb_resize(bs);
-        bdrv_dirty_bitmap_truncate(bs, end_sector << BDRV_SECTOR_BITS);
     }
     if (req->bytes) {
         switch (req->type) {
         case BDRV_TRACKED_WRITE:
             stat64_max(&bs->wr_highest_offset, offset + bytes);
-            /* fall through, to set dirty bits */
         case BDRV_TRACKED_DISCARD:
-            bdrv_set_dirty(bs, offset, bytes);
             break;
         default:
             break;
@@ -2076,10 +2070,6 @@ bdrv_aligned_pwritev(BdrvChild *child, BdrvTrackedRequest *req,
 
     if (!drv) {
         return -ENOMEDIUM;
-    }
-
-    if (bdrv_has_readonly_bitmaps(bs)) {
-        return -EPERM;
     }
 
     assert(is_power_of_2(align));
@@ -3086,10 +3076,6 @@ int coroutine_fn bdrv_co_pdiscard(BdrvChild *child, int64_t offset,
 
     if (!bs || !bs->drv || !bdrv_co_is_inserted(bs)) {
         return -ENOMEDIUM;
-    }
-
-    if (bdrv_has_readonly_bitmaps(bs)) {
-        return -EPERM;
     }
 
     ret = bdrv_check_request(offset, bytes, NULL);

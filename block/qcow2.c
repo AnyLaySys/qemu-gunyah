@@ -43,7 +43,6 @@
 #include "qapi/qapi-visit-block-core.h"
 #include "crypto.h"
 #include "block/aio_task.h"
-#include "block/dirty-bitmap.h"
 
 /*
   Differences with QCOW:
@@ -347,8 +346,7 @@ qcow2_read_extensions(BlockDriverState *bs, uint64_t start_offset,
                                 "considered inconsistent");
                 }
                 error_printf("Some clusters may be leaked, "
-                             "run 'qemu-img check -r' on the image "
-                             "file to fix.");
+                             "repair the image offline to fix.");
                 if (need_update_header != NULL) {
                     /* Updating is needed to drop invalid bitmap extension. */
                     *need_update_header = true;
@@ -1502,10 +1500,9 @@ qcow2_do_open(BlockDriverState *bs, QDict *options, int flags,
                        "Use of AES-CBC encrypted qcow2 images is no longer "
                        "supported in system emulators");
             error_append_hint(errp,
-                              "You can use 'qemu-img convert' to convert your "
-                              "image to an alternative supported format, such "
-                              "as unencrypted qcow2, or raw with the LUKS "
-                              "format instead.\n");
+                              "Convert the image to an alternative supported "
+                              "format, such as unencrypted qcow2, or raw with "
+                              "the LUKS format instead.\n");
             ret = -ENOSYS;
             goto fail;
         }
@@ -1638,9 +1635,9 @@ qcow2_do_open(BlockDriverState *bs, QDict *options, int flags,
 
     if (open_data_file && (flags & BDRV_O_NO_IO)) {
         /*
-         * Don't open the data file for 'qemu-img info' so that it can be used
-         * to verify that an untrusted qcow2 image doesn't refer to external
-         * files.
+         * Don't open the data file for metadata-only image inspection so that
+         * it can verify that an untrusted qcow2 image doesn't refer to
+         * external files.
          *
          * Note: This still makes has_data_file() return true.
          */
@@ -1781,75 +1778,6 @@ qcow2_do_open(BlockDriverState *bs, QDict *options, int flags,
     update_header = update_header && bdrv_is_writable(bs);
     if (update_header) {
         s->autoclear_features &= QCOW2_AUTOCLEAR_MASK;
-    }
-
-    /* == Handle persistent dirty bitmaps ==
-     *
-     * We want load dirty bitmaps in three cases:
-     *
-     * 1. Normal open of the disk in active mode, not related to invalidation
-     *    after migration.
-     *
-     * 2. Invalidation of the target vm after pre-copy phase of migration, if
-     *    bitmaps are _not_ migrating through migration channel, i.e.
-     *    'dirty-bitmaps' capability is disabled.
-     *
-     * 3. Invalidation of source vm after failed or canceled migration.
-     *    This is a very interesting case. There are two possible types of
-     *    bitmaps:
-     *
-     *    A. Stored on inactivation and removed. They should be loaded from the
-     *       image.
-     *
-     *    B. Not stored: not-persistent bitmaps and bitmaps, migrated through
-     *       the migration channel (with dirty-bitmaps capability).
-     *
-     *    On the other hand, there are two possible sub-cases:
-     *
-     *    3.1 disk was changed by somebody else while were inactive. In this
-     *        case all in-RAM dirty bitmaps (both persistent and not) are
-     *        definitely invalid. And we don't have any method to determine
-     *        this.
-     *
-     *        Simple and safe thing is to just drop all the bitmaps of type B on
-     *        inactivation. But in this case we lose bitmaps in valid 4.2 case.
-     *
-     *        On the other hand, resuming source vm, if disk was already changed
-     *        is a bad thing anyway: not only bitmaps, the whole vm state is
-     *        out of sync with disk.
-     *
-     *        This means, that user or management tool, who for some reason
-     *        decided to resume source vm, after disk was already changed by
-     *        target vm, should at least drop all dirty bitmaps by hand.
-     *
-     *        So, we can ignore this case for now, but TODO: "generation"
-     *        extension for qcow2, to determine, that image was changed after
-     *        last inactivation. And if it is changed, we will drop (or at least
-     *        mark as 'invalid' all the bitmaps of type B, both persistent
-     *        and not).
-     *
-     *    3.2 disk was _not_ changed while were inactive. Bitmaps may be saved
-     *        to disk ('dirty-bitmaps' capability disabled), or not saved
-     *        ('dirty-bitmaps' capability enabled), but we don't need to care
-     *        of: let's load bitmaps as always: stored bitmaps will be loaded,
-     *        and not stored has flag IN_USE=1 in the image and will be skipped
-     *        on loading.
-     *
-     * One remaining possible case when we don't want load bitmaps:
-     *
-     * 4. Open disk in inactive mode in target vm (bitmaps are migrating or
-     *    will be loaded on invalidation, no needs try loading them before)
-     */
-
-    if (!(bdrv_get_flags(bs) & BDRV_O_INACTIVE)) {
-        /* It's case 1, 2 or 3.2. Or 3.1 which is BUG in management layer. */
-        bool header_updated;
-        if (!qcow2_load_dirty_bitmaps(bs, &header_updated, errp)) {
-            ret = -EINVAL;
-            goto fail;
-        }
-
-        update_header = update_header && !header_updated;
     }
 
     if (update_header) {
@@ -2006,11 +1934,6 @@ qcow2_reopen_prepare(BDRVReopenState *state,BlockReopenQueue *queue,
 
     /* We need to write out any unwritten data if we reopen read-only. */
     if ((state->flags & BDRV_O_RDWR) == 0) {
-        ret = qcow2_reopen_bitmaps_ro(state->bs, errp);
-        if (ret < 0) {
-            goto fail;
-        }
-
         ret = bdrv_flush(state->bs);
         if (ret < 0) {
             goto fail;
@@ -2055,26 +1978,6 @@ static void qcow2_reopen_commit(BDRVReopenState *state)
         s->data_file = state->bs->file;
     }
     g_free(state->opaque);
-}
-
-static void qcow2_reopen_commit_post(BDRVReopenState *state)
-{
-    GRAPH_RDLOCK_GUARD_MAINLOOP();
-
-    if (state->flags & BDRV_O_RDWR) {
-        Error *local_err = NULL;
-
-        if (qcow2_reopen_bitmaps_rw(state->bs, &local_err) < 0) {
-            /*
-             * This is not fatal, bitmaps just left read-only, so all following
-             * writes will fail. User can remove read-only bitmaps to unblock
-             * writes or retry reopen.
-             */
-            error_reportf_err(local_err,
-                              "%s: Failed to make dirty bitmaps writable: ",
-                              bdrv_get_node_name(state->bs));
-        }
-    }
 }
 
 static void qcow2_reopen_abort(BDRVReopenState *state)
@@ -2760,15 +2663,6 @@ static int GRAPH_RDLOCK qcow2_inactivate(BlockDriverState *bs)
 {
     BDRVQcow2State *s = bs->opaque;
     int ret, result = 0;
-    Error *local_err = NULL;
-
-    qcow2_store_persistent_dirty_bitmaps(bs, true, &local_err);
-    if (local_err != NULL) {
-        result = -EINVAL;
-        error_reportf_err(local_err, "Lost persistent bitmaps during "
-                          "inactivation of node '%s': ",
-                          bdrv_get_device_or_node_name(bs));
-    }
 
     ret = qcow2_cache_flush(bs, s->l2_table_cache);
     if (ret) {
@@ -4331,8 +4225,8 @@ qcow2_co_truncate(BlockDriverState *bs, int64_t offset, bool exact,
         goto fail;
     }
 
-    /* See qcow2-bitmap.c for which bitmap scenarios prevent a resize. */
-    if (qcow2_truncate_bitmaps_check(bs, errp)) {
+    if (s->nb_bitmaps) {
+        error_setg(errp, "Cannot resize qcow2 with persistent bitmaps");
         ret = -ENOTSUP;
         goto fail;
     }
@@ -4392,7 +4286,7 @@ qcow2_co_truncate(BlockDriverState *bs, int64_t offset, bool exact,
             /*
              * Do not pass @exact here: It will not help the user if
              * we get an error here just because they wanted to shrink
-             * their qcow2 image (on a block device) with qemu-img.
+             * their qcow2 image on a block device.
              * (And on the qcow2 layer, the @exact requirement is
              * always fulfilled, so there is no need to pass it on.)
              */
@@ -5219,16 +5113,9 @@ static BlockMeasureInfo *qcow2_measure(QemuOpts *opts, BlockDriverState *in_bs,
     /*
      * Remove data clusters that are not required.  This overestimates the
      * required size because metadata needed for the fully allocated file is
-     * still counted.  Show bitmaps only if both source and destination
-     * would support them.
+     * still counted.
      */
     info->required = info->fully_allocated - virtual_size + required;
-    info->has_bitmaps = version >= 3 && in_bs &&
-        bdrv_supports_persistent_dirty_bitmap(in_bs);
-    if (info->has_bitmaps) {
-        info->bitmaps = qcow2_get_persistent_dirty_bitmap_size(in_bs,
-                                                               cluster_size);
-    }
     return info;
 
 err:
@@ -5272,12 +5159,6 @@ qcow2_get_specific_info(BlockDriverState *bs, Error **errp)
             .refcount_bits      = s->refcount_bits,
         };
     } else if (s->qcow_version == 3) {
-        Qcow2BitmapInfoList *bitmaps;
-        if (!qcow2_get_bitmap_info_list(bs, &bitmaps, errp)) {
-            qapi_free_ImageInfoSpecific(spec_info);
-            qapi_free_QCryptoBlockInfo(encrypt_info);
-            return NULL;
-        }
         *spec_info->u.qcow2.data = (ImageInfoSpecificQCow2){
             .compat             = g_strdup("1.1"),
             .lazy_refcounts     = s->compatible_features &
@@ -5289,8 +5170,6 @@ qcow2_get_specific_info(BlockDriverState *bs, Error **errp)
             .has_extended_l2    = true,
             .extended_l2        = has_subclusters(s),
             .refcount_bits      = s->refcount_bits,
-            .has_bitmaps        = !!bitmaps,
-            .bitmaps            = bitmaps,
             .data_file          = g_strdup(s->image_data_file),
             .has_data_file_raw  = has_data_file(bs),
             .data_file_raw      = data_file_is_raw(bs),
@@ -5861,8 +5740,6 @@ qcow2_amend_options(BlockDriverState *bs, QemuOpts *opts,
         if (g_strcmp0(backing_file, s->image_backing_file) ||
             g_strcmp0(backing_format, s->image_backing_format)) {
             error_setg(errp, "Cannot amend the backing file");
-            error_append_hint(errp,
-                              "You can use 'qemu-img rebase' instead.\n");
             return -EINVAL;
         }
     }
@@ -6147,7 +6024,6 @@ BlockDriver bdrv_qcow2 = {
     .bdrv_close                         = qcow2_close,
     .bdrv_reopen_prepare                = qcow2_reopen_prepare,
     .bdrv_reopen_commit                 = qcow2_reopen_commit,
-    .bdrv_reopen_commit_post            = qcow2_reopen_commit_post,
     .bdrv_reopen_abort                  = qcow2_reopen_abort,
     .bdrv_join_options                  = qcow2_join_options,
     .bdrv_child_perm                    = bdrv_default_perms,
@@ -6199,11 +6075,6 @@ BlockDriver bdrv_qcow2 = {
     .bdrv_detach_aio_context            = qcow2_detach_aio_context,
     .bdrv_attach_aio_context            = qcow2_attach_aio_context,
 
-    .bdrv_supports_persistent_dirty_bitmap =
-            qcow2_supports_persistent_dirty_bitmap,
-    .bdrv_co_can_store_new_dirty_bitmap = qcow2_co_can_store_new_dirty_bitmap,
-    .bdrv_co_remove_persistent_dirty_bitmap =
-            qcow2_co_remove_persistent_dirty_bitmap,
 };
 
 static void bdrv_qcow2_init(void)

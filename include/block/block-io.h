@@ -286,13 +286,6 @@ void coroutine_fn bdrv_co_leave(BlockDriverState *bs, AioContext *old_ctx);
 
 AioContext *child_of_bds_get_parent_aio_context(BdrvChild *c);
 
-bool coroutine_fn GRAPH_RDLOCK
-bdrv_co_can_store_new_dirty_bitmap(BlockDriverState *bs, const char *name,
-                                   uint32_t granularity, Error **errp);
-bool co_wrapper_bdrv_rdlock
-bdrv_can_store_new_dirty_bitmap(BlockDriverState *bs, const char *name,
-                                uint32_t granularity, Error **errp);
-
 /**
  *
  * bdrv_co_copy_range:

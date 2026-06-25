@@ -773,14 +773,6 @@ struct BlockDriver {
     void coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_debug_event)(
         BlockDriverState *bs, BlkdebugEvent event);
 
-    bool (*bdrv_supports_persistent_dirty_bitmap)(BlockDriverState *bs);
-
-    bool coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_can_store_new_dirty_bitmap)(
-        BlockDriverState *bs, const char *name, uint32_t granularity,
-        Error **errp);
-
-    int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_remove_persistent_dirty_bitmap)(
-        BlockDriverState *bs, const char *name, Error **errp);
 };
 
 static inline bool TSA_NO_TSA block_driver_can_compress(BlockDriver *drv)
@@ -1197,18 +1189,6 @@ struct BlockDriverState {
      * save_snaphost, but the block layer is quiescent during those.
      */
     int64_t total_sectors;
-
-    /* threshold limit for writes, in bytes. "High water mark". */
-    uint64_t write_threshold_offset;
-
-    /*
-     * Writing to the list requires the BQL _and_ the dirty_bitmap_mutex.
-     * Reading from the list can be done with either the BQL or the
-     * dirty_bitmap_mutex.  Modifying a bitmap only requires
-     * dirty_bitmap_mutex.
-     */
-    QemuMutex dirty_bitmap_mutex;
-    QLIST_HEAD(, BdrvDirtyBitmap) dirty_bitmaps;
 
     /* Offset after the highest byte written to */
     Stat64 wr_highest_offset;

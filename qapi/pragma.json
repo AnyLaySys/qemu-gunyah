@@ -10,7 +10,6 @@
     'command-name-exceptions': [
         'add_client',
         'block_resize',
-        'block_set_io_throttle',
         'client_migrate_info',
         'device_add',
         'device_del',
@@ -48,7 +47,6 @@
         'BlockdevVmdkAdapterType',
         'DisplayProtocol',
         'DriveBackupWrapper',
-        'DummyBlockCoreForceArrays',
         'DummyForceArrays',
         'DummyVirtioForceArrays',
         'HotKeyMod',
@@ -70,26 +68,18 @@
         'String',
         'StringWrapper',
         'SysEmuTarget',
-        'ThrottleGroupProperties',
         'VncPrimaryAuth',
         'VncVencryptSubAuth',
         'X86CPURegister32',
-        'XDbgBlockGraph',
-        'YankInstanceType',
-        'blockdev-reopen' ],
+        'YankInstanceType' ],
     # Externally visible types whose member names may use uppercase
     'member-name-exceptions': [     # visible in:
         'ACPISlotType',             # query-acpi-ospm-status
         'AcpiTableOptions',         # -acpitable
         'BlkdebugEvent',            # blockdev-add, -blockdev
         'BlkdebugSetStateOptions',  # blockdev-add, -blockdev
-        'BlockDeviceInfo',          # query-block
-        'BlockDeviceStats',         # query-blockstats
-        'BlockDeviceTimedStats',    # query-blockstats
-        'BlockIOThrottle',          # block_set_io_throttle
-        'BlockInfo',                # query-block
         'BlockdevAioOptions',       # blockdev-add, -blockdev
-        'BlockdevDriver',           # blockdev-add, query-blockstats, ...
+        'BlockdevDriver',           # blockdev-add, -blockdev, ...
         'BlockdevVmdkAdapterType',  # blockdev-create (to match VMDK spec)
         'BlockdevVmdkSubformat',    # blockdev-create (to match VMDK spec)
         'InputLinuxProperties',     # object_add, -object

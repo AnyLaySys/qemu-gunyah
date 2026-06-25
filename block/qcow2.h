@@ -1022,42 +1022,6 @@ void qcow2_cache_put(Qcow2Cache *c, void **table);
 void *qcow2_cache_is_table_offset(Qcow2Cache *c, uint64_t offset);
 void qcow2_cache_discard(Qcow2Cache *c, void *table);
 
-/* qcow2-bitmap.c functions */
-int coroutine_fn GRAPH_RDLOCK
-qcow2_check_bitmaps_refcounts(BlockDriverState *bs, BdrvCheckResult *res,
-                              void **refcount_table,
-                              int64_t *refcount_table_size);
-
-bool coroutine_fn GRAPH_RDLOCK
-qcow2_load_dirty_bitmaps(BlockDriverState *bs, bool *header_updated,
-                         Error **errp);
-
-bool GRAPH_RDLOCK
-qcow2_get_bitmap_info_list(BlockDriverState *bs,
-                           Qcow2BitmapInfoList **info_list, Error **errp);
-
-int GRAPH_RDLOCK qcow2_reopen_bitmaps_rw(BlockDriverState *bs, Error **errp);
-int GRAPH_RDLOCK qcow2_reopen_bitmaps_ro(BlockDriverState *bs, Error **errp);
-
-int coroutine_fn GRAPH_RDLOCK
-qcow2_truncate_bitmaps_check(BlockDriverState *bs, Error **errp);
-
-bool GRAPH_RDLOCK
-qcow2_store_persistent_dirty_bitmaps(BlockDriverState *bs, bool release_stored,
-                                     Error **errp);
-
-bool coroutine_fn GRAPH_RDLOCK
-qcow2_co_can_store_new_dirty_bitmap(BlockDriverState *bs, const char *name,
-                                    uint32_t granularity, Error **errp);
-
-int coroutine_fn GRAPH_RDLOCK
-qcow2_co_remove_persistent_dirty_bitmap(BlockDriverState *bs, const char *name,
-                                        Error **errp);
-
-bool qcow2_supports_persistent_dirty_bitmap(BlockDriverState *bs);
-uint64_t qcow2_get_persistent_dirty_bitmap_size(BlockDriverState *bs,
-                                                uint32_t cluster_size);
-
 ssize_t coroutine_fn
 qcow2_co_compress(BlockDriverState *bs, void *dest, size_t dest_size,
                   const void *src, size_t src_size);

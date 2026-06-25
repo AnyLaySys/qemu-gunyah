@@ -65,7 +65,6 @@ void qmp_stop(Error **errp)
 void qmp_cont(Error **errp)
 {
     BlockBackend *blk;
-    BlockJob *job;
     Error *local_err = NULL;
 
     /* if there is a dump in background, we should wait until the dump
@@ -87,13 +86,6 @@ void qmp_cont(Error **errp)
 
     for (blk = blk_next(NULL); blk; blk = blk_next(blk)) {
         blk_iostatus_reset(blk);
-    }
-
-    WITH_JOB_LOCK_GUARD() {
-        for (job = block_job_next_locked(NULL); job;
-             job = block_job_next_locked(job)) {
-            block_job_iostatus_reset_locked(job);
-        }
     }
 
     if (runstate_check(RUN_STATE_INMIGRATE)) {

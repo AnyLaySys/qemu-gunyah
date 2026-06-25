@@ -199,8 +199,8 @@ static inline bool buffer_is_zero_sample3(const char *buf, size_t len)
 {
     /*
      * For any reasonably sized buffer, these three samples come from
-     * three different cachelines.  In qemu-img usage, we find that
-     * each byte eliminates more than half of all buffer testing.
+     * three different cachelines.  Each byte eliminates more than half
+     * of all buffer testing.
      * It is therefore critical to performance that the byte tests
      * short-circuit, so that we do not pull in additional cache lines.
      * Do not "optimize" this to !(a | b | c).

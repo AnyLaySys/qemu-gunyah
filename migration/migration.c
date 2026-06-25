@@ -314,7 +314,6 @@ void migration_object_init(void)
     migration_object_check(current_migration, &error_fatal);
 
     ram_mig_init();
-    dirty_bitmap_mig_init();
 
     /* Initialize cpu throttle timers */
     cpu_throttle_init();
@@ -376,18 +375,6 @@ void migration_shutdown(void)
     migration_cancel();
     object_unref(OBJECT(current_migration));
 
-    /*
-     * Cancel outgoing migration of dirty bitmaps. It should
-     * at least unref used block nodes.
-     */
-    dirty_bitmap_mig_cancel_outgoing();
-
-    /*
-     * Cancel incoming migration of dirty bitmaps. Dirty bitmaps
-     * are non-critical data, and their loss never considered as
-     * something serious.
-     */
-    dirty_bitmap_mig_cancel_incoming();
 }
 
 /* For outgoing */
@@ -805,8 +792,6 @@ static void process_incoming_migration_bh(void *opaque)
     trace_vmstate_downtime_checkpoint("dst-precopy-bh-announced");
 
     multifd_recv_shutdown();
-
-    dirty_bitmap_mig_before_vm_start();
 
     if (runstate_is_live(migration_get_target_runstate())) {
         if (autostart) {

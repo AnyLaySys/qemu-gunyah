@@ -45,10 +45,8 @@ Type-1 Hypervisor 不是跑在普通应用层里的软件模拟器，而是更�
 目前只保留：
 
 * ``qemu-system-aarch64``
-* ``qemu-img``
 
-``qemu-img`` 仍然保留，用来处理镜像。被移除的主要是当前启动路径不会用到、但会
-增加依赖、体积和构建时间的组件。
+被移除的主要是当前启动路径不会用到、但会增加依赖、体积和构建时间的组件。
 
 
 当前支持的主要设备 ✅
@@ -71,10 +69,10 @@ Type-1 Hypervisor 不是跑在普通应用层里的软件模拟器，而是更�
 
 * ``virtio-blk-pci``
 * raw 镜像
+* qcow2 镜像
 * ISO 启动
 * ``aio=threads``
 * ``discard=unmap``
-* ``qemu-img``
 
 当前重点是挂载磁盘、挂载 ISO 并启动系统。SCSI 相关设备没有保留。
 
@@ -182,7 +180,6 @@ AAudio 更贴近 Android 侧的运行环境，不依赖 PulseAudio/ALSA 这类�
 
   qemu-gunyah/
   ├── qemu-system-aarch64
-  ├── qemu-img
   ├── fw/
   └── lib/
 

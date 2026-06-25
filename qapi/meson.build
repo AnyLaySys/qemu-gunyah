@@ -25,7 +25,6 @@ qapi_all_modules = [
   'authz',
   'block',
   'block-core',
-  'block-export',
   'char',
   'common',
   'compat',
@@ -50,7 +49,6 @@ qapi_all_modules = [
   'sockets',
   'stats',
   'trace',
-  'transaction',
   'vfio',
   'virtio',
   'yank',
@@ -59,7 +57,6 @@ if have_system
   qapi_all_modules += [
     'acpi',
     'audio',
-    'cryptodev',
     'qdev',
     'pci',
     'tpm',

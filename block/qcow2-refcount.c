@@ -1573,9 +1573,8 @@ qcow2_inc_refcounts_imrt(BlockDriverState *bs, BdrvCheckResult *res,
         if (refcount == s->refcount_max) {
             fprintf(stderr, "ERROR: overflow cluster offset=0x%" PRIx64
                     "\n", cluster_offset);
-            fprintf(stderr, "Use qemu-img amend to increase the refcount entry "
-                    "width or qemu-img convert to create a clean copy if the "
-                    "image cannot be opened for writing\n");
+            fprintf(stderr, "Increase the refcount entry width or create a "
+                    "clean copy if the image cannot be opened for writing\n");
             res->corruptions++;
             continue;
         }
@@ -2285,12 +2284,6 @@ calculate_refcounts(BlockDriverState *bs, BdrvCheckResult *res,
         if (ret < 0) {
             return ret;
         }
-    }
-
-    /* bitmaps */
-    ret = qcow2_check_bitmaps_refcounts(bs, res, refcount_table, nb_clusters);
-    if (ret < 0) {
-        return ret;
     }
 
     return check_refblocks(bs, res, fix, rebuild, refcount_table, nb_clusters);
