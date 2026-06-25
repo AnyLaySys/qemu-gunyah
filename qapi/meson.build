@@ -31,7 +31,6 @@ qapi_all_modules = [
   'compat',
   'control',
   'crypto',
-  'cxl',
   'dump',
   'ebpf',
   'error',
@@ -63,7 +62,6 @@ if have_system
     'cryptodev',
     'qdev',
     'pci',
-    'rocker',
     'tpm',
     'uefi',
   ]

@@ -756,41 +756,6 @@ SRST
 ERST
 
     {
-        .name       = "wavcapture",
-        .args_type  = "path:F,audiodev:s,freq:i?,bits:i?,nchannels:i?",
-        .params     = "path audiodev [frequency [bits [channels]]]",
-        .help       = "capture audio to a wave file (default frequency=44100 bits=16 channels=2)",
-        .cmd        = hmp_wavcapture,
-    },
-SRST
-``wavcapture`` *filename* *audiodev* [*frequency* [*bits* [*channels*]]]
-  Capture audio into *filename* from *audiodev*, using sample rate
-  *frequency* bits per sample *bits* and number of channels
-  *channels*.
-
-  Defaults:
-
-  - Sample rate = 44100 Hz - CD quality
-  - Bits = 16
-  - Number of channels = 2 - Stereo
-ERST
-
-    {
-        .name       = "stopcapture",
-        .args_type  = "n:i",
-        .params     = "capture index",
-        .help       = "stop capture",
-        .cmd        = hmp_stopcapture,
-    },
-SRST
-``stopcapture`` *index*
-  Stop capture with a given *index*, index can be obtained with::
-
-    info capture
-
-ERST
-
-    {
         .name       = "memsave",
         .args_type  = "val:l,size:i,filename:s",
         .params     = "addr size file",
@@ -1277,14 +1242,7 @@ ERST
     {
         .name       = "netdev_add",
         .args_type  = "netdev:O",
-        .params     = "[user|tap|socket|stream|dgram|vde|bridge|hubport|netmap|vhost-user"
-#ifdef CONFIG_AF_XDP
-                      "|af-xdp"
-#endif
-#ifdef CONFIG_VMNET
-                      "|vmnet-host|vmnet-shared|vmnet-bridged"
-#endif
-                      "],id=str[,prop=value][,...]",
+        .params     = "[user],id=str[,prop=value][,...]",
         .help       = "add host network device",
         .cmd        = hmp_netdev_add,
         .command_completion = netdev_add_completion,

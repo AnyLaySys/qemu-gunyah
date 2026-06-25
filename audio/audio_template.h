@@ -338,8 +338,6 @@ static HW *glue(audio_pcm_hw_add_new_, TYPE)(AudioState *s,
 AudiodevPerDirectionOptions *glue(audio_get_pdo_, TYPE)(Audiodev *dev)
 {
     switch (dev->driver) {
-    case AUDIODEV_DRIVER_NONE:
-        return dev->u.none.TYPE;
 #ifdef CONFIG_AUDIO_ALSA
     case AUDIODEV_DRIVER_ALSA:
         return qapi_AudiodevAlsaPerDirectionOptions_base(dev->u.alsa.TYPE);
@@ -385,8 +383,6 @@ AudiodevPerDirectionOptions *glue(audio_get_pdo_, TYPE)(Audiodev *dev)
     case AUDIODEV_DRIVER_SPICE:
         return dev->u.spice.TYPE;
 #endif
-    case AUDIODEV_DRIVER_WAV:
-        return dev->u.wav.TYPE;
 #ifdef CONFIG_AUDIO_AAUDIO
     case AUDIODEV_DRIVER_AAUDIO:
         return dev->u.aaudio.TYPE;

@@ -2002,7 +2002,6 @@ void audio_create_pdos(Audiodev *dev)
         }                                                           \
         break
 
-        CASE(NONE, none, );
 #ifdef CONFIG_AUDIO_ALSA
         CASE(ALSA, alsa, Alsa);
 #endif
@@ -2036,7 +2035,6 @@ void audio_create_pdos(Audiodev *dev)
 #ifdef CONFIG_SPICE
         CASE(SPICE, spice, );
 #endif
-        CASE(WAV, wav, );
 #ifdef CONFIG_AUDIO_AAUDIO
         CASE(AAUDIO, aaudio, );
 #endif

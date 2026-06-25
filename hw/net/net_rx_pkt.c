@@ -17,10 +17,10 @@
 
 #include "qemu/osdep.h"
 #include "qemu/crc32c.h"
+#include "standard-headers/linux/virtio_net.h"
 #include "trace.h"
 #include "net_rx_pkt.h"
 #include "net/checksum.h"
-#include "net/tap.h"
 
 struct NetRxPkt {
     struct virtio_net_hdr virt_hdr;

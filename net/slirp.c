@@ -34,7 +34,6 @@
 #include "net/eth.h"
 #include "net/net.h"
 #include "clients.h"
-#include "hub.h"
 #include "monitor/monitor.h"
 #include "qemu/error-report.h"
 #include "qemu/sockets.h"
@@ -1136,12 +1135,8 @@ void hmp_info_usernet(Monitor *mon, const QDict *qdict)
     SlirpState *s;
 
     QTAILQ_FOREACH(s, &slirp_stacks, entry) {
-        int id;
-        bool got_hub_id = net_hub_id_for_client(&s->nc, &id) == 0;
         char *info = slirp_connection_info(s->slirp);
-        monitor_printf(mon, "Hub %d (%s):\n%s",
-                       got_hub_id ? id : -1,
-                       s->nc.name, info);
+        monitor_printf(mon, "%s:\n%s", s->nc.name, info);
         g_free(info);
     }
 }

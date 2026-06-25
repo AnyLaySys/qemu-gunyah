@@ -40,26 +40,6 @@ cpuhp_acpi_fw_remove_cpu(uint32_t idx) "0x%"PRIx32
 cpuhp_acpi_write_ost_ev(uint32_t slot, uint32_t ev) "idx[0x%"PRIx32"] OST EVENT: 0x%"PRIx32
 cpuhp_acpi_write_ost_status(uint32_t slot, uint32_t st) "idx[0x%"PRIx32"] OST STATUS: 0x%"PRIx32
 
-# pcihp.c
-acpi_pci_eject_slot(unsigned bsel, unsigned slot) "bsel: %u slot: %u"
-acpi_pci_unplug(int bsel, int slot) "bsel: %d slot: %d"
-acpi_pci_unplug_request(int bsel, int slot) "bsel: %d slot: %d"
-acpi_pci_up_read(uint32_t val) "%" PRIu32
-acpi_pci_down_read(uint32_t val) "%" PRIu32
-acpi_pci_features_read(uint32_t val) "%" PRIu32
-acpi_pci_acpi_index_read(uint32_t val) "%" PRIu32
-acpi_pci_acpi_index_write(unsigned bsel, unsigned slot, uint32_t aidx) "bsel: %u slot: %u aidx: %" PRIu32
-acpi_pci_rmv_read(uint32_t val) "%" PRIu32
-acpi_pci_sel_read(uint32_t val) "%" PRIu32
-acpi_pci_ej_write(uint64_t addr, uint64_t data) "0x%" PRIx64 " <== %" PRIu64
-acpi_pci_sel_write(uint64_t addr, uint64_t data) "0x%" PRIx64 " <== %" PRIu64
-
-# tco.c
-tco_timer_reload(int ticks, int msec) "ticks=%d (%d ms)"
-tco_timer_expired(int timeouts_no, bool strap, bool no_reboot) "timeouts_no=%d no_reboot=%d/%d"
-tco_io_write(uint64_t addr, uint32_t val) "addr=0x%" PRIx64 " val=0x%" PRIx32
-tco_io_read(uint64_t addr, uint32_t val) "addr=0x%" PRIx64 " val=0x%" PRIx32
-
 # erst.c
 acpi_erst_reg_write(uint64_t addr, uint64_t val, unsigned size) "addr: 0x%04" PRIx64 " <== 0x%016" PRIx64 " (size: %u)"
 acpi_erst_reg_read(uint64_t addr, uint64_t val, unsigned size) " addr: 0x%04" PRIx64 " ==> 0x%016" PRIx64 " (size: %u)"

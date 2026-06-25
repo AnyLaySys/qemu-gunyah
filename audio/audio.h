@@ -158,9 +158,6 @@ static inline void *advance (void *p, int incr)
     return (d + incr);
 }
 
-int wav_start_capture(AudioState *state, CaptureState *s, const char *path,
-                      int freq, int bits, int nchannels);
-
 void audio_cleanup(void);
 
 void audio_sample_to_uint64(const void *samples, int pos,

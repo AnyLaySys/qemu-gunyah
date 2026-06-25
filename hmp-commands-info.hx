@@ -348,19 +348,6 @@ SRST
 ERST
 
     {
-        .name       = "capture",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show capture information",
-        .cmd        = hmp_info_capture,
-    },
-
-SRST
-  ``info capture``
-    Show capture information.
-ERST
-
-    {
         .name       = "snapshots",
         .args_type  = "",
         .params     = "",
@@ -630,58 +617,6 @@ ERST
 SRST
   ``info iothreads``
     Show iothread's identifiers.
-ERST
-
-    {
-        .name       = "rocker",
-        .args_type  = "name:s",
-        .params     = "name",
-        .help       = "Show rocker switch",
-        .cmd        = hmp_rocker,
-    },
-
-SRST
-  ``info rocker`` *name*
-    Show rocker switch.
-ERST
-
-    {
-        .name       = "rocker-ports",
-        .args_type  = "name:s",
-        .params     = "name",
-        .help       = "Show rocker ports",
-        .cmd        = hmp_rocker_ports,
-    },
-
-SRST
-  ``info rocker-ports`` *name*-ports
-    Show rocker ports.
-ERST
-
-    {
-        .name       = "rocker-of-dpa-flows",
-        .args_type  = "name:s,tbl_id:i?",
-        .params     = "name [tbl_id]",
-        .help       = "Show rocker OF-DPA flow tables",
-        .cmd        = hmp_rocker_of_dpa_flows,
-    },
-
-SRST
-  ``info rocker-of-dpa-flows`` *name* [*tbl_id*]
-    Show rocker OF-DPA flow tables.
-ERST
-
-    {
-        .name       = "rocker-of-dpa-groups",
-        .args_type  = "name:s,type:i?",
-        .params     = "name [type]",
-        .help       = "Show rocker OF-DPA groups",
-        .cmd        = hmp_rocker_of_dpa_groups,
-    },
-
-SRST
-  ``info rocker-of-dpa-groups`` *name* [*type*]
-    Show rocker OF-DPA groups.
 ERST
 
 #if defined(TARGET_S390X)

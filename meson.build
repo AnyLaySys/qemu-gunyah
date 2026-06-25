@@ -3337,15 +3337,12 @@ if have_system
     'hw/intc',
     'hw/mem',
     'hw/misc',
-    'hw/misc/macio',
     'hw/net',
-    'hw/net/can',
     'hw/nvram',
     'hw/pci',
     'hw/pci-host',
     'hw/rtc',
     'hw/uefi',
-    'hw/usb',
     'hw/virtio',
     'hw/watchdog',
     'hw/gpio',
@@ -4090,11 +4087,6 @@ if have_tools
              install: true)
 
   if host_os == 'linux'
-    executable('qemu-bridge-helper', files('qemu-bridge-helper.c'),
-               dependencies: [qemuutil, libcap_ng],
-               install: true,
-               install_dir: get_option('libexecdir'))
-
     executable('qemu-pr-helper', files('scsi/qemu-pr-helper.c', 'scsi/utils.c'),
                dependencies: [authz, crypto, io, qom, qemuutil,
                               libcap_ng, mpathpersist],

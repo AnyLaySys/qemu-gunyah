@@ -494,13 +494,7 @@
 #
 # @hub: (since 10.0)
 #
-# @msmouse: emulated Microsoft serial mouse (since 1.5)
-#
-# @wctablet: emulated Wacom Penpartner serial tablet (since 2.9)
-#
 # @braille: Baum Braille device (since 1.5)
-#
-# @testdev: device for test-suite control (since 2.2)
 #
 # @stdio: standard I/O (since 1.5)
 #
@@ -537,10 +531,7 @@
             'null',
             'mux',
             'hub',
-            'msmouse',
-            'wctablet',
             { 'name': 'braille', 'if': 'CONFIG_BRLAPI' },
-            'testdev',
             'stdio',
             { 'name': 'console', 'if': 'CONFIG_WIN32' },
             { 'name': 'spicevmc', 'if': 'CONFIG_SPICE' },
@@ -730,11 +721,8 @@
             'null': 'ChardevCommonWrapper',
             'mux': 'ChardevMuxWrapper',
             'hub': 'ChardevHubWrapper',
-            'msmouse': 'ChardevCommonWrapper',
-            'wctablet': 'ChardevCommonWrapper',
             'braille': { 'type': 'ChardevCommonWrapper',
                          'if': 'CONFIG_BRLAPI' },
-            'testdev': 'ChardevCommonWrapper',
             'stdio': 'ChardevStdioWrapper',
             'console': { 'type': 'ChardevCommonWrapper',
                          'if': 'CONFIG_WIN32' },

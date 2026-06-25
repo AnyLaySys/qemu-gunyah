@@ -26,7 +26,6 @@
 
 #include "net/net.h"
 #include "clients.h"
-#include "hub.h"
 #include "hw/qdev-properties.h"
 #include "net/slirp.h"
 #include "net/eth.h"
@@ -52,16 +51,9 @@
 #include "qapi/error.h"
 #include "qapi/opts-visitor.h"
 #include "system/runstate.h"
-#include "net/colo-compare.h"
-#include "net/filter.h"
 #include "qapi/string-output-visitor.h"
 #include "qapi/qobject-input-visitor.h"
 #include "standard-headers/linux/virtio_net.h"
-
-/* Net bridge is currently not supported for W32. */
-#if !defined(_WIN32)
-# define CONFIG_NET_BRIDGE
-#endif
 
 static VMChangeStateEntry *net_change_state_entry;
 NetClientStateList net_clients;
@@ -286,7 +278,6 @@ static void qemu_net_client_setup(NetClientState *nc,
     nc->incoming_queue = qemu_new_net_queue(qemu_deliver_packet_iov, nc);
     nc->destructor = destructor;
     nc->is_datapath = is_datapath;
-    QTAILQ_INIT(&nc->filters);
 }
 
 NetClientState *qemu_new_net_client(NetClientInfo *info,
@@ -412,7 +403,6 @@ void qemu_del_net_client(NetClientState *nc)
 {
     NetClientState *ncs[MAX_QUEUE_NUM];
     int queues, i;
-    NetFilterState *nf, *next;
 
     assert(nc->info->type != NET_CLIENT_DRIVER_NIC);
 
@@ -423,10 +413,6 @@ void qemu_del_net_client(NetClientState *nc)
                                           NET_CLIENT_DRIVER_NIC,
                                           MAX_QUEUE_NUM);
     assert(queues != 0);
-
-    QTAILQ_FOREACH_SAFE(nf, &nc->filters, next, next) {
-        object_unparent(OBJECT(nf));
-    }
 
     /*
      * If there is a peer NIC, transfer ownership to it.  Delete the client
@@ -625,54 +611,6 @@ int qemu_can_send_packet(NetClientState *sender)
     return qemu_can_receive_packet(sender->peer);
 }
 
-static ssize_t filter_receive_iov(NetClientState *nc,
-                                  NetFilterDirection direction,
-                                  NetClientState *sender,
-                                  unsigned flags,
-                                  const struct iovec *iov,
-                                  int iovcnt,
-                                  NetPacketSent *sent_cb)
-{
-    ssize_t ret = 0;
-    NetFilterState *nf = NULL;
-
-    if (direction == NET_FILTER_DIRECTION_TX) {
-        QTAILQ_FOREACH(nf, &nc->filters, next) {
-            ret = qemu_netfilter_receive(nf, direction, sender, flags, iov,
-                                         iovcnt, sent_cb);
-            if (ret) {
-                return ret;
-            }
-        }
-    } else {
-        QTAILQ_FOREACH_REVERSE(nf, &nc->filters, next) {
-            ret = qemu_netfilter_receive(nf, direction, sender, flags, iov,
-                                         iovcnt, sent_cb);
-            if (ret) {
-                return ret;
-            }
-        }
-    }
-
-    return ret;
-}
-
-static ssize_t filter_receive(NetClientState *nc,
-                              NetFilterDirection direction,
-                              NetClientState *sender,
-                              unsigned flags,
-                              const uint8_t *data,
-                              size_t size,
-                              NetPacketSent *sent_cb)
-{
-    struct iovec iov = {
-        .iov_base = (void *)data,
-        .iov_len = size
-    };
-
-    return filter_receive_iov(nc, direction, sender, flags, &iov, 1, sent_cb);
-}
-
 void qemu_purge_queued_packets(NetClientState *nc)
 {
     if (!nc->peer) {
@@ -686,11 +624,6 @@ void qemu_flush_or_purge_queued_packets(NetClientState *nc, bool purge)
 {
     nc->receive_disabled = 0;
 
-    if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_HUBPORT) {
-        if (net_hub_flush(nc->peer)) {
-            qemu_notify_event();
-        }
-    }
     if (qemu_net_queue_flush(nc->incoming_queue)) {
         /* We emptied the queue successfully, signal to the IO thread to repoll
          * the file descriptor (for tap, for example).
@@ -713,7 +646,6 @@ static ssize_t qemu_send_packet_async_with_flags(NetClientState *sender,
                                                  NetPacketSent *sent_cb)
 {
     NetQueue *queue;
-    int ret;
 
 #ifdef DEBUG_NET
     printf("qemu_send_packet_async:\n");
@@ -722,19 +654,6 @@ static ssize_t qemu_send_packet_async_with_flags(NetClientState *sender,
 
     if (sender->link_down || !sender->peer) {
         return size;
-    }
-
-    /* Let filters handle the packet first */
-    ret = filter_receive(sender, NET_FILTER_DIRECTION_TX,
-                         sender, flags, buf, size, sent_cb);
-    if (ret) {
-        return ret;
-    }
-
-    ret = filter_receive(sender->peer, NET_FILTER_DIRECTION_RX,
-                         sender, flags, buf, size, sent_cb);
-    if (ret) {
-        return ret;
     }
 
     queue = sender->peer->incoming_queue;
@@ -858,7 +777,6 @@ ssize_t qemu_sendv_packet_async(NetClientState *sender,
 {
     NetQueue *queue;
     size_t size = iov_size(iov, iovcnt);
-    int ret;
 
     if (size > NET_BUFSIZE) {
         return size;
@@ -866,19 +784,6 @@ ssize_t qemu_sendv_packet_async(NetClientState *sender,
 
     if (sender->link_down || !sender->peer) {
         return size;
-    }
-
-    /* Let filters handle the packet first */
-    ret = filter_receive_iov(sender, NET_FILTER_DIRECTION_TX, sender,
-                             QEMU_NET_PACKET_FLAG_NONE, iov, iovcnt, sent_cb);
-    if (ret) {
-        return ret;
-    }
-
-    ret = filter_receive_iov(sender->peer, NET_FILTER_DIRECTION_RX, sender,
-                             QEMU_NET_PACKET_FLAG_NONE, iov, iovcnt, sent_cb);
-    if (ret) {
-        return ret;
     }
 
     queue = sender->peer->incoming_queue;
@@ -1251,37 +1156,6 @@ static int (* const net_client_init_fun[NET_CLIENT_DRIVER__MAX])(
 #ifdef CONFIG_SLIRP
         [NET_CLIENT_DRIVER_USER]      = net_init_slirp,
 #endif
-        [NET_CLIENT_DRIVER_TAP]       = net_init_tap,
-        [NET_CLIENT_DRIVER_SOCKET]    = net_init_socket,
-        [NET_CLIENT_DRIVER_STREAM]    = net_init_stream,
-        [NET_CLIENT_DRIVER_DGRAM]     = net_init_dgram,
-#ifdef CONFIG_VDE
-        [NET_CLIENT_DRIVER_VDE]       = net_init_vde,
-#endif
-#ifdef CONFIG_NETMAP
-        [NET_CLIENT_DRIVER_NETMAP]    = net_init_netmap,
-#endif
-#ifdef CONFIG_AF_XDP
-        [NET_CLIENT_DRIVER_AF_XDP]    = net_init_af_xdp,
-#endif
-#ifdef CONFIG_NET_BRIDGE
-        [NET_CLIENT_DRIVER_BRIDGE]    = net_init_bridge,
-#endif
-        [NET_CLIENT_DRIVER_HUBPORT]   = net_init_hubport,
-#ifdef CONFIG_VHOST_NET_USER
-        [NET_CLIENT_DRIVER_VHOST_USER] = net_init_vhost_user,
-#endif
-#ifdef CONFIG_VHOST_NET_VDPA
-        [NET_CLIENT_DRIVER_VHOST_VDPA] = net_init_vhost_vdpa,
-#endif
-#ifdef CONFIG_L2TPV3
-        [NET_CLIENT_DRIVER_L2TPV3]    = net_init_l2tpv3,
-#endif
-#ifdef CONFIG_VMNET
-        [NET_CLIENT_DRIVER_VMNET_HOST] = net_init_vmnet_host,
-        [NET_CLIENT_DRIVER_VMNET_SHARED] = net_init_vmnet_shared,
-        [NET_CLIENT_DRIVER_VMNET_BRIDGED] = net_init_vmnet_bridged,
-#endif /* CONFIG_VMNET */
 };
 
 
@@ -1301,22 +1175,10 @@ static int net_client_init1(const Netdev *netdev, bool is_netdev, Error **errp)
         if (netdev->type == NET_CLIENT_DRIVER_NONE) {
             return 0; /* nothing to do */
         }
-        if (netdev->type == NET_CLIENT_DRIVER_HUBPORT) {
-            error_setg(errp, "network backend '%s' is only supported with -netdev/-nic",
-                       NetClientDriver_str(netdev->type));
-            return -1;
-        }
-
         if (!net_client_init_fun[netdev->type]) {
             error_setg(errp, "network backend '%s' is not compiled into this binary",
                        NetClientDriver_str(netdev->type));
             return -1;
-        }
-
-        /* Do not add to a hub if it's a nic with a netdev= parameter. */
-        if (netdev->type != NET_CLIENT_DRIVER_NIC ||
-            !netdev->u.nic.netdev) {
-            peer = net_hub_add_port(0, NULL, NULL);
         }
     }
 
@@ -1348,39 +1210,8 @@ void show_netdevs(void)
 {
     int idx;
     const char *available_netdevs[] = {
-        "socket",
-        "stream",
-        "dgram",
-        "hubport",
-        "tap",
 #ifdef CONFIG_SLIRP
         "user",
-#endif
-#ifdef CONFIG_L2TPV3
-        "l2tpv3",
-#endif
-#ifdef CONFIG_VDE
-        "vde",
-#endif
-#ifdef CONFIG_NET_BRIDGE
-        "bridge",
-#endif
-#ifdef CONFIG_NETMAP
-        "netmap",
-#endif
-#ifdef CONFIG_AF_XDP
-        "af-xdp",
-#endif
-#ifdef CONFIG_POSIX
-        "vhost-user",
-#endif
-#ifdef CONFIG_VHOST_VDPA
-        "vhost-vdpa",
-#endif
-#ifdef CONFIG_VMNET
-        "vmnet-host",
-        "vmnet-shared",
-        "vmnet-bridged",
 #endif
     };
 
@@ -1490,46 +1321,12 @@ void qmp_netdev_del(const char *id, Error **errp)
     }
 }
 
-static void netfilter_print_info(Monitor *mon, NetFilterState *nf)
-{
-    char *str;
-    ObjectProperty *prop;
-    ObjectPropertyIterator iter;
-    Visitor *v;
-
-    /* generate info str */
-    object_property_iter_init(&iter, OBJECT(nf));
-    while ((prop = object_property_iter_next(&iter))) {
-        if (!strcmp(prop->name, "type")) {
-            continue;
-        }
-        v = string_output_visitor_new(false, &str);
-        object_property_get(OBJECT(nf), prop->name, v, NULL);
-        visit_complete(v, &str);
-        visit_free(v);
-        monitor_printf(mon, ",%s=%s", prop->name, str);
-        g_free(str);
-    }
-    monitor_printf(mon, "\n");
-}
-
 void print_net_client(Monitor *mon, NetClientState *nc)
 {
-    NetFilterState *nf;
-
     monitor_printf(mon, "%s: index=%d,type=%s,%s\n", nc->name,
                    nc->queue_index,
                    NetClientDriver_str(nc->info->type),
                    nc->info_str);
-    if (!QTAILQ_EMPTY(&nc->filters)) {
-        monitor_printf(mon, "filters:\n");
-    }
-    QTAILQ_FOREACH(nf, &nc->filters, next) {
-        monitor_printf(mon, "  - %s: type=%s",
-                       object_get_canonical_path_component(OBJECT(nf)),
-                       object_get_typename(OBJECT(nf)));
-        netfilter_print_info(mon, nf);
-    }
 }
 
 RxFilterInfoList *qmp_query_rx_filter(const char *name, Error **errp)
@@ -1580,25 +1377,6 @@ RxFilterInfoList *qmp_query_rx_filter(const char *name, Error **errp)
     }
 
     return filter_list;
-}
-
-void colo_notify_filters_event(int event, Error **errp)
-{
-    NetClientState *nc;
-    NetFilterState *nf;
-    NetFilterClass *nfc = NULL;
-    Error *local_err = NULL;
-
-    QTAILQ_FOREACH(nc, &net_clients, next) {
-        QTAILQ_FOREACH(nf, &nc->filters, next) {
-            nfc = NETFILTER_GET_CLASS(OBJECT(nf));
-            nfc->handle_event(nf, event, &local_err);
-            if (local_err) {
-                error_propagate(errp, local_err);
-                return;
-            }
-        }
-    }
 }
 
 void qmp_set_link(const char *name, bool up, Error **errp)
@@ -1671,9 +1449,6 @@ void net_cleanup(void)
 {
     NetClientState *nc, **p = &QTAILQ_FIRST(&net_clients);
 
-    /*cleanup colo compare module for COLO*/
-    colo_compare_cleanup();
-
     /*
      * Walk the net_clients list and remove the netdevs but *not* any
      * NET_CLIENT_DRIVER_NIC entries. The latter are owned by the device
@@ -1728,7 +1503,6 @@ void net_check_clients(void)
         show_nic_models();
         exit(0);
     }
-    net_hub_check_clients();
 
     QTAILQ_FOREACH(nc, &net_clients, next) {
         if (!nc->peer) {

@@ -1851,14 +1851,6 @@ S: Odd Fixes
 F: hw/audio/
 F: include/hw/audio/
 
-Xilinx CAN
-M: Francisco Iglesias <francisco.iglesias@amd.com>
-M: Vikram Garhwal <vikram.garhwal@bytedance.com>
-S: Maintained
-F: hw/net/can/xlnx-*
-F: include/hw/net/xlnx-*
-F: tests/qtest/xlnx-can*-test*
-
 EDU
 M: Jiri Slaby <jslaby@suse.cz>
 S: Maintained
@@ -2600,17 +2592,6 @@ F: hw/rx/
 F: include/hw/intc/rx_icu.h
 F: include/hw/rx/
 
-CAN bus subsystem and hardware
-M: Pavel Pisa <pisa@cmp.felk.cvut.cz>
-M: Francisco Iglesias <francisco.iglesias@amd.com>
-M: Vikram Garhwal <vikram.garhwal@bytedance.com>
-S: Maintained
-W: https://canbus.pages.fel.cvut.cz/
-F: net/can/*
-F: hw/net/can/*
-F: include/net/can_*.h
-F: docs/system/devices/can.rst
-
 OpenPIC interrupt controller
 M: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
 S: Odd Fixes
@@ -3051,19 +3032,8 @@ M: Jason Wang <jasowang@redhat.com>
 S: Maintained
 F: net/
 F: include/net/
-F: qemu-bridge-helper.c
 T: git https://github.com/jasowang/qemu.git net
 F: qapi/net.json
-
-Netmap network backend
-M: Luigi Rizzo <rizzo@iet.unipi.it>
-M: Giuseppe Lettieri <g.lettieri@iet.unipi.it>
-M: Vincenzo Maffione <v.maffione@gmail.com>
-W: http://info.iet.unipi.it/~luigi/netmap/
-S: Maintained
-
-AF_XDP network backend
-R: Ilya Maximets <i.maximets@ovn.org>
 
 Host Memory Backends
 M: David Hildenbrand <david@redhat.com>
@@ -3492,9 +3462,6 @@ M: Zhang Chen <zhangckid@gmail.com>
 M: Li Zhijian <lizhijian@fujitsu.com>
 S: Supported
 F: docs/colo-proxy.txt
-F: net/colo*
-F: net/filter-rewriter.c
-F: net/filter-mirror.c
 F: tests/qtest/test-filter*
 
 Record/replay
@@ -3504,7 +3471,6 @@ W: https://wiki.qemu.org/Features/record-replay
 S: Odd Fixes
 F: replay/*
 F: block/blkreplay.c
-F: net/filter-replay.c
 F: include/exec/replay-core.h
 F: include/system/replay.h
 F: docs/devel/replay.rst

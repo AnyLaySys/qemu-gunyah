@@ -1,14 +1,6 @@
 # See docs/devel/tracing.rst for syntax documentation.
 
-# fdc.c
-fdc_ioport_read(uint8_t reg, uint8_t value) "read reg 0x%02x val 0x%02x"
-fdc_ioport_write(uint8_t reg, uint8_t value) "write reg 0x%02x val 0x%02x"
-
-# fdc-sysbus.c
-fdctrl_tc_pulse(int level) "TC pulse: %u"
-
 # pflash_cfi01.c
-# pflash_cfi02.c
 pflash_chip_erase_invalid(const char *name, uint64_t offset) "%s: chip erase: invalid address 0x%" PRIx64
 pflash_chip_erase_start(const char *name) "%s: start chip erase"
 pflash_data_read(const char *name, uint64_t offset, unsigned size, uint32_t value) "%s: data offset:0x%04"PRIx64" size:%u value:0x%04x"
@@ -61,43 +53,3 @@ virtio_blk_handle_zone_append(void *vdev, void *req, int64_t sector) "vdev %p re
 # hd-geometry.c
 hd_geometry_lchs_guess(void *blk, int cyls, int heads, int secs) "blk %p LCHS %d %d %d"
 hd_geometry_guess(void *blk, uint32_t cyls, uint32_t heads, uint32_t secs, int trans) "blk %p CHS %u %u %u trans %d"
-
-# xen-block.c
-xen_block_realize(const char *type, uint32_t disk, uint32_t partition) "%s d%up%u"
-xen_block_connect(const char *type, uint32_t disk, uint32_t partition) "%s d%up%u"
-xen_block_disconnect(const char *type, uint32_t disk, uint32_t partition) "%s d%up%u"
-xen_block_unrealize(const char *type, uint32_t disk, uint32_t partition) "%s d%up%u"
-xen_block_size(const char *type, uint32_t disk, uint32_t partition, int64_t sectors) "%s d%up%u %"PRIi64
-xen_disk_realize(void) ""
-xen_disk_unrealize(void) ""
-xen_cdrom_realize(void) ""
-xen_cdrom_unrealize(void) ""
-xen_block_blockdev_add(char *str) "%s"
-xen_block_blockdev_del(const char *node_name) "%s"
-xen_block_device_create(unsigned int number) "%u"
-xen_block_device_destroy(unsigned int number) "%u"
-
-# m25p80.c
-m25p80_flash_erase(void *s, int offset, uint32_t len) "[%p] offset = 0x%"PRIx32", len = %u"
-m25p80_programming_zero_to_one(void *s, uint32_t addr, uint8_t prev, uint8_t data) "[%p] programming zero to one! addr=0x%"PRIx32"  0x%"PRIx8" -> 0x%"PRIx8
-m25p80_reset_done(void *s) "[%p] Reset done."
-m25p80_command_decoded(void *s, uint32_t cmd) "[%p] new command:0x%"PRIx32
-m25p80_complete_collecting(void *s, uint32_t cmd, int n, uint8_t ear, uint32_t cur_addr) "[%p] decode cmd: 0x%"PRIx32" len %d ear 0x%"PRIx8" addr 0x%"PRIx32
-m25p80_populated_jedec(void *s) "[%p] populated jedec code"
-m25p80_chip_erase(void *s) "[%p] chip erase"
-m25p80_select(void *s, const char *what) "[%p] %sselect"
-m25p80_page_program(void *s, uint32_t addr, uint8_t tx) "[%p] page program cur_addr=0x%"PRIx32" data=0x%"PRIx8
-m25p80_transfer(void *s, uint8_t state, uint32_t len, uint8_t needed, uint32_t pos, uint32_t cur_addr, uint8_t t) "[%p] Transfer state 0x%"PRIx8" len 0x%"PRIx32" needed 0x%"PRIx8" pos 0x%"PRIx32" addr 0x%"PRIx32" tx 0x%"PRIx8
-m25p80_read_byte(void *s, uint32_t addr, uint8_t v) "[%p] Read byte 0x%"PRIx32"=0x%"PRIx8
-m25p80_read_data(void *s, uint32_t pos, uint8_t v) "[%p] Read data 0x%"PRIx32"=0x%"PRIx8
-m25p80_read_sfdp(void *s, uint32_t addr, uint8_t v) "[%p] Read SFDP 0x%"PRIx32"=0x%"PRIx8
-m25p80_binding(void *s) "[%p] Binding to IF_MTD drive"
-m25p80_binding_no_bdrv(void *s) "[%p] No BDRV - binding to RAM"
-
-# swim.c
-swim_ismctrl_read(int reg, const char *name, unsigned size, uint64_t value) "reg=%d [%s] size=%u value=0x%"PRIx64
-swim_ismctrl_write(int reg, const char *name, unsigned size, uint64_t value) "reg=%d [%s] size=%u value=0x%"PRIx64
-swim_iwmctrl_read(int reg, const char *name, unsigned size, uint64_t value) "reg=%d [%s] size=%u value=0x%"PRIx64
-swim_iwmctrl_write(int reg, const char *name, unsigned size, uint64_t value) "reg=%d [%s] size=%u value=0x%"PRIx64
-swim_switch_to_ism(void) "switch from IWM to ISM mode"
-swim_switch_to_iwm(void) "switch from ISM to IWM mode"

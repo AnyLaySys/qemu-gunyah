@@ -13,7 +13,6 @@ source mem/Kconfig
 source misc/Kconfig
 source net/Kconfig
 source nvram/Kconfig
-source pci-bridge/Kconfig
 source pci-host/Kconfig
 source pci/Kconfig
 source rtc/Kconfig
@@ -30,66 +29,9 @@ source cpu/Kconfig
 config TEST_DEVICES
     bool
 
-config XILINX
-    bool
-
-config XILINX_AXI
-    bool
-
-config XLNX_ZYNQMP
-    bool
-    select REGISTER
-    select CAN_BUS
-    select PTIMER
-    select XLNX_BBRAM
-    select XLNX_EFUSE_ZYNQMP
-
-# Stub definitions for symbols from deleted arch Kconfig files
-config FSDEV_9P
-    bool
-config XEN_BUS
-    bool
-config PC
-    bool
-config PC_PCI
-    bool
-config VFIO
-    bool
-config VFIO_PCI
-    bool
-config VFIO_PLATFORM
-    bool
-config VFIO_XGMAC
-    bool
-config VFIO_AMD_XGBE
-    bool
-config MIPS
-    bool
 config AARCH64
     bool
     default y
-config Q35
-    bool
-config PSERIES
-    bool
-config X86_64
-    bool
-config RISCV64
-    bool
-config LOONGARCH64
-    bool
 config ARM
     bool
     default y
-config S390_CCW_VIRTIO
-    bool
-config SCSI
-    bool
-config VIRTIO_SCSI
-    bool
-config VHOST_SCSI
-    bool
-config VHOST_SCSI_COMMON
-    bool
-config LSI_SCSI_PCI
-    bool

@@ -20,7 +20,6 @@
 #include "hw/virtio/virtio.h"
 #include "net/net.h"
 #include "net/checksum.h"
-#include "net/tap.h"
 #include "qemu/error-report.h"
 #include "qemu/timer.h"
 #include "qemu/option.h"
@@ -143,9 +142,7 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
     VirtIONet *n = VIRTIO_NET(vdev);
     struct virtio_net_config netcfg;
     NetClientState *nc = qemu_get_queue(n->nic);
-    static const MACAddr zero = { .a = { 0, 0, 0, 0, 0, 0 } };
 
-    int ret = 0;
     memset(&netcfg, 0 , sizeof(struct virtio_net_config));
     virtio_stw_p(vdev, &netcfg.status, n->status);
     virtio_stw_p(vdev, &netcfg.max_virtqueue_pairs, n->max_queue_pairs);
@@ -161,39 +158,13 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
                  VIRTIO_NET_RSS_SUPPORTED_HASHES);
     memcpy(config, &netcfg, n->config_size);
 
-    /*
-     * Is this VDPA? No peer means not VDPA: there's no way to
-     * disconnect/reconnect a VDPA peer.
-     */
-    if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
-        ret = vhost_net_get_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
-                                   n->config_size);
-        if (ret == -1) {
-            return;
-        }
-
-        /*
-         * Some NIC/kernel combinations present 0 as the mac address.  As that
-         * is not a legal address, try to proceed with the address from the
-         * QEMU command line in the hope that the address has been configured
-         * correctly elsewhere - just not reported by the device.
-         */
-        if (memcmp(&netcfg.mac, &zero, sizeof(zero)) == 0) {
-            info_report("Zero hardware mac address detected. Ignoring.");
-            memcpy(netcfg.mac, n->mac, ETH_ALEN);
-        }
-
-        netcfg.status |= virtio_tswap16(vdev,
-                                        n->status & VIRTIO_NET_S_ANNOUNCE);
-        memcpy(config, &netcfg, n->config_size);
-    }
+    (void)nc;
 }
 
 static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
     struct virtio_net_config netcfg = {};
-    NetClientState *nc = qemu_get_queue(n->nic);
 
     memcpy(&netcfg, config, n->config_size);
 
@@ -203,16 +174,6 @@ static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
         memcpy(n->mac, netcfg.mac, ETH_ALEN);
         qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
     }
-
-    /*
-     * Is this VDPA? No peer means not VDPA: there's no way to
-     * disconnect/reconnect a VDPA peer.
-     */
-    if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
-        vhost_net_set_config(get_vhost_net(nc->peer),
-                             (uint8_t *)&netcfg, 0, n->config_size,
-                             VHOST_SET_CONFIG_TYPE_FRONTEND);
-      }
 }
 
 static bool virtio_net_started(VirtIONet *n, uint8_t status)
@@ -566,8 +527,7 @@ static void virtio_net_queue_reset(VirtIODevice *vdev, uint32_t queue_index)
         return;
     }
 
-    if (get_vhost_net(nc->peer) &&
-        nc->peer->info->type == NET_CLIENT_DRIVER_TAP) {
+    if (get_vhost_net(nc->peer)) {
         vhost_net_virtqueue_reset(vdev, nc, queue_index);
     }
 
@@ -591,8 +551,7 @@ static void virtio_net_queue_enable(VirtIODevice *vdev, uint32_t queue_index)
         return;
     }
 
-    if (get_vhost_net(nc->peer) &&
-        nc->peer->info->type == NET_CLIENT_DRIVER_TAP) {
+    if (get_vhost_net(nc->peer)) {
         r = vhost_net_virtqueue_restart(vdev, nc, queue_index);
         if (r < 0) {
             error_report("unable to restart vhost net virtqueue: %d, "
@@ -668,65 +627,22 @@ static void virtio_net_set_mrg_rx_bufs(VirtIONet *n, int mergeable_rx_bufs,
 
 static int virtio_net_max_tx_queue_size(VirtIONet *n)
 {
-    NetClientState *peer = n->nic_conf.peers.ncs[0];
-
-    /*
-     * Backends other than vhost-user or vhost-vdpa don't support max queue
-     * size.
-     */
-    if (!peer) {
-        return VIRTIO_NET_TX_QUEUE_DEFAULT_SIZE;
-    }
-
-    switch(peer->info->type) {
-    case NET_CLIENT_DRIVER_VHOST_USER:
-    case NET_CLIENT_DRIVER_VHOST_VDPA:
-        return VIRTQUEUE_MAX_SIZE;
-    default:
-        return VIRTIO_NET_TX_QUEUE_DEFAULT_SIZE;
-    };
+    (void)n;
+    return VIRTIO_NET_TX_QUEUE_DEFAULT_SIZE;
 }
 
 static int peer_attach(VirtIONet *n, int index)
 {
-    NetClientState *nc = qemu_get_subqueue(n->nic, index);
-
-    if (!nc->peer) {
-        return 0;
-    }
-
-    if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_USER) {
-        vhost_set_vring_enable(nc->peer, 1);
-    }
-
-    if (nc->peer->info->type != NET_CLIENT_DRIVER_TAP) {
-        return 0;
-    }
-
-    if (n->max_queue_pairs == 1) {
-        return 0;
-    }
-
-    return tap_enable(nc->peer);
+    (void)n;
+    (void)index;
+    return 0;
 }
 
 static int peer_detach(VirtIONet *n, int index)
 {
-    NetClientState *nc = qemu_get_subqueue(n->nic, index);
-
-    if (!nc->peer) {
-        return 0;
-    }
-
-    if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_USER) {
-        vhost_set_vring_enable(nc->peer, 0);
-    }
-
-    if (nc->peer->info->type !=  NET_CLIENT_DRIVER_TAP) {
-        return 0;
-    }
-
-    return tap_disable(nc->peer);
+    (void)n;
+    (void)index;
+    return 0;
 }
 
 static void virtio_net_set_queue_pairs(VirtIONet *n)
@@ -1504,7 +1420,6 @@ static int virtio_net_handle_mq(VirtIONet *n, uint8_t cmd,
 {
     VirtIODevice *vdev = VIRTIO_DEVICE(n);
     uint16_t queue_pairs;
-    NetClientState *nc = qemu_get_queue(n->nic);
 
     virtio_net_disable_rss(n);
     if (cmd == VIRTIO_NET_CTRL_MQ_HASH_CONFIG) {
@@ -1537,13 +1452,6 @@ static int virtio_net_handle_mq(VirtIONet *n, uint8_t cmd,
     }
 
     n->curr_queue_pairs = queue_pairs;
-    if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
-        /*
-         * Avoid updating the backend for a vdpa device: We're only interested
-         * in updating the device model queues.
-         */
-        return VIRTIO_NET_OK;
-    }
     /* stop the backend before changing the number of queue_pairs to avoid handling a
      * disabled queue */
     virtio_net_set_status(vdev, vdev->status);
@@ -3903,12 +3811,6 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     nc = qemu_get_queue(n->nic);
     nc->rxfilter_notify_enabled = 1;
 
-   if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
-        struct virtio_net_config netcfg = {};
-        memcpy(&netcfg.mac, &n->nic_conf.macaddr, ETH_ALEN);
-        vhost_net_set_config(get_vhost_net(nc->peer),
-            (uint8_t *)&netcfg, 0, ETH_ALEN, VHOST_SET_CONFIG_TYPE_FRONTEND);
-    }
     QTAILQ_INIT(&n->rsc_chains);
     n->qdev = dev;
 

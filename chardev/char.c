@@ -384,10 +384,7 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
 
     if (strcmp(filename, "null")    == 0 ||
         strcmp(filename, "pty")     == 0 ||
-        strcmp(filename, "msmouse") == 0 ||
-        strcmp(filename, "wctablet") == 0 ||
         strcmp(filename, "braille") == 0 ||
-        strcmp(filename, "testdev") == 0 ||
         strcmp(filename, "stdio")   == 0) {
         qemu_opt_set(opts, "backend", filename, &error_abort);
         return opts;

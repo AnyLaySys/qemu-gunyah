@@ -112,7 +112,6 @@ struct NetClientState {
     bool is_netdev;
     bool do_not_pad; /* do not pad to the minimum ethernet frame length */
     bool is_datapath;
-    QTAILQ_HEAD(, NetFilterState) filters;
 };
 
 typedef QTAILQ_HEAD(NetClientStateList, NetClientState) NetClientStateList;
@@ -299,16 +298,7 @@ void show_netdevs(void);
 void net_init_clients(void);
 void net_check_clients(void);
 void net_cleanup(void);
-void hmp_host_net_add(Monitor *mon, const QDict *qdict);
-void hmp_host_net_remove(Monitor *mon, const QDict *qdict);
 void netdev_add(QemuOpts *opts, Error **errp);
-
-int net_hub_id_for_client(NetClientState *nc, int *id);
-
-#define DEFAULT_NETWORK_SCRIPT CONFIG_SYSCONFDIR "/qemu-ifup"
-#define DEFAULT_NETWORK_DOWN_SCRIPT CONFIG_SYSCONFDIR "/qemu-ifdown"
-#define DEFAULT_BRIDGE_HELPER CONFIG_QEMU_HELPERDIR "/qemu-bridge-helper"
-#define DEFAULT_BRIDGE_INTERFACE "br0"
 
 void qdev_set_nic_properties(DeviceState *dev, NICInfo *nd);
 

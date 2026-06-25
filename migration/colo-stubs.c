@@ -1,6 +1,5 @@
 #include "qemu/osdep.h"
 #include "qemu/notify.h"
-#include "net/colo-compare.h"
 #include "migration/colo.h"
 #include "qemu/error-report.h"
 #include "qapi/qapi-commands-migration.h"

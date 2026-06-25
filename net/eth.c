@@ -17,9 +17,9 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "standard-headers/linux/virtio_net.h"
 #include "net/eth.h"
 #include "net/checksum.h"
-#include "net/tap.h"
 
 void eth_setup_vlan_headers(struct eth_header *ehdr, size_t *ehdr_size,
                             uint16_t vlan_tag, uint16_t vlan_ethtype)

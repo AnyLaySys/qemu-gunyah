@@ -1,14 +1,5 @@
 # See docs/devel/tracing.rst for syntax documentation.
 
-# wctablet.c
-wct_init(void) ""
-wct_cmd_re(void) ""
-wct_cmd_st(void) ""
-wct_cmd_sp(void) ""
-wct_cmd_ts(int input) "0x%02x"
-wct_cmd_other(const char *cmd) "%s"
-wct_speed(int speed) "%d"
-
 # char-socket.c
 chr_socket_poll_err(void *chrdev, const char *label) "chardev socket poll error %p (%s)"
 chr_socket_recv_err(void *chrdev, const char *label, const char *err) "chardev socket recv error %p (%s): %s"

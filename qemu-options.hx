@@ -2536,914 +2536,89 @@ DEF("netdev", HAS_ARG, QEMU_OPTION_netdev,
 #endif
     "                configure a user mode network backend with ID 'str',\n"
     "                its DHCP server and optional services\n"
-#endif
-#ifdef _WIN32
-    "-netdev tap,id=str,ifname=name\n"
-    "                configure a host TAP network backend with ID 'str'\n"
 #else
-    "-netdev tap,id=str[,fd=h][,fds=x:y:...:z][,ifname=name][,script=file][,downscript=dfile]\n"
-    "         [,br=bridge][,helper=helper][,sndbuf=nbytes][,vnet_hdr=on|off][,vhost=on|off]\n"
-    "         [,vhostfd=h][,vhostfds=x:y:...:z][,vhostforce=on|off][,queues=n]\n"
-    "         [,poll-us=n]\n"
-    "                configure a host TAP network backend with ID 'str'\n"
-    "                connected to a bridge (default=" DEFAULT_BRIDGE_INTERFACE ")\n"
-    "                use network scripts 'file' (default=" DEFAULT_NETWORK_SCRIPT ")\n"
-    "                to configure it and 'dfile' (default=" DEFAULT_NETWORK_DOWN_SCRIPT ")\n"
-    "                to deconfigure it\n"
-    "                use '[down]script=no' to disable script execution\n"
-    "                use network helper 'helper' (default=" DEFAULT_BRIDGE_HELPER ") to\n"
-    "                configure it\n"
-    "                use 'fd=h' to connect to an already opened TAP interface\n"
-    "                use 'fds=x:y:...:z' to connect to already opened multiqueue capable TAP interfaces\n"
-    "                use 'sndbuf=nbytes' to limit the size of the send buffer (the\n"
-    "                default is disabled 'sndbuf=0' to enable flow control set 'sndbuf=1048576')\n"
-    "                use vnet_hdr=off to avoid enabling the IFF_VNET_HDR tap flag\n"
-    "                use vnet_hdr=on to make the lack of IFF_VNET_HDR support an error condition\n"
-    "                use vhost=on to enable experimental in kernel accelerator\n"
-    "                    (only has effect for virtio guests which use MSIX)\n"
-    "                use vhostforce=on to force vhost on for non-MSIX virtio guests\n"
-    "                use 'vhostfd=h' to connect to an already opened vhost net device\n"
-    "                use 'vhostfds=x:y:...:z to connect to multiple already opened vhost net devices\n"
-    "                use 'queues=n' to specify the number of queues to be created for multiqueue TAP\n"
-    "                use 'poll-us=n' to specify the maximum number of microseconds that could be\n"
-    "                spent on busy polling for vhost net\n"
-    "-netdev bridge,id=str[,br=bridge][,helper=helper]\n"
-    "                configure a host TAP network backend with ID 'str' that is\n"
-    "                connected to a bridge (default=" DEFAULT_BRIDGE_INTERFACE ")\n"
-    "                using the program 'helper (default=" DEFAULT_BRIDGE_HELPER ")\n"
+    "-netdev user,id=str\n"
+    "                user mode networking is not available in this build\n"
 #endif
-#ifdef __linux__
-    "-netdev l2tpv3,id=str,src=srcaddr,dst=dstaddr[,srcport=srcport][,dstport=dstport]\n"
-    "         [,rxsession=rxsession],txsession=txsession[,ipv6=on|off][,udp=on|off]\n"
-    "         [,cookie64=on|off][,counter][,pincounter][,txcookie=txcookie]\n"
-    "         [,rxcookie=rxcookie][,offset=offset]\n"
-    "                configure a network backend with ID 'str' connected to\n"
-    "                an Ethernet over L2TPv3 pseudowire.\n"
-    "                Linux kernel 3.3+ as well as most routers can talk\n"
-    "                L2TPv3. This transport allows connecting a VM to a VM,\n"
-    "                VM to a router and even VM to Host. It is a nearly-universal\n"
-    "                standard (RFC3931). Note - this implementation uses static\n"
-    "                pre-configured tunnels (same as the Linux kernel).\n"
-    "                use 'src=' to specify source address\n"
-    "                use 'dst=' to specify destination address\n"
-    "                use 'udp=on' to specify udp encapsulation\n"
-    "                use 'srcport=' to specify source udp port\n"
-    "                use 'dstport=' to specify destination udp port\n"
-    "                use 'ipv6=on' to force v6\n"
-    "                L2TPv3 uses cookies to prevent misconfiguration as\n"
-    "                well as a weak security measure\n"
-    "                use 'rxcookie=0x012345678' to specify a rxcookie\n"
-    "                use 'txcookie=0x012345678' to specify a txcookie\n"
-    "                use 'cookie64=on' to set cookie size to 64 bit, otherwise 32\n"
-    "                use 'counter=off' to force a 'cut-down' L2TPv3 with no counter\n"
-    "                use 'pincounter=on' to work around broken counter handling in peer\n"
-    "                use 'offset=X' to add an extra offset between header and data\n"
-#endif
-    "-netdev socket,id=str[,fd=h][,listen=[host]:port][,connect=host:port]\n"
-    "                configure a network backend to connect to another network\n"
-    "                using a socket connection\n"
-    "-netdev socket,id=str[,fd=h][,mcast=maddr:port[,localaddr=addr]]\n"
-    "                configure a network backend to connect to a multicast maddr and port\n"
-    "                use 'localaddr=addr' to specify the host address to send packets from\n"
-    "-netdev socket,id=str[,fd=h][,udp=host:port][,localaddr=host:port]\n"
-    "                configure a network backend to connect to another network\n"
-    "                using an UDP tunnel\n"
-    "-netdev stream,id=str[,server=on|off],addr.type=inet,addr.host=host,addr.port=port[,to=maxport][,numeric=on|off][,keep-alive=on|off][,mptcp=on|off][,addr.ipv4=on|off][,addr.ipv6=on|off][,reconnect-ms=milliseconds]\n"
-    "-netdev stream,id=str[,server=on|off],addr.type=unix,addr.path=path[,abstract=on|off][,tight=on|off][,reconnect-ms=milliseconds]\n"
-    "-netdev stream,id=str[,server=on|off],addr.type=fd,addr.str=file-descriptor[,reconnect-ms=milliseconds]\n"
-    "                configure a network backend to connect to another network\n"
-    "                using a socket connection in stream mode.\n"
-    "-netdev dgram,id=str,remote.type=inet,remote.host=maddr,remote.port=port[,local.type=inet,local.host=addr]\n"
-    "-netdev dgram,id=str,remote.type=inet,remote.host=maddr,remote.port=port[,local.type=fd,local.str=file-descriptor]\n"
-    "                configure a network backend to connect to a multicast maddr and port\n"
-    "                use ``local.host=addr`` to specify the host address to send packets from\n"
-    "-netdev dgram,id=str,local.type=inet,local.host=addr,local.port=port[,remote.type=inet,remote.host=addr,remote.port=port]\n"
-    "-netdev dgram,id=str,local.type=unix,local.path=path[,remote.type=unix,remote.path=path]\n"
-    "-netdev dgram,id=str,local.type=fd,local.str=file-descriptor\n"
-    "                configure a network backend to connect to another network\n"
-    "                using an UDP tunnel\n"
-#ifdef CONFIG_VDE
-    "-netdev vde,id=str[,sock=socketpath][,port=n][,group=groupname][,mode=octalmode]\n"
-    "                configure a network backend to connect to port 'n' of a vde switch\n"
-    "                running on host and listening for incoming connections on 'socketpath'.\n"
-    "                Use group 'groupname' and mode 'octalmode' to change default\n"
-    "                ownership and permissions for communication port.\n"
-#endif
-#ifdef CONFIG_NETMAP
-    "-netdev netmap,id=str,ifname=name[,devname=nmname]\n"
-    "                attach to the existing netmap-enabled network interface 'name', or to a\n"
-    "                VALE port (created on the fly) called 'name' ('nmname' is name of the \n"
-    "                netmap device, defaults to '/dev/netmap')\n"
-#endif
-#ifdef CONFIG_AF_XDP
-    "-netdev af-xdp,id=str,ifname=name[,mode=native|skb][,force-copy=on|off]\n"
-    "         [,queues=n][,start-queue=m][,inhibit=on|off][,sock-fds=x:y:...:z]\n"
-    "                attach to the existing network interface 'name' with AF_XDP socket\n"
-    "                use 'mode=MODE' to specify an XDP program attach mode\n"
-    "                use 'force-copy=on|off' to force XDP copy mode even if device supports zero-copy (default: off)\n"
-    "                use 'inhibit=on|off' to inhibit loading of a default XDP program (default: off)\n"
-    "                with inhibit=on,\n"
-    "                  use 'sock-fds' to provide file descriptors for already open AF_XDP sockets\n"
-    "                  added to a socket map in XDP program.  One socket per queue.\n"
-    "                use 'queues=n' to specify how many queues of a multiqueue interface should be used\n"
-    "                use 'start-queue=m' to specify the first queue that should be used\n"
-#endif
-#ifdef CONFIG_POSIX
-    "-netdev vhost-user,id=str,chardev=dev[,vhostforce=on|off]\n"
-    "                configure a vhost-user network, backed by a chardev 'dev'\n"
-#endif
-#ifdef __linux__
-    "-netdev vhost-vdpa,id=str[,vhostdev=/path/to/dev][,vhostfd=h]\n"
-    "                configure a vhost-vdpa network,Establish a vhost-vdpa netdev\n"
-    "                use 'vhostdev=/path/to/dev' to open a vhost vdpa device\n"
-    "                use 'vhostfd=h' to connect to an already opened vhost vdpa device\n"
-#endif
-#ifdef CONFIG_VMNET
-    "-netdev vmnet-host,id=str[,isolated=on|off][,net-uuid=uuid]\n"
-    "         [,start-address=addr,end-address=addr,subnet-mask=mask]\n"
-    "                configure a vmnet network backend in host mode with ID 'str',\n"
-    "                isolate this interface from others with 'isolated',\n"
-    "                configure the address range and choose a subnet mask,\n"
-    "                specify network UUID 'uuid' to disable DHCP and interact with\n"
-    "                vmnet-host interfaces within this isolated network\n"
-    "-netdev vmnet-shared,id=str[,isolated=on|off][,nat66-prefix=addr]\n"
-    "         [,start-address=addr,end-address=addr,subnet-mask=mask]\n"
-    "                configure a vmnet network backend in shared mode with ID 'str',\n"
-    "                configure the address range and choose a subnet mask,\n"
-    "                set IPv6 ULA prefix (of length 64) to use for internal network,\n"
-    "                isolate this interface from others with 'isolated'\n"
-    "-netdev vmnet-bridged,id=str,ifname=name[,isolated=on|off]\n"
-    "                configure a vmnet network backend in bridged mode with ID 'str',\n"
-    "                use 'ifname=name' to select a physical network interface to be bridged,\n"
-    "                isolate this interface from others with 'isolated'\n"
-#endif
-    "-netdev hubport,id=str,hubid=n[,netdev=nd]\n"
-    "                configure a hub port on the hub with ID 'n'\n", QEMU_ARCH_ALL)
+    , QEMU_ARCH_ALL)
 DEF("nic", HAS_ARG, QEMU_OPTION_nic,
-    "-nic [tap|bridge|"
 #ifdef CONFIG_SLIRP
-    "user|"
+    "-nic user[,option][,...][mac=macaddr]\n"
+    "                initialize a default NIC and connect it to user networking\n"
 #endif
-#ifdef __linux__
-    "l2tpv3|"
-#endif
-#ifdef CONFIG_VDE
-    "vde|"
-#endif
-#ifdef CONFIG_NETMAP
-    "netmap|"
-#endif
-#ifdef CONFIG_AF_XDP
-    "af-xdp|"
-#endif
-#ifdef CONFIG_POSIX
-    "vhost-user|"
-#endif
-#ifdef CONFIG_VMNET
-    "vmnet-host|vmnet-shared|vmnet-bridged|"
-#endif
-    "socket][,option][,...][mac=macaddr]\n"
-    "                initialize an on-board / default host NIC (using MAC address\n"
-    "                macaddr) and connect it to the given host network backend\n"
-    "-nic none       use it alone to have zero network devices (the default is to\n"
-    "                provided a 'user' network connection)\n",
+    "-nic none       use it alone to have zero network devices\n",
     QEMU_ARCH_ALL)
 DEF("net", HAS_ARG, QEMU_OPTION_net,
-    "-net nic[,macaddr=mac][,model=type][,name=str][,addr=str][,vectors=v]\n"
-    "                configure or create an on-board (or machine default) NIC and\n"
-    "                connect it to hub 0 (please use -nic unless you need a hub)\n"
-    "-net ["
-#ifdef CONFIG_SLIRP
-    "user|"
-#endif
-    "tap|"
-    "bridge|"
-#ifdef CONFIG_VDE
-    "vde|"
-#endif
-#ifdef CONFIG_NETMAP
-    "netmap|"
-#endif
-#ifdef CONFIG_AF_XDP
-    "af-xdp|"
-#endif
-#ifdef CONFIG_VMNET
-    "vmnet-host|vmnet-shared|vmnet-bridged|"
-#endif
-    "socket][,option][,option][,...]\n"
-    "                old way to initialize a host network interface\n"
-    "                (use the -netdev option if possible instead)\n", QEMU_ARCH_ALL)
+    "-net nic[,netdev=nd][,macaddr=mac][,model=type][,name=str][,addr=str][,vectors=v]\n"
+    "                legacy NIC option; prefer -netdev user + -device virtio-net-pci\n"
+    "-net none       use it alone to have zero network devices\n",
+    QEMU_ARCH_ALL)
 SRST
-``-nic [tap|bridge|user|l2tpv3|vde|netmap|af-xdp|vhost-user|socket][,...][,mac=macaddr][,model=mn]``
-    This option is a shortcut for configuring both the on-board
-    (default) guest NIC hardware and the host network backend in one go.
-    The host backend options are the same as with the corresponding
-    ``-netdev`` options below. The guest NIC model can be set with
-    ``model=modelname``. Use ``model=help`` to list the available device
-    types. The hardware MAC address can be set with ``mac=macaddr``.
-
-    The following two example do exactly the same, to show how ``-nic``
-    can be used to shorten the command line length:
-
-    .. parsed-literal::
-
-        |qemu_system| -netdev user,id=n1,ipv6=off -device e1000,netdev=n1,mac=52:54:98:76:54:32
-        |qemu_system| -nic user,ipv6=off,model=e1000,mac=52:54:98:76:54:32
+``-nic user[,option][,...][,mac=macaddr][,model=mn]``
+    Shortcut for configuring the default guest NIC hardware and the
+    user-mode host network backend in one option. The guest NIC model can
+    be set with ``model=modelname``; for this trimmed build, use the virtio
+    PCI NIC path when adding devices explicitly.
 
 ``-nic none``
-    Indicate that no network devices should be configured. It is used to
-    override the default configuration (default NIC with "user" host
-    network backend) which is activated if no other networking options
-    are provided.
+    Disable automatic network device creation.
 
 ``-netdev user,id=id[,option][,option][,...]``
-    Configure user mode host network backend which requires no
-    administrator privilege to run. Valid options are:
+    Configure user mode host networking, which requires no administrator
+    privilege to run. Use it with ``virtio-net-pci`` via ``netdev=id``.
 
     ``id=id``
-        Assign symbolic name for use in monitor commands.
+        Assign symbolic name for device options and monitor commands.
 
     ``ipv4=on|off and ipv6=on|off``
         Specify that either IPv4 or IPv6 must be enabled. If neither is
         specified both protocols are enabled.
 
     ``net=addr[/mask]``
-        Set IP network address the guest will see. Optionally specify
-        the netmask, either in the form a.b.c.d or as number of valid
-        top-most bits. Default is 10.0.2.0/24.
+        Set IP network address the guest will see. Optionally specify the
+        netmask, either in the form a.b.c.d or as number of valid top-most
+        bits. Default is 10.0.2.0/24.
 
     ``host=addr``
-        Specify the guest-visible address of the host. Default is the
-        2nd IP in the guest network, i.e. x.x.x.2.
-
-    ``ipv6-net=addr[/int]``
-        Set IPv6 network address the guest will see (default is
-        fec0::/64). The network prefix is given in the usual hexadecimal
-        IPv6 address notation. The prefix size is optional, and is given
-        as the number of valid top-most bits (default is 64).
-
-    ``ipv6-host=addr``
-        Specify the guest-visible IPv6 address of the host. Default is
-        the 2nd IPv6 in the guest network, i.e. xxxx::2.
+        Specify the guest-visible address of the host. Default is the 2nd IP
+        in the guest network, i.e. x.x.x.2.
 
     ``restrict=on|off``
-        If this option is enabled, the guest will be isolated, i.e. it
-        will not be able to contact the host and no guest IP packets
-        will be routed over the host to the outside. This option does
-        not affect any explicitly set forwarding rules.
+        Isolate the guest from the host and external network, except for
+        explicitly configured forwarding rules.
 
     ``hostname=name``
-        Specifies the client hostname reported by the built-in DHCP
-        server.
+        Client hostname reported by the built-in DHCP server.
 
     ``dhcpstart=addr``
-        Specify the first of the 16 IPs the built-in DHCP server can
-        assign. Default is the 15th to 31st IP in the guest network,
-        i.e. x.x.x.15 to x.x.x.31.
+        First DHCP address the built-in DHCP server can assign.
 
-    ``dns=addr``
-        Specify the guest-visible address of the virtual nameserver. The
-        address must be different from the host address. Default is the
-        3rd IP in the guest network, i.e. x.x.x.3.
+    ``dns=addr``; ``ipv6-dns=addr``; ``dnssearch=domain``; ``domainname=domain``
+        DNS settings reported to the guest.
 
-    ``ipv6-dns=addr``
-        Specify the guest-visible address of the IPv6 virtual
-        nameserver. The address must be different from the host address.
-        Default is the 3rd IP in the guest network, i.e. xxxx::3.
-
-    ``dnssearch=domain``
-        Provides an entry for the domain-search list sent by the
-        built-in DHCP server. More than one domain suffix can be
-        transmitted by specifying this option multiple times. If
-        supported, this will cause the guest to automatically try to
-        append the given domain suffix(es) in case a domain name can not
-        be resolved.
-
-        Example:
-
-        .. parsed-literal::
-
-            |qemu_system| -nic user,dnssearch=mgmt.example.org,dnssearch=example.org
-
-    ``domainname=domain``
-        Specifies the client domain name reported by the built-in DHCP
-        server.
-
-    ``tftp=dir``
-        When using the user mode network stack, activate a built-in TFTP
-        server. The files in dir will be exposed as the root of a TFTP
-        server. The TFTP client on the guest must be configured in
-        binary mode (use the command ``bin`` of the Unix TFTP client).
-        The built-in TFTP server is read-only; it does not implement any
-        command for writing files. QEMU will not write to this directory.
-
-    ``tftp-server-name=name``
-        In BOOTP reply, broadcast name as the "TFTP server name"
-        (RFC2132 option 66). This can be used to advise the guest to
-        load boot files or configurations from a different server than
-        the host address.
-
-    ``bootfile=file``
-        When using the user mode network stack, broadcast file as the
-        BOOTP filename. In conjunction with ``tftp``, this can be used
-        to network boot a guest from a local directory.
-
-        Example (using pxelinux):
-
-        .. parsed-literal::
-
-            |qemu_system| -hda linux.img -boot n -device e1000,netdev=n1 \\
-                -netdev user,id=n1,tftp=/path/to/tftp/files,bootfile=/pxelinux.0
-
-    ``smb=dir[,smbserver=addr]``
-        When using the user mode network stack, activate a built-in SMB
-        server so that Windows OSes can access to the host files in
-        ``dir`` transparently. The IP address of the SMB server can be
-        set to addr. By default the 4th IP in the guest network is used,
-        i.e. x.x.x.4.
-
-        In the guest Windows OS, the line:
-
-        ::
-
-            10.0.2.4 smbserver
-
-        must be added in the file ``C:\WINDOWS\LMHOSTS`` (for windows
-        9x/Me) or ``C:\WINNT\SYSTEM32\DRIVERS\ETC\LMHOSTS`` (Windows
-        NT/2000).
-
-        Then ``dir`` can be accessed in ``\\smbserver\qemu``.
-
-        Note that a SAMBA server must be installed on the host OS.
+    ``tftp=dir``; ``tftp-server-name=name``; ``bootfile=file``
+        Built-in TFTP and network boot settings.
 
     ``hostfwd=[tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport``
-        Redirect incoming TCP or UDP connections to the host port
-        hostport to the guest IP address guestaddr on guest port
-        guestport. If guestaddr is not specified, its value is x.x.x.15
-        (default first address given by the built-in DHCP server). By
-        specifying hostaddr, the rule can be bound to a specific host
-        interface. If no connection type is set, TCP is used. This
+        Redirect incoming TCP or UDP host connections to the guest. This
         option can be given multiple times.
 
-        For example, to redirect host X11 connection from screen 1 to
-        guest screen 0, use the following:
-
-        .. parsed-literal::
-
-            # on the host
-            |qemu_system| -nic user,hostfwd=tcp:127.0.0.1:6001-:6000
-            # this host xterm should open in the guest X11 server
-            xterm -display :1
-
-        To redirect telnet connections from host port 5555 to telnet
-        port on the guest, use the following:
-
-        .. parsed-literal::
-
-            # on the host
-            |qemu_system| -nic user,hostfwd=tcp::5555-:23
-            telnet localhost 5555
-
-        Then when you use on the host ``telnet localhost 5555``, you
-        connect to the guest telnet server.
-
-    ``guestfwd=[tcp]:server:port-dev``; \ ``guestfwd=[tcp]:server:port-cmd:command``
-        Forward guest TCP connections to the IP address server on port
-        port to the character device dev or to a program executed by
-        cmd:command which gets spawned for each connection. This option
-        can be given multiple times.
-
-        You can either use a chardev directly and have that one used
-        throughout QEMU's lifetime, like in the following example:
-
-        .. parsed-literal::
-
-            # open 10.10.1.1:4321 on bootup, connect 10.0.2.100:1234 to it whenever
-            # the guest accesses it
-            |qemu_system| -nic user,guestfwd=tcp:10.0.2.100:1234-tcp:10.10.1.1:4321
-
-        Or you can execute a command on every TCP connection established
-        by the guest, so that QEMU behaves similar to an inetd process
-        for that virtual server:
-
-        .. parsed-literal::
-
-            # call "netcat 10.10.1.1 4321" on every TCP connection to 10.0.2.100:1234
-            # and connect the TCP stream to its stdin/stdout
-            |qemu_system| -nic  'user,id=n1,guestfwd=tcp:10.0.2.100:1234-cmd:netcat 10.10.1.1 4321'
-
-``-netdev tap,id=id[,fd=h][,ifname=name][,script=file][,downscript=dfile][,br=bridge][,helper=helper]``
-    Configure a host TAP network backend with ID id.
-
-    Use the network script file to configure it and the network script
-    dfile to deconfigure it. If name is not provided, the OS
-    automatically provides one. The default network configure script is
-    ``/etc/qemu-ifup`` and the default network deconfigure script is
-    ``/etc/qemu-ifdown``. Use ``script=no`` or ``downscript=no`` to
-    disable script execution.
-
-    If running QEMU as an unprivileged user, use the network helper
-    to configure the TAP interface and attach it to the bridge.
-    The default network helper executable is
-    ``/path/to/qemu-bridge-helper`` and the default bridge device is
-    ``br0``.
-
-    ``fd``\ =h can be used to specify the handle of an already opened
-    host TAP interface.
-
-    Examples:
-
-    .. parsed-literal::
-
-        #launch a QEMU instance with the default network script
-        |qemu_system| linux.img -nic tap
-
-    .. parsed-literal::
-
-        #launch a QEMU instance with two NICs, each one connected
-        #to a TAP device
-        |qemu_system| linux.img \\
-                -netdev tap,id=nd0,ifname=tap0 -device e1000,netdev=nd0 \\
-                -netdev tap,id=nd1,ifname=tap1 -device rtl8139,netdev=nd1
-
-    .. parsed-literal::
-
-        #launch a QEMU instance with the default network helper to
-        #connect a TAP device to bridge br0
-        |qemu_system| linux.img -device virtio-net-pci,netdev=n1 \\
-                -netdev tap,id=n1,"helper=/path/to/qemu-bridge-helper"
-
-``-netdev bridge,id=id[,br=bridge][,helper=helper]``
-    Connect a host TAP network interface to a host bridge device.
-
-    Use the network helper helper to configure the TAP interface and
-    attach it to the bridge. The default network helper executable is
-    ``/path/to/qemu-bridge-helper`` and the default bridge device is
-    ``br0``.
-
-    Examples:
-
-    .. parsed-literal::
-
-        #launch a QEMU instance with the default network helper to
-        #connect a TAP device to bridge br0
-        |qemu_system| linux.img -netdev bridge,id=n1 -device virtio-net,netdev=n1
-
-    .. parsed-literal::
-
-        #launch a QEMU instance with the default network helper to
-        #connect a TAP device to bridge qemubr0
-        |qemu_system| linux.img -netdev bridge,br=qemubr0,id=n1 -device virtio-net,netdev=n1
-
-``-netdev socket,id=id[,fd=h][,listen=[host]:port][,connect=host:port]``
-    This host network backend can be used to connect the guest's network
-    to another QEMU virtual machine using a TCP socket connection. If
-    ``listen`` is specified, QEMU waits for incoming connections on port
-    (host is optional). ``connect`` is used to connect to another QEMU
-    instance using the ``listen`` option. ``fd``\ =h specifies an
-    already opened TCP socket.
+    ``guestfwd=[tcp]:server:port-dev``; ``guestfwd=[tcp]:server:port-cmd:command``
+        Forward guest TCP connections to a character device or command.
 
     Example:
 
     .. parsed-literal::
 
-        # launch a first QEMU instance
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n1,mac=52:54:00:12:34:56 \\
-                         -netdev socket,id=n1,listen=:1234
-        # connect the network of this instance to the network of the first instance
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n2,mac=52:54:00:12:34:57 \\
-                         -netdev socket,id=n2,connect=127.0.0.1:1234
-
-``-netdev socket,id=id[,fd=h][,mcast=maddr:port[,localaddr=addr]]``
-    Configure a socket host network backend to share the guest's network
-    traffic with another QEMU virtual machines using a UDP multicast
-    socket, effectively making a bus for every QEMU with same multicast
-    address maddr and port. NOTES:
-
-    1. Several QEMU can be running on different hosts and share same bus
-       (assuming correct multicast setup for these hosts).
-
-    2. mcast support is compatible with User Mode Linux (argument
-       ``ethN=mcast``), see http://user-mode-linux.sf.net.
-
-    3. Use ``fd=h`` to specify an already opened UDP multicast socket.
-
-    Example:
-
-    .. parsed-literal::
-
-        # launch one QEMU instance
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n1,mac=52:54:00:12:34:56 \\
-                         -netdev socket,id=n1,mcast=230.0.0.1:1234
-        # launch another QEMU instance on same "bus"
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n2,mac=52:54:00:12:34:57 \\
-                         -netdev socket,id=n2,mcast=230.0.0.1:1234
-        # launch yet another QEMU instance on same "bus"
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n3,mac=52:54:00:12:34:58 \\
-                         -netdev socket,id=n3,mcast=230.0.0.1:1234
-
-    Example (User Mode Linux compat.):
-
-    .. parsed-literal::
-
-        # launch QEMU instance (note mcast address selected is UML's default)
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n1,mac=52:54:00:12:34:56 \\
-                         -netdev socket,id=n1,mcast=239.192.168.1:1102
-        # launch UML
-        /path/to/linux ubd0=/path/to/root_fs eth0=mcast
-
-    Example (send packets from host's 1.2.3.4):
-
-    .. parsed-literal::
-
-        |qemu_system| linux.img \\
-                         -device e1000,netdev=n1,mac=52:54:00:12:34:56 \\
-                         -netdev socket,id=n1,mcast=239.192.168.1:1102,localaddr=1.2.3.4
-
-``-netdev stream,id=str[,server=on|off],addr.type=inet,addr.host=host,addr.port=port[,to=maxport][,numeric=on|off][,keep-alive=on|off][,mptcp=on|off][,addr.ipv4=on|off][,addr.ipv6=on|off][,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a TCP/IP socket.
-
-    ``server=on|off``
-        if ``on`` create a server socket
-
-    ``addr.host=host,addr.port=port``
-        socket address to listen on (server=on) or connect to (server=off)
-
-    ``to=maxport``
-        if present, this is range of possible addresses, with port between ``port`` and ``maxport``.
-
-    ``numeric=on|off``
-        if ``on`` ``host`` and ``port`` are guaranteed to be numeric, otherwise a name resolution should be attempted (default: ``off``)
-
-    ``keep-alive=on|off``
-        enable keep-alive when connecting to this socket.  Not supported for passive sockets.
-
-    ``mptcp=on|off``
-        enable multipath TCP
-
-    ``ipv4=on|off``
-        whether to accept IPv4 addresses, default to try both IPv4 and IPv6
-
-    ``ipv6=on|off``
-        whether to accept IPv6 addresses, default to try both IPv4 and IPv6
-
-    ``reconnect-ms=milliseconds``
-        for a client socket, if a socket is disconnected, then attempt a reconnect after the given number of milliseconds.
-        Setting this to zero disables this function.  (default: 0)
-
-    Example (two guests connected using a TCP/IP socket):
-
-    .. parsed-literal::
-
-        # first VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      -netdev stream,id=net0,server=on,addr.type=inet,addr.host=localhost,addr.port=1234
-        # second VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:57 \\
-                      -netdev stream,id=net0,server=off,addr.type=inet,addr.host=localhost,addr.port=1234,reconnect-ms=5000
-
-``-netdev stream,id=str[,server=on|off],addr.type=unix,addr.path=path[,abstract=on|off][,tight=on|off][,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a stream oriented unix domain socket.
-
-    ``server=on|off``
-        if ``on`` create a server socket
-
-    ``addr.path=path``
-        filesystem path to use
-
-    ``abstract=on|off``
-        if ``on``, this is a Linux abstract socket address.
-
-    ``tight=on|off``
-        if false, pad an abstract socket address with enough null bytes to make it fill struct sockaddr_un member sun_path.
-
-    ``reconnect-ms=milliseconds``
-        for a client socket, if a socket is disconnected, then attempt a reconnect after the given number of milliseconds.
-        Setting this to zero disables this function.  (default: 0)
-
-    Example (using passt as a replacement of -netdev user):
-
-    .. parsed-literal::
-
-        # start passt server as a non privileged user
-        passt
-        UNIX domain socket bound at /tmp/passt_1.socket
-        # start QEMU to connect to passt
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0 \\
-                      -netdev stream,id=net0,server=off,addr.type=unix,addr.path=/tmp/passt_1.socket
-
-    Example (two guests connected using a stream oriented unix domain socket):
-
-    .. parsed-literal::
-
-        # first VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      netdev stream,id=net0,server=on,addr.type=unix,addr.path=/tmp/qemu0
-        # second VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:57 \\
-                      -netdev stream,id=net0,server=off,addr.type=unix,addr.path=/tmp/qemu0,reconnect-ms=5000
-
-``-netdev stream,id=str[,server=on|off],addr.type=fd,addr.str=file-descriptor[,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a stream oriented socket file descriptor.
-
-    ``server=on|off``
-        if ``on`` create a server socket
-
-    ``addr.str=file-descriptor``
-        file descriptor number to use as a socket
-
-    ``reconnect-ms=milliseconds``
-        for a client socket, if a socket is disconnected, then attempt a reconnect after the given number of milliseconds.
-        Setting this to zero disables this function.  (default: 0)
-
-``-netdev dgram,id=str,remote.type=inet,remote.host=maddr,remote.port=port[,local.type=inet,local.host=addr]``
-    Configure a network backend to connect to a multicast address.
-
-    ``remote.host=maddr,remote.port=port``
-        multicast address
-
-    ``local.host=addr``
-        specify the host address to send packets from
-
-    Example:
-
-    .. parsed-literal::
-
-        # launch one QEMU instance
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      -netdev dgram,id=net0,remote.type=inet,remote.host=224.0.0.1,remote.port=1234
-        # launch another QEMU instance on same "bus"
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:57 \\
-                      -netdev dgram,id=net0,remote.type=inet,remote.host=224.0.0.1,remote.port=1234
-        # launch yet another QEMU instance on same "bus"
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:58 \\
-                      -netdev dgram,id=net0,remote.type=inet,remote.host=224.0.0.1,remote.port=1234
-
-``-netdev dgram,id=str,remote.type=inet,remote.host=maddr,remote.port=port[,local.type=fd,local.str=file-descriptor]``
-    Configure a network backend to connect to a multicast address using a UDP socket file descriptor.
-
-    ``remote.host=maddr,remote.port=port``
-        multicast address
-
-    ``local.str=file-descriptor``
-        File descriptor to use to send packets
-
-``-netdev dgram,id=str,local.type=inet,local.host=addr,local.port=port[,remote.type=inet,remote.host=addr,remote.port=port]``
-    Configure a network backend to connect to another QEMU virtual
-    machine or a proxy using a datagram oriented unix domain socket.
-
-    ``local.host=addr,local.port=port``
-        IP address to use to send the packets from
-
-    ``remote.host=addr,remote.port=port``
-        Destination IP address
-
-    Example (two guests connected using an UDP/IP socket):
-
-    .. parsed-literal::
-
-        # first VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      -netdev dgram,id=net0,local.type=inet,local.host=localhost,local.port=1234,remote.type=inet,remote.host=localhost,remote.port=1235
-        # second VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      -netdev dgram,id=net0,local.type=inet,local.host=localhost,local.port=1235,remote.type=inet,remote.host=localhost,remote.port=1234
-
-``-netdev dgram,id=str,local.type=unix,local.path=path[,remote.type=unix,remote.path=path]``
-    Configure a network backend to connect to another QEMU virtual
-    machine or a proxy using a datagram oriented unix socket.
-
-    ``local.path=path``
-        filesystem path to use to bind the socket
-
-    ``remote.path=path``
-        filesystem path to use as a destination (see sendto(2))
-
-    Example (two guests connected using an UDP/UNIX socket):
-
-    .. parsed-literal::
-
-        # first VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:56 \\
-                      -netdev dgram,id=net0,local.type=unix,local.path=/tmp/qemu0,remote.type=unix,remote.path=/tmp/qemu1
-        # second VM
-        |qemu_system| linux.img \\
-                      -device virtio-net,netdev=net0,mac=52:54:00:12:34:57 \\
-                      -netdev dgram,id=net0,local.type=unix,local.path=/tmp/qemu1,remote.type=unix,remote.path=/tmp/qemu0
-
-``-netdev dgram,id=str,local.type=fd,local.str=file-descriptor``
-    Configure a network backend to connect to another QEMU virtual
-    machine or a proxy using a datagram oriented socket file descriptor.
-
-    ``local.str=file-descriptor``
-        File descriptor to use to send packets
-
-``-netdev l2tpv3,id=id,src=srcaddr,dst=dstaddr[,srcport=srcport][,dstport=dstport],txsession=txsession[,rxsession=rxsession][,ipv6=on|off][,udp=on|off][,cookie64=on|off][,counter=on|off][,pincounter=on|off][,txcookie=txcookie][,rxcookie=rxcookie][,offset=offset]``
-    Configure a L2TPv3 pseudowire host network backend. L2TPv3 (RFC3931)
-    is a popular protocol to transport Ethernet (and other Layer 2) data
-    frames between two systems. It is present in routers, firewalls and
-    the Linux kernel (from version 3.3 onwards).
-
-    This transport allows a VM to communicate to another VM, router or
-    firewall directly.
-
-    ``src=srcaddr``
-        source address (mandatory)
-
-    ``dst=dstaddr``
-        destination address (mandatory)
-
-    ``udp=on``
-        select udp encapsulation (default is ip).
-
-    ``srcport=srcport``
-        source udp port.
-
-    ``dstport=dstport``
-        destination udp port.
-
-    ``ipv6=on``
-        force v6, otherwise defaults to v4.
-
-    ``rxcookie=rxcookie``; \ ``txcookie=txcookie``
-        Cookies are a weak form of security in the l2tpv3 specification.
-        Their function is mostly to prevent misconfiguration. By default
-        they are 32 bit.
-
-    ``cookie64=on``
-        Set cookie size to 64 bit instead of the default 32
-
-    ``counter=off``
-        Force a 'cut-down' L2TPv3 with no counter as in
-        draft-mkonstan-l2tpext-keyed-ipv6-tunnel-00
-
-    ``pincounter=on``
-        Work around broken counter handling in peer. This may also help
-        on networks which have packet reorder.
-
-    ``offset=offset``
-        Add an extra offset between header and data
-
-    For example, to attach a VM running on host 4.3.2.1 via L2TPv3 to
-    the bridge br-lan on the remote Linux host 1.2.3.4:
-
-    .. parsed-literal::
-
-        # Setup tunnel on linux host using raw ip as encapsulation
-        # on 1.2.3.4
-        ip l2tp add tunnel remote 4.3.2.1 local 1.2.3.4 tunnel_id 1 peer_tunnel_id 1 \\
-            encap udp udp_sport 16384 udp_dport 16384
-        ip l2tp add session tunnel_id 1 name vmtunnel0 session_id \\
-            0xFFFFFFFF peer_session_id 0xFFFFFFFF
-        ifconfig vmtunnel0 mtu 1500
-        ifconfig vmtunnel0 up
-        brctl addif br-lan vmtunnel0
-
-
-        # on 4.3.2.1
-        # launch QEMU instance - if your network has reorder or is very lossy add ,pincounter
-
-        |qemu_system| linux.img -device e1000,netdev=n1 \\
-            -netdev l2tpv3,id=n1,src=4.2.3.1,dst=1.2.3.4,udp=on,srcport=16384,dstport=16384,rxsession=0xffffffff,txsession=0xffffffff,counter=on
-
-``-netdev vde,id=id[,sock=socketpath][,port=n][,group=groupname][,mode=octalmode]``
-    Configure VDE backend to connect to PORT n of a vde switch running
-    on host and listening for incoming connections on socketpath. Use
-    GROUP groupname and MODE octalmode to change default ownership and
-    permissions for communication port. This option is only available if
-    QEMU has been compiled with vde support enabled.
-
-    Example:
-
-    .. parsed-literal::
-
-        # launch vde switch
-        vde_switch -F -sock /tmp/myswitch
-        # launch QEMU instance
-        |qemu_system| linux.img -nic vde,sock=/tmp/myswitch
-
-``-netdev af-xdp,id=str,ifname=name[,mode=native|skb][,force-copy=on|off][,queues=n][,start-queue=m][,inhibit=on|off][,sock-fds=x:y:...:z]``
-    Configure AF_XDP backend to connect to a network interface 'name'
-    using AF_XDP socket.  A specific program attach mode for a default
-    XDP program can be forced with 'mode', defaults to best-effort,
-    where the likely most performant mode will be in use.  Number of queues
-    'n' should generally match the number or queues in the interface,
-    defaults to 1.  Traffic arriving on non-configured device queues will
-    not be delivered to the network backend.
-
-    .. parsed-literal::
-
-        # set number of queues to 4
-        ethtool -L eth0 combined 4
-        # launch QEMU instance
-        |qemu_system| linux.img -device virtio-net-pci,netdev=n1 \\
-            -netdev af-xdp,id=n1,ifname=eth0,queues=4
-
-    'start-queue' option can be specified if a particular range of queues
-    [m, m + n] should be in use.  For example, this is may be necessary in
-    order to use certain NICs in native mode.  Kernel allows the driver to
-    create a separate set of XDP queues on top of regular ones, and only
-    these queues can be used for AF_XDP sockets.  NICs that work this way
-    may also require an additional traffic redirection with ethtool to these
-    special queues.
-
-    .. parsed-literal::
-
-        # set number of queues to 1
-        ethtool -L eth0 combined 1
-        # redirect all the traffic to the second queue (id: 1)
-        # note: drivers may require non-empty key/mask pair.
-        ethtool -N eth0 flow-type ether \\
-            dst 00:00:00:00:00:00 m FF:FF:FF:FF:FF:FE action 1
-        ethtool -N eth0 flow-type ether \\
-            dst 00:00:00:00:00:01 m FF:FF:FF:FF:FF:FE action 1
-        # launch QEMU instance
-        |qemu_system| linux.img -device virtio-net-pci,netdev=n1 \\
-            -netdev af-xdp,id=n1,ifname=eth0,queues=1,start-queue=1
-
-    XDP program can also be loaded externally.  In this case 'inhibit' option
-    should be set to 'on' and 'sock-fds' provided with file descriptors for
-    already open but not bound XDP sockets already added to a socket map for
-    corresponding queues.  One socket per queue.
-
-    .. parsed-literal::
-
-        |qemu_system| linux.img -device virtio-net-pci,netdev=n1 \\
-            -netdev af-xdp,id=n1,ifname=eth0,queues=3,inhibit=on,sock-fds=15:16:17
-
-``-netdev vhost-user,chardev=id[,vhostforce=on|off][,queues=n]``
-    Establish a vhost-user netdev, backed by a chardev id. The chardev
-    should be a unix domain socket backed one. The vhost-user uses a
-    specifically defined protocol to pass vhost ioctl replacement
-    messages to an application on the other end of the socket. On
-    non-MSIX guests, the feature can be forced with vhostforce. Use
-    'queues=n' to specify the number of queues to be created for
-    multiqueue vhost-user.
-
-    Example:
-
-    ::
-
-        qemu -m 512 -object memory-backend-file,id=mem,size=512M,mem-path=/hugetlbfs,share=on \
-             -numa node,memdev=mem \
-             -chardev socket,id=chr0,path=/path/to/socket \
-             -netdev type=vhost-user,id=net0,chardev=chr0 \
-             -device virtio-net-pci,netdev=net0
-
-``-netdev vhost-vdpa[,vhostdev=/path/to/dev][,vhostfd=h]``
-    Establish a vhost-vdpa netdev.
-
-    vDPA device is a device that uses a datapath which complies with
-    the virtio specifications with a vendor specific control path.
-    vDPA devices can be both physically located on the hardware or
-    emulated by software.
-
-``-netdev hubport,id=id,hubid=hubid[,netdev=nd]``
-    Create a hub port on the emulated hub with ID hubid.
-
-    The hubport netdev lets you connect a NIC to a QEMU emulated hub
-    instead of a single netdev. Alternatively, you can also connect the
-    hubport to another netdev with ID nd by using the ``netdev=nd``
-    option.
-
-``-net nic[,netdev=nd][,macaddr=mac][,model=type] [,name=name][,addr=addr][,vectors=v]``
-    Legacy option to configure or create an on-board (or machine
-    default) Network Interface Card(NIC) and connect it either to the
-    emulated hub with ID 0 (i.e. the default hub), or to the netdev nd.
-    If model is omitted, then the default NIC model associated with the
-    machine type is used. Note that the default NIC model may change in
-    future QEMU releases, so it is highly recommended to always specify
-    a model. Optionally, the MAC address can be changed to mac, the
-    device address set to addr (PCI cards only), and a name can be
-    assigned for use in monitor commands. Optionally, for PCI cards, you
-    can specify the number v of MSI-X vectors that the card should have;
-    this option currently only affects virtio cards; set v = 0 to
-    disable MSI-X. If no ``-net`` option is specified, a single NIC is
-    created. QEMU can emulate several different models of network card.
-    Use ``-net nic,model=help`` for a list of available devices for your
-    target.
-
-``-net user|tap|bridge|socket|l2tpv3|vde[,...][,name=name]``
-    Configure a host network backend (with the options corresponding to
-    the same ``-netdev`` option) and connect it to the emulated hub 0
-    (the default hub). Use name to specify the name of the hub port.
+        |qemu_system| -netdev user,id=usernet,hostfwd=tcp::2222-:22 \
+            -device virtio-net-pci,netdev=usernet
+
+``-net nic[,netdev=nd][,macaddr=mac][,model=type][,name=name][,addr=addr][,vectors=v]``
+    Legacy option to configure or create a default NIC. Prefer explicit
+    ``-netdev user`` plus ``-device virtio-net-pci,netdev=id``.
+
+``-net none``
+    Disable automatic network device creation.
 ERST
 
 DEFHEADING()
@@ -3461,7 +2636,6 @@ DEF("chardev", HAS_ARG, QEMU_OPTION_chardev,
     "-chardev udp,id=id[,host=host],port=port[,localaddr=localaddr]\n"
     "         [,localport=localport][,ipv4=on|off][,ipv6=on|off][,mux=on|off]\n"
     "         [,logfile=PATH][,logappend=on|off]\n"
-    "-chardev msmouse,id=id[,mux=on|off][,logfile=PATH][,logappend=on|off]\n"
     "-chardev vc,id=id[[,width=width][,height=height]][[,cols=cols][,rows=rows]]\n"
     "         [,mux=on|off][,logfile=PATH][,logappend=on|off]\n"
     "-chardev ringbuf,id=id[,size=size][,logfile=PATH][,logappend=on|off]\n"
@@ -3495,7 +2669,7 @@ SRST
 The general form of a character device option is:
 
 ``-chardev backend,id=id[,mux=on|off][,options]``
-    Backend is one of: ``null``, ``socket``, ``udp``, ``msmouse``, ``hub``,
+    Backend is one of: ``null``, ``socket``, ``udp``, ``hub``,
     ``vc``, ``ringbuf``, ``file``, ``pipe``, ``console``, ``serial``,
     ``pty``, ``stdio``, ``braille``, ``parallel``,
     ``spicevmc``, ``spiceport``. The specific backend will determine the
@@ -3650,10 +2824,6 @@ The available backends are:
 
     ``ipv4=on|off`` and ``ipv6=on|off`` specify that either IPv4 or IPv6 must be used.
     If neither is specified the device may use either protocol.
-
-``-chardev msmouse,id=id``
-    Forward QEMU's emulated msmouse events to the guest. ``msmouse``
-    does not take any options.
 
 ``-chardev hub,id=id,chardevs.0=id[,chardevs.N=id]``
     Explicitly create chardev backend hub device with the possibility
@@ -4267,9 +3437,6 @@ SRST
         Braille device. This will use BrlAPI to display the braille
         output on a real or fake device.
 
-    ``msmouse``
-        Three button serial mouse. Configure the guest to use Microsoft
-        protocol.
 ERST
 
 DEF("parallel", HAS_ARG, QEMU_OPTION_parallel, \
@@ -5384,156 +4551,6 @@ SRST
              # |qemu_system| \\
                  -object tls-cipher-suites,id=mysuite0,priority=@SYSTEM \\
                  -fw_cfg name=etc/edk2/https/ciphers,gen_id=mysuite0
-
-    ``-object filter-buffer,id=id,netdev=netdevid,interval=t[,queue=all|rx|tx][,status=on|off][,position=head|tail|id=<id>][,insert=behind|before]``
-        Interval t can't be 0, this filter batches the packet delivery:
-        all packets arriving in a given interval on netdev netdevid are
-        delayed until the end of the interval. Interval is in
-        microseconds. ``status`` is optional that indicate whether the
-        netfilter is on (enabled) or off (disabled), the default status
-        for netfilter will be 'on'.
-
-        queue all\|rx\|tx is an option that can be applied to any
-        netfilter.
-
-        ``all``: the filter is attached both to the receive and the
-        transmit queue of the netdev (default).
-
-        ``rx``: the filter is attached to the receive queue of the
-        netdev, where it will receive packets sent to the netdev.
-
-        ``tx``: the filter is attached to the transmit queue of the
-        netdev, where it will receive packets sent by the netdev.
-
-        position head\|tail\|id=<id> is an option to specify where the
-        filter should be inserted in the filter list. It can be applied
-        to any netfilter.
-
-        ``head``: the filter is inserted at the head of the filter list,
-        before any existing filters.
-
-        ``tail``: the filter is inserted at the tail of the filter list,
-        behind any existing filters (default).
-
-        ``id=<id>``: the filter is inserted before or behind the filter
-        specified by <id>, see the insert option below.
-
-        insert behind\|before is an option to specify where to insert
-        the new filter relative to the one specified with
-        position=id=<id>. It can be applied to any netfilter.
-
-        ``before``: insert before the specified filter.
-
-        ``behind``: insert behind the specified filter (default).
-
-    ``-object filter-mirror,id=id,netdev=netdevid,outdev=chardevid,queue=all|rx|tx[,vnet_hdr_support][,position=head|tail|id=<id>][,insert=behind|before]``
-        filter-mirror on netdev netdevid,mirror net packet to
-        chardevchardevid, if it has the vnet\_hdr\_support flag,
-        filter-mirror will mirror packet with vnet\_hdr\_len.
-
-    ``-object filter-redirector,id=id,netdev=netdevid,indev=chardevid,outdev=chardevid,queue=all|rx|tx[,vnet_hdr_support][,position=head|tail|id=<id>][,insert=behind|before]``
-        filter-redirector on netdev netdevid,redirect filter's net
-        packet to chardev chardevid,and redirect indev's packet to
-        filter.if it has the vnet\_hdr\_support flag, filter-redirector
-        will redirect packet with vnet\_hdr\_len. Create a
-        filter-redirector we need to differ outdev id from indev id, id
-        can not be the same. we can just use indev or outdev, but at
-        least one of indev or outdev need to be specified.
-
-    ``-object filter-rewriter,id=id,netdev=netdevid,queue=all|rx|tx,[vnet_hdr_support][,position=head|tail|id=<id>][,insert=behind|before]``
-        Filter-rewriter is a part of COLO project.It will rewrite tcp
-        packet to secondary from primary to keep secondary tcp
-        connection,and rewrite tcp packet to primary from secondary make
-        tcp packet can be handled by client.if it has the
-        vnet\_hdr\_support flag, we can parse packet with vnet header.
-
-        usage: colo secondary: -object
-        filter-redirector,id=f1,netdev=hn0,queue=tx,indev=red0 -object
-        filter-redirector,id=f2,netdev=hn0,queue=rx,outdev=red1 -object
-        filter-rewriter,id=rew0,netdev=hn0,queue=all
-
-    ``-object filter-dump,id=id,netdev=dev[,file=filename][,maxlen=len][,position=head|tail|id=<id>][,insert=behind|before]``
-        Dump the network traffic on netdev dev to the file specified by
-        filename. At most len bytes (64k by default) per packet are
-        stored. The file format is libpcap, so it can be analyzed with
-        tools such as tcpdump or Wireshark.
-
-    ``-object colo-compare,id=id,primary_in=chardevid,secondary_in=chardevid,outdev=chardevid,iothread=id[,vnet_hdr_support][,notify_dev=id][,compare_timeout=@var{ms}][,expired_scan_cycle=@var{ms}][,max_queue_size=@var{size}]``
-        Colo-compare gets packet from primary\_in chardevid and
-        secondary\_in, then compare whether the payload of primary packet
-        and secondary packet are the same. If same, it will output
-        primary packet to out\_dev, else it will notify COLO-framework to do
-        checkpoint and send primary packet to out\_dev. In order to
-        improve efficiency, we need to put the task of comparison in
-        another iothread. If it has the vnet\_hdr\_support flag,
-        colo compare will send/recv packet with vnet\_hdr\_len.
-        The compare\_timeout=@var{ms} determines the maximum time of the
-        colo-compare hold the packet. The expired\_scan\_cycle=@var{ms}
-        is to set the period of scanning expired primary node network packets.
-        The max\_queue\_size=@var{size} is to set the max compare queue
-        size depend on user environment.
-        If user want to use Xen COLO, need to add the notify\_dev to
-        notify Xen colo-frame to do checkpoint.
-
-        COLO-compare must be used with the help of filter-mirror,
-        filter-redirector and filter-rewriter.
-
-        ::
-
-            KVM COLO
-
-            primary:
-            -netdev tap,id=hn0,vhost=off
-            -device e1000,id=e0,netdev=hn0,mac=52:a4:00:12:78:66
-            -chardev socket,id=mirror0,host=3.3.3.3,port=9003,server=on,wait=off
-            -chardev socket,id=compare1,host=3.3.3.3,port=9004,server=on,wait=off
-            -chardev socket,id=compare0,host=3.3.3.3,port=9001,server=on,wait=off
-            -chardev socket,id=compare0-0,host=3.3.3.3,port=9001
-            -chardev socket,id=compare_out,host=3.3.3.3,port=9005,server=on,wait=off
-            -chardev socket,id=compare_out0,host=3.3.3.3,port=9005
-            -object iothread,id=iothread1
-            -object filter-mirror,id=m0,netdev=hn0,queue=tx,outdev=mirror0
-            -object filter-redirector,netdev=hn0,id=redire0,queue=rx,indev=compare_out
-            -object filter-redirector,netdev=hn0,id=redire1,queue=rx,outdev=compare0
-            -object colo-compare,id=comp0,primary_in=compare0-0,secondary_in=compare1,outdev=compare_out0,iothread=iothread1
-
-            secondary:
-            -netdev tap,id=hn0,vhost=off
-            -device e1000,netdev=hn0,mac=52:a4:00:12:78:66
-            -chardev socket,id=red0,host=3.3.3.3,port=9003
-            -chardev socket,id=red1,host=3.3.3.3,port=9004
-            -object filter-redirector,id=f1,netdev=hn0,queue=tx,indev=red0
-            -object filter-redirector,id=f2,netdev=hn0,queue=rx,outdev=red1
-
-
-            Xen COLO
-
-            primary:
-            -netdev tap,id=hn0,vhost=off
-            -device e1000,id=e0,netdev=hn0,mac=52:a4:00:12:78:66
-            -chardev socket,id=mirror0,host=3.3.3.3,port=9003,server=on,wait=off
-            -chardev socket,id=compare1,host=3.3.3.3,port=9004,server=on,wait=off
-            -chardev socket,id=compare0,host=3.3.3.3,port=9001,server=on,wait=off
-            -chardev socket,id=compare0-0,host=3.3.3.3,port=9001
-            -chardev socket,id=compare_out,host=3.3.3.3,port=9005,server=on,wait=off
-            -chardev socket,id=compare_out0,host=3.3.3.3,port=9005
-            -chardev socket,id=notify_way,host=3.3.3.3,port=9009,server=on,wait=off
-            -object filter-mirror,id=m0,netdev=hn0,queue=tx,outdev=mirror0
-            -object filter-redirector,netdev=hn0,id=redire0,queue=rx,indev=compare_out
-            -object filter-redirector,netdev=hn0,id=redire1,queue=rx,outdev=compare0
-            -object iothread,id=iothread1
-            -object colo-compare,id=comp0,primary_in=compare0-0,secondary_in=compare1,outdev=compare_out0,notify_dev=notify_way,iothread=iothread1
-
-            secondary:
-            -netdev tap,id=hn0,vhost=off
-            -device e1000,netdev=hn0,mac=52:a4:00:12:78:66
-            -chardev socket,id=red0,host=3.3.3.3,port=9003
-            -chardev socket,id=red1,host=3.3.3.3,port=9004
-            -object filter-redirector,id=f1,netdev=hn0,queue=tx,indev=red0
-            -object filter-redirector,id=f2,netdev=hn0,queue=rx,outdev=red1
-
-        If you want to know the detail of above command line, you can
-        read the colo-compare git log.
 
     ``-object cryptodev-backend-builtin,id=id[,queues=queues]``
         Creates a cryptodev backend which executes crypto operations from

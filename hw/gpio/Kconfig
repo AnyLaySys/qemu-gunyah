@@ -4,26 +4,5 @@ config PL061
 config GPIO_KEY
     bool
 
-config GPIO_MPC8XXX
-    bool
-
 config GPIO_PWR
-    bool
-
-config SIFIVE_GPIO
-    bool
-
-config STM32L4X5_GPIO
-    bool
-
-config PCA9552
-    bool
-
-config PCA9554
-    bool
-
-config PCF8574
-    bool
-
-config ZAURUS_SCOOP
     bool

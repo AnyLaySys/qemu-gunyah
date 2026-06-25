@@ -418,25 +418,6 @@
     '*out': 'AudiodevSdlPerDirectionOptions' } }
 
 ##
-# @AudiodevWavOptions:
-#
-# Options of the wav audio backend.
-#
-# @in: options of the capture stream
-#
-# @out: options of the playback stream
-#
-# @path: name of the wav file to record (default 'qemu.wav')
-#
-# Since: 4.0
-##
-{ 'struct': 'AudiodevWavOptions',
-  'data': {
-    '*in':   'AudiodevPerDirectionOptions',
-    '*out':  'AudiodevPerDirectionOptions',
-    '*path': 'str' } }
-
-##
 # @AudioFormat:
 #
 # An enumeration of possible audio formats.
@@ -470,8 +451,7 @@
 # Since: 4.0
 ##
 { 'enum': 'AudiodevDriver',
-  'data': [ 'none',
-            { 'name': 'alsa', 'if': 'CONFIG_AUDIO_ALSA' },
+  'data': [ { 'name': 'alsa', 'if': 'CONFIG_AUDIO_ALSA' },
             { 'name': 'coreaudio', 'if': 'CONFIG_AUDIO_COREAUDIO' },
             { 'name': 'dbus', 'if': 'CONFIG_DBUS_DISPLAY' },
             { 'name': 'dsound', 'if': 'CONFIG_AUDIO_DSOUND' },
@@ -482,7 +462,6 @@
             { 'name': 'sdl', 'if': 'CONFIG_AUDIO_SDL' },
             { 'name': 'sndio', 'if': 'CONFIG_AUDIO_SNDIO' },
             { 'name': 'spice', 'if': 'CONFIG_SPICE' },
-            'wav',
             { 'name': 'aaudio', 'if': 'CONFIG_AUDIO_AAUDIO' } ] }
 
 ##
@@ -506,7 +485,6 @@
     '*timer-period': 'uint32' },
   'discriminator': 'driver',
   'data': {
-    'none':      'AudiodevGenericOptions',
     'alsa':      { 'type': 'AudiodevAlsaOptions',
                    'if': 'CONFIG_AUDIO_ALSA' },
     'coreaudio': { 'type': 'AudiodevCoreaudioOptions',
@@ -529,7 +507,6 @@
                    'if': 'CONFIG_AUDIO_SNDIO' },
     'spice':     { 'type': 'AudiodevGenericOptions',
                    'if': 'CONFIG_SPICE' },
-    'wav':       'AudiodevWavOptions',
     'aaudio':    { 'type': 'AudiodevGenericOptions',
                    'if': 'CONFIG_AUDIO_AAUDIO' } } }
 

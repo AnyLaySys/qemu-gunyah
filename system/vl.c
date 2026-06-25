@@ -1783,19 +1783,6 @@ static bool object_create_early(const char *type)
         return false;
     }
     /*
-     * Reason: filter-* property "netdev" etc.
-     */
-    if (g_str_equal(type, "filter-buffer") ||
-        g_str_equal(type, "filter-dump") ||
-        g_str_equal(type, "filter-mirror") ||
-        g_str_equal(type, "filter-redirector") ||
-        g_str_equal(type, "colo-compare") ||
-        g_str_equal(type, "filter-rewriter") ||
-        g_str_equal(type, "filter-replay")) {
-        return false;
-    }
-
-    /*
      * Allocation of large amounts of memory may delay
      * chardev initialization for too long, and trigger timeouts
      * on software that waits for a monitor socket to be created

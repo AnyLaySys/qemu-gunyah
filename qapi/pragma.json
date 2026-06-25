@@ -92,12 +92,7 @@
         'BlockdevDriver',           # blockdev-add, query-blockstats, ...
         'BlockdevVmdkAdapterType',  # blockdev-create (to match VMDK spec)
         'BlockdevVmdkSubformat',    # blockdev-create (to match VMDK spec)
-        'ColoCompareProperties',    # object_add, -object
-        'FilterMirrorProperties',   # object_add, -object
-        'FilterRedirectorProperties', # object_add, -object
-        'FilterRewriterProperties', # object_add, -object
         'InputLinuxProperties',     # object_add, -object
-        'NetdevTapOptions',         # netdev_add, query-netdev, -netdev
         'ObjectType',               # object-add, -object
         'PCIELinkSpeed',            # internal only
         'PciBusInfo',               # query-pci
