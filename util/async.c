@@ -95,15 +95,6 @@ static void aio_bh_enqueue(QEMUBH *bh, unsigned new_flags)
     }
 
     aio_notify(ctx);
-    if (unlikely(icount_enabled())) {
-        /*
-         * Workaround for record/replay.
-         * vCPU execution should be suspended when new BH is set.
-         * This is needed to avoid guest timeouts caused
-         * by the long cycles of the execution.
-         */
-        icount_notify_exit();
-    }
 }
 
 /* Only called from aio_bh_poll() and aio_ctx_finalize() */

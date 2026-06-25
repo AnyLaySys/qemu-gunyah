@@ -24,7 +24,6 @@
 #include "system/accel-ops.h"
 #include "system/cpus.h"
 #include "exec/tswap.h"
-#include "exec/replay-core.h"
 #include "exec/log.h"
 #include "accel/accel-cpu-target.h"
 #include "trace/trace-root.h"
@@ -142,7 +141,6 @@ void cpu_abort(CPUState *cpu, const char *fmt, ...)
     }
     va_end(ap2);
     va_end(ap);
-    replay_finish();
 #if defined(CONFIG_USER_ONLY)
     {
         struct sigaction act;

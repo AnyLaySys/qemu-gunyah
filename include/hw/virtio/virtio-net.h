@@ -21,8 +21,6 @@
 #include "qemu/option_int.h"
 #include "qom/object.h"
 
-#include "ebpf/ebpf_rss.h"
-
 #define TYPE_VIRTIO_NET "virtio-net-device"
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIONet, VIRTIO_NET)
 
@@ -221,12 +219,8 @@ struct VirtIONet {
     DeviceListener primary_listener;
     QDict *primary_opts;
     bool primary_opts_from_json;
-    NotifierWithReturn migration_state;
     VirtioNetRssData rss_data;
     struct NetRxPkt *rx_pkt;
-    struct EBPFRSSContext ebpf_rss;
-    uint32_t nr_ebpf_rss_fds;
-    char **ebpf_rss_fds;
 };
 
 size_t virtio_net_handle_ctrl_iov(VirtIODevice *vdev,

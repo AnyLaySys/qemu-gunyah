@@ -408,21 +408,12 @@ int cpu_breakpoint_insert(CPUState *cpu, vaddr pc, int flags,
 {
     CPUBreakpoint *bp;
 
-    if (cpu->cc->gdb_adjust_breakpoint) {
-        pc = cpu->cc->gdb_adjust_breakpoint(cpu, pc);
-    }
-
     bp = g_malloc(sizeof(*bp));
 
     bp->pc = pc;
     bp->flags = flags;
 
-    /* keep all GDB-injected breakpoints in front */
-    if (flags & BP_GDB) {
-        QTAILQ_INSERT_HEAD(&cpu->breakpoints, bp, entry);
-    } else {
-        QTAILQ_INSERT_TAIL(&cpu->breakpoints, bp, entry);
-    }
+    QTAILQ_INSERT_TAIL(&cpu->breakpoints, bp, entry);
 
     if (breakpoint) {
         *breakpoint = bp;
@@ -436,10 +427,6 @@ int cpu_breakpoint_insert(CPUState *cpu, vaddr pc, int flags,
 int cpu_breakpoint_remove(CPUState *cpu, vaddr pc, int flags)
 {
     CPUBreakpoint *bp;
-
-    if (cpu->cc->gdb_adjust_breakpoint) {
-        pc = cpu->cc->gdb_adjust_breakpoint(cpu, pc);
-    }
 
     QTAILQ_FOREACH(bp, &cpu->breakpoints, entry) {
         if (bp->pc == pc && bp->flags == flags) {

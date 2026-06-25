@@ -10,11 +10,6 @@
 #include "hw/arm/boot.h"
 #include "hw/arm/primecell.h"
 #include "hw/arm/virt.h"
-#include "hw/block/flash.h"
-#ifdef CONFIG_VFIO
-#include "hw/vfio/vfio-calxeda-xgmac.h"
-#include "hw/vfio/vfio-amd-xgbe.h"
-#endif
 #include "hw/display/ramfb.h"
 #include "hw/char/serial-mm.h"
 #include "net/net.h"
@@ -987,148 +982,24 @@ static void create_gpio_devices(const VirtMachineState *vms, int gpio,
  }
 }
 
-#define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
-
-static PFlashCFI01 *virt_flash_create1(VirtMachineState *vms,
- const char *name,
- const char *alias_prop_name)
-{
-
- DeviceState *dev = qdev_new(TYPE_PFLASH_CFI01);
-
- qdev_prop_set_uint64(dev, "sector-length", VIRT_FLASH_SECTOR_SIZE);
- qdev_prop_set_uint8(dev, "width", 4);
- qdev_prop_set_uint8(dev, "device-width", 2);
- qdev_prop_set_bit(dev, "big-endian", false);
- qdev_prop_set_uint16(dev, "id0", 0x89);
- qdev_prop_set_uint16(dev, "id1", 0x18);
- qdev_prop_set_uint16(dev, "id2", 0x00);
- qdev_prop_set_uint16(dev, "id3", 0x00);
- qdev_prop_set_string(dev, "name", name);
- object_property_add_child(OBJECT(vms), name, OBJECT(dev));
- object_property_add_alias(OBJECT(vms), alias_prop_name,
- OBJECT(dev), "drive");
- return PFLASH_CFI01(dev);
-}
-
-static void virt_flash_create(VirtMachineState *vms)
-{
- vms->flash[0] = virt_flash_create1(vms, "virt.flash0", "pflash0");
- vms->flash[1] = virt_flash_create1(vms, "virt.flash1", "pflash1");
-}
-
-static void virt_flash_map1(PFlashCFI01 *flash,
- hwaddr base, hwaddr size,
- MemoryRegion *sysmem)
-{
- DeviceState *dev = DEVICE(flash);
-
- assert(QEMU_IS_ALIGNED(size, VIRT_FLASH_SECTOR_SIZE));
- assert(size / VIRT_FLASH_SECTOR_SIZE <= UINT32_MAX);
- qdev_prop_set_uint32(dev, "num-blocks", size / VIRT_FLASH_SECTOR_SIZE);
- sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
-
- if (gunyah_enabled()) {
- return;
- }
-
- memory_region_add_subregion(sysmem, base,
- sysbus_mmio_get_region(SYS_BUS_DEVICE(dev),
- 0));
-}
-
-static void virt_flash_map(VirtMachineState *vms,
- MemoryRegion *sysmem,
- MemoryRegion *secure_sysmem)
-{
-
- hwaddr flashsize = vms->memmap[VIRT_FLASH].size / 2;
- hwaddr flashbase = vms->memmap[VIRT_FLASH].base;
-
- virt_flash_map1(vms->flash[0], flashbase, flashsize,
- secure_sysmem);
- virt_flash_map1(vms->flash[1], flashbase + flashsize, flashsize,
- sysmem);
-}
-
-static void virt_flash_fdt(VirtMachineState *vms,
- MemoryRegion *sysmem,
- MemoryRegion *secure_sysmem)
-{
- hwaddr flashsize = vms->memmap[VIRT_FLASH].size / 2;
- hwaddr flashbase = vms->memmap[VIRT_FLASH].base;
- MachineState *ms = MACHINE(vms);
- char *nodename;
-
- if (sysmem == secure_sysmem) {
-
- nodename = g_strdup_printf("/flash@%" PRIx64, flashbase);
- qemu_fdt_add_subnode(ms->fdt, nodename);
- qemu_fdt_setprop_string(ms->fdt, nodename, "compatible", "cfi-flash");
- qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
- 2, flashbase, 2, flashsize,
- 2, flashbase + flashsize, 2, flashsize);
- qemu_fdt_setprop_cell(ms->fdt, nodename, "bank-width", 4);
- g_free(nodename);
- } else {
-
- nodename = g_strdup_printf("/secflash@%" PRIx64, flashbase);
- qemu_fdt_add_subnode(ms->fdt, nodename);
- qemu_fdt_setprop_string(ms->fdt, nodename, "compatible", "cfi-flash");
- qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
- 2, flashbase, 2, flashsize);
- qemu_fdt_setprop_cell(ms->fdt, nodename, "bank-width", 4);
- qemu_fdt_setprop_string(ms->fdt, nodename, "status", "disabled");
- qemu_fdt_setprop_string(ms->fdt, nodename, "secure-status", "okay");
- g_free(nodename);
-
- nodename = g_strdup_printf("/flash@%" PRIx64, flashbase + flashsize);
- qemu_fdt_add_subnode(ms->fdt, nodename);
- qemu_fdt_setprop_string(ms->fdt, nodename, "compatible", "cfi-flash");
- qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg",
- 2, flashbase + flashsize, 2, flashsize);
- qemu_fdt_setprop_cell(ms->fdt, nodename, "bank-width", 4);
- g_free(nodename);
- }
-}
-
 static bool virt_firmware_init(VirtMachineState *vms,
  MemoryRegion *sysmem,
  MemoryRegion *secure_sysmem)
 {
- int i;
  const char *bios_name;
- BlockBackend *pflash_blk0;
-
- for (i = 0; i < ARRAY_SIZE(vms->flash); i++) {
- pflash_cfi01_legacy_drive(vms->flash[i],
- drive_get(IF_PFLASH, 0, i));
- }
-
- virt_flash_map(vms, sysmem, secure_sysmem);
-
- pflash_blk0 = pflash_cfi01_get_blk(vms->flash[0]);
+ (void)sysmem;
+ (void)secure_sysmem;
 
  bios_name = MACHINE(vms)->firmware;
  if (bios_name) {
  char *fname;
- MemoryRegion *mr;
  int image_size;
-
- if (pflash_blk0) {
- error_report("The contents of the first flash device may be "
- "specified with -bios or with -drive if=pflash... "
- "but you cannot use both options at once");
- exit(1);
- }
 
  fname = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
  if (!fname) {
  error_report("Could not find ROM image '%s'", bios_name);
  exit(1);
  }
-
- if (gunyah_enabled()) {
 
  hwaddr fw_base = vms->memmap[VIRT_MEM].base;
  image_size = load_image_targphys(fname, fw_base,
@@ -1138,10 +1009,6 @@ static bool virt_firmware_init(VirtMachineState *vms,
  "at GPA 0x%"PRIx64, bios_name, image_size,
  (uint64_t)fw_base);
  }
- } else {
- mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(vms->flash[0]), 0);
- image_size = load_image_mr(fname, mr);
- }
 
  g_free(fname);
  if (image_size < 0) {
@@ -1150,7 +1017,7 @@ static bool virt_firmware_init(VirtMachineState *vms,
  }
  }
 
- return pflash_blk0 || bios_name;
+ return bios_name != NULL;
 }
 
 static FWCfgState *create_fw_cfg(const VirtMachineState *vms, AddressSpace *as)
@@ -2616,8 +2483,6 @@ static void machvirt_init(MachineState *machine)
  memory_region_add_subregion(sysmem, vms->memmap[VIRT_MEM].base,
  machine->ram);
 
- virt_flash_fdt(vms, sysmem, secure_sysmem ?: sysmem);
-
  create_gic(vms, sysmem);
 
  virt_cpu_post_init(vms, sysmem);
@@ -3372,14 +3237,7 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  mc->init = machvirt_init;
 
  mc->max_cpus = 512;
-#ifdef CONFIG_VFIO
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_CALXEDA_XGMAC);
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_AMD_XGBE);
-#endif
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_RAMFB_DEVICE);
-#ifdef CONFIG_VFIO
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_VFIO_PLATFORM);
-#endif
 #ifdef CONFIG_TPM
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_TPM_TIS_SYSBUS);
 #endif
@@ -3583,8 +3441,6 @@ static void virt_instance_init(Object *obj)
  vms->dtb_randomness = true;
 
  vms->irqmap = a15irqmap;
-
- virt_flash_create(vms);
 
  vms->oem_id = g_strndup(ACPI_BUILD_APPNAME6, 6);
  vms->oem_table_id = g_strndup(ACPI_BUILD_APPNAME8, 8);

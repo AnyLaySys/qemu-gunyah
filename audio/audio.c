@@ -39,7 +39,6 @@
 #include "qemu/module.h"
 #include "qemu/help_option.h"
 #include "system/system.h"
-#include "system/replay.h"
 #include "system/runstate.h"
 #include "ui/qemu-spice.h"
 #include "trace.h"
@@ -1224,7 +1223,6 @@ static void audio_run_out (AudioState *s)
 
         prev_rpos = hw->mix_buf.pos;
         played = audio_pcm_hw_run_out(hw, live);
-        replay_audio_out(&played);
         if (audio_bug(__func__, hw->mix_buf.pos >= hw->mix_buf.size)) {
             dolog("hw->mix_buf.pos=%zu hw->mix_buf.size=%zu played=%zu\n",
                   hw->mix_buf.pos, hw->mix_buf.size, played);
@@ -1307,12 +1305,8 @@ static void audio_run_in (AudioState *s)
         SWVoiceIn *sw;
         size_t captured = 0, min;
 
-        if (replay_mode != REPLAY_MODE_PLAY) {
-            captured = audio_pcm_hw_run_in(
-                hw, hw->conv_buf.size - audio_pcm_hw_get_live_in(hw));
-        }
-        replay_audio_in(&captured, hw->conv_buf.buffer, &hw->conv_buf.pos,
-                        hw->conv_buf.size);
+        captured = audio_pcm_hw_run_in(
+            hw, hw->conv_buf.size - audio_pcm_hw_get_live_in(hw));
 
         min = audio_pcm_hw_find_min_in (hw);
         hw->total_samples_captured += captured - min;

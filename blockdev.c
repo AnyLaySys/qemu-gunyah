@@ -53,7 +53,6 @@
 #include "block/block_int.h"
 #include "block/trace.h"
 #include "system/runstate.h"
-#include "system/replay.h"
 #include "qemu/cutils.h"
 #include "qemu/main-loop.h"
 
@@ -899,30 +898,6 @@ fail:
     qemu_opts_del(legacy_opts);
     qobject_unref(bs_opts);
     return dinfo;
-}
-
-static BlockDriverState *qmp_get_root_bs(const char *name, Error **errp)
-{
-    BlockDriverState *bs;
-
-    GRAPH_RDLOCK_GUARD_MAINLOOP();
-
-    bs = bdrv_lookup_bs(name, name, errp);
-    if (bs == NULL) {
-        return NULL;
-    }
-
-    if (!bdrv_is_root_node(bs)) {
-        error_setg(errp, "Need a root block node");
-        return NULL;
-    }
-
-    if (!bdrv_is_inserted(bs)) {
-        error_setg(errp, "Device has no medium");
-        bs = NULL;
-    }
-
-    return bs;
 }
 
 void qmp_blockdev_add(BlockdevOptions *options, Error **errp)

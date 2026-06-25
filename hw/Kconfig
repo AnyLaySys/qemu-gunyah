@@ -6,7 +6,6 @@ source char/Kconfig
 source core/Kconfig
 source display/Kconfig
 source gpio/Kconfig
-source hyperv/Kconfig
 source input/Kconfig
 source intc/Kconfig
 source mem/Kconfig
@@ -17,9 +16,7 @@ source pci-host/Kconfig
 source pci/Kconfig
 source rtc/Kconfig
 source smbios/Kconfig
-source usb/Kconfig
 source virtio/Kconfig
-source watchdog/Kconfig
 
 # arch Kconfig
 source arm/Kconfig

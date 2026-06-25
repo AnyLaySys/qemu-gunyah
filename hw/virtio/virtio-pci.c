@@ -24,7 +24,6 @@
 #include "standard-headers/linux/virtio_pci.h"
 #include "system/gunyah.h"
 #include "system/gunyah_int.h"
-#include "system/replay.h"
 #include "trace.h"
 
 #define VIRTIO_PCI_REGION_SIZE(dev)     VIRTIO_PCI_CONFIG_OFF(msix_present(dev))
@@ -1890,11 +1889,6 @@ static void virtio_pci_realize(PCIDevice *pci_dev, Error **errp)
     VirtioPCIClass *k = VIRTIO_PCI_GET_CLASS(pci_dev);
     bool pcie_port = pci_bus_is_express(pci_get_bus(pci_dev)) &&
                      !pci_bus_is_root(pci_get_bus(pci_dev));
-
-    
-    if (replay_mode != REPLAY_MODE_NONE) {
-        proxy->flags &= ~VIRTIO_PCI_FLAG_USE_IOEVENTFD;
-    }
 
     
     proxy->legacy_io_bar_idx  = 0;

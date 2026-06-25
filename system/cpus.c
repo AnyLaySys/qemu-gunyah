@@ -30,7 +30,6 @@
 #include "qapi/qapi-commands-misc.h"
 #include "qapi/qapi-events-run-state.h"
 #include "qapi/qmp/qerror.h"
-#include "exec/gdbstub.h"
 #include "system/accel-ops.h"
 #include "system/hw_accel.h"
 #include "exec/cpu-common.h"
@@ -40,7 +39,6 @@
 #include "system/cpus.h"
 #include "qemu/guest-random.h"
 #include "hw/nmi.h"
-#include "system/replay.h"
 #include "system/runstate.h"
 #include "system/cpu-timers.h"
 #include "system/whpx.h"
@@ -333,22 +331,8 @@ bool cpu_can_run(CPUState *cpu)
 
 void cpu_handle_guest_debug(CPUState *cpu)
 {
-    if (replay_running_debug()) {
-        if (!cpu->singlestep_enabled) {
-            /*
-             * Report about the breakpoint and
-             * make a single step to skip it
-             */
-            replay_breakpoint();
-            cpu_single_step(cpu, SSTEP_ENABLE);
-        } else {
-            cpu_single_step(cpu, 0);
-        }
-    } else {
-        gdb_set_stop_cpu(cpu);
-        qemu_system_debug_request();
-        cpu->stopped = true;
-    }
+    qemu_system_debug_request();
+    cpu->stopped = true;
 }
 
 #ifdef CONFIG_LINUX
@@ -629,11 +613,6 @@ void pause_all_vcpus(void)
         cpu_pause(cpu);
     }
 
-    /* We need to drop the replay_lock so any vCPU threads woken up
-     * can finish their replay tasks
-     */
-    replay_mutex_unlock();
-
     while (!all_vcpus_paused()) {
         qemu_cond_wait(&qemu_pause_cond, &bql);
         CPU_FOREACH(cpu) {
@@ -642,7 +621,6 @@ void pause_all_vcpus(void)
     }
 
     bql_unlock();
-    replay_mutex_lock();
     bql_lock();
 }
 
@@ -896,4 +874,3 @@ void qmp_inject_nmi(Error **errp)
 {
     nmi_monitor_handle(monitor_get_cpu_index(monitor_cur()), errp);
 }
-

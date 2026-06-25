@@ -25,13 +25,9 @@
 #include "qemu/madvise.h"
 #include "qemu/error-report.h"
 #include "qemu/iov.h"
-#include "migration.h"
-#include "migration-stats.h"
 #include "qemu-file.h"
 #include "trace.h"
-#include "options.h"
 #include "qapi/error.h"
-#include "rdma.h"
 #include "io/channel-file.h"
 
 #define IO_BUF_SIZE 32768
@@ -56,6 +52,7 @@ struct QEMUFile {
 
     int last_error;
     Error *last_error_obj;
+    uint64_t transferred;
 
     bool can_pass_fd;
     QTAILQ_HEAD(, FdEntry) fds;
@@ -296,7 +293,7 @@ int qemu_fflush(QEMUFile *f)
             qemu_file_set_error_obj(f, -EIO, local_error);
         } else {
             uint64_t size = iov_size(f->iov, f->iovcnt);
-            stat64_add(&mig_stats.qemu_file_transferred, size);
+            f->transferred += size;
         }
 
         qemu_iovec_release_ram(f);
@@ -560,7 +557,7 @@ void qemu_put_buffer_at(QEMUFile *f, const uint8_t *buf, size_t buflen,
         return;
     }
 
-    stat64_add(&mig_stats.qemu_file_transferred, buflen);
+    f->transferred += buflen;
 
     return;
 }
@@ -795,7 +792,7 @@ int coroutine_mixed_fn qemu_get_byte(QEMUFile *f)
 
 uint64_t qemu_file_transferred(QEMUFile *f)
 {
-    uint64_t ret = stat64_get(&mig_stats.qemu_file_transferred);
+    uint64_t ret = f->transferred;
     int i;
 
     g_assert(qemu_file_is_writable(f));

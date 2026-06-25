@@ -31,7 +31,6 @@
 #include "qemu/main-loop.h"
 #include "qemu/option.h"
 #include "qemu/seqlock.h"
-#include "system/replay.h"
 #include "system/runstate.h"
 #include "hw/core/cpu.h"
 #include "system/cpu-timers.h"
@@ -134,88 +133,6 @@ void cpu_disable_ticks(void)
                          &timers_state.vm_clock_lock);
 }
 
-static bool icount_state_needed(void *opaque)
-{
-    return icount_enabled();
-}
-
-static bool warp_timer_state_needed(void *opaque)
-{
-    TimersState *s = opaque;
-    return s->icount_warp_timer != NULL;
-}
-
-static bool adjust_timers_state_needed(void *opaque)
-{
-    TimersState *s = opaque;
-    return s->icount_rt_timer != NULL;
-}
-
-static bool icount_shift_state_needed(void *opaque)
-{
-    return icount_enabled() == ICOUNT_ADAPTATIVE;
-}
-
-/*
- * Subsection for warp timer migration is optional, because may not be created
- */
-static const VMStateDescription icount_vmstate_warp_timer = {
-    .name = "timer/icount/warp_timer",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .needed = warp_timer_state_needed,
-    .fields = (const VMStateField[]) {
-        VMSTATE_INT64(vm_clock_warp_start, TimersState),
-        VMSTATE_TIMER_PTR(icount_warp_timer, TimersState),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
-static const VMStateDescription icount_vmstate_adjust_timers = {
-    .name = "timer/icount/timers",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .needed = adjust_timers_state_needed,
-    .fields = (const VMStateField[]) {
-        VMSTATE_TIMER_PTR(icount_rt_timer, TimersState),
-        VMSTATE_TIMER_PTR(icount_vm_timer, TimersState),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
-static const VMStateDescription icount_vmstate_shift = {
-    .name = "timer/icount/shift",
-    .version_id = 2,
-    .minimum_version_id = 2,
-    .needed = icount_shift_state_needed,
-    .fields = (const VMStateField[]) {
-        VMSTATE_INT16(icount_time_shift, TimersState),
-        VMSTATE_INT64(last_delta, TimersState),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
-/*
- * This is a subsection for icount migration.
- */
-static const VMStateDescription icount_vmstate_timers = {
-    .name = "timer/icount",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .needed = icount_state_needed,
-    .fields = (const VMStateField[]) {
-        VMSTATE_INT64(qemu_icount_bias, TimersState),
-        VMSTATE_INT64(qemu_icount, TimersState),
-        VMSTATE_END_OF_LIST()
-    },
-    .subsections = (const VMStateDescription * const []) {
-        &icount_vmstate_warp_timer,
-        &icount_vmstate_adjust_timers,
-        &icount_vmstate_shift,
-        NULL
-    }
-};
-
 static const VMStateDescription vmstate_timers = {
     .name = "timer",
     .version_id = 2,
@@ -226,41 +143,11 @@ static const VMStateDescription vmstate_timers = {
         VMSTATE_INT64_V(cpu_clock_offset, TimersState, 2),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (const VMStateDescription * const []) {
-        &icount_vmstate_timers,
-        NULL
-    }
 };
-
-static void do_nothing(CPUState *cpu, run_on_cpu_data unused)
-{
-}
 
 void qemu_timer_notify_cb(void *opaque, QEMUClockType type)
 {
-    if (!icount_enabled() || type != QEMU_CLOCK_VIRTUAL) {
-        qemu_notify_event();
-        return;
-    }
-
-    if (qemu_in_vcpu_thread()) {
-        /*
-         * A CPU is currently running; kick it back out to the
-         * tcg_cpu_exec() loop so it will recalculate its
-         * icount deadline immediately.
-         */
-        qemu_cpu_kick(current_cpu);
-    } else if (first_cpu) {
-        /*
-         * qemu_cpu_kick is not enough to kick a halted CPU out of
-         * qemu_tcg_wait_io_event.  async_run_on_cpu, instead,
-         * causes cpu_thread_is_idle to return false.  This way,
-         * handle_icount_deadline can run.
-         * If we have no CPUs at all for some reason, we don't
-         * need to do anything.
-         */
-        async_run_on_cpu(first_cpu, do_nothing, RUN_ON_CPU_NULL);
-    }
+    qemu_notify_event();
 }
 
 TimersState timers_state;

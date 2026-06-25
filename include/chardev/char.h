@@ -45,16 +45,12 @@ typedef enum {
     /* Whether it is possible to send/recv file descriptors
      * over the data channel */
     QEMU_CHAR_FEATURE_FD_PASS,
-    /* Whether replay or record mode is enabled */
-    QEMU_CHAR_FEATURE_REPLAY,
     /* Whether the gcontext can be changed after calling
      * qemu_chr_be_update_read_handlers() */
     QEMU_CHAR_FEATURE_GCONTEXT,
 
     QEMU_CHAR_FEATURE_LAST,
 } ChardevFeature;
-
-#define qemu_chr_replay(chr) qemu_chr_has_feature(chr, QEMU_CHAR_FEATURE_REPLAY)
 
 struct Chardev {
     Object parent_obj;
@@ -148,22 +144,6 @@ void qemu_chr_change(QemuOpts *opts, Error **errp);
  * Delete all chardevs (when leaving qemu)
  */
 void qemu_chr_cleanup(void);
-
-/**
- * qemu_chr_new_noreplay:
- * @label: the name of the backend
- * @filename: the URI
- * @permit_mux_mon: if chardev is muxed, initialize a monitor
- * @context: the #GMainContext to be used at initialization time
- *
- * Create a new character backend from a URI.
- * Character device communications are not written
- * into the replay log.
- *
- * Returns: a new character backend
- */
-Chardev *qemu_chr_new_noreplay(const char *label, const char *filename,
-                               bool permit_mux_mon, GMainContext *context);
 
 /**
  * qemu_chr_be_can_write:

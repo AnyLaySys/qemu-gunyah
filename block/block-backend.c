@@ -18,14 +18,12 @@
 #include "hw/qdev-core.h"
 #include "system/blockdev.h"
 #include "system/runstate.h"
-#include "system/replay.h"
 #include "qapi/error.h"
 #include "qapi/qapi-events-block.h"
 #include "qemu/id.h"
 #include "qemu/main-loop.h"
 #include "qemu/option.h"
 #include "trace.h"
-#include "migration/misc.h"
 
 /* Number of coroutines to reserve per attached device model */
 #define COROUTINE_POOL_RESERVATION 64
@@ -161,23 +159,6 @@ static const char *blk_root_get_name(BdrvChild *child)
     return blk_name(child->opaque);
 }
 
-static void blk_vm_state_changed(void *opaque, bool running, RunState state)
-{
-    Error *local_err = NULL;
-    BlockBackend *blk = opaque;
-
-    if (state == RUN_STATE_INMIGRATE) {
-        return;
-    }
-
-    qemu_del_vm_change_state_handler(blk->vmsh);
-    blk->vmsh = NULL;
-    blk_set_perm(blk, blk->perm, blk->shared_perm, &local_err);
-    if (local_err) {
-        error_report_err(local_err);
-    }
-}
-
 /*
  * Notifies the user of the BlockBackend that migration has completed. qdev
  * devices can tighten their permissions in response (specifically revoke
@@ -213,17 +194,6 @@ static void GRAPH_RDLOCK blk_root_activate(BdrvChild *child, Error **errp)
         return;
     }
     blk->shared_perm = saved_shared_perm;
-
-    if (runstate_check(RUN_STATE_INMIGRATE)) {
-        /* Activation can happen when migration process is still active, for
-         * example when nbd_server_add is called during non-shared storage
-         * migration. Defer the shared_perm update to migration completion. */
-        if (!blk->vmsh) {
-            blk->vmsh = qemu_add_vm_change_state_handler(blk_vm_state_changed,
-                                                         blk);
-        }
-        return;
-    }
 
     blk_set_perm_locked(blk, blk->perm, blk->shared_perm, &local_err);
     if (local_err) {
@@ -957,13 +927,6 @@ int blk_attach_dev(BlockBackend *blk, DeviceState *dev)
         return -EBUSY;
     }
 
-    /* While migration is still incoming, we don't need to apply the
-     * permissions of guest device BlockBackends. We might still have a block
-     * job or NBD server writing to the image for storage migration. */
-    if (runstate_check(RUN_STATE_INMIGRATE)) {
-        blk->disable_perm = true;
-    }
-
     blk_ref(blk);
     blk->dev = dev;
     blk_iostatus_reset(blk);
@@ -1498,7 +1461,7 @@ BlockAIOCB *blk_abort_aio_request(BlockBackend *blk,
     acb->blk = blk;
     acb->ret = ret;
 
-    replay_bh_schedule_oneshot_event(qemu_get_current_aio_context(),
+    aio_bh_schedule_oneshot(qemu_get_current_aio_context(),
                                      error_callback_bh, acb);
     return &acb->common;
 }
@@ -1556,7 +1519,7 @@ static BlockAIOCB *blk_aio_prwv(BlockBackend *blk, int64_t offset,
 
     acb->has_returned = true;
     if (acb->rwco.ret != NOT_DONE) {
-        replay_bh_schedule_oneshot_event(qemu_get_current_aio_context(),
+        aio_bh_schedule_oneshot(qemu_get_current_aio_context(),
                                          blk_aio_complete_bh, acb);
     }
 
@@ -1862,7 +1825,7 @@ BlockAIOCB *blk_aio_zone_report(BlockBackend *blk, int64_t offset,
 
     acb->has_returned = true;
     if (acb->rwco.ret != NOT_DONE) {
-        replay_bh_schedule_oneshot_event(qemu_get_current_aio_context(),
+        aio_bh_schedule_oneshot(qemu_get_current_aio_context(),
                                          blk_aio_complete_bh, acb);
     }
 
@@ -1903,7 +1866,7 @@ BlockAIOCB *blk_aio_zone_mgmt(BlockBackend *blk, BlockZoneOp op,
 
     acb->has_returned = true;
     if (acb->rwco.ret != NOT_DONE) {
-        replay_bh_schedule_oneshot_event(qemu_get_current_aio_context(),
+        aio_bh_schedule_oneshot(qemu_get_current_aio_context(),
                                          blk_aio_complete_bh, acb);
     }
 
@@ -1942,7 +1905,7 @@ BlockAIOCB *blk_aio_zone_append(BlockBackend *blk, int64_t *offset,
     aio_co_enter(qemu_get_current_aio_context(), co);
     acb->has_returned = true;
     if (acb->rwco.ret != NOT_DONE) {
-        replay_bh_schedule_oneshot_event(qemu_get_current_aio_context(),
+        aio_bh_schedule_oneshot(qemu_get_current_aio_context(),
                                          blk_aio_complete_bh, acb);
     }
 

@@ -1,5 +1,0 @@
-# See docs/devel/tracing.rst for syntax documentation.
-
-# watchdog.c
-watchdog_perform_action(unsigned int action) "action=%u"
-watchdog_set_action(unsigned int action) "action=%u"

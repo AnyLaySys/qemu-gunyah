@@ -1228,30 +1228,6 @@ static bool bdrv_child_cb_change_aio_ctx(BdrvChild *child, AioContext *ctx,
     return bdrv_change_aio_context(bs, ctx, visited, tran, errp);
 }
 
-/*
- * Returns the options and flags that a temporary snapshot should get, based on
- * the originally requested flags (the originally requested image will have
- * flags like a backing file)
- */
-static void bdrv_temp_snapshot_options(int *child_flags, QDict *child_options,
-                                       int parent_flags, QDict *parent_options)
-{
-    GLOBAL_STATE_CODE();
-    *child_flags = (parent_flags & ~BDRV_O_SNAPSHOT) | BDRV_O_TEMPORARY;
-
-    /* For temporary files, unconditional cache=unsafe is fine */
-    qdict_set_default_str(child_options, BDRV_OPT_CACHE_DIRECT, "off");
-    qdict_set_default_str(child_options, BDRV_OPT_CACHE_NO_FLUSH, "on");
-
-    /* Copy the read-only and discard options from the parent */
-    qdict_copy_default(child_options, parent_options, BDRV_OPT_READ_ONLY);
-    qdict_copy_default(child_options, parent_options, BDRV_OPT_DISCARD);
-
-    /* aio=native doesn't work for cache.direct=off, so disable it for the
-     * temporary snapshot */
-    *child_flags &= ~BDRV_O_NATIVE_AIO;
-}
-
 static void GRAPH_WRLOCK bdrv_backing_attach(BdrvChild *c)
 {
     BlockDriverState *parent = c->opaque;

@@ -858,8 +858,7 @@ GPtrArray *qemu_get_nic_models(const char *device_type)
             dc->user_creatable) {
             const char *name = object_class_get_name(list->data);
             /*
-             * A network device might also be something else than a NIC, see
-             * e.g. the "rocker" device. Thus we have to look for the "netdev"
+             * Some network-class devices are not NICs. Look for the "netdev"
              * property, too. Unfortunately, some devices like virtio-net only
              * create this property during instance_init, so we have to create
              * a temporary instance here to be able to check it.

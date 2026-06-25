@@ -10,7 +10,6 @@ config ARM_VIRT
     select DEVICE_TREE
     select PCI_EXPRESS
     select PCI_EXPRESS_GENERIC_BRIDGE
-    select PFLASH_CFI01
     select PL011
     select PL031
     select PL061

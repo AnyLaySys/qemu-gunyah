@@ -572,42 +572,6 @@
    'val': 'uint8' }}
 
 ##
-# @CXLFixedMemoryWindowOptions:
-#
-# Create a CXL Fixed Memory Window
-#
-# @size: Size of the Fixed Memory Window in bytes.  Must be a multiple
-#     of 256MiB.
-#
-# @interleave-granularity: Number of contiguous bytes for which
-#     accesses will go to a given interleave target.  Accepted values
-#     [256, 512, 1k, 2k, 4k, 8k, 16k]
-#
-# @targets: Target root bridge IDs from -device ...,id=<ID> for each
-#     root bridge.
-#
-# Since: 7.1
-##
-{ 'struct': 'CXLFixedMemoryWindowOptions',
-  'data': {
-      'size': 'size',
-      '*interleave-granularity': 'size',
-      'targets': ['str'] }}
-
-##
-# @CXLFMWProperties:
-#
-# List of CXL Fixed Memory Windows.
-#
-# @cxl-fmw: List of CXLFixedMemoryWindowOptions
-#
-# Since: 7.1
-##
-{ 'struct' : 'CXLFMWProperties',
-  'data': { 'cxl-fmw': ['CXLFixedMemoryWindowOptions'] }
-}
-
-##
 # @X86CPURegister32:
 #
 # A X86 32-bit register
@@ -1216,69 +1180,6 @@
   'data': { 'actual': 'int' } }
 
 ##
-# @HvBalloonInfo:
-#
-# hv-balloon guest-provided memory status information.
-#
-# @committed: the amount of memory in use inside the guest plus the
-#     amount of the memory unusable inside the guest (ballooned out,
-#     offline, etc.)
-#
-# @available: the amount of the memory inside the guest available for
-#     new allocations ("free")
-#
-# Since: 8.2
-##
-{ 'struct': 'HvBalloonInfo',
-  'data': { 'committed': 'size', 'available': 'size' } }
-
-##
-# @query-hv-balloon-status-report:
-#
-# Returns the hv-balloon driver data contained in the last received
-# "STATUS" message from the guest.
-#
-# Returns:
-#     @HvBalloonInfo
-#
-# Errors:
-#     - If no hv-balloon device is present, guest memory status
-#       reporting is not enabled or no guest memory status report
-#       received yet, GenericError
-#
-# Since: 8.2
-#
-# .. qmp-example::
-#
-#     -> { "execute": "query-hv-balloon-status-report" }
-#     <- { "return": {
-#              "committed": 816640000,
-#              "available": 3333054464
-#           }
-#        }
-##
-{ 'command': 'query-hv-balloon-status-report', 'returns': 'HvBalloonInfo' }
-
-##
-# @HV_BALLOON_STATUS_REPORT:
-#
-# Emitted when the hv-balloon driver receives a "STATUS" message from
-# the guest.
-#
-# .. note:: This event is rate-limited.
-#
-# Since: 8.2
-#
-# .. qmp-example::
-#
-#     <- { "event": "HV_BALLOON_STATUS_REPORT",
-#          "data": { "committed": 816640000, "available": 3333054464 },
-#          "timestamp": { "seconds": 1600295492, "microseconds": 661044 } }
-##
-{ 'event': 'HV_BALLOON_STATUS_REPORT',
-  'data': 'HvBalloonInfo' }
-
-##
 # @MemoryInfo:
 #
 # Actual memory information in bytes.
@@ -1431,29 +1332,6 @@
 }
 
 ##
-# @HvBalloonDeviceInfo:
-#
-# hv-balloon provided memory state information
-#
-# @id: device's ID
-#
-# @memaddr: physical address in memory, where device is mapped
-#
-# @max-size: the maximum size of memory that the device can provide
-#
-# @memdev: memory backend linked with device
-#
-# Since: 8.2
-##
-{ 'struct': 'HvBalloonDeviceInfo',
-  'data': { '*id': 'str',
-            '*memaddr': 'size',
-            'max-size': 'size',
-            '*memdev': 'str'
-          }
-}
-
-##
 # @MemoryDeviceInfoKind:
 #
 # @nvdimm: since 2.12
@@ -1464,13 +1342,10 @@
 #
 # @sgx-epc: since 6.2.
 #
-# @hv-balloon: since 8.2.
-#
 # Since: 2.1
 ##
 { 'enum': 'MemoryDeviceInfoKind',
-  'data': [ 'dimm', 'nvdimm', 'virtio-pmem', 'virtio-mem', 'sgx-epc',
-            'hv-balloon' ] }
+  'data': [ 'dimm', 'nvdimm', 'virtio-pmem', 'virtio-mem', 'sgx-epc' ] }
 
 ##
 # @PCDIMMDeviceInfoWrapper:
@@ -1513,16 +1388,6 @@
   'data': { 'data': 'SgxEPCDeviceInfo' } }
 
 ##
-# @HvBalloonDeviceInfoWrapper:
-#
-# @data: hv-balloon provided memory state information
-#
-# Since: 8.2
-##
-{ 'struct': 'HvBalloonDeviceInfoWrapper',
-  'data': { 'data': 'HvBalloonDeviceInfo' } }
-
-##
 # @MemoryDeviceInfo:
 #
 # Union containing information about a memory device
@@ -1538,8 +1403,7 @@
             'nvdimm': 'PCDIMMDeviceInfoWrapper',
             'virtio-pmem': 'VirtioPMEMDeviceInfoWrapper',
             'virtio-mem': 'VirtioMEMDeviceInfoWrapper',
-            'sgx-epc': 'SgxEPCDeviceInfoWrapper',
-            'hv-balloon': 'HvBalloonDeviceInfoWrapper'
+            'sgx-epc': 'SgxEPCDeviceInfoWrapper'
           }
 }
 
@@ -1810,23 +1674,6 @@
 # Since: 6.2
 ##
 { 'command': 'x-query-roms',
-  'returns': 'HumanReadableText',
-  'features': [ 'unstable' ] }
-
-##
-# @x-query-usb:
-#
-# Query information on the USB devices
-#
-# Features:
-#
-# @unstable: This command is meant for debugging.
-#
-# Returns: USB device information
-#
-# Since: 6.2
-##
-{ 'command': 'x-query-usb',
   'returns': 'HumanReadableText',
   'features': [ 'unstable' ] }
 

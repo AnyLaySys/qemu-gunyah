@@ -122,21 +122,6 @@ struct SysemuCPUOps;
  *       also implement the synchronize_from_tb hook.
  * @get_pc: Callback for getting the Program Counter register.
  *       As above, with the semantics of the target architecture.
- * @gdb_read_register: Callback for letting GDB read a register.
- *                     No more than @gdb_num_core_regs registers can be read.
- * @gdb_write_register: Callback for letting GDB write a register.
- *                     No more than @gdb_num_core_regs registers can be written.
- * @gdb_adjust_breakpoint: Callback for adjusting the address of a
- *       breakpoint.  Used by AVR to handle a gdb mis-feature with
- *       its Harvard architecture split code and data.
- * @gdb_num_core_regs: Number of core registers accessible to GDB or 0 to infer
- *                     from @gdb_core_xml_file.
- * @gdb_core_xml_file: File name for core registers GDB XML description.
- * @gdb_stop_before_watchpoint: Indicates whether GDB expects the CPU to stop
- *           before the insn which triggers a watchpoint rather than after it.
- * @gdb_arch_name: Optional callback that returns the architecture name known
- * to GDB. The returned value is expected to be a simple constant string:
- * the caller will not g_free() it.
  * @disas_set_info: Setup architecture specific components of disassembly info
  * @adjust_watchpoint_address: Perform a target-specific adjustment to an
  * address before attempting to match it against watchpoints.
@@ -161,13 +146,6 @@ struct CPUClass {
     int64_t (*get_arch_id)(CPUState *cpu);
     void (*set_pc)(CPUState *cpu, vaddr value);
     vaddr (*get_pc)(CPUState *cpu);
-    int (*gdb_read_register)(CPUState *cpu, GByteArray *buf, int reg);
-    int (*gdb_write_register)(CPUState *cpu, uint8_t *buf, int reg);
-    vaddr (*gdb_adjust_breakpoint)(CPUState *cpu, vaddr addr);
-
-    const char *gdb_core_xml_file;
-    const gchar * (*gdb_arch_name)(CPUState *cpu);
-
     void (*disas_set_info)(CPUState *cpu, disassemble_info *info);
 
     const char *deprecation_note;
@@ -189,8 +167,6 @@ struct CPUClass {
      * Keep non-pointer data at the end to minimize holes.
      */
     int reset_dump_flags;
-    int gdb_num_core_regs;
-    bool gdb_stop_before_watchpoint;
 };
 
 /*
@@ -430,9 +406,6 @@ struct qemu_work_item;
  * @num_ases: number of CPUAddressSpaces in @cpu_ases
  * @as: Pointer to the first AddressSpace, for the convenience of targets which
  *      only have a single AddressSpace
- * @gdb_regs: Additional GDB registers.
- * @gdb_num_regs: Number of total registers accessible to GDB.
- * @gdb_num_g_regs: Number of registers in GDB 'g' packets.
  * @node: QTAILQ of CPUs sharing TB cache.
  * @opaque: User data.
  * @mem_io_pc: Host Program Counter at which the memory was accessed.
@@ -507,9 +480,6 @@ struct CPUState {
 
     struct CPUJumpCache *tb_jmp_cache;
 
-    GArray *gdb_regs;
-    int gdb_num_regs;
-    int gdb_num_g_regs;
     QTAILQ_ENTRY(CPUState) node;
 
     /* ice debug support */
@@ -633,46 +603,6 @@ bool cpu_paging_enabled(const CPUState *cpu);
  */
 bool cpu_get_memory_mapping(CPUState *cpu, MemoryMappingList *list,
                             Error **errp);
-
-/**
- * cpu_write_elf64_note:
- * @f: pointer to a function that writes memory to a file
- * @cpu: The CPU whose memory is to be dumped
- * @cpuid: ID number of the CPU
- * @opaque: pointer to the CPUState struct
- */
-int cpu_write_elf64_note(WriteCoreDumpFunction f, CPUState *cpu,
-                         int cpuid, void *opaque);
-
-/**
- * cpu_write_elf64_qemunote:
- * @f: pointer to a function that writes memory to a file
- * @cpu: The CPU whose memory is to be dumped
- * @cpuid: ID number of the CPU
- * @opaque: pointer to the CPUState struct
- */
-int cpu_write_elf64_qemunote(WriteCoreDumpFunction f, CPUState *cpu,
-                             void *opaque);
-
-/**
- * cpu_write_elf32_note:
- * @f: pointer to a function that writes memory to a file
- * @cpu: The CPU whose memory is to be dumped
- * @cpuid: ID number of the CPU
- * @opaque: pointer to the CPUState struct
- */
-int cpu_write_elf32_note(WriteCoreDumpFunction f, CPUState *cpu,
-                         int cpuid, void *opaque);
-
-/**
- * cpu_write_elf32_qemunote:
- * @f: pointer to a function that writes memory to a file
- * @cpu: The CPU whose memory is to be dumped
- * @cpuid: ID number of the CPU
- * @opaque: pointer to the CPUState struct
- */
-int cpu_write_elf32_qemunote(WriteCoreDumpFunction f, CPUState *cpu,
-                             void *opaque);
 
 /**
  * cpu_get_crash_info:
@@ -1087,9 +1017,8 @@ void cpu_single_step(CPUState *cpu, int enabled);
 #define BP_MEM_ACCESS         (BP_MEM_READ | BP_MEM_WRITE)
 #define BP_STOP_BEFORE_ACCESS 0x04
 /* 0x08 currently unused */
-#define BP_GDB                0x10
 #define BP_CPU                0x20
-#define BP_ANY                (BP_GDB | BP_CPU)
+#define BP_ANY                BP_CPU
 #define BP_HIT_SHIFT          6
 #define BP_WATCHPOINT_HIT_READ  (BP_MEM_READ << BP_HIT_SHIFT)
 #define BP_WATCHPOINT_HIT_WRITE (BP_MEM_WRITE << BP_HIT_SHIFT)

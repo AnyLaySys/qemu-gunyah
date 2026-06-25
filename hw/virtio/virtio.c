@@ -188,7 +188,6 @@ const char *virtio_device_names[] = {
     [VIRTIO_ID_SCMI] = "virtio-scmi",
     [VIRTIO_ID_NITRO_SEC_MOD] = "virtio-nitro-sec-mod",
     [VIRTIO_ID_I2C_ADAPTER] = "vhost-user-i2c",
-    [VIRTIO_ID_WATCHDOG] = "virtio-watchdog",
     [VIRTIO_ID_CAN] = "virtio-can",
     [VIRTIO_ID_DMABUF] = "virtio-dmabuf",
     [VIRTIO_ID_PARAM_SERV] = "virtio-param-serv",

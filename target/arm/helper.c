@@ -26,9 +26,6 @@
 #include "system/tcg.h"
 #include "qapi/error.h"
 #include "qemu/guest-random.h"
-#ifdef CONFIG_TCG
-#include "semihosting/common-semi.h"
-#endif
 #include "cpregs.h"
 #include "target/arm/gtimer.h"
 
@@ -713,20 +710,17 @@ static int64_t cycles_ns_per(uint64_t cycles)
 
 static bool instructions_supported(CPUARMState *env)
 {
-    /* Precise instruction counting */
-    return icount_enabled() == ICOUNT_PRECISE;
+    return false;
 }
 
 static uint64_t instructions_get_count(CPUARMState *env)
 {
-    assert(icount_enabled() == ICOUNT_PRECISE);
-    return (uint64_t)icount_get_raw();
+    return 0;
 }
 
 static int64_t instructions_ns_per(uint64_t icount)
 {
-    assert(icount_enabled() == ICOUNT_PRECISE);
-    return icount_to_ns((int64_t)icount);
+    return 0;
 }
 #endif
 
@@ -8487,7 +8481,7 @@ void register_cp_regs_for_features(ARMCPU *cpu)
          * 64-bit AArch32 PAR register defined in lpae_cp_reginfo[]
          */
         if (arm_feature(env, ARM_FEATURE_LPAE)) {
-            vapa_cp_reginfo[0].type = ARM_CP_ALIAS | ARM_CP_NO_GDB;
+            vapa_cp_reginfo[0].type = ARM_CP_ALIAS;
         }
         define_arm_cp_regs(cpu, vapa_cp_reginfo);
     }
@@ -8578,7 +8572,7 @@ void register_cp_regs_for_features(ARMCPU *cpu)
               .type = ARM_CP_CONST, .resetvalue = cpu->revidr },
         };
         ARMCPRegInfo id_v8_midr_alias_cp_reginfo = {
-            .name = "MIDR", .type = ARM_CP_ALIAS | ARM_CP_CONST | ARM_CP_NO_GDB,
+            .name = "MIDR", .type = ARM_CP_ALIAS | ARM_CP_CONST,
             .cp = 15, .crn = 0, .crm = 0, .opc1 = 0, .opc2 = 4,
             .access = PL1_R, .resetvalue = cpu->midr
         };
@@ -9190,7 +9184,7 @@ static void add_cpreg_to_hashtable(ARMCPU *cpu, const ARMCPRegInfo *r,
     if (((r->crm == CP_ANY) && crm != 0) ||
         ((r->opc1 == CP_ANY) && opc1 != 0) ||
         ((r->opc2 == CP_ANY) && opc2 != 0)) {
-        r2->type |= ARM_CP_ALIAS | ARM_CP_NO_GDB;
+        r2->type |= ARM_CP_ALIAS;
     }
 
     /*
@@ -9636,13 +9630,6 @@ void cpsr_write(CPUARMState *env, uint32_t val, uint32_t mask,
     if (write_type != CPSRWriteRaw &&
         ((env->uncached_cpsr ^ val) & mask & CPSR_M)) {
         if ((env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_USR) {
-            /*
-             * Note that we can only get here in USR mode if this is a
-             * gdb stub write; for this case we follow the architectural
-             * behaviour for guest writes in USR mode of ignoring an attempt
-             * to switch mode. (Those are caught by translate.c for writes
-             * triggered by guest instructions.)
-             */
             mask &= ~CPSR_M;
         } else if (bad_mode_switch(env, val & CPSR_M, write_type)) {
             /*
@@ -9651,12 +9638,9 @@ void cpsr_write(CPUARMState *env, uint32_t val, uint32_t mask,
              *  + leave CPSR.M untouched
              *  + allow changes to the other CPSR fields
              *  + set PSTATE.IL
-             * For user changes via the GDB stub, we don't set PSTATE.IL,
-             * as this would be unnecessarily harsh for a user error.
              */
             mask &= ~CPSR_M;
-            if (write_type != CPSRWriteByGDBStub &&
-                arm_feature(env, ARM_FEATURE_V8)) {
+            if (arm_feature(env, ARM_FEATURE_V8)) {
                 mask |= CPSR_IL;
                 val |= CPSR_IL;
             }
@@ -9870,7 +9854,6 @@ void arm_log_exception(CPUState *cs)
             [EXCP_SMC] = "Secure Monitor Call",
             [EXCP_VIRQ] = "Virtual IRQ",
             [EXCP_VFIQ] = "Virtual FIQ",
-            [EXCP_SEMIHOST] = "Semihosting call",
             [EXCP_NOCP] = "v7M NOCP UsageFault",
             [EXCP_INVSTATE] = "v7M INVSTATE UsageFault",
             [EXCP_STKOF] = "v8M STKOF UsageFault",
@@ -10815,35 +10798,6 @@ static void arm_cpu_do_interrupt_aarch64(CPUState *cs)
 }
 
 /*
- * Do semihosting call and set the appropriate return value. All the
- * permission and validity checks have been done at translate time.
- *
- * We only see semihosting exceptions in TCG only as they are not
- * trapped to the hypervisor in KVM.
- */
-#ifdef CONFIG_TCG
-static void tcg_handle_semihosting(CPUState *cs)
-{
-    ARMCPU *cpu = ARM_CPU(cs);
-    CPUARMState *env = &cpu->env;
-
-    if (is_a64(env)) {
-        qemu_log_mask(CPU_LOG_INT,
-                      "...handling as semihosting call 0x%" PRIx64 "\n",
-                      env->xregs[0]);
-        do_common_semihosting(cs);
-        env->pc += 4;
-    } else {
-        qemu_log_mask(CPU_LOG_INT,
-                      "...handling as semihosting call 0x%x\n",
-                      env->regs[0]);
-        do_common_semihosting(cs);
-        env->regs[15] += env->thumb ? 2 : 4;
-    }
-}
-#endif
-
-/*
  * Handle a CPU exception for A and R profile CPUs.
  * Do any appropriate logging, handle PSCI calls, and then hand off
  * to the AArch64-entry or AArch32-entry function depending on the
@@ -10876,18 +10830,6 @@ void arm_cpu_do_interrupt(CPUState *cs)
         qemu_log_mask(CPU_LOG_INT, "...handled as PSCI call\n");
         return;
     }
-
-    /*
-     * Semihosting semantics depend on the register width of the code
-     * that caused the exception, not the target exception level, so
-     * must be handled here.
-     */
-#ifdef CONFIG_TCG
-    if (cs->exception_index == EXCP_SEMIHOST) {
-        tcg_handle_semihosting(cs);
-        return;
-    }
-#endif
 
     /*
      * Hooks may change global state so BQL should be held, also the

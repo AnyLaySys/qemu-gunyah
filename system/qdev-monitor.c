@@ -38,7 +38,6 @@
 #include "qemu/qemu-print.h"
 #include "qemu/option_int.h"
 #include "system/block-backend.h"
-#include "migration/misc.h"
 #include "qemu/cutils.h"
 #include "hw/qdev-properties.h"
 #include "hw/clock.h"
@@ -135,7 +134,6 @@ static void qdev_print_devinfos(bool show_no_user)
         [DEVICE_CATEGORY_SOUND]   = "Sound",
         [DEVICE_CATEGORY_MISC]    = "Misc",
         [DEVICE_CATEGORY_CPU]     = "CPU",
-        [DEVICE_CATEGORY_WATCHDOG]= "Watchdog",
         [DEVICE_CATEGORY_MAX]     = "Uncategorized",
     };
     GSList *list, *elt;
@@ -631,11 +629,6 @@ DeviceState *qdev_device_add_from_qdict(const QDict *opts,
         return NULL;
     }
 
-    if (migration_is_running()) {
-        error_setg(errp, "device_add not allowed while migrating");
-        return NULL;
-    }
-
     /* create device */
     dev = qdev_new(driver);
 
@@ -854,11 +847,6 @@ void qdev_unplug(DeviceState *dev, Error **errp)
         return;
     }
 
-    if (migration_is_running() && !dev->allow_unplug_during_migration) {
-        error_setg(errp, "device_del not allowed while migrating");
-        return;
-    }
-
     qdev_hot_removed = true;
 
     hotplug_ctrl = qdev_get_hotplug_handler(dev);
@@ -912,18 +900,6 @@ int qdev_sync_config(DeviceState *dev, Error **errp)
 void qmp_device_sync_config(const char *id, Error **errp)
 {
     DeviceState *dev;
-
-    /*
-     * During migration there is a race between syncing`configuration
-     * and migrating it (if migrate first, that target would get
-     * outdated version), so let's just not allow it.
-     */
-
-    if (migration_is_running()) {
-        error_setg(errp, "Config synchronization is not allowed "
-                   "during migration");
-        return;
-    }
 
     dev = find_device_state(id, true, errp);
     if (!dev) {

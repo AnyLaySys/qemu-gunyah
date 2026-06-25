@@ -50,12 +50,6 @@ config MULTIPROCESS_ALLOWED
 config FUZZ
     bool
 
-config VFIO_USER_SERVER_ALLOWED
-    bool
-
-config HV_BALLOON_POSSIBLE
-    bool
-
 config HAVE_RUST
     bool
 

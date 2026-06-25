@@ -12,7 +12,6 @@ system_ss.add(files(
   'cpus.c',
   'cpu-timers.c',
   'datadir.c',
-  'dirtylimit.c',
   'dma-helpers.c',
   'globals.c',
   'memory_mapping.c',

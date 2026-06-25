@@ -43,9 +43,6 @@
 #
 # @suspended: guest is suspended (ACPI S3)
 #
-# @watchdog: the watchdog action is configured to pause and has been
-#     triggered
-#
 # @guest-panicked: guest has been panicked as a result of guest OS
 #     panic
 #
@@ -56,8 +53,8 @@
 { 'enum': 'RunState',
   'data': [ 'debug', 'inmigrate', 'internal-error', 'io-error', 'paused',
             'postmigrate', 'prelaunch', 'finish-migrate', 'restore-vm',
-            'running', 'save-vm', 'shutdown', 'suspended', 'watchdog',
-            'guest-panicked', 'colo' ] }
+            'running', 'save-vm', 'shutdown', 'suspended', 'guest-panicked',
+            'colo' ] }
 
 ##
 # @ShutdownCause:
@@ -275,58 +272,6 @@
 { 'event': 'WAKEUP' }
 
 ##
-# @WATCHDOG:
-#
-# Emitted when the watchdog device's timer is expired
-#
-# @action: action that has been taken
-#
-# .. note:: If action is "reset", "shutdown", or "pause" the WATCHDOG
-#    event is followed respectively by the RESET, SHUTDOWN, or STOP
-#    events.
-#
-# .. note:: This event is rate-limited.
-#
-# Since: 0.13
-#
-# .. qmp-example::
-#
-#     <- { "event": "WATCHDOG",
-#          "data": { "action": "reset" },
-#          "timestamp": { "seconds": 1267061043, "microseconds": 959568 } }
-##
-{ 'event': 'WATCHDOG',
-  'data': { 'action': 'WatchdogAction' } }
-
-##
-# @WatchdogAction:
-#
-# An enumeration of the actions taken when the watchdog device's timer
-# is expired
-#
-# @reset: system resets
-#
-# @shutdown: system shutdown, note that it is similar to @powerdown,
-#     which tries to set to system status and notify guest
-#
-# @poweroff: system poweroff, the emulator program exits
-#
-# @pause: system pauses, similar to @stop
-#
-# @debug: system enters debug state
-#
-# @none: nothing is done
-#
-# @inject-nmi: a non-maskable interrupt is injected into the first
-#     VCPU (all VCPUS on x86) (since 2.4)
-#
-# Since: 2.1
-##
-{ 'enum': 'WatchdogAction',
-  'data': [ 'reset', 'shutdown', 'poweroff', 'pause', 'debug', 'none',
-            'inject-nmi' ] }
-
-##
 # @RebootAction:
 #
 # Possible QEMU actions upon guest reboot
@@ -374,23 +319,6 @@
   'data': [ 'pause', 'shutdown', 'exit-failure', 'none' ] }
 
 ##
-# @watchdog-set-action:
-#
-# Set watchdog action.
-#
-# @action: @WatchdogAction action taken when watchdog timer expires.
-#
-# Since: 2.11
-#
-# .. qmp-example::
-#
-#     -> { "execute": "watchdog-set-action",
-#          "arguments": { "action": "inject-nmi" } }
-#     <- { "return": {} }
-##
-{ 'command': 'watchdog-set-action', 'data' : {'action': 'WatchdogAction'} }
-
-##
 # @set-action:
 #
 # Set the actions that will be taken by the emulator in response to
@@ -402,8 +330,6 @@
 #
 # @panic: @PanicAction action taken on guest panic.
 #
-# @watchdog: @WatchdogAction action taken when watchdog timer expires.
-#
 # Since: 6.0
 #
 # .. qmp-example::
@@ -411,15 +337,13 @@
 #     -> { "execute": "set-action",
 #          "arguments": { "reboot": "shutdown",
 #                         "shutdown" : "pause",
-#                         "panic": "pause",
-#                         "watchdog": "inject-nmi" } }
+#                         "panic": "pause" } }
 #     <- { "return": {} }
 ##
 { 'command': 'set-action',
   'data': { '*reboot': 'RebootAction',
             '*shutdown': 'ShutdownAction',
-            '*panic': 'PanicAction',
-            '*watchdog': 'WatchdogAction' },
+            '*panic': 'PanicAction' },
   'allow-preconfig': true }
 
 ##

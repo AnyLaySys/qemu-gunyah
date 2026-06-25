@@ -21,7 +21,6 @@
 
 #ifndef CONFIG_USER_ONLY
 #include "cpu.h"
-#include "system/xen.h"
 #include "system/tcg.h"
 #include "exec/cputlb.h"
 #include "exec/ramlist.h"
@@ -300,7 +299,7 @@ static inline void cpu_physical_memory_set_dirty_range(ram_addr_t start,
     unsigned long idx, offset, base;
     int i;
 
-    if (!mask && !xen_enabled()) {
+    if (!mask) {
         return;
     }
 
@@ -337,8 +336,6 @@ static inline void cpu_physical_memory_set_dirty_range(ram_addr_t start,
             base += DIRTY_MEMORY_BLOCK_SIZE;
         }
     }
-
-    xen_hvm_modified_memory(start, length);
 }
 
 #if !defined(_WIN32)
@@ -413,8 +410,6 @@ uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
                 }
             }
         }
-
-        xen_hvm_modified_memory(start, pages << TARGET_PAGE_BITS);
     } else {
         uint8_t clients = tcg_enabled() ? DIRTY_CLIENTS_ALL : DIRTY_CLIENTS_NOCODE;
 

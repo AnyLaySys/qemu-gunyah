@@ -11,15 +11,15 @@
  */
 
 #include "qemu/osdep.h"
-#include "migration.h"
 #include "migration/vmstate.h"
-#include "savevm.h"
 #include "qapi/error.h"
 #include "qobject/json-writer.h"
 #include "qemu-file.h"
 #include "qemu/bitops.h"
 #include "qemu/error-report.h"
 #include "trace.h"
+
+#define QEMU_VM_SUBSECTION 0x05
 
 static int vmstate_subsection_save(QEMUFile *f, const VMStateDescription *vmsd,
                                    void *opaque, JSONWriter *vmdesc,

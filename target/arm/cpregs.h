@@ -113,8 +113,6 @@ enum {
      * from an instruction: use translation sve_access_check().
      */
     ARM_CP_SVE                   = 1 << 14,
-    /* Flag: Do not expose in gdb sysreg xml. */
-    ARM_CP_NO_GDB                = 1 << 15,
     /*
      * Flags: If EL3 but not EL2...
      *   - UNDEF: discard the cpreg,

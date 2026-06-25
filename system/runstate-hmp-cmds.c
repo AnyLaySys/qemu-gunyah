@@ -64,32 +64,3 @@ void hmp_one_insn_per_tb(Monitor *mon, const QDict *qdict)
     object_property_set_bool(OBJECT(accel), "one-insn-per-tb",
                              newval, &error_abort);
 }
-
-void hmp_watchdog_action(Monitor *mon, const QDict *qdict)
-{
-    Error *err = NULL;
-    WatchdogAction action;
-    char *qapi_value;
-
-    qapi_value = g_ascii_strdown(qdict_get_str(qdict, "action"), -1);
-    action = qapi_enum_parse(&WatchdogAction_lookup, qapi_value, -1, &err);
-    g_free(qapi_value);
-    if (err) {
-        hmp_handle_error(mon, err);
-        return;
-    }
-    qmp_watchdog_set_action(action, &error_abort);
-}
-
-void watchdog_action_completion(ReadLineState *rs, int nb_args, const char *str)
-{
-    int i;
-
-    if (nb_args != 2) {
-        return;
-    }
-    readline_set_completion_index(rs, strlen(str));
-    for (i = 0; i < WATCHDOG_ACTION__MAX; i++) {
-        readline_add_completion_of(rs, str, WatchdogAction_str(i));
-    }
-}

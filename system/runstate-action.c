@@ -8,7 +8,6 @@
 
 #include "qemu/osdep.h"
 #include "system/runstate-action.h"
-#include "system/watchdog.h"
 #include "qemu/config-file.h"
 #include "qapi/error.h"
 #include "qemu/option_int.h"
@@ -24,7 +23,6 @@ PanicAction panic_action = PANIC_ACTION_SHUTDOWN;
 void qmp_set_action(bool has_reboot, RebootAction reboot,
                     bool has_shutdown, ShutdownAction shutdown,
                     bool has_panic, PanicAction panic,
-                    bool has_watchdog, WatchdogAction watchdog,
                     Error **errp)
 {
     if (has_reboot) {
@@ -33,10 +31,6 @@ void qmp_set_action(bool has_reboot, RebootAction reboot,
 
     if (has_panic) {
         panic_action = panic;
-    }
-
-    if (has_watchdog) {
-        qmp_watchdog_set_action(watchdog, errp);
     }
 
     /* Process shutdown last, in case the panic action needs to be altered */

@@ -93,7 +93,6 @@ if have_block
     error('filemonitor stub was removed from this trimmed build')
   endif
   if host_os == 'linux'
-    util_ss.add(files('vfio-helpers.c'))
     util_ss.add(files('chardev_open.c'))
   endif
   util_ss.add(files('yank.c'))

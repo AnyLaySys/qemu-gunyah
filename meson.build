@@ -217,10 +217,6 @@ multiprocess_allowed = get_option('multiprocess') \
   .require(host_os == 'linux', error_message: 'Multiprocess QEMU is supported only on Linux') \
   .allowed()
 
-vfio_user_server_allowed = get_option('vfio_user_server') \
-  .require(host_os == 'linux', error_message: 'vfio-user server is supported only on Linux') \
-  .allowed()
-
 have_tpm = get_option('tpm') \
   .require(host_os != 'windows', error_message: 'TPM emulation only available on POSIX systems') \
   .allowed()
@@ -1510,30 +1506,6 @@ if not get_option('glusterfs').auto() or have_block
   endif
 endif
 
-hv_balloon = false
-if get_option('hv_balloon').allowed() and have_system
-  if cc.links('''
-    #include <string.h>
-    #include <gmodule.h>
-    int main(void) {
-        GTree *tree;
-
-        tree = g_tree_new((GCompareFunc)strcmp);
-        (void)g_tree_node_first(tree);
-        g_tree_destroy(tree);
-        return 0;
-    }
-  ''', dependencies: glib)
-    hv_balloon = true
-  else
-    if get_option('hv_balloon').enabled()
-      error('could not enable hv-balloon, update your glib')
-    else
-      warning('could not find glib support for hv-balloon, disabling')
-    endif
-  endif
-endif
-
 libssh = not_found
 if not get_option('libssh').auto() or have_block
   libssh = dependency('libssh', version: '>=0.8.7',
@@ -2000,40 +1972,6 @@ have_vhost_user_blk_server = get_option('vhost_user_blk_server') \
   .disable_auto_if(not have_tools and not have_system) \
   .allowed()
 
-# libbpf
-bpf_version = '1.1.0'
-libbpf = dependency('libbpf', version: '>=' + bpf_version, required: get_option('bpf'), method: 'pkg-config')
-if libbpf.found() and not cc.links('''
-   #include <bpf/libbpf.h>
-   #include <linux/bpf.h>
-   int main(void)
-   {
-     // check flag availability
-     int flag = BPF_F_MMAPABLE;
-     bpf_object__destroy_skeleton(NULL);
-     return 0;
-   }''', dependencies: libbpf)
-  libbpf = not_found
-  if get_option('bpf').enabled()
-    error('libbpf skeleton/mmaping test failed')
-  else
-    warning('libbpf skeleton/mmaping test failed, disabling')
-  endif
-endif
-
-# libxdp
-libxdp = not_found
-if not get_option('af_xdp').auto() or have_system
-    if libbpf.found()
-        libxdp = dependency('libxdp', required: get_option('af_xdp'),
-                            version: '>=1.4.0', method: 'pkg-config')
-    else
-        if get_option('af_xdp').enabled()
-            error('libxdp requested, but libbpf is not available')
-        endif
-    endif
-endif
-
 # libdw
 libdw = not_found
 if not get_option('libdw').auto() or \
@@ -2231,8 +2169,6 @@ endif
 config_host_data.set('CONFIG_HEXAGON_IDEF_PARSER', get_option('hexagon_idef_parser'))
 config_host_data.set('CONFIG_LIBATTR', have_old_libattr)
 config_host_data.set('CONFIG_LIBCAP_NG', libcap_ng.found())
-config_host_data.set('CONFIG_EBPF', libbpf.found())
-config_host_data.set('CONFIG_AF_XDP', libxdp.found())
 config_host_data.set('CONFIG_LIBDAXCTL', libdaxctl.found())
 config_host_data.set('CONFIG_LIBISCSI', libiscsi.found())
 config_host_data.set('CONFIG_LIBNFS', libnfs.found())
@@ -2976,8 +2912,6 @@ host_kconfig = \
   (have_virtfs ? ['CONFIG_VIRTFS=y'] : []) + \
   (host_os == 'linux' ? ['CONFIG_LINUX=y'] : []) + \
   (multiprocess_allowed ? ['CONFIG_MULTIPROCESS_ALLOWED=y'] : []) + \
-  (vfio_user_server_allowed ? ['CONFIG_VFIO_USER_SERVER_ALLOWED=y'] : []) + \
-  (hv_balloon ? ['CONFIG_HV_BALLOON_POSSIBLE=y'] : []) + \
   (have_rust ? ['CONFIG_HAVE_RUST=y'] : [])
 
 ignored = [ 'TARGET_XML_FILES', 'TARGET_ABI_DIR', 'TARGET_ARCH' ]
@@ -3144,12 +3078,6 @@ endif
 # Subprojects #
 ###############
 
-libvfio_user_dep = not_found
-if have_system and vfio_user_server_allowed
-  libvfio_user_proj = subproject('libvfio-user', required: true)
-  libvfio_user_dep = libvfio_user_proj.get_variable('libvfio_user_dep')
-endif
-
 vhost_user = not_found
 
 #####################
@@ -3246,7 +3174,6 @@ trace_events_subdirs = [
   'qom',
   'monitor',
   'util',
-  'gdbstub',
 ]
 if have_linux_user
   trace_events_subdirs += [ 'linux-user' ]
@@ -3267,14 +3194,12 @@ if have_system
   trace_events_subdirs += [
     'audio',
     'backends',
-    'ebpf',
     'hw/acpi',
     'hw/arm',
     'hw/audio',
     'hw/block',
     'hw/char',
     'hw/display',
-    'hw/hyperv',
     'hw/input',
     'hw/intc',
     'hw/mem',
@@ -3286,7 +3211,6 @@ if have_system
     'hw/rtc',
     'hw/uefi',
     'hw/virtio',
-    'hw/watchdog',
     'hw/gpio',
     'migration',
     'net',
@@ -3349,7 +3273,6 @@ subdir('qom')
 subdir('authz')
 subdir('crypto')
 subdir('ui')
-subdir('gdbstub')
 if have_system
   subdir('hw')
 else
@@ -3400,7 +3323,6 @@ endif
 subdir('audio')
 subdir('io')
 subdir('chardev')
-subdir('dump')
 
 if have_block
   block_ss.add(files(
@@ -3453,9 +3375,6 @@ subdir('disas')
 subdir('migration')
 subdir('monitor')
 subdir('net')
-subdir('replay')
-subdir('semihosting')
-subdir('stats')
 if get_option('tcg').allowed()
   subdir('tcg')
 endif
@@ -3464,7 +3383,6 @@ subdir('accel')
 if get_option('plugins')
   subdir('plugins')
 endif
-subdir('ebpf')
 
 if get_option('plugins') and 'CONFIG_TCG' in config_all_accel
   subdir('contrib/plugins')
@@ -3780,8 +3698,9 @@ if have_rust
 endif
 
 
-feature_to_c = find_program('scripts/feature_to_c.py')
-rust_root_crate = find_program('scripts/rust/rust_root_crate.sh')
+if have_rust
+  rust_root_crate = find_program('scripts/rust/rust_root_crate.sh')
+endif
 
 if host_os == 'darwin'
   entitlement = find_program('scripts/entitlement.sh')
@@ -3852,15 +3771,6 @@ foreach target : target_dirs
                                              extra_args : config_target['TARGET_SYSTBL_ABI'])
       endif
     endif
-  endif
-
-  if 'TARGET_XML_FILES' in config_target
-    gdbstub_xml = custom_target(target + '-gdbstub-xml.c',
-                                output: target + '-gdbstub-xml.c',
-                                input: files(config_target['TARGET_XML_FILES'].split()),
-                                command: [feature_to_c, '@INPUT@'],
-                                capture: true)
-    arch_srcs += gdbstub_xml
   endif
 
   t = target_arch[target_base_arch].apply(config_target, strict: false)
@@ -4038,8 +3948,6 @@ if stap.found()
 endif
 
 subdir('scripts')
-subdir('tools')
-subdir('pc-bios')
 # vectras android: disable test
 #subdir('tests')
 if host_machine.system() == 'windows'
@@ -4192,7 +4100,6 @@ summary_info += {'target list':       ' '.join(target_dirs)}
 if have_system
   summary_info += {'default devices':   get_option('default_devices')}
   summary_info += {'out of process emulation': multiprocess_allowed}
-  summary_info += {'vfio-user server': vfio_user_server_allowed}
 endif
 summary(summary_info, bool_yn: true, section: 'Targets and accelerators')
 
@@ -4225,7 +4132,6 @@ summary_info = {}
 if host_os == 'darwin'
   summary_info += {'vmnet.framework support': vmnet}
 endif
-summary_info += {'AF_XDP support':    libxdp}
 summary_info += {'slirp support':     slirp}
 summary_info += {'vde support':       vde}
 summary_info += {'netmap support':    have_netmap}
@@ -4306,7 +4212,6 @@ summary_info += {'ATTR/XATTR support': libattr}
 summary_info += {'RDMA support':      rdma}
 summary_info += {'fdt support':       fdt_opt == 'internal' ? 'internal' : fdt}
 summary_info += {'libcap-ng support': libcap_ng}
-summary_info += {'bpf support':       libbpf}
 summary_info += {'rbd support':       rbd}
 summary_info += {'smartcard support': cacard}
 summary_info += {'U2F support':       u2f}
@@ -4323,7 +4228,6 @@ if host_os == 'windows'
 endif
 summary_info += {'seccomp support':   seccomp}
 summary_info += {'GlusterFS support': glusterfs}
-summary_info += {'hv-balloon support': hv_balloon}
 summary_info += {'TPM support':       have_tpm}
 summary_info += {'libssh support':    libssh}
 summary_info += {'lzo support':       lzo}

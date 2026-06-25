@@ -8,7 +8,6 @@
 #include "qemu/main-loop.h"
 #include "qemu/lockcnt.h"
 #include "exec/log.h"
-#include "exec/gdbstub.h"
 #include "system/tcg.h"
 #include "hw/boards.h"
 #include "hw/qdev-properties.h"
@@ -66,16 +65,6 @@ void cpu_exit(CPUState *cpu)
     
     smp_wmb();
     qatomic_set(&cpu->neg.icount_decr.u16.high, -1);
-}
-
-static int cpu_common_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg)
-{
-    return 0;
-}
-
-static int cpu_common_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg)
-{
-    return 0;
 }
 
 void cpu_dump_state(CPUState *cpu, FILE *f, int flags)
@@ -235,7 +224,6 @@ static void cpu_common_initfn(Object *obj)
     
     cpu->cc = CPU_GET_CLASS(cpu);
 
-    gdb_init_cpu(cpu);
     cpu->cpu_index = UNASSIGNED_CPU_INDEX;
     cpu->cluster_index = UNASSIGNED_CLUSTER_INDEX;
     cpu->as = NULL;
@@ -277,9 +265,6 @@ static void cpu_common_finalize(Object *obj)
 #endif
     free_queued_cpu_work(cpu);
     
-    if (cpu->gdb_regs) {
-        g_array_free(cpu->gdb_regs, TRUE);
-    }
     qemu_lockcnt_destroy(&cpu->in_ioctl_lock);
     qemu_mutex_destroy(&cpu->work_mutex);
     qemu_cond_destroy(cpu->halt_cond);
@@ -300,8 +285,6 @@ static void cpu_common_class_init(ObjectClass *klass, void *data)
 
     k->parse_features = cpu_common_parse_features;
     k->get_arch_id = cpu_common_get_arch_id;
-    k->gdb_read_register = cpu_common_gdb_read_register;
-    k->gdb_write_register = cpu_common_gdb_write_register;
     set_bit(DEVICE_CATEGORY_CPU, dc->categories);
     dc->realize = cpu_common_realizefn;
     dc->unrealize = cpu_common_unrealizefn;

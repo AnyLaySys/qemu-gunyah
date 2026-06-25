@@ -46,9 +46,6 @@ typedef struct AccelClass {
     bool (*cpu_common_realize)(CPUState *cpu, Error **errp);
     void (*cpu_common_unrealize)(CPUState *cpu);
 
-    /* gdbstub related hooks */
-    int (*gdbstub_supported_sstep_flags)(void);
-
     bool *allowed;
     /*
      * Array of global properties that would be applied when specific
@@ -103,13 +100,5 @@ bool accel_cpu_common_realize(CPUState *cpu, Error **errp);
  * @cpu: The CPU that needs to call accel-specific cpu unrealization.
  */
 void accel_cpu_common_unrealize(CPUState *cpu);
-
-/**
- * accel_supported_gdbstub_sstep_flags:
- *
- * Returns the supported single step modes for the configured
- * accelerator.
- */
-int accel_supported_gdbstub_sstep_flags(void);
 
 #endif /* QEMU_ACCEL_H */

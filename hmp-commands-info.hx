@@ -283,31 +283,6 @@ SRST
 ERST
 
     {
-        .name       = "usb",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show guest USB devices",
-        .cmd_info_hrt = qmp_x_query_usb,
-    },
-
-SRST
-  ``info usb``
-    Show guest USB devices.
-ERST
-
-    {
-        .name       = "usbhost",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show host USB devices",
-    },
-
-SRST
-  ``info usbhost``
-    Show host USB devices.
-ERST
-
-    {
         .name       = "status",
         .args_type  = "",
         .params     = "",
@@ -390,45 +365,6 @@ ERST
 SRST
   ``info usernet``
     Show user network stack connection states.
-ERST
-
-    {
-        .name       = "migrate",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show migration status",
-        .cmd        = hmp_info_migrate,
-    },
-
-SRST
-  ``info migrate``
-    Show migration status.
-ERST
-
-    {
-        .name       = "migrate_capabilities",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show current migration capabilities",
-        .cmd        = hmp_info_migrate_capabilities,
-    },
-
-SRST
-  ``info migrate_capabilities``
-    Show current migration capabilities.
-ERST
-
-    {
-        .name       = "migrate_parameters",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show current migration parameters",
-        .cmd        = hmp_info_migrate_parameters,
-    },
-
-SRST
-  ``info migrate_parameters``
-    Show current migration parameters.
 ERST
 
     {
@@ -598,19 +534,6 @@ SRST
 ERST
 
     {
-        .name       = "dump",
-        .args_type  = "",
-        .params     = "",
-        .help       = "Display the latest dump status",
-        .cmd        = hmp_info_dump,
-    },
-
-SRST
-  ``info dump``
-    Display the latest dump status.
-ERST
-
-    {
         .name       = "ramblock",
         .args_type  = "",
         .params     = "",
@@ -680,45 +603,6 @@ SRST
     Show SEV information.
 ERST
 
-    {
-        .name       = "replay",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show record/replay information",
-        .cmd        = hmp_info_replay,
-    },
-
-SRST
-  ``info replay``
-    Display the record/replay information: mode and the current icount.
-ERST
-
-    {
-        .name       = "dirty_rate",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show dirty rate information",
-        .cmd        = hmp_info_dirty_rate,
-    },
-
-SRST
-  ``info dirty_rate``
-    Display the vcpu dirty rate information.
-ERST
-
-    {
-        .name       = "vcpu_dirty_limit",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show dirty page limit information of all vCPU",
-        .cmd        = hmp_info_vcpu_dirty_limit,
-    },
-
-SRST
-  ``info vcpu_dirty_limit``
-    Display the vcpu dirty page limit information.
-ERST
-
 #if defined(TARGET_I386)
     {
         .name       = "sgx",
@@ -747,20 +631,6 @@ ERST
 SRST
   ``info via``
     Show guest mos6522 VIA devices.
-ERST
-
-    {
-        .name       = "stats",
-        .args_type  = "target:s,names:s?,provider:s?",
-        .params     = "target [names] [provider]",
-        .help       = "show statistics for the given target (vm or vcpu); optionally filter by"
-                      "name (comma-separated list, or * for all) and provider",
-        .cmd        = hmp_info_stats,
-    },
-
-SRST
-  ``info stats``
-    Show runtime-collected statistics
 ERST
 
     {

@@ -24,7 +24,6 @@
 #include "hw/registerfields.h"
 #include "cpu-qom.h"
 #include "exec/cpu-defs.h"
-#include "exec/gdbstub.h"
 #include "exec/page-protection.h"
 #include "qapi/qapi-types-common.h"
 #include "target/arm/multiprocessing.h"
@@ -44,20 +43,19 @@
 #define EXCP_SMC            13   /* Secure Monitor Call */
 #define EXCP_VIRQ           14
 #define EXCP_VFIQ           15
-#define EXCP_SEMIHOST       16   /* semihosting call */
-#define EXCP_NOCP           17   /* v7M NOCP UsageFault */
-#define EXCP_INVSTATE       18   /* v7M INVSTATE UsageFault */
-#define EXCP_STKOF          19   /* v8M STKOF UsageFault */
-#define EXCP_LAZYFP         20   /* v7M fault during lazy FP stacking */
-#define EXCP_LSERR          21   /* v8M LSERR SecureFault */
-#define EXCP_UNALIGNED      22   /* v7M UNALIGNED UsageFault */
-#define EXCP_DIVBYZERO      23   /* v7M DIVBYZERO UsageFault */
-#define EXCP_VSERR          24
-#define EXCP_GPC            25   /* v9 Granule Protection Check Fault */
-#define EXCP_NMI            26
-#define EXCP_VINMI          27
-#define EXCP_VFNMI          28
-#define EXCP_MON_TRAP       29   /* AArch32 trap to Monitor mode */
+#define EXCP_NOCP           16   /* v7M NOCP UsageFault */
+#define EXCP_INVSTATE       17   /* v7M INVSTATE UsageFault */
+#define EXCP_STKOF          18   /* v8M STKOF UsageFault */
+#define EXCP_LAZYFP         19   /* v7M fault during lazy FP stacking */
+#define EXCP_LSERR          20   /* v8M LSERR SecureFault */
+#define EXCP_UNALIGNED      21   /* v7M UNALIGNED UsageFault */
+#define EXCP_DIVBYZERO      22   /* v7M DIVBYZERO UsageFault */
+#define EXCP_VSERR          23
+#define EXCP_GPC            24   /* v9 Granule Protection Check Fault */
+#define EXCP_NMI            25
+#define EXCP_VINMI          26
+#define EXCP_VFNMI          27
+#define EXCP_MON_TRAP       28   /* AArch32 trap to Monitor mode */
 /* NB: add new EXCP_ defines to the array in arm_log_exception() too */
 
 #define ARMV7M_EXCP_RESET   1
@@ -116,23 +114,6 @@
    s<2n> maps to the least significant half of d<n>
    s<2n+1> maps to the most significant half of d<n>
  */
-
-/**
- * DynamicGDBFeatureInfo:
- * @desc: Contains the feature descriptions.
- * @data: A union with data specific to the set of registers
- *    @cpregs_keys: Array that contains the corresponding Key of
- *                  a given cpreg with the same order of the cpreg
- *                  in the XML description.
- */
-typedef struct DynamicGDBFeatureInfo {
-    GDBFeature desc;
-    union {
-        struct {
-            uint32_t *keys;
-        } cpregs;
-    } data;
-} DynamicGDBFeatureInfo;
 
 /* CPU state for each instance of a generic timer (in cp15 c14) */
 typedef struct ARMGenericTimer {
@@ -883,11 +864,6 @@ struct ArchCPU {
     uint64_t *cpreg_vmstate_values;
     int32_t cpreg_vmstate_array_len;
 
-    DynamicGDBFeatureInfo dyn_sysreg_feature;
-    DynamicGDBFeatureInfo dyn_svereg_feature;
-    DynamicGDBFeatureInfo dyn_m_systemreg_feature;
-    DynamicGDBFeatureInfo dyn_m_secextreg_feature;
-
     /* Timers used by the generic (architected) timer */
     QEMUTimer *gt_timer[NUM_GTIMERS];
     /*
@@ -1174,14 +1150,6 @@ hwaddr arm_cpu_get_phys_page_attrs_debug(CPUState *cpu, vaddr addr,
                                          MemTxAttrs *attrs);
 #endif /* !CONFIG_USER_ONLY */
 
-int arm_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
-int arm_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
-
-int arm_cpu_write_elf64_note(WriteCoreDumpFunction f, CPUState *cs,
-                             int cpuid, DumpState *s);
-int arm_cpu_write_elf32_note(WriteCoreDumpFunction f, CPUState *cs,
-                             int cpuid, DumpState *s);
-
 /**
  * arm_emulate_firmware_reset: Emulate firmware CPU reset handling
  * @cpu: CPU (which must have been freshly reset)
@@ -1205,8 +1173,6 @@ int arm_cpu_write_elf32_note(WriteCoreDumpFunction f, CPUState *cs,
 void arm_emulate_firmware_reset(CPUState *cpustate, int target_el);
 
 #ifdef TARGET_AARCH64
-int aarch64_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
-int aarch64_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 void aarch64_sve_narrow_vq(CPUARMState *env, unsigned vq);
 void aarch64_sve_change_el(CPUARMState *env, int old_el,
                            int new_el, bool el0_a64);
@@ -1530,7 +1496,6 @@ typedef enum CPSRWriteType {
     CPSRWriteExceptionReturn = 1, /* from guest exception return insn */
     CPSRWriteRaw = 2,
         /* trust values, no reg bank switch, no hflags rebuild */
-    CPSRWriteByGDBStub = 3,       /* from the GDB stub */
 } CPSRWriteType;
 
 /*

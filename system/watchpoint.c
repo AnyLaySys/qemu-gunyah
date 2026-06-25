@@ -42,12 +42,7 @@ int cpu_watchpoint_insert(CPUState *cpu, vaddr addr, vaddr len,
     wp->len = len;
     wp->flags = flags;
 
-    /* keep all GDB-injected watchpoints in front */
-    if (flags & BP_GDB) {
-        QTAILQ_INSERT_HEAD(&cpu->watchpoints, wp, entry);
-    } else {
-        QTAILQ_INSERT_TAIL(&cpu->watchpoints, wp, entry);
-    }
+    QTAILQ_INSERT_TAIL(&cpu->watchpoints, wp, entry);
 
     in_page = -(addr | TARGET_PAGE_MASK);
     if (len <= in_page) {

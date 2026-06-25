@@ -29,7 +29,6 @@
 #include "qemu/option.h"
 #include "qemu/timer.h"
 #include "qom/object.h"
-#include "system/replay.h"
 #include "system/system.h"
 #include "system/rtc.h"
 
@@ -151,7 +150,6 @@ void configure_rtc(QemuOpts *opts)
             rtc_base_type = RTC_BASE_UTC;
         } else if (!strcmp(value, "localtime")) {
             rtc_base_type = RTC_BASE_LOCALTIME;
-            replay_add_blocker("-rtc base=localtime");
         } else {
             rtc_base_type = RTC_BASE_DATETIME;
             configure_rtc_base_datetime(value);

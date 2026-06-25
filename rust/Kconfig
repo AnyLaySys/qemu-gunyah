@@ -1,5 +1,0 @@
-config X_PL011_RUST
-    bool
-
-config X_HPET_RUST
-    bool

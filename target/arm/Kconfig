@@ -1,6 +1,5 @@
 config ARM
     bool
-    select ARM_COMPATIBLE_SEMIHOSTING if TCG
     select DEVICE_TREE # needed by boot.c
 
 config AARCH64

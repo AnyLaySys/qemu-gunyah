@@ -10,7 +10,6 @@
     'command-name-exceptions': [
         'add_client',
         'block_resize',
-        'client_migrate_info',
         'device_add',
         'device_del',
         'expire_password',

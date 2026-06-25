@@ -56,8 +56,7 @@ static inline bool excp_is_internal(int excp)
         || excp == EXCP_DEBUG
         || excp == EXCP_HALTED
         || excp == EXCP_EXCEPTION_EXIT
-        || excp == EXCP_KERNEL_TRAP
-        || excp == EXCP_SEMIHOST;
+        || excp == EXCP_KERNEL_TRAP;
 }
 
 /*
@@ -355,14 +354,9 @@ void aarch64_cpu_register(const ARMCPUInfo *info);
 void register_cp_regs_for_features(ARMCPU *cpu);
 void init_cpreg_list(ARMCPU *cpu);
 
-void arm_cpu_register_gdb_regs_for_features(ARMCPU *cpu);
 void arm_translate_init(void);
 void arm_translate_code(CPUState *cs, TranslationBlock *tb,
                         int *max_insns, vaddr pc, void *host_pc);
-
-void arm_cpu_register_gdb_commands(ARMCPU *cpu);
-void aarch64_cpu_register_gdb_commands(ARMCPU *cpu, GString *,
-                                       GPtrArray *, GPtrArray *);
 
 void arm_restore_state_to_opc(CPUState *cs,
                               const TranslationBlock *tb,
@@ -1807,15 +1801,6 @@ static inline uint64_t pmu_counter_mask(CPUARMState *env)
 }
 
 #ifdef TARGET_AARCH64
-GDBFeature *arm_gen_dynamic_svereg_feature(CPUState *cpu, int base_reg);
-int aarch64_gdb_get_sve_reg(CPUState *cs, GByteArray *buf, int reg);
-int aarch64_gdb_set_sve_reg(CPUState *cs, uint8_t *buf, int reg);
-int aarch64_gdb_get_fpu_reg(CPUState *cs, GByteArray *buf, int reg);
-int aarch64_gdb_set_fpu_reg(CPUState *cs, uint8_t *buf, int reg);
-int aarch64_gdb_get_pauth_reg(CPUState *cs, GByteArray *buf, int reg);
-int aarch64_gdb_set_pauth_reg(CPUState *cs, uint8_t *buf, int reg);
-int aarch64_gdb_get_tag_ctl_reg(CPUState *cs, GByteArray *buf, int reg);
-int aarch64_gdb_set_tag_ctl_reg(CPUState *cs, uint8_t *buf, int reg);
 void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp);
 void arm_cpu_sme_finalize(ARMCPU *cpu, Error **errp);
 void arm_cpu_pauth_finalize(ARMCPU *cpu, Error **errp);

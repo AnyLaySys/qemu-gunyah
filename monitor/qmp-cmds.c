@@ -30,7 +30,6 @@
 #include "qapi/type-helpers.h"
 #include "hw/mem/memory-device.h"
 #include "hw/intc/intc.h"
-#include "migration/misc.h"
 
 NameInfo *qmp_query_name(Error **errp)
 {
@@ -48,39 +47,17 @@ void qmp_quit(Error **errp)
 
 void qmp_stop(Error **errp)
 {
-    /* if there is a dump in background, we should wait until the dump
-     * finished */
-    if (qemu_system_dump_in_progress()) {
-        error_setg(errp, "There is a dump in process, please wait.");
-        return;
-    }
-
-    if (runstate_check(RUN_STATE_INMIGRATE)) {
-        autostart = 0;
-    } else {
-        vm_stop(RUN_STATE_PAUSED);
-    }
+    vm_stop(RUN_STATE_PAUSED);
 }
 
 void qmp_cont(Error **errp)
 {
     BlockBackend *blk;
-    Error *local_err = NULL;
-
-    /* if there is a dump in background, we should wait until the dump
-     * finished */
-    if (qemu_system_dump_in_progress()) {
-        error_setg(errp, "There is a dump in process, please wait.");
-        return;
-    }
 
     if (runstate_needs_reset()) {
         error_setg(errp, "Resetting the Virtual Machine is required");
         return;
     } else if (runstate_check(RUN_STATE_SUSPENDED)) {
-        return;
-    } else if (runstate_check(RUN_STATE_FINISH_MIGRATE)) {
-        error_setg(errp, "Migration is not finalized yet");
         return;
     }
 
@@ -88,20 +65,7 @@ void qmp_cont(Error **errp)
         blk_iostatus_reset(blk);
     }
 
-    if (runstate_check(RUN_STATE_INMIGRATE)) {
-        autostart = 1;
-    } else {
-        /*
-         * Continuing after completed migration. Images have been
-         * inactivated to allow the destination to take control. Need to
-         * get control back now.
-         */
-        if (!migration_block_activate(&local_err)) {
-            error_propagate(errp, local_err);
-            return;
-        }
-        vm_start();
-    }
+    vm_start();
 }
 
 void qmp_add_client(const char *protocol, const char *fdname,

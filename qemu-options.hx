@@ -42,7 +42,6 @@ DEF("machine", HAS_ARG, QEMU_OPTION_machine, \
     "                aux-ram-share=on|off allocate auxiliary guest RAM as shared (default: off)\n"
 #endif
     "                memory-backend='backend-id' specifies explicitly provided backend for main RAM (default=none)\n"
-    "                cxl-fmw.0.targets.0=firsttarget,cxl-fmw.0.targets.1=secondtarget,cxl-fmw.0.size=size[,cxl-fmw.0.interleave-granularity=granularity]\n"
     "                smp-cache.0.cache=cachename,smp-cache.0.topology=topologylevel\n",
     QEMU_ARCH_ALL)
 SRST
@@ -141,38 +140,6 @@ SRST
             -object memory-backend-ram,id=pc.ram,size=512M,x-use-canonical-path-for-ramblock-id=off
             -machine memory-backend=pc.ram
             -m 512M
-
-    ``cxl-fmw.0.targets.0=firsttarget,cxl-fmw.0.targets.1=secondtarget,cxl-fmw.0.size=size[,cxl-fmw.0.interleave-granularity=granularity]``
-        Define a CXL Fixed Memory Window (CFMW).
-
-        Described in the CXL 2.0 ECN: CEDT CFMWS & QTG _DSM.
-
-        They are regions of Host Physical Addresses (HPA) on a system which
-        may be interleaved across one or more CXL host bridges.  The system
-        software will assign particular devices into these windows and
-        configure the downstream Host-managed Device Memory (HDM) decoders
-        in root ports, switch ports and devices appropriately to meet the
-        interleave requirements before enabling the memory devices.
-
-        ``targets.X=target`` provides the mapping to CXL host bridges
-        which may be identified by the id provided in the -device entry.
-        Multiple entries are needed to specify all the targets when
-        the fixed memory window represents interleaved memory. X is the
-        target index from 0.
-
-        ``size=size`` sets the size of the CFMW. This must be a multiple of
-        256MiB. The region will be aligned to 256MiB but the location is
-        platform and configuration dependent.
-
-        ``interleave-granularity=granularity`` sets the granularity of
-        interleave. Default 256 (bytes). Only 256, 512, 1k, 2k,
-        4k, 8k and 16k granularities supported.
-
-        Example:
-
-        ::
-
-            -machine cxl-fmw.0.targets.0=cxl.0,cxl-fmw.0.targets.1=cxl.1,cxl-fmw.0.size=128G,cxl-fmw.0.interleave-granularity=512
 
     ``smp-cache.0.cache=cachename,smp-cache.0.topology=topologylevel``
         Define cache properties for SMP system.
@@ -1050,88 +1017,6 @@ SRST
     properties depend on the driver. To get help on possible drivers and
     properties, use ``-device help`` and ``-device driver,help``.
 
-    Some drivers are:
-
-``-device ipmi-bmc-sim,id=id[,prop[=value][,...]]``
-    Add an IPMI BMC. This is a simulation of a hardware management
-    interface processor that normally sits on a system. It provides a
-    watchdog and the ability to reset and power control the system. You
-    need to connect this to an IPMI interface to make it useful
-
-    The IPMI slave address to use for the BMC. The default is 0x20. This
-    address is the BMC's address on the I2C network of management
-    controllers. If you don't know what this means, it is safe to ignore
-    it.
-
-    ``id=id``
-        The BMC id for interfaces to use this device.
-
-    ``slave_addr=val``
-        Define slave address to use for the BMC. The default is 0x20.
-
-    ``sdrfile=file``
-        file containing raw Sensor Data Records (SDR) data. The default
-        is none.
-
-    ``fruareasize=val``
-        size of a Field Replaceable Unit (FRU) area. The default is
-        1024.
-
-    ``frudatafile=file``
-        file containing raw Field Replaceable Unit (FRU) inventory data.
-        The default is none.
-
-    ``guid=uuid``
-        value for the GUID for the BMC, in standard UUID format. If this
-        is set, get "Get GUID" command to the BMC will return it.
-        Otherwise "Get GUID" will return an error.
-
-``-device ipmi-bmc-extern,id=id,chardev=id[,slave_addr=val]``
-    Add a connection to an external IPMI BMC simulator. Instead of
-    locally emulating the BMC like the above item, instead connect to an
-    external entity that provides the IPMI services.
-
-    A connection is made to an external BMC simulator. If you do this,
-    it is strongly recommended that you use the "reconnect-ms=" chardev
-    option to reconnect to the simulator if the connection is lost. Note
-    that if this is not used carefully, it can be a security issue, as
-    the interface has the ability to send resets, NMIs, and power off
-    the VM. It's best if QEMU makes a connection to an external
-    simulator running on a secure port on localhost, so neither the
-    simulator nor QEMU is exposed to any outside network.
-
-    See the "lanserv/README.vm" file in the OpenIPMI library for more
-    details on the external interface.
-
-``-device isa-ipmi-kcs,bmc=id[,ioport=val][,irq=val]``
-    Add a KCS IPMI interface on the ISA bus. This also adds a
-    corresponding ACPI and SMBIOS entries, if appropriate.
-
-    ``bmc=id``
-        The BMC to connect to, one of ipmi-bmc-sim or ipmi-bmc-extern
-        above.
-
-    ``ioport=val``
-        Define the I/O address of the interface. The default is 0xca0
-        for KCS.
-
-    ``irq=val``
-        Define the interrupt to use. The default is 5. To disable
-        interrupts, set this to 0.
-
-``-device isa-ipmi-bt,bmc=id[,ioport=val][,irq=val]``
-    Like the KCS interface, but defines a BT interface. The default port
-    is 0xe4 and the default interrupt is 5.
-
-``-device pci-ipmi-kcs,bmc=id``
-    Add a KCS IPMI interface on the PCI bus.
-
-    ``bmc=id``
-        The BMC to connect to, one of ipmi-bmc-sim or ipmi-bmc-extern above.
-
-``-device pci-ipmi-bt,bmc=id``
-    Like the KCS interface, but defines a BT interface on the PCI bus.
-
 ``-device intel-iommu[,option=...]``
     This is only supported by ``-machine q35``, which will enable Intel VT-d
     emulation within the guest.  It supports below options:
@@ -1544,7 +1429,7 @@ SRST
     ``if=interface``
         This option defines on which type on interface the drive is
         connected. Available types are: ide, scsi, sd, mtd, floppy,
-        pflash, virtio, none.
+        virtio, none.
 
     ``bus=bus,unit=unit``
         These options define where is connected the drive by defining
@@ -1757,65 +1642,6 @@ DEF("iscsi", HAS_ARG, QEMU_OPTION_iscsi,
 SRST
 ``-iscsi``
     Configure iSCSI session parameters.
-ERST
-
-DEFHEADING()
-
-DEFHEADING(USB convenience options:)
-
-DEF("usb", 0, QEMU_OPTION_usb,
-    "-usb            enable on-board USB host controller (if not enabled by default)\n",
-    QEMU_ARCH_ALL)
-SRST
-``-usb``
-    Enable USB emulation on machine types with an on-board USB host
-    controller (if not enabled by default). Note that on-board USB host
-    controllers may not support USB 3.0. In this case
-    ``-device qemu-xhci`` can be used instead on machines with PCI.
-ERST
-
-DEF("usbdevice", HAS_ARG, QEMU_OPTION_usbdevice,
-    "-usbdevice name add the host or guest USB device 'name'\n",
-    QEMU_ARCH_ALL)
-SRST
-``-usbdevice devname``
-    Add the USB device devname, and enable an on-board USB controller
-    if possible and necessary (just like it can be done via
-    ``-machine usb=on``). Note that this option is mainly intended for
-    the user's convenience only. More fine-grained control can be
-    achieved by selecting a USB host controller (if necessary) and the
-    desired USB device via the ``-device`` option instead. For example,
-    instead of using ``-usbdevice mouse`` it is possible to use
-    ``-device qemu-xhci -device usb-mouse`` to connect the USB mouse
-    to a USB 3.0 controller instead (at least on machines that support
-    PCI and do not have an USB controller enabled by default yet).
-    For more details, see the chapter about
-    :ref:`Connecting USB devices` in the System Emulation Users Guide.
-    Possible devices for devname are:
-
-    ``braille``
-        Braille device. This will use BrlAPI to display the braille
-        output on a real or fake device (i.e. it also creates a
-        corresponding ``braille`` chardev automatically beside the
-        ``usb-braille`` USB device).
-
-    ``keyboard``
-        Standard USB keyboard. Will override the PS/2 keyboard (if present).
-
-    ``mouse``
-        Virtual Mouse. This will override the PS/2 mouse emulation when
-        activated.
-
-    ``tablet``
-        Pointer device that uses absolute coordinates (like a
-        touchscreen). This means QEMU is able to report the mouse
-        position without having to grab the mouse. Also overrides the
-        PS/2 mouse emulation when activated.
-
-    ``wacom-tablet``
-        Wacom PenPartner USB tablet.
-
-
 ERST
 
 DEFHEADING()
@@ -2864,14 +2690,6 @@ ERST
 
 SRST
 
-For x86 machines and some other architectures ``-bios`` will generally
-do the right thing with whatever it is given. For other machines the
-more strict ``-pflash`` option needs an image that is sized for the
-flash device for the given machine type.
-
-Please see the :ref:`system-targets-ref` section of the manual for
-more detailed documentation.
-
 ERST
 
 DEF("bios", HAS_ARG, QEMU_OPTION_bios, \
@@ -2879,13 +2697,6 @@ DEF("bios", HAS_ARG, QEMU_OPTION_bios, \
 SRST
 ``-bios file``
     Set the filename for the BIOS.
-ERST
-
-DEF("pflash", HAS_ARG, QEMU_OPTION_pflash,
-    "-pflash file    use 'file' as a parallel flash image\n", QEMU_ARCH_ALL)
-SRST
-``-pflash file``
-    Use file as a parallel flash image.
 ERST
 
 SRST
@@ -3364,42 +3175,6 @@ SRST
     taking into account guest idle time.
 ERST
 
-DEF("gdb", HAS_ARG, QEMU_OPTION_gdb, \
-    "-gdb dev        accept gdb connection on 'dev'. (QEMU defaults to starting\n"
-    "                the guest without waiting for gdb to connect; use -S too\n"
-    "                if you want it to not start execution.)\n",
-    QEMU_ARCH_ALL)
-SRST
-``-gdb dev``
-    Accept a gdb connection on device dev (see the :ref:`GDB usage` chapter
-    in the System Emulation Users Guide). Note that this option does not pause QEMU
-    execution -- if you want QEMU to not start the guest until you
-    connect with gdb and issue a ``continue`` command, you will need to
-    also pass the ``-S`` option to QEMU.
-
-    The most usual configuration is to listen on a local TCP socket::
-
-        -gdb tcp::3117
-
-    but you can specify other backends; UDP, pseudo TTY, or even stdio
-    are all reasonable use cases. For example, a stdio connection
-    allows you to start QEMU from within gdb and establish the
-    connection via a pipe:
-
-    .. parsed-literal::
-
-        (gdb) target remote | exec |qemu_system| -gdb stdio ...
-ERST
-
-DEF("s", 0, QEMU_OPTION_s, \
-    "-s              shorthand for -gdb tcp::" DEFAULT_GDBSTUB_PORT "\n",
-    QEMU_ARCH_ALL)
-SRST
-``-s``
-    Shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234
-    (see the :ref:`GDB usage` chapter in the System Emulation Users Guide).
-ERST
-
 DEF("d", HAS_ARG, QEMU_OPTION_d, \
     "-d item1,...    enable logging of specified items (use '-d help' for a list of log items)\n",
     QEMU_ARCH_ALL)
@@ -3456,28 +3231,6 @@ SRST
     To list all the data directories, use ``-L help``.
 ERST
 
-DEF("xen-domid", HAS_ARG, QEMU_OPTION_xen_domid,
-    "-xen-domid id   specify xen guest domain id\n",
-    QEMU_ARCH_ARM | QEMU_ARCH_I386)
-DEF("xen-attach", 0, QEMU_OPTION_xen_attach,
-    "-xen-attach     attach to existing xen domain\n"
-    "                libxl will use this when starting QEMU\n",
-    QEMU_ARCH_ARM | QEMU_ARCH_I386)
-DEF("xen-domid-restrict", 0, QEMU_OPTION_xen_domid_restrict,
-    "-xen-domid-restrict     restrict set of available xen operations\n"
-    "                        to specified domain id. (Does not affect\n"
-    "                        xenpv machine type).\n",
-    QEMU_ARCH_ARM | QEMU_ARCH_I386)
-SRST
-``-xen-domid id``
-    Specify xen guest domain id (XEN only).
-
-``-xen-attach``
-    Attach to existing xen domain. libxl will use this when starting
-    QEMU (XEN only). Restrict set of available xen operations to
-    specified domain id (XEN only).
-ERST
-
 DEF("no-reboot", 0, QEMU_OPTION_no_reboot, \
     "-no-reboot      exit instead of rebooting\n", QEMU_ARCH_ALL)
 SRST
@@ -3500,9 +3253,7 @@ DEF("action", HAS_ARG, QEMU_OPTION_action,
     "-action shutdown=poweroff|pause\n"
     "                   action when guest shuts down [default=poweroff]\n"
     "-action panic=pause|shutdown|exit-failure|none\n"
-    "                   action when guest panics [default=shutdown]\n"
-    "-action watchdog=reset|shutdown|poweroff|inject-nmi|pause|debug|none\n"
-    "                   action when watchdog fires [default=reset]\n",
+    "                   action when guest panics [default=shutdown]\n",
     QEMU_ARCH_ALL)
 SRST
 ``-action event=action``
@@ -3515,17 +3266,7 @@ SRST
 
     ``-action panic=none``
     ``-action reboot=shutdown,shutdown=pause``
-    ``-device i6300esb -action watchdog=pause``
 
-ERST
-
-DEF("loadvm", HAS_ARG, QEMU_OPTION_loadvm, \
-    "-loadvm [tag|id]\n" \
-    "                start right away with a saved state (loadvm in monitor)\n",
-    QEMU_ARCH_ALL)
-SRST
-``-loadvm file``
-    Start right away with a saved state (``loadvm`` in monitor)
 ERST
 
 #ifndef _WIN32
@@ -3570,92 +3311,12 @@ SRST
     guest time from the host, you can set ``clock`` to ``rt`` instead,
     which provides a host monotonic clock if host support it. To even
     prevent the RTC from progressing during suspension, you can set
-    ``clock`` to ``vm`` (virtual clock). '\ ``clock=vm``\ ' is
-    recommended especially in icount mode in order to preserve
-    determinism; however, note that in icount mode the speed of the
-    virtual clock is variable and can in general differ from the host
-    clock.
+    ``clock`` to ``vm`` (virtual clock).
 
     Enable ``driftfix`` (i386 targets only) if you experience time drift
     problems, specifically with Windows' ACPI HAL. This option will try
     to figure out how many timer interrupts were not processed by the
     Windows guest and will re-inject them.
-ERST
-
-DEF("icount", HAS_ARG, QEMU_OPTION_icount, \
-    "-icount [shift=N|auto][,align=on|off][,sleep=on|off][,rr=record|replay,rrfile=<filename>[,rrsnapshot=<snapshot>]]\n" \
-    "                enable virtual instruction counter with 2^N clock ticks per\n" \
-    "                instruction, enable aligning the host and virtual clocks\n" \
-    "                or disable real time cpu sleeping, and optionally enable\n" \
-    "                record-and-replay mode\n", QEMU_ARCH_ALL)
-SRST
-``-icount [shift=N|auto][,align=on|off][,sleep=on|off][,rr=record|replay,rrfile=filename[,rrsnapshot=snapshot]]``
-    Enable virtual instruction counter. The virtual cpu will execute one
-    instruction every 2^N ns of virtual time. If ``auto`` is specified
-    then the virtual cpu speed will be automatically adjusted to keep
-    virtual time within a few seconds of real time.
-
-    Note that while this option can give deterministic behavior, it does
-    not provide cycle accurate emulation. Modern CPUs contain
-    superscalar out of order cores with complex cache hierarchies. The
-    number of instructions executed often has little or no correlation
-    with actual performance.
-
-    When the virtual cpu is sleeping, the virtual time will advance at
-    default speed unless ``sleep=on`` is specified. With
-    ``sleep=on``, the virtual time will jump to the next timer
-    deadline instantly whenever the virtual cpu goes to sleep mode and
-    will not advance if no timer is enabled. This behavior gives
-    deterministic execution times from the guest point of view.
-    The default if icount is enabled is ``sleep=off``.
-    ``sleep=on`` cannot be used together with either ``shift=auto``
-    or ``align=on``.
-
-    ``align=on`` will activate the delay algorithm which will try to
-    synchronise the host clock and the virtual clock. The goal is to
-    have a guest running at the real frequency imposed by the shift
-    option. Whenever the guest clock is behind the host clock and if
-    ``align=on`` is specified then we print a message to the user to
-    inform about the delay. Currently this option does not work when
-    ``shift`` is ``auto``. Note: The sync algorithm will work for those
-    shift values for which the guest clock runs ahead of the host clock.
-    Typically this happens when the shift value is high (how high
-    depends on the host machine). The default if icount is enabled
-    is ``align=off``.
-
-    When the ``rr`` option is specified deterministic record/replay is
-    enabled. The ``rrfile=`` option must also be provided to
-    specify the path to the replay log. In record mode data is written
-    to this file, and in replay mode it is read back.
-    If the ``rrsnapshot`` option is given then it specifies a VM snapshot
-    name. In record mode, a new VM snapshot with the given name is created
-    at the start of execution recording. In replay mode this option
-    specifies the snapshot name used to load the initial VM state.
-ERST
-
-DEF("watchdog-action", HAS_ARG, QEMU_OPTION_watchdog_action, \
-    "-watchdog-action reset|shutdown|poweroff|inject-nmi|pause|debug|none\n" \
-    "                action when watchdog fires [default=reset]\n",
-    QEMU_ARCH_ALL)
-SRST
-``-watchdog-action action``
-    The action controls what QEMU will do when the watchdog timer
-    expires. The default is ``reset`` (forcefully reset the guest).
-    Other possible actions are: ``shutdown`` (attempt to gracefully
-    shutdown the guest), ``poweroff`` (forcefully poweroff the guest),
-    ``inject-nmi`` (inject a NMI into the guest), ``pause`` (pause the
-    guest), ``debug`` (print a debug message and continue), or ``none``
-    (do nothing).
-
-    Note that the ``shutdown`` action requires that the guest responds
-    to ACPI signals, which it may not be able to do in the sort of
-    situations where the watchdog would have expired, and thus
-    ``-watchdog-action shutdown`` is not recommended for production use.
-
-    Examples:
-
-    ``-device i6300esb -watchdog-action pause``
-
 ERST
 
 DEF("echr", HAS_ARG, QEMU_OPTION_echr, \
@@ -3673,75 +3334,6 @@ SRST
 
     ``-echr 0x14``; \ ``-echr 20``
 
-ERST
-
-DEF("incoming", HAS_ARG, QEMU_OPTION_incoming, \
-    "-incoming tcp:[host]:port[,to=maxport][,ipv4=on|off][,ipv6=on|off]\n" \
-    "-incoming rdma:host:port[,ipv4=on|off][,ipv6=on|off]\n" \
-    "-incoming unix:socketpath\n" \
-    "                prepare for incoming migration, listen on\n" \
-    "                specified protocol and socket address\n" \
-    "-incoming fd:fd\n" \
-    "-incoming file:filename[,offset=offset]\n" \
-    "-incoming exec:cmdline\n" \
-    "                accept incoming migration on given file descriptor\n" \
-    "                or from given external command\n" \
-    "-incoming <channel>\n" \
-    "                accept incoming migration on the migration channel\n" \
-    "-incoming defer\n" \
-    "                wait for the URI to be specified via migrate_incoming\n",
-    QEMU_ARCH_ALL)
-SRST
-The -incoming option specifies the migration channel for an incoming
-migration.  It may be used multiple times to specify multiple
-migration channel types.  The channel type is specified in <channel>,
-or is 'main' for all other forms of -incoming.  If multiple -incoming
-options are specified for a channel type, the last one takes precedence.
-
-``-incoming tcp:[host]:port[,to=maxport][,ipv4=on|off][,ipv6=on|off]``
-  \ 
-``-incoming rdma:host:port[,ipv4=on|off][,ipv6=on|off]``
-    Prepare for incoming migration, listen on a given tcp port.
-
-``-incoming unix:socketpath``
-    Prepare for incoming migration, listen on a given unix socket.
-
-``-incoming fd:fd``
-    Accept incoming migration from a given file descriptor.
-
-``-incoming file:filename[,offset=offset]``
-    Accept incoming migration from a given file starting at offset.
-    offset allows the common size suffixes, or a 0x prefix, but not both.
-
-``-incoming exec:cmdline``
-    Accept incoming migration as an output from specified external
-    command.
-
-``-incoming <channel>``
-    Accept incoming migration on the migration channel.  For the syntax
-    of <channel>, see the QAPI documentation of ``MigrationChannel``.
-    Examples:
-    ::
-
-        -incoming '{"channel-type": "main",
-                    "addr": { "transport": "socket",
-                              "type": "unix",
-                              "path": "my.sock" }}'
-
-        -incoming main,addr.transport=socket,addr.type=unix,addr.path=my.sock
-
-``-incoming defer``
-    Wait for the URI to be specified via migrate\_incoming. The monitor
-    can be used to change settings (such as migration parameters) prior
-    to issuing the migrate\_incoming to allow the migration to begin.
-ERST
-
-DEF("only-migratable", 0, QEMU_OPTION_only_migratable, \
-    "-only-migratable     allow only migratable devices\n", QEMU_ARCH_ALL)
-SRST
-``-only-migratable``
-    Only allow migratable devices. Devices will not be allowed to enter
-    an unmigratable state.
 ERST
 
 DEF("nodefaults", 0, QEMU_OPTION_nodefaults, \
@@ -3772,60 +3364,6 @@ SRST
         qemu-system-ppc -prom-env 'auto-boot?=false' \
          -prom-env 'boot-device=hd:2,\yaboot' \
          -prom-env 'boot-args=conf=hd:2,\yaboot.conf'
-ERST
-DEF("semihosting", 0, QEMU_OPTION_semihosting,
-    "-semihosting    semihosting mode\n",
-    QEMU_ARCH_ARM | QEMU_ARCH_M68K | QEMU_ARCH_XTENSA |
-    QEMU_ARCH_MIPS | QEMU_ARCH_RISCV)
-SRST
-``-semihosting``
-    Enable :ref:`Semihosting` mode (ARM, M68K, Xtensa, MIPS, RISC-V only).
-
-    .. warning::
-      Note that this allows guest direct access to the host filesystem, so
-      should only be used with a trusted guest OS.
-
-    See the -semihosting-config option documentation for further
-    information about the facilities this enables.
-ERST
-DEF("semihosting-config", HAS_ARG, QEMU_OPTION_semihosting_config,
-    "-semihosting-config [enable=on|off][,target=native|gdb|auto][,chardev=id][,userspace=on|off][,arg=str[,...]]\n" \
-    "                semihosting configuration\n",
-QEMU_ARCH_ARM | QEMU_ARCH_M68K | QEMU_ARCH_XTENSA |
-QEMU_ARCH_MIPS | QEMU_ARCH_RISCV)
-SRST
-``-semihosting-config [enable=on|off][,target=native|gdb|auto][,chardev=id][,userspace=on|off][,arg=str[,...]]``
-    Enable and configure :ref:`Semihosting` (ARM, M68K, Xtensa, MIPS, RISC-V
-    only).
-
-    .. warning::
-      Note that this allows guest direct access to the host filesystem, so
-      should only be used with a trusted guest OS.
-
-    ``target=native|gdb|auto``
-        Defines where the semihosting calls will be addressed, to QEMU
-        (``native``) or to GDB (``gdb``). The default is ``auto``, which
-        means ``gdb`` during debug sessions and ``native`` otherwise.
-
-    ``chardev=str1``
-        Send the output to a chardev backend output for native or auto
-        output when not in gdb
-
-    ``userspace=on|off``
-        Allows code running in guest userspace to access the semihosting
-        interface. The default is that only privileged guest code can
-        make semihosting calls. Note that setting ``userspace=on`` should
-        only be used if all guest code is trusted (for example, in
-        bare-metal test case code).
-
-    ``arg=str1,arg=str2,...``
-        Allows the user to pass input arguments, and can be used
-        multiple times to build up a list. The old-style
-        ``-kernel``/``-append`` method of passing a command line is
-        still supported for backward compatibility. If both the
-        ``--semihosting-config arg`` and the ``-kernel``/``-append`` are
-        specified, the former is passed to semihosting as it always
-        takes precedence.
 ERST
 DEF("old-param", 0, QEMU_OPTION_old_param,
     "-old-param      old param mode\n", QEMU_ARCH_ARM)
@@ -3969,19 +3507,6 @@ SRST
     ``guest-name=on|off``
         Prefix messages with guest name but only if -name guest option is set
         otherwise the option is ignored. Default is off.
-ERST
-
-DEF("dump-vmstate", HAS_ARG, QEMU_OPTION_dump_vmstate,
-    "-dump-vmstate <file>\n"
-    "                Output vmstate information in JSON format to file.\n"
-    "                Use the scripts/vmstate-static-checker.py file to\n"
-    "                check for possible regressions in migration code\n"
-    "                by comparing two such vmstate dumps.\n",
-    QEMU_ARCH_ALL)
-SRST
-``-dump-vmstate file``
-    Dump json-encoded vmstate information for current machine type to
-    file in file
 ERST
 
 DEF("enable-sync-profile", 0, QEMU_OPTION_enable_sync_profile,

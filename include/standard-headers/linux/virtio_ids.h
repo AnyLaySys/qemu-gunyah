@@ -61,7 +61,6 @@
 #define VIRTIO_ID_SCMI			32 /* virtio SCMI */
 #define VIRTIO_ID_NITRO_SEC_MOD		33 /* virtio nitro secure module*/
 #define VIRTIO_ID_I2C_ADAPTER		34 /* virtio i2c adapter */
-#define VIRTIO_ID_WATCHDOG		35 /* virtio watchdog */
 #define VIRTIO_ID_CAN			36 /* virtio can */
 #define VIRTIO_ID_DMABUF		37 /* virtio dmabuf */
 #define VIRTIO_ID_PARAM_SERV		38 /* virtio parameter server */
