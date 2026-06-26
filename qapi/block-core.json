@@ -265,7 +265,6 @@
             'raw', 'rbd',
             { 'name': 'replication', 'if': 'CONFIG_REPLICATION' },
             'ssh', 'vdi', 'vhdx',
-            { 'name': 'virtio-blk-vfio-pci', 'if': 'CONFIG_BLKIO' },
             { 'name': 'virtio-blk-vhost-user', 'if': 'CONFIG_BLKIO' },
             { 'name': 'virtio-blk-vhost-vdpa', 'if': 'CONFIG_BLKIO' },
             'vmdk', 'vpc', 'vvfat' ] }
@@ -468,10 +467,6 @@
   'if': 'CONFIG_BLKIO' }
 
 { 'struct': 'BlockdevOptionsNvmeIoUring',
-  'data': { 'path': 'str' },
-  'if': 'CONFIG_BLKIO' }
-
-{ 'struct': 'BlockdevOptionsVirtioBlkVfioPci',
   'data': { 'path': 'str' },
   'if': 'CONFIG_BLKIO' }
 
@@ -689,9 +684,6 @@
       'ssh':        'BlockdevOptionsSsh',
       'vdi':        'BlockdevOptionsGenericFormat',
       'vhdx':       'BlockdevOptionsGenericFormat',
-      'virtio-blk-vfio-pci':
-                    { 'type': 'BlockdevOptionsVirtioBlkVfioPci',
-                      'if': 'CONFIG_BLKIO' },
       'virtio-blk-vhost-user':
                     { 'type': 'BlockdevOptionsVirtioBlkVhostUser',
                       'if': 'CONFIG_BLKIO' },

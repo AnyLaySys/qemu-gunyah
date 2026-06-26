@@ -17,7 +17,7 @@ struct HostIOMMUDevice {
     Object parent_obj;
 
     char *name;
-    void *agent; /* pointer to agent device, ie. VFIO or VDPA device */
+    void *agent;
     PCIBus *aliased_bus;
     int aliased_devfn;
     HostIOMMUDeviceCaps caps;

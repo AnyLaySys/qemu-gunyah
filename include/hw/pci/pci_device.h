@@ -10,8 +10,6 @@ typedef struct PCIDeviceClass PCIDeviceClass;
 DECLARE_OBJ_CHECKERS(PCIDevice, PCIDeviceClass,
                      PCI_DEVICE, TYPE_PCI_DEVICE)
 
-#define INTERFACE_CXL_DEVICE "cxl-device"
-
 #define INTERFACE_PCIE_DEVICE "pci-express-device"
 
 #define INTERFACE_CONVENTIONAL_PCI_DEVICE "conventional-pci-device"
@@ -134,11 +132,6 @@ struct PCIDevice {
 static inline int pci_intx(PCIDevice *pci_dev)
 {
     return pci_get_byte(pci_dev->config + PCI_INTERRUPT_PIN) - 1;
-}
-
-static inline int pci_is_cxl(const PCIDevice *d)
-{
-    return d->cap_present & QEMU_PCIE_CAP_CXL;
 }
 
 static inline int pci_is_express(const PCIDevice *d)

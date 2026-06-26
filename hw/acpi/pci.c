@@ -237,9 +237,9 @@ static int build_acpi_generic_port(Object *obj, void *opaque)
         exit(1);
     }
 
-    o = object_resolve_path_type(gp->pci_bus, TYPE_PXB_CXL_BUS, NULL);
+    o = object_resolve_path_type(gp->pci_bus, TYPE_PXB_DEV, NULL);
     if (!o) {
-        error_printf("%s: device must be a CXL host bridge.\n",
+        error_printf("%s: device must be a PCI host bridge.\n",
                      TYPE_ACPI_GENERIC_PORT);
        exit(1);
     }

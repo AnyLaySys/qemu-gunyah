@@ -1032,9 +1032,7 @@ SRST
         This enables caching mode for the VT-d emulated device.  When
         caching-mode is enabled, each guest DMA buffer mapping will generate an
         IOTLB invalidation from the guest IOMMU driver to the vIOMMU device in
-        a synchronous way.  It is required for ``-device vfio-pci`` to work
-        with the VT-d device, because host assigned devices requires to setup
-        the DMA mapping on the host before guest DMA starts.
+        a synchronous way.
 
     ``device-iotlb=on|off`` (default: off)
         This enables device-iotlb capability for the emulated VT-d device.  So
@@ -3708,8 +3706,8 @@ SRST
         Creates an iommufd backend which allows control of DMA mapping
         through the ``/dev/iommu`` device.
 
-        The ``id`` parameter is a unique ID which frontends (such as
-        vfio-pci of vdpa) will use to connect with the iommufd backend.
+        The ``id`` parameter is a unique ID which frontends will use to connect
+        with the iommufd backend.
 
         The ``fd`` parameter is an optional pre-opened file descriptor
         resulting from ``/dev/iommu`` opening. Usually the iommufd is shared

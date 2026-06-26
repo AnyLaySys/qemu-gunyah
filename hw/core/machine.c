@@ -31,7 +31,6 @@ GlobalProperty hw_compat_9_2[] = {
     { "virtio-mem-pci", "vectors", "0" },
     { "migration", "multifd-clean-tls-termination", "false" },
     { "migration", "send-switchover-start", "off"},
-    { "vfio-pci", "x-migration-multifd-transfer", "off" },
 };
 const size_t hw_compat_9_2_len = G_N_ELEMENTS(hw_compat_9_2);
 
@@ -44,7 +43,6 @@ GlobalProperty hw_compat_9_0[] = {
     {"arm-cpu", "backcompat-cntfrq", "true" },
     { "scsi-hd", "migrate-emulated-scsi-request", "false" },
     { "scsi-cd", "migrate-emulated-scsi-request", "false" },
-    {"vfio-pci", "skip-vsc-check", "false" },
     { "virtio-pci", "x-pcie-pm-no-soft-reset", "off" },
     {"sd-card", "spec_version", "2" },
 };
@@ -61,7 +59,6 @@ const size_t hw_compat_8_2_len = G_N_ELEMENTS(hw_compat_8_2);
 GlobalProperty hw_compat_8_1[] = {
     { TYPE_PCI_BRIDGE, "x-pci-express-writeable-slt-bug", "true" },
     { "ramfb", "x-migrate", "off" },
-    { "vfio-pci-nohotplug", "x-ramfb-migrate", "off" },
     { "igb", "x-pcie-flr-init", "off" },
     { TYPE_VIRTIO_NET, "host_uso", "off"},
     { TYPE_VIRTIO_NET, "guest_uso4", "off"},

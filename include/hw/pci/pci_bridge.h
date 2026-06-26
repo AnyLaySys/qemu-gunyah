@@ -39,8 +39,6 @@ struct PCIBridge {
 #define PCI_BRIDGE_DEV_PROP_CHASSIS_NR "chassis_nr"
 #define PCI_BRIDGE_DEV_PROP_MSI        "msi"
 #define PCI_BRIDGE_DEV_PROP_SHPC       "shpc"
-typedef struct CXLHost CXLHost;
-
 typedef struct PXBDev {
     PCIDevice parent_obj;
 
@@ -53,19 +51,8 @@ typedef struct PXBPCIEDev {
     PXBDev parent_obj;
 } PXBPCIEDev;
 
-#define TYPE_PXB_CXL_BUS "pxb-cxl-bus"
 #define TYPE_PXB_DEV "pxb"
 OBJECT_DECLARE_SIMPLE_TYPE(PXBDev, PXB_DEV)
-
-typedef struct PXBCXLDev {
-    PXBPCIEDev parent_obj;
-
-    bool hdm_for_passthrough;
-    CXLHost *cxl_host_bridge; /* Pointer to a CXLHost */
-} PXBCXLDev;
-
-#define TYPE_PXB_CXL_DEV "pxb-cxl"
-OBJECT_DECLARE_SIMPLE_TYPE(PXBCXLDev, PXB_CXL_DEV)
 
 int pci_bridge_ssvid_init(PCIDevice *dev, uint8_t offset,
                           uint16_t svid, uint16_t ssid,
