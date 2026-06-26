@@ -1,21 +1,3 @@
-/*
- * Helpers for getting linearized buffers from iov / filling buffers into iovs
- *
- * Copyright IBM, Corp. 2007, 2008
- * Copyright (C) 2010 Red Hat, Inc.
- * Copyright (c) 2024 Seagate Technology LLC and/or its Affiliates
- *
- * Author(s):
- *  Anthony Liguori <aliguori@us.ibm.com>
- *  Amit Shah <amit.shah@redhat.com>
- *  Michael Tokarev <mjt@tls.msk.ru>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/iov.h"
@@ -88,7 +70,6 @@ size_t iov_size(const struct iovec *iov, const unsigned int iov_cnt)
     return len;
 }
 
-/* helper function for iov_send_recv() */
 static ssize_t
 do_send_recv(int sockfd, int flags, struct iovec *iov, unsigned iov_cnt,
              bool do_send)
@@ -106,8 +87,6 @@ do_send_recv(int sockfd, int flags, struct iovec *iov, unsigned iov_cnt,
     } while (ret < 0 && errno == EINTR);
     return ret;
 #else
-    /* else send piece-by-piece */
-    /*XXX Note: windows has WSASend() and WSARecv() */
     unsigned i = 0;
     ssize_t ret = 0;
     ssize_t off = 0;
@@ -126,8 +105,6 @@ do_send_recv(int sockfd, int flags, struct iovec *iov, unsigned iov_cnt,
         } else if (errno == EINTR) {
             continue;
         } else {
-            /* else it is some "other" error,
-             * only return if there was no data processed. */
             if (ret == 0) {
                 ret = -1;
             }
@@ -169,39 +146,28 @@ ssize_t iov_send_recv_with_flags(int sockfd, int sockflags,
     iov = local_iov;
 
     while (bytes > 0) {
-        /* Find the start position, skipping `offset' bytes:
-         * first, skip all full-sized vector elements, */
         for (niov = 0; niov < iov_cnt && offset >= iov[niov].iov_len; ++niov) {
             offset -= iov[niov].iov_len;
         }
 
-        /* niov == iov_cnt would only be valid if bytes == 0, which
-         * we already ruled out in the loop condition.  */
         assert(niov < iov_cnt);
         iov += niov;
         iov_cnt -= niov;
 
         if (offset) {
-            /* second, skip `offset' bytes from the (now) first element,
-             * undo it on exit */
             iov[0].iov_base += offset;
             iov[0].iov_len -= offset;
         }
-        /* Find the end position skipping `bytes' bytes: */
-        /* first, skip all full-sized elements */
         tail = bytes;
         for (niov = 0; niov < iov_cnt && iov[niov].iov_len <= tail; ++niov) {
             tail -= iov[niov].iov_len;
         }
         if (tail) {
-            /* second, fixup the last element, and remember the original
-             * length */
             assert(niov < iov_cnt);
             assert(iov[niov].iov_len > tail);
             orig_len = iov[niov].iov_len;
             iov[niov++].iov_len = tail;
             ret = do_send_recv(sockfd, sockflags, iov, niov, do_send);
-            /* Undo the changes above before checking for errors */
             iov[niov-1].iov_len = orig_len;
         } else {
             ret = do_send_recv(sockfd, sockflags, iov, niov, do_send);
@@ -221,12 +187,9 @@ ssize_t iov_send_recv_with_flags(int sockfd, int sockflags,
         }
 
         if (ret == 0 && !do_send) {
-            /* recv returns 0 when the peer has performed an orderly
-             * shutdown. */
             break;
         }
 
-        /* Prepare for the next iteration */
         offset += ret;
         total += ret;
         bytes -= ret;
@@ -277,7 +240,6 @@ unsigned iov_copy(struct iovec *dst_iov, unsigned int dst_iov_cnt,
     return j;
 }
 
-/* io vectors */
 
 void qemu_iovec_init(QEMUIOVector *qiov, int alloc_hint)
 {
@@ -313,16 +275,6 @@ void qemu_iovec_add(QEMUIOVector *qiov, void *base, size_t len)
     ++qiov->niov;
 }
 
-/*
- * Concatenates (partial) iovecs from src_iov to the end of dst.
- * It starts copying after skipping `soffset' bytes at the
- * beginning of src and adds individual vectors from src to
- * dst copies up to `sbytes' bytes total, or up to the end
- * of src_iov if it comes first.  This way, it is okay to specify
- * very large value for `sbytes' to indicate "up to the end
- * of src".
- * Only vector pointers are processed, not the actual data buffers.
- */
 size_t qemu_iovec_concat_iov(QEMUIOVector *dst,
                              struct iovec *src_iov, unsigned int src_cnt,
                              size_t soffset, size_t sbytes)
@@ -348,29 +300,12 @@ size_t qemu_iovec_concat_iov(QEMUIOVector *dst,
     return done;
 }
 
-/*
- * Concatenates (partial) iovecs from src to the end of dst.
- * It starts copying after skipping `soffset' bytes at the
- * beginning of src and adds individual vectors from src to
- * dst copies up to `sbytes' bytes total, or up to the end
- * of src if it comes first.  This way, it is okay to specify
- * very large value for `sbytes' to indicate "up to the end
- * of src".
- * Only vector pointers are processed, not the actual data buffers.
- */
 void qemu_iovec_concat(QEMUIOVector *dst,
                        QEMUIOVector *src, size_t soffset, size_t sbytes)
 {
     qemu_iovec_concat_iov(dst, src->iov, src->niov, soffset, sbytes);
 }
 
-/*
- * qiov_find_iov
- *
- * Return pointer to iovec structure, where byte at @offset in original vector
- * @iov exactly is.
- * Set @remaining_offset to be offset inside that iovec to the same byte.
- */
 static struct iovec *iov_skip_offset(struct iovec *iov, size_t offset,
                                      size_t *remaining_offset)
 {
@@ -383,13 +318,6 @@ static struct iovec *iov_skip_offset(struct iovec *iov, size_t offset,
     return iov;
 }
 
-/*
- * qemu_iovec_slice
- *
- * Find subarray of iovec's, containing requested range. @head would
- * be offset in first iov (returned by the function), @tail would be
- * count of extra bytes in last iovec (returned iov + @niov - 1).
- */
 struct iovec *qemu_iovec_slice(QEMUIOVector *qiov,
                                size_t offset, size_t len,
                                size_t *head, size_t *tail, int *niov)
@@ -422,9 +350,6 @@ int qemu_iovec_subvec_niov(QEMUIOVector *qiov, size_t offset, size_t len)
     return niov;
 }
 
-/*
- * Check if the contents of subrange of qiov data is all zeroes.
- */
 bool qemu_iovec_is_zero(QEMUIOVector *qiov, size_t offset, size_t bytes)
 {
     struct iovec *iov;
@@ -505,16 +430,6 @@ size_t qemu_iovec_memset(QEMUIOVector *qiov, size_t offset,
     return iov_memset(qiov->iov, qiov->niov, offset, fillc, bytes);
 }
 
-/**
- * Check that I/O vector contents are identical
- *
- * The IO vectors must have the same structure (same length of all parts).
- * A typical usage is to compare vectors created with qemu_iovec_clone().
- *
- * @a:          I/O vector
- * @b:          I/O vector
- * @ret:        Offset to first mismatching byte or -1 if match
- */
 ssize_t qemu_iovec_compare(QEMUIOVector *a, QEMUIOVector *b)
 {
     int i;
@@ -551,7 +466,6 @@ static int sortelem_cmp_src_base(const void *a, const void *b)
     const IOVectorSortElem *elem_a = a;
     const IOVectorSortElem *elem_b = b;
 
-    /* Don't overflow */
     if (elem_a->src_iov->iov_base < elem_b->src_iov->iov_base) {
         return -1;
     } else if (elem_a->src_iov->iov_base > elem_b->src_iov->iov_base) {
@@ -569,32 +483,23 @@ static int sortelem_cmp_src_index(const void *a, const void *b)
     return elem_a->src_index - elem_b->src_index;
 }
 
-/**
- * Copy contents of I/O vector
- *
- * The relative relationships of overlapping iovecs are preserved.  This is
- * necessary to ensure identical semantics in the cloned I/O vector.
- */
 void qemu_iovec_clone(QEMUIOVector *dest, const QEMUIOVector *src, void *buf)
 {
     g_autofree IOVectorSortElem *sortelems = g_new(IOVectorSortElem, src->niov);
     void *last_end;
     int i;
 
-    /* Sort by source iovecs by base address */
     for (i = 0; i < src->niov; i++) {
         sortelems[i].src_index = i;
         sortelems[i].src_iov = &src->iov[i];
     }
     qsort(sortelems, src->niov, sizeof(sortelems[0]), sortelem_cmp_src_base);
 
-    /* Allocate buffer space taking into account overlapping iovecs */
     last_end = NULL;
     for (i = 0; i < src->niov; i++) {
         struct iovec *cur = sortelems[i].src_iov;
         ptrdiff_t rewind = 0;
 
-        /* Detect overlap */
         if (last_end && last_end > cur->iov_base) {
             rewind = last_end - cur->iov_base;
         }
@@ -604,7 +509,6 @@ void qemu_iovec_clone(QEMUIOVector *dest, const QEMUIOVector *src, void *buf)
         last_end = MAX(cur->iov_base + cur->iov_len, last_end);
     }
 
-    /* Sort by source iovec index and build destination iovec */
     qsort(sortelems, src->niov, sizeof(sortelems[0]), sortelem_cmp_src_index);
     for (i = 0; i < src->niov; i++) {
         qemu_iovec_add(dest, sortelems[i].dest_base, src->iov[i].iov_len);
@@ -613,7 +517,6 @@ void qemu_iovec_clone(QEMUIOVector *dest, const QEMUIOVector *src, void *buf)
 
 void iov_discard_undo(IOVDiscardUndo *undo)
 {
-    /* Restore original iovec if it was modified */
     if (undo->modified_iov) {
         *undo->modified_iov = undo->orig;
     }

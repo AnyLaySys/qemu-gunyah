@@ -1,41 +1,13 @@
-/*
- * Resettable interface.
- *
- * Copyright (c) 2019 GreenSocs SAS
- *
- * Authors:
- *   Damien Hedde
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/module.h"
 #include "hw/resettable.h"
 #include "trace.h"
 
-/**
- * resettable_phase_enter/hold/exit:
- * Function executing a phase recursively in a resettable object and its
- * children.
- */
 static void resettable_phase_enter(Object *obj, void *opaque, ResetType type);
 static void resettable_phase_hold(Object *obj, void *opaque, ResetType type);
 static void resettable_phase_exit(Object *obj, void *opaque, ResetType type);
 
-/**
- * enter_phase_in_progress:
- * True if we are currently in reset enter phase.
- *
- * exit_phase_in_progress:
- * count the number of exit phase we are in.
- *
- * Note: These flags are only used to guarantee (using asserts) that the reset
- * API is used correctly. We can use global variables because we rely on the
- * iothread mutex to ensure only one reset operation is in a progress at a
- * given time.
- */
 static bool enter_phase_in_progress;
 static unsigned exit_phase_in_progress;
 
@@ -80,10 +52,6 @@ bool resettable_is_in_reset(Object *obj)
     return s->count > 0;
 }
 
-/**
- * resettable_child_foreach:
- * helper to avoid checking the existence of the method.
- */
 static void resettable_child_foreach(ResettableClass *rc, Object *obj,
                                      ResettableChildCallback cb,
                                      void *opaque, ResetType type)
@@ -100,35 +68,17 @@ static void resettable_phase_enter(Object *obj, void *opaque, ResetType type)
     const char *obj_typename = object_get_typename(obj);
     bool action_needed = false;
 
-    /* exit phase has to finish properly before entering back in reset */
     assert(!s->exit_phase_in_progress);
 
     trace_resettable_phase_enter_begin(obj, obj_typename, s->count, type);
 
-    /* Only take action if we really enter reset for the 1st time. */
-    /*
-     * TODO: if adding more ResetType support, some additional checks
-     * are probably needed here.
-     */
     if (s->count++ == 0) {
         action_needed = true;
     }
-    /*
-     * We limit the count to an arbitrary "big" value. The value is big
-     * enough not to be triggered normally.
-     * The assert will stop an infinite loop if there is a cycle in the
-     * reset tree. The loop goes through resettable_foreach_child below
-     * which at some point will call us again.
-     */
     assert(s->count <= 50);
 
-    /*
-     * handle the children even if action_needed is at false so that
-     * child counts are incremented too
-     */
     resettable_child_foreach(rc, obj, resettable_phase_enter, NULL, type);
 
-    /* execute enter phase for the object if needed */
     if (action_needed) {
         trace_resettable_phase_enter_exec(obj, obj_typename, type,
                                           !!rc->phases.enter);
@@ -146,15 +96,12 @@ static void resettable_phase_hold(Object *obj, void *opaque, ResetType type)
     ResettableState *s = rc->get_state(obj);
     const char *obj_typename = object_get_typename(obj);
 
-    /* exit phase has to finish properly before entering back in reset */
     assert(!s->exit_phase_in_progress);
 
     trace_resettable_phase_hold_begin(obj, obj_typename, s->count, type);
 
-    /* handle children first */
     resettable_child_foreach(rc, obj, resettable_phase_hold, NULL, type);
 
-    /* exec hold phase */
     if (s->hold_phase_pending) {
         s->hold_phase_pending = false;
         trace_resettable_phase_hold_exec(obj, obj_typename, !!rc->phases.hold);
@@ -174,7 +121,6 @@ static void resettable_phase_exit(Object *obj, void *opaque, ResetType type)
     assert(!s->exit_phase_in_progress);
     trace_resettable_phase_exit_begin(obj, obj_typename, s->count, type);
 
-    /* exit_phase_in_progress ensures this phase is 'atomic' */
     s->exit_phase_in_progress = true;
     resettable_child_foreach(rc, obj, resettable_phase_exit, NULL, type);
 
@@ -189,10 +135,6 @@ static void resettable_phase_exit(Object *obj, void *opaque, ResetType type)
     trace_resettable_phase_exit_end(obj, obj_typename, s->count);
 }
 
-/*
- * resettable_get_count:
- * Get the count of the Resettable object @obj. Return 0 if @obj is NULL.
- */
 static unsigned resettable_get_count(Object *obj)
 {
     if (obj) {
@@ -209,33 +151,15 @@ void resettable_change_parent(Object *obj, Object *newp, Object *oldp)
     unsigned newp_count = resettable_get_count(newp);
     unsigned oldp_count = resettable_get_count(oldp);
 
-    /*
-     * Ensure we do not change parent when in enter or exit phase.
-     * During these phases, the reset subtree being updated is partly in reset
-     * and partly not in reset (it depends on the actual position in
-     * resettable_child_foreach()s). We are not able to tell in which part is a
-     * leaving or arriving device. Thus we cannot set the reset count of the
-     * moving device to the proper value.
-     */
     assert(!enter_phase_in_progress && !exit_phase_in_progress);
     trace_resettable_change_parent(obj, oldp, oldp_count, newp, newp_count);
 
-    /*
-     * At most one of the two 'for' loops will be executed below
-     * in order to cope with the difference between the two counts.
-     */
-    /* if newp is more reset than oldp */
     for (unsigned i = oldp_count; i < newp_count; i++) {
         resettable_assert_reset(obj, RESET_TYPE_COLD);
     }
-    /*
-     * if obj is leaving a bus under reset, we need to ensure
-     * hold phase is not pending.
-     */
     if (oldp_count && s->hold_phase_pending) {
         resettable_phase_hold(obj, NULL, RESET_TYPE_COLD);
     }
-    /* if oldp is more reset than newp */
     for (unsigned i = newp_count; i < oldp_count; i++) {
         resettable_release_reset(obj, RESET_TYPE_COLD);
     }

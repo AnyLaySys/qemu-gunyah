@@ -1,10 +1,3 @@
-/*
- * Vhost-user Sound virtio device
- *
- * Copyright (c) 2021 Mathieu Poirier <mathieu.poirier@linaro.org>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef QEMU_VHOST_USER_SND_H
 #define QEMU_VHOST_USER_SND_H

@@ -1,12 +1,3 @@
-/*
- * X.509 certificate related helpers
- *
- * Copyright (c) 2024 Dorjoy Chowdhury <dorjoychy111@gmail.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #ifndef QCRYPTO_X509_UTILS_H
 #define QCRYPTO_X509_UTILS_H

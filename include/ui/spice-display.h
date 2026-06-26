@@ -1,19 +1,3 @@
-/*
- * Copyright (C) 2010 Red Hat, Inc.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 or
- * (at your option) version 3 of the License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef UI_SPICE_DISPLAY_H
 #define UI_SPICE_DISPLAY_H
@@ -41,15 +25,6 @@
 #define MEMSLOT_GROUP_GUEST 1
 #define NUM_MEMSLOTS_GROUPS 2
 
-/*
- * Internal enum to differentiate between options for
- * io calls that have a sync (old) version and an _async (new)
- * version:
- *  QXL_SYNC: use the old version
- *  QXL_ASYNC: use the new version and make sure there are no two
- *   happening at the same time. This is used for guest initiated
- *   calls
- */
 typedef enum qxl_async_io {
     QXL_SYNC,
     QXL_ASYNC,
@@ -97,27 +72,19 @@ struct SimpleSpiceDisplay {
     QXLRect dirty;
     int notify;
 
-    /*
-     * All struct members below this comment can be accessed from
-     * both spice server and qemu (iothread) context and any access
-     * to them must be protected by the lock.
-     */
     QemuMutex lock;
     QTAILQ_HEAD(, SimpleSpiceUpdate) updates;
 
-    /* cursor (without qxl): displaychangelistener -> spice server */
     SimpleSpiceCursor *ptr_define;
     SimpleSpiceCursor *ptr_move;
     int16_t ptr_x, ptr_y;
     int16_t hot_x, hot_y;
 
-    /* cursor (with qxl): qxl local renderer -> displaychangelistener */
     QEMUCursor *cursor;
     int mouse_x, mouse_y;
     QEMUBH *cursor_bh;
 
 #ifdef HAVE_SPICE_GL
-    /* opengl rendering */
     QEMUBH *gl_unblock_bh;
     QEMUTimer *gl_unblock_timer;
     QemuGLShader *gls;

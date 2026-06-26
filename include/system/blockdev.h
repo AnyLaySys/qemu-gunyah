@@ -1,11 +1,3 @@
-/*
- * QEMU host block devices
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #ifndef BLOCKDEV_H
 #define BLOCKDEV_H
@@ -15,10 +7,6 @@
 
 typedef enum {
     IF_DEFAULT = -1,            /* for use with drive_add() only */
-    /*
-     * IF_NONE must be zero, because we want MachineClass member
-     * block_default_type to default-initialize to IF_NONE
-     */
     IF_NONE = 0,
     IF_IDE, IF_SCSI, IF_FLOPPY, IF_PFLASH, IF_MTD, IF_SD, IF_VIRTIO, IF_XEN,
     IF_COUNT
@@ -35,12 +23,6 @@ struct DriveInfo {
     QTAILQ_ENTRY(DriveInfo) next;
 };
 
-/*
- * Global state (GS) API. These functions run under the BQL.
- *
- * See include/block/block-global-state.h for more information about
- * the GS API.
- */
 
 void blockdev_mark_auto_del(BlockBackend *blk);
 void blockdev_auto_del(BlockBackend *blk);

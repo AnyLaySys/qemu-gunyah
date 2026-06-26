@@ -1,15 +1,3 @@
-/*
- * Test Server
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #ifndef QTEST_H
 #define QTEST_H

@@ -1,26 +1,3 @@
-/*
- * NUMA parameter parsing routines
- *
- * Copyright (c) 2014 Fujitsu Ltd.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/units.h"
@@ -86,10 +63,6 @@ static void parse_numa_node(MachineState *ms, NumaNodeOptions *node,
         return;
     }
 
-    /*
-     * If not set the initiator, set it to MAX_NODES. And if
-     * HMAT is enabled and this node has no cpus, QEMU will raise error.
-     */
     numa_info[nodenr].initiator = MAX_NODES;
     if (node->has_initiator) {
         if (!ms->numa_state->hmat_enabled) {
@@ -216,7 +189,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
     HMAT_LB_Data lb_data = {};
     HMAT_LB_Data *lb_temp;
 
-    /* Error checking */
     if (node->initiator > numa_state->num_nodes) {
         error_setg(errp, "Invalid initiator=%d, it should be less than %d",
                    node->initiator, numa_state->num_nodes);
@@ -250,7 +222,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
     lb_data.target = node->target;
 
     if (node->data_type <= HMAT_LB_DATA_TYPE_WRITE_LATENCY) {
-        /* Input latency data */
 
         if (!node->has_latency) {
             error_setg(errp, "Missing 'latency' option");
@@ -262,7 +233,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
             return;
         }
 
-        /* Detect duplicate configuration */
         for (i = 0; i < hmat_lb->list->len; i++) {
             lb_temp = &g_array_index(hmat_lb->list, HMAT_LB_Data, i);
 
@@ -278,7 +248,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
         hmat_lb->base = hmat_lb->base ? hmat_lb->base : UINT64_MAX;
 
         if (node->latency) {
-            /* Calculate the temporary base and compressed latency */
             max_entry = node->latency;
             temp_base = 1;
             while (QEMU_IS_ALIGNED(max_entry, 10)) {
@@ -286,15 +255,10 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
                 temp_base *= 10;
             }
 
-            /* Calculate the max compressed latency */
             temp_base = MIN(hmat_lb->base, temp_base);
             max_entry = node->latency / hmat_lb->base;
             max_entry = MAX(hmat_lb->range_bitmap, max_entry);
 
-            /*
-             * For latency hmat_lb->range_bitmap record the max compressed
-             * latency which should be less than 0xFFFF (UINT16_MAX)
-             */
             if (max_entry >= UINT16_MAX) {
                 error_setg(errp, "Latency %" PRIu64 " between initiator=%d and "
                         "target=%d should not differ from previously entered "
@@ -306,15 +270,10 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
                 hmat_lb->range_bitmap = max_entry;
             }
 
-            /*
-             * Set lb_info_provided bit 0 as 1,
-             * latency information is provided
-             */
             numa_info[node->target].lb_info_provided |= BIT(0);
         }
         lb_data.data = node->latency;
     } else if (node->data_type >= HMAT_LB_DATA_TYPE_ACCESS_BANDWIDTH) {
-        /* Input bandwidth data */
         if (!node->has_bandwidth) {
             error_setg(errp, "Missing 'bandwidth' option");
             return;
@@ -331,7 +290,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
             return;
         }
 
-        /* Detect duplicate configuration */
         for (i = 0; i < hmat_lb->list->len; i++) {
             lb_temp = &g_array_index(hmat_lb->list, HMAT_LB_Data, i);
 
@@ -347,7 +305,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
         hmat_lb->base = hmat_lb->base ? hmat_lb->base : 1;
 
         if (node->bandwidth) {
-            /* Keep bitmap unchanged when bandwidth out of range */
             bitmap_copy = hmat_lb->range_bitmap;
             bitmap_copy |= node->bandwidth;
             first_bit = ctz64(bitmap_copy);
@@ -355,11 +312,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
             max_entry = node->bandwidth / temp_base;
             last_bit = 64 - clz64(bitmap_copy);
 
-            /*
-             * For bandwidth, first_bit record the base unit of bandwidth bits,
-             * last_bit record the last bit of the max bandwidth. The max
-             * compressed bandwidth should be less than 0xFFFF (UINT16_MAX)
-             */
             if ((last_bit - first_bit) > UINT16_BITS ||
                 max_entry >= UINT16_MAX) {
                 error_setg(errp, "Bandwidth %" PRIu64 " between initiator=%d "
@@ -372,10 +324,6 @@ void parse_numa_hmat_lb(NumaState *numa_state, NumaHmatLBOptions *node,
                 hmat_lb->range_bitmap = bitmap_copy;
             }
 
-            /*
-             * Set lb_info_provided bit 1 as 1,
-             * bandwidth information is provided
-             */
             numa_info[node->target].lb_info_provided |= BIT(1);
         }
         lb_data.data = node->bandwidth;
@@ -527,7 +475,6 @@ static int parse_numa(void *opaque, QemuOpts *opts, Error **errp)
         return -1;
     }
 
-    /* Fix up legacy suffix-less format */
     if ((object->type == NUMA_OPTIONS_TYPE_NODE) && object->u.node.has_mem) {
         const char *mem_str = qemu_opt_get(opts, "mem");
         int ret = qemu_strtosz_MiB(mem_str, NULL, &object->u.node.mem);
@@ -551,12 +498,6 @@ static int parse_numa(void *opaque, QemuOpts *opts, Error **errp)
     return 0;
 }
 
-/* If all node pair distances are symmetric, then only distances
- * in one direction are enough. If there is even one asymmetric
- * pair, though, then all distances must be provided. The
- * distance from a node to itself is always NUMA_DISTANCE_MIN,
- * so providing it is never necessary.
- */
 static void validate_numa_distance(MachineState *ms)
 {
     int src, dst;
@@ -605,11 +546,6 @@ static void complete_init_numa_distance(MachineState *ms)
     int src, dst;
     NodeInfo *numa_info = ms->numa_state->nodes;
 
-    /* Fixup NUMA distance by symmetric policy because if it is an
-     * asymmetric distance table, it should be a complete table and
-     * there would not be any missing distance except local node, which
-     * is verified by validate_numa_distance above.
-     */
     for (src = 0; src < ms->numa_state->num_nodes; src++) {
         for (dst = 0; dst < ms->numa_state->num_nodes; dst++) {
             if (numa_info[src].distance[dst] == 0) {
@@ -646,23 +582,6 @@ void numa_complete_configuration(MachineState *ms)
     MachineClass *mc = MACHINE_GET_CLASS(ms);
     NodeInfo *numa_info = ms->numa_state->nodes;
 
-    /*
-     * If memory hotplug is enabled (slot > 0) or memory devices are enabled
-     * (ms->maxram_size > ms->ram_size) but without '-numa' options explicitly on
-     * CLI, guests will break.
-     *
-     *   Windows: won't enable memory hotplug without SRAT table at all
-     *
-     *   Linux: if QEMU is started with initial memory all below 4Gb
-     *   and no SRAT table present, guest kernel will use nommu DMA ops,
-     *   which breaks 32bit hw drivers when memory is hotplugged and
-     *   guest tries to use it with that drivers.
-     *
-     * Enable NUMA implicitly by adding a new NUMA node automatically.
-     *
-     * Or if MachineClass::auto_enable_numa is true and no NUMA nodes,
-     * assume there is just one node with whole RAM.
-     */
     if (ms->numa_state->num_nodes == 0 &&
         ((ms->ram_slots && mc->auto_enable_numa_with_memhp) ||
          (ms->maxram_size > ms->ram_size && mc->auto_enable_numa_with_memdev) ||
@@ -674,16 +593,13 @@ void numa_complete_configuration(MachineState *ms)
 
     assert(max_numa_nodeid <= MAX_NODES);
 
-    /* No support for sparse NUMA node IDs yet: */
     for (i = max_numa_nodeid - 1; i >= 0; i--) {
-        /* Report large node IDs first, to make mistakes easier to spot */
         if (!numa_info[i].present) {
             error_report("numa: Node ID missing: %d", i);
             exit(1);
         }
     }
 
-    /* This must be always true if all nodes are present: */
     assert(ms->numa_state->num_nodes == max_numa_nodeid);
 
     if (ms->numa_state->num_nodes > 0) {
@@ -711,23 +627,9 @@ void numa_complete_configuration(MachineState *ms)
                                ms->ram_size);
             numa_init_memdev_container(ms, ms->ram);
         }
-        /* QEMU needs at least all unique node pair distances to build
-         * the whole NUMA distance table. QEMU treats the distance table
-         * as symmetric by default, i.e. distance A->B == distance B->A.
-         * Thus, QEMU is able to complete the distance table
-         * initialization even though only distance A->B is provided and
-         * distance B->A is not. QEMU knows the distance of a node to
-         * itself is always 10, so A->A distances may be omitted. When
-         * the distances of two nodes of a pair differ, i.e. distance
-         * A->B != distance B->A, then that means the distance table is
-         * asymmetric. In this case, the distances for both directions
-         * of all node pairs are required.
-         */
         if (ms->numa_state->have_numa_distance) {
-            /* Validate enough NUMA distance information was provided. */
             validate_numa_distance(ms);
 
-            /* Validation succeeded, now fill in any missing distances. */
             complete_init_numa_distance(ms);
         }
     }
@@ -743,8 +645,6 @@ void numa_cpu_pre_plug(const CPUArchId *slot, DeviceState *dev, Error **errp)
     int node_id = object_property_get_int(OBJECT(dev), "node-id", &error_abort);
 
     if (node_id == CPU_UNSET_NUMA_NODE_ID) {
-        /* due to bug in libvirt, it doesn't pass node-id from props on
-         * device_add as expected, so we have to fix it up here */
         if (slot->props.has_node_id) {
             object_property_set_int(OBJECT(dev), "node-id",
                                     slot->props.node_id, errp);
@@ -779,7 +679,6 @@ static void numa_stat_memory_devices(NumaNodeMem node_mem[])
                 break;
             case MEMORY_DEVICE_INFO_KIND_VIRTIO_PMEM:
                 vpi = value->u.virtio_pmem.data;
-                /* TODO: once we support numa, assign to right node */
                 node_mem[0].node_mem += vpi->size;
                 node_mem[0].node_plugged_mem += vpi->size;
                 break;
@@ -845,7 +744,6 @@ void ram_block_notifier_add(RAMBlockNotifier *n)
 {
     QLIST_INSERT_HEAD(&ram_list.ramblock_notifiers, n, next);
 
-    /* Notify about all existing ram blocks. */
     if (n->ram_block_added) {
         qemu_ram_foreach_block(ram_block_notify_add_single, n);
     }

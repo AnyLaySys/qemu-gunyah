@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-#
-# Mini-Kconfig parser
-#
-# Copyright (c) 2015 Red Hat Inc.
-#
-# Authors:
-#  Paolo Bonzini <pbonzini@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2
-# or, at your option, any later version.  See the COPYING file in
-# the top-level directory.
 
 import os
 import sys
@@ -21,18 +10,8 @@ __all__ = [ 'KconfigDataError', 'KconfigParserError',
             'defconfig', 'allyesconfig', 'allnoconfig', 'randconfig' ]
 
 def debug_print(*args):
-    #print('# ' + (' '.join(str(x) for x in args)))
     pass
 
-# -------------------------------------------
-# KconfigData implements the Kconfig semantics.  For now it can only
-# detect undefined symbols, i.e. symbols that were referenced in
-# assignments or dependencies but were not declared with "config FOO".
-#
-# Semantic actions are represented by methods called do_*.  The do_var
-# method return the semantic value of a variable (which right now is
-# just its name).
-# -------------------------------------------
 
 class KconfigDataError(Exception):
     def __init__(self, msg):
@@ -55,7 +34,6 @@ class KconfigData:
         def __invert__(self):
             return KconfigData.NOT(self)
 
-        # Abstract methods
         def add_edges_to(self, var):
             pass
         def evaluate(self):
@@ -119,7 +97,6 @@ class KconfigData:
             debug_print("=> %s is now %s" % (self.name, val))
             self.value = val
 
-        # depth first search of the dependency graph
         def dfs(self, visited, f):
             if self in visited:
                 return
@@ -168,7 +145,6 @@ class KconfigData:
                 return "config %s default %s if %s" % (self.dest, value, self.cond)
 
         def priority(self):
-            # Defaults are processed just before leaving the variable
             return -1
         def process(self):
             if not self.dest.has_value() and \
@@ -207,7 +183,6 @@ class KconfigData:
         self.referenced_vars = dict()
         self.clauses = list()
 
-    # semantic analysis -------------
 
     def check_undefined(self):
         undef = False
@@ -230,7 +205,6 @@ class KconfigData:
         for i in self.referenced_vars:
             debug_print(i, "->", [str(x) for x in self.referenced_vars[i].outgoing])
 
-        # The reverse of the depth-first order is the topological sort
         dfo = dict()
         visited = set()
         debug_print("\n")
@@ -242,9 +216,6 @@ class KconfigData:
             self.do_default(v, False)
             v.dfs(visited, visit_fn)
 
-        # Put higher DFS numbers and higher priorities first.  This
-        # places the clauses in topological order and places defaults
-        # after assignments and dependencies.
         self.clauses.sort(key=lambda x: (-dfo[x.dest], -x.priority()))
 
         debug_print("\nSorted clauses:")
@@ -260,7 +231,6 @@ class KconfigData:
 
         return values
 
-    # semantic actions -------------
 
     def do_declaration(self, var):
         if (var in self.defined_vars):
@@ -268,7 +238,6 @@ class KconfigData:
 
         self.defined_vars.add(var.name)
 
-    # var is a string with the variable's name.
     def do_var(self, var):
         if (var in self.referenced_vars):
             return self.referenced_vars[var]
@@ -291,17 +260,10 @@ class KconfigData:
         self.clauses.append(KconfigData.SelectClause(symbol, cond))
 
     def do_imply(self, var, symbol, cond=None):
-        # "config X imply Y [if COND]" is the same as
-        # "config Y default y if X [&& COND]"
         cond = (cond & var) if cond is not None else var
         self.do_default(symbol, True, cond)
 
-# -------------------------------------------
-# KconfigParser implements a recursive descent parser for (simplified)
-# Kconfig syntax.
-# -------------------------------------------
 
-# tokens table
 TOKENS = {}
 TOK_NONE = -1
 TOK_LPAREN = 0;   TOKENS[TOK_LPAREN] = '"("';
@@ -367,7 +329,6 @@ class KconfigParser:
         var = self.data.do_var(var[7:])
         self.data.do_assignment(var, val)
 
-    # file management -----
 
     def error_path(self):
         inf = self.data.incl_info
@@ -390,7 +351,6 @@ class KconfigParser:
     def do_include(self, include):
         incl_abs_fname = os.path.join(os.path.dirname(self.abs_fname),
                                       include)
-        # catch inclusion cycle
         inf = self.data.incl_info
         while inf:
             if incl_abs_fname == os.path.abspath(inf['file']):
@@ -398,7 +358,6 @@ class KconfigParser:
                                     % include)
             inf = inf['parent']
 
-        # skip multiple include of the same file
         if incl_abs_fname in self.data.previously_included:
             return
         try:
@@ -413,9 +372,7 @@ class KconfigParser:
         KconfigParser(self.data).parse_file(fp)
         self.data.incl_info = inf
 
-    # recursive descent parser -----
 
-    # y_or_n: Y | N
     def parse_y_or_n(self):
         if self.tok == TOK_Y:
             self.get_token()
@@ -425,7 +382,6 @@ class KconfigParser:
             return False
         raise KconfigParserError(self, 'Expected "y" or "n"')
 
-    # var: ID
     def parse_var(self):
         if self.tok == TOK_ID:
             val = self.val
@@ -434,7 +390,6 @@ class KconfigParser:
         else:
             raise KconfigParserError(self, 'Expected identifier')
 
-    # assignment_var: ID (starting with "CONFIG_")
     def parse_assignment_var(self):
         if self.tok == TOK_ID:
             val = self.val
@@ -446,7 +401,6 @@ class KconfigParser:
         else:
             raise KconfigParserError(self, 'Expected identifier')
 
-    # assignment: var EQUAL y_or_n
     def parse_assignment(self):
         var = self.parse_assignment_var()
         if self.tok != TOK_EQUAL:
@@ -454,9 +408,6 @@ class KconfigParser:
         self.get_token()
         self.data.do_assignment(var, self.parse_y_or_n())
 
-    # primary: NOT primary
-    #       | LPAREN expr RPAREN
-    #       | var
     def parse_primary(self):
         if self.tok == TOK_NOT:
             self.get_token()
@@ -473,7 +424,6 @@ class KconfigParser:
             raise KconfigParserError(self, 'Expected "!" or "(" or identifier')
         return val
 
-    # disj: primary (OR primary)*
     def parse_disj(self):
         lhs = self.parse_primary()
         while self.tok == TOK_OR:
@@ -481,7 +431,6 @@ class KconfigParser:
             lhs = lhs | self.parse_primary()
         return lhs
 
-    # expr: disj (AND disj)*
     def parse_expr(self):
         lhs = self.parse_disj()
         while self.tok == TOK_AND:
@@ -489,8 +438,6 @@ class KconfigParser:
             lhs = lhs & self.parse_disj()
         return lhs
 
-    # condition: IF expr
-    #       | empty
     def parse_condition(self):
         if self.tok == TOK_IF:
             self.get_token()
@@ -498,10 +445,6 @@ class KconfigParser:
         else:
             return None
 
-    # property: DEFAULT y_or_n condition
-    #       | DEPENDS ON expr
-    #       | SELECT var condition
-    #       | BOOL
     def parse_property(self, var):
         if self.tok == TOK_DEFAULT:
             self.get_token()
@@ -529,8 +472,6 @@ class KconfigParser:
         else:
             raise KconfigParserError(self, 'Error in recursive descent?')
 
-    # properties: properties property
-    #       | /* empty */
     def parse_properties(self, var):
         had_default = False
         while self.tok == TOK_DEFAULT or self.tok == TOK_DEPENDS or \
@@ -538,13 +479,11 @@ class KconfigParser:
               self.tok == TOK_IMPLY:
             self.parse_property(var)
 
-        # for nicer error message
         if self.tok != TOK_SOURCE and self.tok != TOK_CONFIG and \
            self.tok != TOK_ID and self.tok != TOK_EOF:
             raise KconfigParserError(self, 'expected "source", "config", identifier, '
                     + '"default", "depends on", "imply" or "select"')
 
-    # declaration: config var properties
     def parse_declaration(self):
         if self.tok == TOK_CONFIG:
             self.get_token()
@@ -554,9 +493,6 @@ class KconfigParser:
         else:
             raise KconfigParserError(self, 'Error in recursive descent?')
 
-    # clause: SOURCE
-    #       | declaration
-    #       | assignment
     def parse_clause(self):
         if self.tok == TOK_SOURCE:
             val = self.val
@@ -569,13 +505,11 @@ class KconfigParser:
         else:
             raise KconfigParserError(self, 'expected "source", "config" or identifier')
 
-    # config: clause+ EOF
     def parse_config(self):
         while self.tok != TOK_EOF:
             self.parse_clause()
         return self.data
 
-    # scanner -----
 
     def get_token(self):
         while True:
@@ -637,8 +571,6 @@ class KconfigParser:
             return TOK_N
         elif (self.tok == 's' and self.check_keyword("ource")) or \
               self.tok == 'i' and self.check_keyword("nclude"):
-            # source FILENAME
-            # include FILENAME
             while self.src[self.cursor].isspace():
                 self.cursor += 1
             start = self.cursor
@@ -646,7 +578,6 @@ class KconfigParser:
             self.val = self.src[start:self.cursor]
             return TOK_SOURCE
         elif self.tok.isalnum():
-            # identifier
             while self.src[self.cursor].isalnum() or self.src[self.cursor] == '_':
                 self.cursor += 1
             self.val = self.src[self.pos:self.cursor]

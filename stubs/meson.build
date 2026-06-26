@@ -1,6 +1,3 @@
-# If possible, add new files to other directories, by using "if_false".
-# If you need them here, try to add them under one of the if statements
-# below, so that it is clear who needs the stubbed functionality.
 
 stub_ss.add(files('cpu-get-clock.c'))
 stub_ss.add(files('error-printf.c'))
@@ -23,12 +20,10 @@ if have_block
 endif
 
 if have_block or have_ga
-  # stubs for hooks in util/main-loop.c, util/async.c etc.
   stub_ss.add(files('cpus-virtual-clock.c'))
   stub_ss.add(files('graph-lock.c'))
   stub_ss.add(files('qemu-timer-notify-cb.c'))
 
-  # stubs for monitor
   stub_ss.add(files('monitor-internal.c'))
   stub_ss.add(files('qmp-command-available.c'))
   stub_ss.add(files('qmp-quit.c'))
@@ -41,10 +36,6 @@ endif
 
 
 if have_system
-  # Symbols that are only needed in some configurations.  Try not
-  # adding more of these.  If the symbol is used in specific_ss,
-  # in particular, consider defining a preprocessor macro via
-  # Kconfig or configs/targets/.
   stub_ss.add(files('cmos.c'))
   stub_ss.add(files('fw_cfg.c'))
   stub_ss.add(files('target-get-monitor-def.c'))
@@ -53,7 +44,6 @@ if have_system
 endif
 
 if have_system or have_user
-  # Also included in have_system for tests/unit/test-qdev-global-props
   stub_ss.add(files('hotplug-stubs.c'))
   stub_ss.add(files('sysbus.c'))
 endif

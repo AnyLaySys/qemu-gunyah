@@ -1,17 +1,3 @@
-/*
- * HMP commands related to run state
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "exec/cpu-common.h"
@@ -60,7 +46,6 @@ void hmp_one_insn_per_tb(Monitor *mon, const QDict *qdict)
         monitor_printf(mon, "unexpected option %s\n", option);
         return;
     }
-    /* If the property exists then setting it can never fail */
     object_property_set_bool(OBJECT(accel), "one-insn-per-tb",
                              newval, &error_abort);
 }

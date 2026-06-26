@@ -1,19 +1,3 @@
-/*
- * QEMU block layer thread pool
- *
- * Copyright IBM, Corp. 2008
- * Copyright Red Hat, Inc. 2012
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *  Paolo Bonzini     <pbonzini@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 #include "qemu/osdep.h"
 #include "qemu/defer-call.h"
 #include "qemu/queue.h"
@@ -39,17 +23,11 @@ struct ThreadPoolElementAio {
     ThreadPoolFunc *func;
     void *arg;
 
-    /* Moving state out of THREAD_QUEUED is protected by lock.  After
-     * that, only the worker thread can write to it.  Reads and writes
-     * of state and ret are ordered with memory barriers.
-     */
     enum ThreadState state;
     int ret;
 
-    /* Access to this list is protected by lock.  */
     QTAILQ_ENTRY(ThreadPoolElementAio) reqs;
 
-    /* This list is only written by the thread pool's mother thread.  */
     QLIST_ENTRY(ThreadPoolElementAio) all;
 };
 
@@ -61,10 +39,8 @@ struct ThreadPoolAio {
     QemuCond request_cond;
     QEMUBH *new_thread_bh;
 
-    /* The following variables are only accessed from one AioContext. */
     QLIST_HEAD(, ThreadPoolElementAio) head;
 
-    /* The following variables are protected by lock.  */
     QTAILQ_HEAD(, ThreadPoolElementAio) request_list;
     int cur_threads;
     int idle_threads;
@@ -93,13 +69,8 @@ static void *worker_thread(void *opaque)
             if (ret == 0 &&
                 QTAILQ_EMPTY(&pool->request_list) &&
                 pool->cur_threads > pool->min_threads) {
-                /* Timed out + no work to do + no need for warm threads = exit.  */
                 break;
             }
-            /*
-             * Even if there was some work to do, check if there aren't
-             * too many worker threads before picking it up.
-             */
             continue;
         }
 
@@ -111,7 +82,6 @@ static void *worker_thread(void *opaque)
         ret = req->func(req->arg);
 
         req->ret = ret;
-        /* Write ret before state.  */
         smp_wmb();
         req->state = THREAD_DONE;
 
@@ -122,10 +92,6 @@ static void *worker_thread(void *opaque)
     pool->cur_threads--;
     qemu_cond_signal(&pool->worker_stopped);
 
-    /*
-     * Wake up another thread, in case we got a wakeup but decided
-     * to exit due to pool->cur_threads > pool->max_threads.
-     */
     qemu_cond_signal(&pool->request_cond);
     qemu_mutex_unlock(&pool->lock);
     return NULL;
@@ -135,7 +101,6 @@ static void do_spawn_thread(ThreadPoolAio *pool)
 {
     QemuThread t;
 
-    /* Runs with lock taken.  */
     if (!pool->new_threads) {
         return;
     }
@@ -159,13 +124,6 @@ static void spawn_thread(ThreadPoolAio *pool)
 {
     pool->cur_threads++;
     pool->new_threads++;
-    /* If there are threads being created, they will spawn new workers, so
-     * we don't spend time creating many threads in a loop holding a mutex or
-     * starving the current vcpu.
-     *
-     * If there are no idle threads, ask the main thread to create one, so we
-     * inherit the correct affinity instead of the vcpu affinity.
-     */
     if (!pool->pending_threads) {
         qemu_bh_schedule(pool->new_thread_bh);
     }
@@ -189,20 +147,12 @@ restart:
         QLIST_REMOVE(elem, all);
 
         if (elem->common.cb) {
-            /* Read state before ret.  */
             smp_rmb();
 
-            /* Schedule ourselves in case elem->common.cb() calls aio_poll() to
-             * wait for another request that completed at the same time.
-             */
             qemu_bh_schedule(pool->completion_bh);
 
             elem->common.cb(elem->common.opaque, elem->ret);
 
-            /* We can safely cancel the completion_bh here regardless of someone
-             * else having scheduled it meanwhile because we reenter the
-             * completion function anyway (goto restart).
-             */
             qemu_bh_cancel(pool->completion_bh);
 
             qemu_aio_unref(elem);
@@ -245,7 +195,6 @@ BlockAIOCB *thread_pool_submit_aio(ThreadPoolFunc *func, void *arg,
     AioContext *ctx = qemu_get_current_aio_context();
     ThreadPoolAio *pool = aio_get_thread_pool(ctx);
 
-    /* Assert that the thread submitting work is the same running the pool */
     assert(pool->ctx == qemu_get_current_aio_context());
 
     req = qemu_aio_get(&thread_pool_aiocb_info, NULL, cb, opaque);
@@ -297,15 +246,6 @@ void thread_pool_update_params(ThreadPoolAio *pool, AioContext *ctx)
     pool->min_threads = ctx->thread_pool_min;
     pool->max_threads = ctx->thread_pool_max;
 
-    /*
-     * We either have to:
-     *  - Increase the number available of threads until over the min_threads
-     *    threshold.
-     *  - Bump the worker threads so that they exit, until under the max_threads
-     *    threshold.
-     *  - Do nothing. The current number of threads fall in between the min and
-     *    max thresholds. We'll let the pool manage itself.
-     */
     for (int i = pool->cur_threads; i < pool->min_threads; i++) {
         spawn_thread(pool);
     }
@@ -354,12 +294,10 @@ void thread_pool_free_aio(ThreadPoolAio *pool)
 
     qemu_mutex_lock(&pool->lock);
 
-    /* Stop new threads from spawning */
     qemu_bh_delete(pool->new_thread_bh);
     pool->cur_threads -= pool->new_threads;
     pool->new_threads = 0;
 
-    /* Wait for worker threads to terminate */
     pool->max_threads = 0;
     qemu_cond_broadcast(&pool->request_cond);
     while (pool->cur_threads > 0) {
@@ -418,10 +356,6 @@ ThreadPool *thread_pool_new(void)
     qemu_cond_init(&pool->all_finished_cond);
 
     pool->t = g_thread_pool_new(thread_pool_func, pool, 0, TRUE, NULL);
-    /*
-     * g_thread_pool_new() can only return errors if initial thread(s)
-     * creation fails but we ask for 0 initial threads above.
-     */
     assert(pool->t);
 
     return pool;
@@ -429,10 +363,6 @@ ThreadPool *thread_pool_new(void)
 
 void thread_pool_free(ThreadPool *pool)
 {
-    /*
-     * With _wait = TRUE this effectively waits for all
-     * previously submitted work to complete first.
-     */
     g_thread_pool_free(pool->t, FALSE, TRUE);
 
     qemu_cond_destroy(&pool->all_finished_cond);
@@ -454,11 +384,6 @@ void thread_pool_submit(ThreadPool *pool, ThreadPoolFunc *func,
         pool->cur_work++;
     }
 
-    /*
-     * Ignore the return value since this function can only return errors
-     * if creation of an additional thread fails but even in this case the
-     * provided work is still getting queued (just for the existing threads).
-     */
     g_thread_pool_push(pool->t, el, NULL);
 }
 

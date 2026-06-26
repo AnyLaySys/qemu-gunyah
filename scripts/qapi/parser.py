@@ -1,18 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# QAPI schema parser
-#
-# Copyright IBM, Corp. 2011
-# Copyright (c) 2013-2019 Red Hat Inc.
-#
-# Authors:
-#  Anthony Liguori <aliguori@us.ibm.com>
-#  Markus Armbruster <armbru@redhat.com>
-#  Marc-André Lureau <marcandre.lureau@redhat.com>
-#  Kevin Wolf <kwolf@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 import enum
 import os
@@ -35,17 +20,13 @@ from .source import QAPISourceInfo
 
 
 if TYPE_CHECKING:
-    # pylint: disable=cyclic-import
-    # TODO: Remove cycle. [schema -> expr -> parser -> schema]
     from .schema import QAPISchemaFeature, QAPISchemaMember
 
 
-# Return value alias for get_expr().
 _ExprValue = Union[List[object], Dict[str, object], str, bool]
 
 
 class QAPIExpression(Dict[str, Any]):
-    # pylint: disable=too-few-public-methods
     def __init__(self,
                  data: Mapping[str, object],
                  info: QAPISourceInfo,
@@ -98,7 +79,6 @@ class QAPISchemaParser:
         self._included.add(os.path.abspath(self._fname))
         self.src = ''
 
-        # Lexer state (see `accept` for details):
         self.info = QAPISourceInfo(self._fname, incl_info)
         self.tok: Union[None, str] = None
         self.pos = 0
@@ -106,11 +86,9 @@ class QAPISchemaParser:
         self.val: Optional[Union[bool, str]] = None
         self.line_pos = 0
 
-        # Parser output:
         self.exprs: List[QAPIExpression] = []
         self.docs: List[QAPIDoc] = []
 
-        # Showtime!
         self._parse()
 
     def _parse(self) -> None:
@@ -121,16 +99,13 @@ class QAPISchemaParser:
         """
         cur_doc = None
 
-        # May raise OSError; allow the caller to handle it.
         with open(self._fname, 'r', encoding='utf-8') as fp:
             self.src = fp.read()
         if self.src == '' or self.src[-1] != '\n':
             self.src += '\n'
 
-        # Prime the lexer:
         self.accept()
 
-        # Parse until done:
         while self.tok is not None:
             info = self.info
             if self.tok == '#':
@@ -198,14 +173,12 @@ class QAPISchemaParser:
                  previously_included: Set[str]
                  ) -> Optional['QAPISchemaParser']:
         incl_abs_fname = os.path.abspath(incl_fname)
-        # catch inclusion cycle
         inf: Optional[QAPISourceInfo] = info
         while inf:
             if incl_abs_fname == os.path.abspath(inf.fname):
                 raise QAPISemError(info, "inclusion loop for %s" % include)
             inf = inf.parent
 
-        # skip multiple include of the same file
         if incl_abs_fname in previously_included:
             return None
 
@@ -299,7 +272,6 @@ class QAPISchemaParser:
 
             if self.tok == '#':
                 if self.src[self.cursor] == '#':
-                    # Start of doc comment
                     skip_comment = False
                 self.cursor = self.src.find('\n', self.cursor)
                 if not skip_comment:
@@ -308,7 +280,6 @@ class QAPISchemaParser:
             elif self.tok in '{}:,[]':
                 return
             elif self.tok == "'":
-                # Note: we accept only printable ASCII
                 string = ''
                 esc = False
                 while True:
@@ -317,8 +288,6 @@ class QAPISchemaParser:
                     if ch == '\n':
                         raise QAPIParseError(self, "missing terminating \"'\"")
                     if esc:
-                        # Note: we recognize only \\ because we have
-                        # no use for funny characters in strings
                         if ch != '\\':
                             raise QAPIParseError(self,
                                                  "unknown escape \\%s" % ch)
@@ -348,8 +317,6 @@ class QAPISchemaParser:
                 self.info = self.info.next_line()
                 self.line_pos = self.cursor
             elif not self.tok.isspace():
-                # Show up to next structural, whitespace or quote
-                # character
                 match = must_match('[^[\\]{}:,\\s\']+',
                                    self.src[self.cursor-1:])
                 raise QAPIParseError(self, "stray '%s'" % match.group(0))
@@ -421,7 +388,6 @@ class QAPISchemaParser:
                 self, "documentation comment must end with '##'")
         assert isinstance(self.val, str)
         if self.val.startswith('##'):
-            # End of doc comment
             if self.val != '##':
                 raise QAPIParseError(
                     self, "junk after '##' at end of documentation comment")
@@ -486,12 +452,8 @@ class QAPISchemaParser:
         self.accept(False)
         line = self.get_doc_line()
         if line is not None and line.startswith('@'):
-            # Definition documentation
             if not line.endswith(':'):
                 raise QAPIParseError(self, "line should end with ':'")
-            # Invalid names are not checked here, but the name
-            # provided *must* match the following definition,
-            # which *is* validated in expr.py.
             symbol = line[1:-1]
             if not symbol:
                 raise QAPIParseError(self, "name required after '@'")
@@ -501,13 +463,11 @@ class QAPISchemaParser:
             no_more_args = False
 
             while line is not None:
-                # Blank lines
                 while line == '':
                     self.accept(False)
                     line = self.get_doc_line()
                 if line is None:
                     break
-                # Non-blank line, first of a section
                 if line == 'Features:':
                     if doc.features:
                         raise QAPIParseError(
@@ -529,7 +489,6 @@ class QAPISchemaParser:
                             self, 'feature descriptions expected')
                     no_more_args = True
                 elif match := self._match_at_name_colon(line):
-                    # description
                     if no_more_args:
                         raise QAPIParseError(
                             self,
@@ -548,16 +507,9 @@ class QAPISchemaParser:
                         r'(?!::): *',
                         line,
                 ):
-                    # tagged section
 
-                    # Note: "sections" with two colons are left alone as
-                    # rST markup and not interpreted as a section heading.
 
-                    # TODO: Remove these errors sometime in 2025 or so
-                    # after we've fully transitioned to the new qapidoc
-                    # generator.
 
-                    # See commit message for more markup suggestions O:-)
                     if 'Note' in match.group(1):
                         emsg = (
                             f"The '{match.group(1)}' section is no longer "
@@ -589,12 +541,10 @@ class QAPISchemaParser:
                         self,
                         "unexpected '=' markup in definition documentation")
                 else:
-                    # plain paragraph
                     doc.ensure_untagged_section(self.info)
                     doc.append_line(line)
                     line = self.get_doc_paragraph(doc)
         else:
-            # Free-form documentation
             doc = QAPIDoc(info)
             doc.ensure_untagged_section(self.info)
             first = True
@@ -655,17 +605,13 @@ class QAPIDoc:
             return self.name.title()
 
     class Section:
-        # pylint: disable=too-few-public-methods
         def __init__(
             self,
             info: QAPISourceInfo,
             kind: 'QAPIDoc.Kind',
         ):
-            # section source info, i.e. where it begins
             self.info = info
-            # section kind
             self.kind = kind
-            # section text without tag
             self.text = ''
 
         def __repr__(self) -> str:
@@ -689,25 +635,17 @@ class QAPIDoc:
             self.member = member
 
     def __init__(self, info: QAPISourceInfo, symbol: Optional[str] = None):
-        # info points to the doc comment block's first line
         self.info = info
-        # definition doc's symbol, None for free-form doc
         self.symbol: Optional[str] = symbol
-        # the sections in textual order
         self.all_sections: List[QAPIDoc.Section] = [
             QAPIDoc.Section(info, QAPIDoc.Kind.PLAIN)
         ]
-        # the body section
         self.body: Optional[QAPIDoc.Section] = self.all_sections[0]
-        # dicts mapping parameter/feature names to their description
         self.args: Dict[str, QAPIDoc.ArgSection] = {}
         self.features: Dict[str, QAPIDoc.ArgSection] = {}
-        # a command's "Returns" and "Errors" section
         self.returns: Optional[QAPIDoc.Section] = None
         self.errors: Optional[QAPIDoc.Section] = None
-        # "Since" section
         self.since: Optional[QAPIDoc.Section] = None
-        # sections other than .body, .args, .features
         self.sections: List[QAPIDoc.Section] = []
 
     def end(self) -> None:
@@ -721,15 +659,12 @@ class QAPIDoc:
         kind = QAPIDoc.Kind.PLAIN
 
         if self.all_sections and self.all_sections[-1].kind == kind:
-            # extend current section
             section = self.all_sections[-1]
             if not section.text:
-                # Section is empty so far; update info to start *here*.
                 section.info = info
             section.text += '\n'
             return
 
-        # start new section
         section = self.Section(info, kind)
         self.sections.append(section)
         self.all_sections.append(section)
@@ -789,17 +724,11 @@ class QAPIDoc:
                 raise QAPISemError(member.info,
                                    "%s '%s' lacks documentation"
                                    % (member.role, member.name))
-            # Insert stub documentation section for missing member docs.
-            # TODO: drop when undocumented members are outlawed
 
             section = QAPIDoc.ArgSection(
                 self.info, QAPIDoc.Kind.MEMBER, member.name)
             self.args[member.name] = section
 
-            # Determine where to insert stub doc - it should go at the
-            # end of the members section(s), if any. Note that index 0
-            # is assumed to be an untagged intro section, even if it is
-            # empty.
             index = 1
             if len(self.all_sections) > 1:
                 while self.all_sections[index].kind == QAPIDoc.Kind.MEMBER:

@@ -1,29 +1,10 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Atomic store insert into 128-bit, AArch64 version.
- *
- * Copyright (C) 2023 Linaro, Ltd.
- */
 
 #ifndef AARCH64_STORE_INSERT_AL16_H
 #define AARCH64_STORE_INSERT_AL16_H
 
-/**
- * store_atom_insert_al16:
- * @p: host address
- * @val: shifted value to store
- * @msk: mask for value to store
- *
- * Atomically store @val to @p masked by @msk.
- */
 static inline void ATTRIBUTE_ATOMIC128_OPT
 store_atom_insert_al16(Int128 *ps, Int128 val, Int128 msk)
 {
-    /*
-     * GCC only implements __sync* primitives for int128 on aarch64.
-     * We can do better without the barriers, and integrating the
-     * arithmetic into the load-exclusive/store-conditional pair.
-     */
     uint64_t tl, th, vl, vh, ml, mh;
     uint32_t fail;
 

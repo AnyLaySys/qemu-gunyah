@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Backend management.
@@ -68,7 +67,6 @@ def get_list(only_public = False):
     for modname in sorted(modnames):
         module = tracetool.try_import("tracetool.backend." + modname)
 
-        # just in case; should never fail unless non-module files are put there
         if not module[0]:
             continue
         module = module[1]

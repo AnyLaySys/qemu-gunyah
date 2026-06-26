@@ -1,8 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _ASM_X86_SETUP_DATA_H
 #define _ASM_X86_SETUP_DATA_H
 
-/* setup_data/setup_indirect types */
 #define SETUP_NONE			0
 #define SETUP_E820_EXT			1
 #define SETUP_DTB			2
@@ -22,7 +20,6 @@
 
 #include "standard-headers/linux/types.h"
 
-/* extensible setup data list node */
 struct setup_data {
 	uint64_t next;
 	uint32_t type;
@@ -30,7 +27,6 @@ struct setup_data {
 	uint8_t data[];
 };
 
-/* extensible setup indirect data node */
 struct setup_indirect {
 	uint32_t type;
 	uint32_t reserved;  /* Reserved, must be set to zero. */
@@ -38,19 +34,12 @@ struct setup_indirect {
 	uint64_t addr;
 };
 
-/*
- * The E820 memory region entry of the boot protocol ABI:
- */
 struct boot_e820_entry {
 	uint64_t addr;
 	uint64_t size;
 	uint32_t type;
 } QEMU_PACKED;
 
-/*
- * The boot loader is passing platform information via this Jailhouse-specific
- * setup data structure.
- */
 struct jailhouse_setup_data {
 	struct {
 		uint16_t	version;
@@ -70,9 +59,6 @@ struct jailhouse_setup_data {
 	} QEMU_PACKED v2;
 } QEMU_PACKED;
 
-/*
- * IMA buffer setup data information from the previous kernel during kexec
- */
 struct ima_setup_data {
 	uint64_t addr;
 	uint64_t size;

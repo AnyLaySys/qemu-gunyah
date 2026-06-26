@@ -1,5 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/* bits.h: Macros for dealing with bitmasks.  */
 
 #ifndef _LINUX_BITS_H
 #define _LINUX_BITS_H

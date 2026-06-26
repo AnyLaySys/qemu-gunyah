@@ -1,14 +1,3 @@
-/*
- * VMState interpreter
- *
- * Copyright (c) 2009-2017 Red Hat Inc
- *
- * Authors:
- *  Juan Quintela <quintela@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "migration/vmstate.h"
@@ -27,7 +16,6 @@ static int vmstate_subsection_save(QEMUFile *f, const VMStateDescription *vmsd,
 static int vmstate_subsection_load(QEMUFile *f, const VMStateDescription *vmsd,
                                    void *opaque);
 
-/* Whether this field should exist for either save or load the VM? */
 static bool
 vmstate_field_exists(const VMStateDescription *vmsd, const VMStateField *field,
                      void *opaque, int version_id)
@@ -35,48 +23,32 @@ vmstate_field_exists(const VMStateDescription *vmsd, const VMStateField *field,
     bool result;
 
     if (field->field_exists) {
-        /* If there's the function checker, that's the solo truth */
         result = field->field_exists(opaque, version_id);
         trace_vmstate_field_exists(vmsd->name, field->name, field->version_id,
                                    version_id, result);
     } else {
-        /*
-         * Otherwise, we only save/load if field version is same or older.
-         * For example, when loading from an old binary with old version,
-         * we ignore new fields with newer version_ids.
-         */
         result = field->version_id <= version_id;
     }
 
     return result;
 }
 
-/*
- * Create a fake nullptr field when there's a NULL pointer detected in the
- * array of a VMS_ARRAY_OF_POINTER VMSD field.  It's needed because we
- * can't dereference the NULL pointer.
- */
 static const VMStateField *
 vmsd_create_fake_nullptr_field(const VMStateField *field)
 {
     VMStateField *fake = g_new0(VMStateField, 1);
 
-    /* It can only happen on an array of pointers! */
     assert(field->flags & VMS_ARRAY_OF_POINTER);
 
-    /* Some of fake's properties should match the original's */
     fake->name = field->name;
     fake->version_id = field->version_id;
 
-    /* Do not need "field_exists" check as it always exists (which is null) */
     fake->field_exists = NULL;
 
-    /* See vmstate_info_nullptr - use 1 byte to represent nullptr */
     fake->size = 1;
     fake->info = &vmstate_info_nullptr;
     fake->flags = VMS_SINGLE;
 
-    /* All the rest fields shouldn't matter.. */
 
     return (const VMStateField *)fake;
 }
@@ -180,11 +152,6 @@ int vmstate_load_state(QEMUFile *f, const VMStateDescription *vmsd,
                 }
 
                 if (!curr_elem && size) {
-                    /*
-                     * If null pointer found (which should only happen in
-                     * an array of pointers), use null placeholder and do
-                     * not follow.
-                     */
                     inner_field = vmsd_create_fake_nullptr_field(field);
                 } else {
                     inner_field = field;
@@ -201,7 +168,6 @@ int vmstate_load_state(QEMUFile *f, const VMStateDescription *vmsd,
                                                  inner_field);
                 }
 
-                /* If we used a fake temp field.. free it now */
                 if (inner_field != field) {
                     g_clear_pointer((gpointer *)&inner_field, g_free);
                 }
@@ -264,7 +230,6 @@ static bool vmfield_name_is_unique(const VMStateField *start,
     for (field = start; field->name; field++) {
         if (!strcmp(field->name, search->name)) {
             found++;
-            /* name found more than once, so it's not unique */
             if (found > 1) {
                 return false;
             }
@@ -292,7 +257,6 @@ static const char *vmfield_get_type_name(const VMStateField *field)
 static bool vmsd_can_compress(const VMStateField *field)
 {
     if (field->field_exists) {
-        /* Dynamically existing fields mess up compression */
         return false;
     }
 
@@ -300,14 +264,12 @@ static bool vmsd_can_compress(const VMStateField *field)
         const VMStateField *sfield = field->vmsd->fields;
         while (sfield->name) {
             if (!vmsd_can_compress(sfield)) {
-                /* Child elements can't compress, so can't we */
                 return false;
             }
             sfield++;
         }
 
         if (field->vmsd->subsections) {
-            /* Subsections may come and go, better don't compress */
             return false;
         }
     }
@@ -329,7 +291,6 @@ static void vmsd_desc_field_start(const VMStateDescription *vmsd,
 
     name = g_strdup(field->name);
 
-    /* Field name is not unique, need to make it unique */
     if (!vmfield_name_is_unique(vmsd->fields, field)) {
         int num = vmfield_name_num(vmsd->fields, field);
         old_name = name;
@@ -364,7 +325,6 @@ static void vmsd_desc_field_end(const VMStateDescription *vmsd,
     }
 
     if (field->flags & VMS_STRUCT) {
-        /* We printed a struct in between, close its child object */
         json_writer_end_object(vmdesc);
     }
 
@@ -376,7 +336,6 @@ static void vmsd_desc_field_end(const VMStateDescription *vmsd,
 bool vmstate_section_needed(const VMStateDescription *vmsd, void *opaque)
 {
     if (vmsd->needed && !vmsd->needed(opaque)) {
-        /* optional section not needed */
         return false;
     }
     return true;
@@ -446,11 +405,6 @@ int vmstate_save_state_v(QEMUFile *f, const VMStateDescription *vmsd,
                 }
 
                 if (!curr_elem && size) {
-                    /*
-                     * If null pointer found (which should only happen in
-                     * an array of pointers), use null placeholder and do
-                     * not follow.
-                     */
                     inner_field = vmsd_create_fake_nullptr_field(field);
                     is_null = true;
                 } else {
@@ -458,16 +412,6 @@ int vmstate_save_state_v(QEMUFile *f, const VMStateDescription *vmsd,
                     is_null = false;
                 }
 
-                /*
-                 * This logic only matters when dumping VM Desc.
-                 *
-                 * Due to the fake nullptr handling above, if there's mixed
-                 * null/non-null data, it doesn't make sense to emit a
-                 * compressed array representation spanning the entire array
-                 * because the field types will be different (e.g. struct
-                 * vs. nullptr). Search ahead for the next null/non-null element
-                 * and start a new compressed array if found.
-                 */
                 if (vmdesc && (field->flags & VMS_ARRAY_OF_POINTER) &&
                     is_null != is_prev_null) {
 
@@ -505,7 +449,6 @@ int vmstate_save_state_v(QEMUFile *f, const VMStateDescription *vmsd,
                 vmsd_desc_field_end(vmsd, vmdesc_loop, inner_field,
                                     written_bytes);
 
-                /* If we used a fake temp field.. free it now */
                 if (is_null) {
                     g_clear_pointer((gpointer *)&inner_field, g_free);
                 }
@@ -519,7 +462,6 @@ int vmstate_save_state_v(QEMUFile *f, const VMStateDescription *vmsd,
                     return ret;
                 }
 
-                /* Compressed arrays only care about the first element */
                 if (vmdesc_loop && vmsd_can_compress(field)) {
                     vmdesc_loop = NULL;
                 }
@@ -578,7 +520,6 @@ static int vmstate_subsection_load(QEMUFile *f, const VMStateDescription *vmsd,
 
         len = qemu_peek_byte(f, 1);
         if (len < strlen(vmsd->name) + 1) {
-            /* subsection name has to be "section_name/a" */
             trace_vmstate_subsection_load_bad(vmsd->name, "(short)", "");
             return 0;
         }
@@ -592,7 +533,6 @@ static int vmstate_subsection_load(QEMUFile *f, const VMStateDescription *vmsd,
 
         if (strncmp(vmsd->name, idstr, strlen(vmsd->name)) != 0) {
             trace_vmstate_subsection_load_bad(vmsd->name, idstr, "(prefix)");
-            /* it doesn't have a valid subsection name */
             return 0;
         }
         sub_vmsd = vmstate_get_subsection(vmsd->subsections, idstr);
@@ -632,7 +572,6 @@ static int vmstate_subsection_save(QEMUFile *f, const VMStateDescription *vmsd,
 
             trace_vmstate_subsection_save_loop(vmsd->name, vmsdsub->name);
             if (vmdesc) {
-                /* Only create subsection array when we have any */
                 if (!vmdesc_has_subsections) {
                     json_writer_start_array(vmdesc, "subsections");
                     vmdesc_has_subsections = true;

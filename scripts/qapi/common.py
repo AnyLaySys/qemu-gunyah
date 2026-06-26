@@ -1,15 +1,3 @@
-#
-# QAPI helper library
-#
-# Copyright IBM, Corp. 2011
-# Copyright (c) 2013-2018 Red Hat Inc.
-#
-# Authors:
-#  Anthony Liguori <aliguori@us.ibm.com>
-#  Markus Armbruster <armbru@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 import re
 from typing import (
@@ -22,7 +10,6 @@ from typing import (
 )
 
 
-#: Magic string that gets removed along with all space to its right.
 EATSPACE = '\033EATSPACE.'
 POINTER_SUFFIX = ' *' + EATSPACE
 
@@ -43,19 +30,13 @@ def camel_to_upper(value: str) -> str:
     ret = value[0]
     upc = value[0].isupper()
 
-    # Copy remainder of ``value`` to ``ret`` with '_' inserted
     for ch in value[1:]:
         if ch.isupper() == upc:
             pass
         elif upc:
-            # ``ret`` ends in upper case, next char isn't: insert '_'
-            # before the last upper case char unless there is one
-            # already, or it's at the beginning
             if len(ret) > 2 and ret[-2].isalnum():
                 ret = ret[:-1] + '_' + ret[-1]
         else:
-            # ``ret`` doesn't end in upper case, next char is: insert
-            # '_' before it
             if ret[-1].isalnum():
                 ret += '_'
         ret += ch
@@ -94,32 +75,24 @@ def c_name(name: str, protect: bool = True) -> str:
     :param protect: If true, avoid returning certain ticklish identifiers
                     (like C keywords) by prepending ``q_``.
     """
-    # ANSI X3J11/88-090, 3.1.1
     c89_words = set(['auto', 'break', 'case', 'char', 'const', 'continue',
                      'default', 'do', 'double', 'else', 'enum', 'extern',
                      'float', 'for', 'goto', 'if', 'int', 'long', 'register',
                      'return', 'short', 'signed', 'sizeof', 'static',
                      'struct', 'switch', 'typedef', 'union', 'unsigned',
                      'void', 'volatile', 'while'])
-    # ISO/IEC 9899:1999, 6.4.1
     c99_words = set(['inline', 'restrict', '_Bool', '_Complex', '_Imaginary'])
-    # ISO/IEC 9899:2011, 6.4.1
     c11_words = set(['_Alignas', '_Alignof', '_Atomic', '_Generic',
                      '_Noreturn', '_Static_assert', '_Thread_local'])
-    # GCC http://gcc.gnu.org/onlinedocs/gcc-4.7.1/gcc/C-Extensions.html
-    # excluding _.*
     gcc_words = set(['asm', 'typeof'])
-    # C++ ISO/IEC 14882:2003 2.11
     cpp_words = set(['bool', 'catch', 'class', 'const_cast', 'delete',
                      'dynamic_cast', 'explicit', 'false', 'friend', 'mutable',
                      'namespace', 'new', 'operator', 'private', 'protected',
                      'public', 'reinterpret_cast', 'static_cast', 'template',
                      'this', 'throw', 'true', 'try', 'typeid', 'typename',
                      'using', 'virtual', 'wchar_t',
-                     # alternative representations
                      'and', 'and_eq', 'bitand', 'bitor', 'compl', 'not',
                      'not_eq', 'or', 'or_eq', 'xor', 'xor_eq'])
-    # namespace pollution:
     polluted_words = set(['unix', 'errno', 'mips', 'sparc', 'i386', 'linux'])
     name = re.sub(r'[^A-Za-z0-9_]', '_', name)
     if protect and (name in (c89_words | c99_words | c11_words | gcc_words
@@ -155,7 +128,6 @@ class Indentation:
         self._level -= amount
 
 
-#: Global, current indent level for code generation.
 indent = Indentation()
 
 
@@ -231,7 +203,6 @@ def cgen_ifcond(ifcond: Optional[Union[str, Dict[str, Any]]]) -> str:
 
 
 def docgen_ifcond(ifcond: Optional[Union[str, Dict[str, Any]]]) -> str:
-    # TODO Doc generated for conditions needs polish
     return gen_ifcond(ifcond, '%s', 'not %s', ' and ', ' or ')
 
 

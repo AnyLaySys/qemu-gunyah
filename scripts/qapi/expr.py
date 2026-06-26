@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright IBM, Corp. 2011
-# Copyright (c) 2013-2021 Red Hat Inc.
-#
-# Authors:
-#  Anthony Liguori <aliguori@us.ibm.com>
-#  Markus Armbruster <armbru@redhat.com>
-#  Eric Blake <eblake@redhat.com>
-#  Marc-André Lureau <marcandre.lureau@redhat.com>
-#  John Snow <jsnow@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 """
 Normalize and validate (context-free) QAPI schema expression structures.
@@ -47,7 +33,6 @@ from .parser import QAPIExpression
 from .source import QAPISourceInfo
 
 
-# See check_name_str(), below.
 valid_name = re.compile(r'(__[a-z0-9.-]+_)?'
                         r'(x-)?'
                         r'([a-z][a-z0-9_-]*)$', re.IGNORECASE)
@@ -83,8 +68,6 @@ def check_name_str(name: str, info: QAPISourceInfo, source: str) -> str:
     :raise QAPISemError: When ``name`` fails validation.
     :return: The stem of the valid name, with no prefixes.
     """
-    # Reserve the entire 'q_' namespace for c_name(), and for 'q_empty'
-    # and 'q_obj_*' implicit type names.
     match = valid_name.match(name)
     if not match or c_name(name, False).startswith('q_'):
         raise QAPISemError(info, "%s has an invalid name" % source)
@@ -239,10 +222,6 @@ def check_flags(expr: QAPIExpression) -> None:
             raise QAPISemError(
                 expr.info, "flag '%s' may only use true value" % key)
     if 'allow-oob' in expr and 'coroutine' in expr:
-        # This is not necessarily a fundamental incompatibility, but
-        # we don't have a use case and the desired semantics isn't
-        # obvious.  The simplest solution is to forbid it until we get
-        # a use case for it.
         raise QAPISemError(
             expr.info, "flags 'allow-oob' and 'coroutine' are incompatible")
 
@@ -470,7 +449,6 @@ def check_enum(expr: QAPIExpression) -> None:
         member_name = member['name']
         check_name_is_str(member_name, info, source)
         source = "%s '%s'" % (source, member_name)
-        # Enum members may start with a digit
         if member_name[0].isdigit():
             member_name = 'd' + member_name  # Hack: hide the digit
         check_name_lower(member_name, info, source,

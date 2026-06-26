@@ -1,17 +1,3 @@
-/*
- *  QEMU UUID functions
- *
- *  Copyright 2016 Red Hat, Inc.
- *
- *  Authors:
- *   Fam Zheng <famz@redhat.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/uuid.h"
@@ -28,12 +14,7 @@ void qemu_uuid_generate(QemuUUID *uuid)
         tmp[i] = g_random_int();
     }
     memcpy(uuid, tmp, sizeof(tmp));
-    /* Set the two most significant bits (bits 6 and 7) of the
-      clock_seq_hi_and_reserved to zero and one, respectively. */
     uuid->data[8] = (uuid->data[8] & 0x3f) | 0x80;
-    /* Set the four most significant bits (bits 12 through 15) of the
-      time_hi_and_version field to the 4-bit version number.
-      */
     uuid->data[6] = (uuid->data[6] & 0xf) | 0x40;
 }
 
@@ -107,8 +88,6 @@ int qemu_uuid_parse(const char *str, QemuUUID *uuid)
     return 0;
 }
 
-/* Swap from UUID format endian (BE) to the opposite or vice versa.
- */
 QemuUUID qemu_uuid_bswap(QemuUUID uuid)
 {
     bswap32s(&uuid.fields.time_low);
@@ -117,7 +96,6 @@ QemuUUID qemu_uuid_bswap(QemuUUID uuid)
     return uuid;
 }
 
-/* djb2 hash algorithm */
 uint32_t qemu_uuid_hash(const void *uuid)
 {
     QemuUUID *qid = (QemuUUID *) uuid;

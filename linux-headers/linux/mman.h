@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _LINUX_MMAN_H
 #define _LINUX_MMAN_H
 
@@ -19,13 +18,6 @@
 #define MAP_SHARED_VALIDATE 0x03	/* share + validate extension flags */
 #define MAP_DROPPABLE	0x08		/* Zero memory under memory pressure. */
 
-/*
- * Huge page size encoding when MAP_HUGETLB is specified, and a huge page
- * size other than the default is desired.  See hugetlb_encode.h.
- * All known huge page size encodings are provided here.  It is the
- * responsibility of the application to know which sizes are supported on
- * the running system.  See mmap(2) man page for details.
- */
 #define MAP_HUGE_SHIFT	HUGETLB_FLAG_ENCODE_SHIFT
 #define MAP_HUGE_MASK	HUGETLB_FLAG_ENCODE_MASK
 

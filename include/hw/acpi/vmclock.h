@@ -22,7 +22,6 @@ struct VmclockState {
     struct vmclock_abi *clk;
 };
 
-/* returns NULL unless there is exactly one device */
 static inline Object *find_vmclock_dev(void)
 {
     return object_resolve_path_type("", TYPE_VMCLOCK, NULL);

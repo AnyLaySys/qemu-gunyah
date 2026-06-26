@@ -1,23 +1,3 @@
-/*
- * QEMU Crypto akcipher algorithms
- *
- * Copyright (c) 2022 Bytedance
- * Author: lei he <helei.sig11@bytedance.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include <nettle/asn1.h>
 
@@ -41,20 +21,6 @@ static bool GetMPI(struct asn1_der_iterator *i, QCryptoAkCipherMPI *mpi)
     return DumpMPI(i, mpi);
 }
 
-/**
- *        RsaPrivKey ::= SEQUENCE {
- *             version     INTEGER
- *             n           INTEGER
- *             e           INTEGER
- *             d           INTEGER
- *             p           INTEGER
- *             q           INTEGER
- *             dp          INTEGER
- *             dq          INTEGER
- *             u           INTEGER
- *       otherPrimeInfos   OtherPrimeInfos OPTIONAL
- *         }
- */
 static QCryptoAkCipherRSAKey *qcrypto_nettle_rsa_private_key_parse(
     const uint8_t *key, size_t keylen, Error **errp)
 {
@@ -63,7 +29,6 @@ static QCryptoAkCipherRSAKey *qcrypto_nettle_rsa_private_key_parse(
     uint32_t version;
     int tag;
 
-    /* Parse entire struct */
     if (asn1_der_iterator_first(&i, keylen, key) != ASN1_ITERATOR_CONSTRUCTED ||
         i.type != ASN1_SEQUENCE ||
         asn1_der_decode_constructed_last(&i) != ASN1_ITERATOR_PRIMITIVE ||
@@ -83,12 +48,6 @@ static QCryptoAkCipherRSAKey *qcrypto_nettle_rsa_private_key_parse(
 
     if (version == 1) {
         tag = asn1_der_iterator_next(&i);
-        /**
-         * According to the standard otherPrimeInfos must be present for
-         * version 1. There is no strict verification here, this is to be
-         * compatible with the unit test of the kernel. TODO: remove this
-         * until linux-kernel's unit-test is fixed;
-         */
         if (tag == ASN1_ITERATOR_END) {
             return rsa;
         }
@@ -110,12 +69,6 @@ error:
     return NULL;
 }
 
-/**
- *        RsaPubKey ::= SEQUENCE {
- *             n           INTEGER
- *             e           INTEGER
- *         }
- */
 static QCryptoAkCipherRSAKey *qcrypto_nettle_rsa_public_key_parse(
     const uint8_t *key, size_t keylen, Error **errp)
 {

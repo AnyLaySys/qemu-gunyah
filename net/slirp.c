@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -68,7 +45,6 @@ static int get_str_sep(char *buf, int buf_size, const char **pp, int sep)
     return 0;
 }
 
-/* slirp network adapter */
 
 #define SLIRP_CFG_HOSTFWD 1
 
@@ -435,7 +411,6 @@ static int net_slirp_init(NetClientState *peer, const char *model,
                           const char *tftp_server_name,
                           Error **errp)
 {
-    /* default settings according to historic slirp */
     struct in_addr net  = { .s_addr = htonl(0x0a000200) }; /* 10.0.2.0 */
     struct in_addr mask = { .s_addr = htonl(0xffffff00) }; /* 255.255.255.0 */
     struct in_addr host = { .s_addr = htonl(0x0a000202) }; /* 10.0.2.2 */
@@ -467,7 +442,6 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     }
 
     if (!ipv4 && !ipv6) {
-        /* It doesn't make sense to disable both */
         error_setg(errp, "IPv4 and IPv6 disabled");
         return -1;
     }
@@ -659,14 +633,6 @@ static int net_slirp_init(NetClientState *peer, const char *model,
     s->slirp = slirp_new(&cfg, &slirp_cb, s);
     QTAILQ_INSERT_TAIL(&slirp_stacks, s, entry);
 
-    /*
-     * Make sure the current bitstream version of slirp is 4, to avoid
-     * QEMU migration incompatibilities, if upstream slirp bumped the
-     * version.
-     *
-     * FIXME: use bitfields of features? teach libslirp to save with
-     * specific version?
-     */
     g_assert(slirp_state_version() == 4);
     register_savevm_live("slirp", VMSTATE_INSTANCE_ID_ANY,
                          slirp_state_version(), &savevm_slirp_state, s->slirp);
@@ -913,7 +879,6 @@ void hmp_hostfwd_add(Monitor *mon, const QDict *qdict)
 
 #if defined(CONFIG_SMBD_COMMAND)
 
-/* automatic user mode samba server configuration */
 static void slirp_smb_cleanup(SlirpState *s)
 {
     int ret;
@@ -1047,7 +1012,6 @@ static ssize_t guestfwd_write(const void *buf, size_t len, void *chr)
 
 static int slirp_guestfwd(SlirpState *s, const char *config_str, Error **errp)
 {
-    /* TODO: IPv6 */
     struct in_addr server = { .s_addr = 0 };
     struct GuestFwd *fwd;
     const char *p;
@@ -1086,10 +1050,6 @@ static int slirp_guestfwd(SlirpState *s, const char *config_str, Error **errp)
         }
     } else {
         Error *err = NULL;
-        /*
-         * FIXME: sure we want to support implicit
-         * muxed monitors here?
-         */
         Chardev *chr = qemu_chr_new_mux_mon(buf, p, NULL);
 
         if (!chr) {
@@ -1210,7 +1170,6 @@ int net_init_slirp(const Netdev *netdev, const char *name,
 
     dnssearch = slirp_dnssearch(user->dnssearch);
 
-    /* all optional fields are initialized to "all bits zero" */
 
     net_init_slirp_configs(user->hostfwd, SLIRP_CFG_HOSTFWD);
     net_init_slirp_configs(user->guestfwd, 0);

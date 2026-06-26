@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Machinery for generating tracing-related intermediate files.
@@ -61,10 +60,6 @@ def out(*lines, **kwargs):
 
     out_fobj.writelines("\n".join(output) + "\n")
 
-# We only want to allow standard C types or fixed sized
-# integer types. We don't want QEMU specific types
-# as we can't assume trace backends can resolve all the
-# typedefs
 ALLOWED_TYPES = [
     "int",
     "long",
@@ -320,8 +315,6 @@ class Event(object):
                                           self.name,
                                           self.args,
                                           fmt)
-    # Star matching on PRI is dangerous as one might have multiple
-    # arguments with that format, hence the non-greedy version of it.
     _FMT = re.compile(r"(%[\d\.]*\w+|%.*?PRI\S+)")
 
     def formats(self):
@@ -426,7 +419,6 @@ def generate(events, group, format, backends,
     probe_prefix : str or None
         See tracetool.backend.dtrace.PROBEPREFIX.
     """
-    # fix strange python error (UnboundLocalError tracetool)
     import tracetool
 
     format = str(format)

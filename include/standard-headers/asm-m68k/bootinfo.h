@@ -1,30 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/*
- * asm/bootinfo.h -- Definition of the Linux/m68k boot information structure
- *
- * Copyright 1992 by Greg Harp
- *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file COPYING in the main directory of this archive
- * for more details.
- */
 
 #ifndef _UAPI_ASM_M68K_BOOTINFO_H
 #define _UAPI_ASM_M68K_BOOTINFO_H
 
 
-    /*
-     *  Bootinfo definitions
-     *
-     *  This is an easily parsable and extendable structure containing all
-     *  information to be passed from the bootstrap to the kernel.
-     *
-     *  This way I hope to keep all future changes back/forewards compatible.
-     *  Thus, keep your fingers crossed...
-     *
-     *  This structure is copied right after the kernel by the bootstrap
-     *  routine.
-     */
 
 struct bi_record {
 	uint16_t tag;			/* tag ID */
@@ -39,12 +17,6 @@ struct mem_info {
 };
 
 
-    /*
-     *  Tag Definitions
-     *
-     *  Machine independent tags start counting from 0x0000
-     *  Machine dependent tags start counting from 0x8000
-     */
 
 #define BI_LAST			0x0000	/* last record (sentinel) */
 #define BI_MACHTYPE		0x0001	/* machine type (uint32_t) */
@@ -52,22 +24,10 @@ struct mem_info {
 #define BI_FPUTYPE		0x0003	/* fpu type (uint32_t) */
 #define BI_MMUTYPE		0x0004	/* mmu type (uint32_t) */
 #define BI_MEMCHUNK		0x0005	/* memory chunk address and size */
-					/* (struct mem_info) */
 #define BI_RAMDISK		0x0006	/* ramdisk address and size */
-					/* (struct mem_info) */
 #define BI_COMMAND_LINE		0x0007	/* kernel command line parameters */
-					/* (string) */
-/*
- * A random seed used to initialize the RNG. Record format:
- *
- *   - length       [ 2 bytes, 16-bit big endian ]
- *   - seed data    [ `length` bytes, padded to preserve 4-byte struct alignment ]
- */
 #define BI_RNG_SEED		0x0008
 
-    /*
-     *  Linux/m68k Architectures (BI_MACHTYPE)
-     */
 
 #define MACH_AMIGA		1
 #define MACH_ATARI		2
@@ -85,16 +45,6 @@ struct mem_info {
 #define MACH_VIRT		14
 
 
-    /*
-     *  CPU, FPU and MMU types (BI_CPUTYPE, BI_FPUTYPE, BI_MMUTYPE)
-     *
-     *  Note: we may rely on the following equalities:
-     *
-     *      CPU_68020 == MMU_68851
-     *      CPU_68030 == MMU_68030
-     *      CPU_68040 == FPU_68040 == MMU_68040
-     *      CPU_68060 == FPU_68060 == MMU_68060
-     */
 
 #define CPUB_68020		0
 #define CPUB_68030		1
@@ -139,20 +89,6 @@ struct mem_info {
 #define MMU_COLDFIRE		(1 << MMUB_COLDFIRE)
 
 
-    /*
-     * Stuff for bootinfo interface versioning
-     *
-     * At the start of kernel code, a 'struct bootversion' is located.
-     * bootstrap checks for a matching version of the interface before booting
-     * a kernel, to avoid user confusion if kernel and bootstrap don't work
-     * together :-)
-     *
-     * If incompatible changes are made to the bootinfo interface, the major
-     * number below should be stepped (and the minor reset to 0) for the
-     * appropriate machine. If a change is backward-compatible, the minor
-     * should be stepped. "Backwards-compatible" means that booting will work,
-     * but certain features may not.
-     */
 
 #define BOOTINFOV_MAGIC			0x4249561A	/* 'BIV^Z' */
 #define MK_BI_VERSION(major, minor)	(((major) << 16) + (minor))

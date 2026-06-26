@@ -1,7 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -90,7 +86,6 @@ pixman_format_code_t qemu_default_pixman_format(int bpp, bool native_endian)
     return 0;
 }
 
-/* Note: drm is little endian, pixman is native endian */
 static const struct {
     uint32_t drm_format;
     pixman_format_code_t pixman_format;
@@ -162,25 +157,16 @@ pixman_format_code_t qemu_pixman_get_format(PixelFormat *pf)
 }
 #endif
 
-/*
- * Return true for known-good pixman conversions.
- *
- * UIs using pixman for format conversion can hook this into
- * DisplayChangeListenerOps->dpy_gfx_check_format
- */
 bool qemu_pixman_check_format(DisplayChangeListener *dcl,
                               pixman_format_code_t format)
 {
     switch (format) {
-    /* 32 bpp */
     case PIXMAN_x8r8g8b8:
     case PIXMAN_a8r8g8b8:
     case PIXMAN_b8g8r8x8:
     case PIXMAN_b8g8r8a8:
-    /* 24 bpp */
     case PIXMAN_r8g8b8:
     case PIXMAN_b8g8r8:
-    /* 16 bpp */
     case PIXMAN_x1r5g5b5:
     case PIXMAN_r5g6b5:
         return true;
@@ -198,7 +184,6 @@ pixman_image_t *qemu_pixman_linebuf_create(pixman_format_code_t format,
     return image;
 }
 
-/* fill linebuf from framebuffer */
 void qemu_pixman_linebuf_fill(pixman_image_t *linebuf, pixman_image_t *fb,
                               int width, int x, int y)
 {

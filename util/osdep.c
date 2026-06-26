@@ -1,26 +1,3 @@
-/*
- * QEMU low level functions
- *
- * Copyright (c) 2003 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "qemu/cutils.h"
@@ -124,9 +101,6 @@ int qemu_mprotect_none(void *addr, size_t size)
 static int fcntl_op_setlk = -1;
 static int fcntl_op_getlk = -1;
 
-/*
- * Dups an fd and sets the flags
- */
 int qemu_dup_flags(int fd, int flags)
 {
     int ret;
@@ -148,12 +122,10 @@ int qemu_dup_flags(int fd, int flags)
         goto fail;
     }
 
-    /* Set/unset flags that we can with fcntl */
     if (fcntl(ret, F_SETFL, flags) == -1) {
         goto fail;
     }
 
-    /* Truncate the file in the cases that open() would truncate it */
     if (flags & O_TRUNC ||
             ((flags & (O_CREAT | O_EXCL)) == (O_CREAT | O_EXCL))) {
         if (ftruncate(ret, 0) == -1) {
@@ -305,9 +277,6 @@ static int qemu_open_cloexec(const char *name, int flags, mode_t mode)
     return ret;
 }
 
-/*
- * Opens a file with FD_CLOEXEC set
- */
 static int
 qemu_open_internal(const char *name, int flags, mode_t mode, Error **errp)
 {
@@ -316,7 +285,6 @@ qemu_open_internal(const char *name, int flags, mode_t mode, Error **errp)
 #ifndef _WIN32
     const char *fdset_id_str;
 
-    /* Attempt dup of fd from fd set */
     if (strstart(name, "/dev/fdset/", &fdset_id_str)) {
         int64_t fdset_id;
 
@@ -336,7 +304,6 @@ qemu_open_internal(const char *name, int flags, mode_t mode, Error **errp)
     if (ret == -1) {
         const char *action = flags & O_CREAT ? "create" : "open";
 #ifdef O_DIRECT
-        /* Give more helpful error message for O_DIRECT */
         if (errno == EINVAL && (flags & O_DIRECT)) {
             ret = open(name, flags & ~O_DIRECT, mode);
             if (ret != -1) {
@@ -399,17 +366,10 @@ int qemu_open_old(const char *name, int flags, ...)
 
 int qemu_close(int fd)
 {
-    /* Close fd that was dup'd from an fdset */
     monitor_fdset_dup_fd_remove(fd);
     return close(fd);
 }
 
-/*
- * Delete a file from the filesystem, unless the filename is /dev/fdset/...
- *
- * Returns: On success, zero is returned.  On error, -1 is returned,
- * and errno is set appropriately.
- */
 int qemu_unlink(const char *name)
 {
     if (g_str_has_prefix(name, "/dev/fdset/")) {
@@ -419,17 +379,6 @@ int qemu_unlink(const char *name)
     return unlink(name);
 }
 
-/*
- * A variant of write(2) which handles partial write.
- *
- * Return the number of bytes transferred.
- * Set errno if fewer than `count' bytes are written.
- *
- * This function don't work with non-blocking fd's.
- * Any of the possibilities with non-blocking fd's is bad:
- *   - return a short write (then name is wrong)
- *   - busy wait adding (errno == EAGAIN) to the loop
- */
 ssize_t qemu_write_full(int fd, const void *buf, size_t count)
 {
     ssize_t ret = 0;
@@ -451,9 +400,6 @@ ssize_t qemu_write_full(int fd, const void *buf, size_t count)
     return total;
 }
 
-/*
- * Opens a socket with FD_CLOEXEC set
- */
 int qemu_socket(int domain, int type, int protocol)
 {
     int ret;
@@ -472,9 +418,6 @@ int qemu_socket(int domain, int type, int protocol)
     return ret;
 }
 
-/*
- * Accept a connection and set FD_CLOEXEC
- */
 int qemu_accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 {
     int ret;
@@ -572,8 +515,6 @@ readv_writev(int fd, const struct iovec *iov, int iov_cnt, bool do_write)
         } else if (errno == EINTR) {
             continue;
         } else {
-            /* else it is some "other" error,
-             * only return if there was no data processed. */
             if (ret == 0) {
                 ret = -1;
             }
@@ -598,13 +539,6 @@ writev(int fd, const struct iovec *iov, int iov_cnt)
 }
 #endif
 
-/*
- * Make sure data goes on disk, but if possible do not bother to
- * write out the inode just for timestamp updates.
- *
- * Unfortunately even in 2009 many operating systems do not support
- * fdatasync and have to fall back to fsync.
- */
 int qemu_fdatasync(int fd)
 {
 #ifdef CONFIG_FDATASYNC

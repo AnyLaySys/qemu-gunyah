@@ -1,30 +1,9 @@
-/*
- * pcie_host.c
- * utility functions for pci express host bridge.
- *
- * Copyright (c) 2009 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/pci/pci_device.h"
 #include "hw/pci/pcie_host.h"
 #include "qemu/module.h"
 
-/* a helper function to get a PCIDevice for a given mmconfig address */
 static inline PCIDevice *pcie_dev_find_by_mmcfg_addr(PCIBus *s,
                                                      uint32_t mmcfg_addr)
 {

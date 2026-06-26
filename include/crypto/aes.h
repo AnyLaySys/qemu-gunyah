@@ -10,8 +10,6 @@ struct aes_key_st {
 };
 typedef struct aes_key_st AES_KEY;
 
-/* FreeBSD/OpenSSL have their own AES functions with the same names in -lcrypto
- * (which might be pulled in via curl), so redefine to avoid conflicts. */
 #define AES_set_encrypt_key QEMU_AES_set_encrypt_key
 #define AES_set_decrypt_key QEMU_AES_set_decrypt_key
 #define AES_encrypt QEMU_AES_encrypt
@@ -30,10 +28,6 @@ void AES_decrypt(const unsigned char *in, unsigned char *out,
 extern const uint8_t AES_sbox[256];
 extern const uint8_t AES_isbox[256];
 
-/*
-AES_Te0[x] = S [x].[02, 01, 01, 03];
-AES_Td0[x] = Si[x].[0e, 09, 0d, 0b];
-*/
 
 extern const uint32_t AES_Te0[256], AES_Td0[256];
 

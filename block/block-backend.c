@@ -1,14 +1,3 @@
-/*
- * QEMU Block backends
- *
- * Copyright (C) 2014-2016 Red Hat, Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1
- * or later.  See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "system/block-backend.h"
@@ -25,7 +14,6 @@
 #include "qemu/option.h"
 #include "trace.h"
 
-/* Number of coroutines to reserve per attached device model */
 #define COROUTINE_POOL_RESERVATION 64
 
 #define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
@@ -50,13 +38,10 @@ struct BlockBackend {
     const BlockDevOps *dev_ops;
     void *dev_opaque;
 
-    /* If the BDS tree is removed, some of its options are stored here (which
-     * can be used to restore those options in the new BDS on insert) */
     BlockBackendRootState root_state;
 
     bool enable_write_cache;
 
-    /* I/O stats (display with "info blockstats"). */
     BlockAcctStats stats;
 
     BlockdevOnError on_read_error, on_write_error;
@@ -70,7 +55,6 @@ struct BlockBackend {
     bool allow_aio_context_change;
     bool allow_write_beyond_eof;
 
-    /* Protected by BQL */
     NotifierList remove_bs_notifiers, insert_bs_notifiers;
     QLIST_HEAD(, BlockBackendAioNotifier) aio_notifiers;
 
@@ -82,11 +66,6 @@ struct BlockBackend {
     VMChangeStateEntry *vmsh;
     bool force_allow_inactivate;
 
-    /* Number of in-flight aio requests.  BlockDriverState also counts
-     * in-flight requests but aio requests can exist even when blk->root is
-     * NULL, so we cannot rely on its counter for that case.
-     * Accessed with atomic ops.
-     */
     unsigned int in_flight;
 };
 
@@ -103,14 +82,9 @@ static const AIOCBInfo block_backend_aiocb_info = {
 static void drive_info_del(DriveInfo *dinfo);
 static BlockBackend *bdrv_first_blk(BlockDriverState *bs);
 
-/* All BlockBackends. Protected by BQL. */
 static QTAILQ_HEAD(, BlockBackend) block_backends =
     QTAILQ_HEAD_INITIALIZER(block_backends);
 
-/*
- * All BlockBackends referenced by the monitor and which are iterated through by
- * blk_next(). Protected by BQL.
- */
 static QTAILQ_HEAD(, BlockBackend) monitor_block_backends =
     QTAILQ_HEAD_INITIALIZER(monitor_block_backends);
 
@@ -122,7 +96,6 @@ static void blk_root_inherit_options(BdrvChildRole role, bool parent_is_format,
                                      int *child_flags, QDict *child_options,
                                      int parent_flags, QDict *parent_options)
 {
-    /* We're not supposed to call this function for root nodes */
     abort();
 }
 static void blk_root_drained_begin(BdrvChild *child);
@@ -149,7 +122,6 @@ static char *blk_root_get_parent_desc(BdrvChild *child)
     if (*dev_id) {
         return g_strdup_printf("block device '%s'", dev_id);
     } else {
-        /* TODO Callback into the BB owner for something more detailed */
         return g_strdup("an unnamed block device");
     }
 }
@@ -159,13 +131,6 @@ static const char *blk_root_get_name(BdrvChild *child)
     return blk_name(child->opaque);
 }
 
-/*
- * Notifies the user of the BlockBackend that migration has completed. qdev
- * devices can tighten their permissions in response (specifically revoke
- * shared write permissions that we needed for storage migration).
- *
- * If an error is returned, the VM cannot be allowed to be resumed.
- */
 static void GRAPH_RDLOCK blk_root_activate(BdrvChild *child, Error **errp)
 {
     BlockBackend *blk = child->opaque;
@@ -178,13 +143,6 @@ static void GRAPH_RDLOCK blk_root_activate(BdrvChild *child, Error **errp)
 
     blk->disable_perm = false;
 
-    /*
-     * blk->shared_perm contains the permissions we want to share once
-     * migration is really completely done.  For now, we need to share
-     * all; but we also need to retain blk->shared_perm, which is
-     * overwritten by a successful blk_set_perm() call.  Save it and
-     * restore it below.
-     */
     saved_shared_perm = blk->shared_perm;
 
     blk_set_perm_locked(blk, blk->perm, BLK_PERM_ALL, &local_err);
@@ -211,16 +169,10 @@ void blk_set_force_allow_inactivate(BlockBackend *blk)
 
 static bool blk_can_inactivate(BlockBackend *blk)
 {
-    /* If it is a guest device, inactivate is ok. */
     if (blk->dev || blk_name(blk)[0]) {
         return true;
     }
 
-    /* Inactivating means no more writes to the image can be done,
-     * even if those writes would be changes invisible to the
-     * guest.  For block job BBs that satisfy this, we can just allow
-     * it.  This is the case for mirror job source, which is required
-     * by libvirt non-shared block migration. */
     if (!(blk->perm & ~BLK_PERM_CONSISTENT_READ)) {
         return true;
     }
@@ -309,17 +261,6 @@ static const BdrvChildClass child_root = {
     .get_parent_aio_context = blk_root_get_parent_aio_context,
 };
 
-/*
- * Create a new BlockBackend with a reference count of one.
- *
- * @perm is a bitmasks of BLK_PERM_* constants which describes the permissions
- * to request for a block driver node that is attached to this BlockBackend.
- * @shared_perm is a bitmask which describes which permissions may be granted
- * to other users of the attached node.
- * Both sets of permissions can be changed later using blk_set_perm().
- *
- * Return the new BlockBackend on success, null on failure.
- */
 BlockBackend *blk_new(AioContext *ctx, uint64_t perm, uint64_t shared_perm)
 {
     BlockBackend *blk;
@@ -348,17 +289,6 @@ BlockBackend *blk_new(AioContext *ctx, uint64_t perm, uint64_t shared_perm)
     return blk;
 }
 
-/*
- * Create a new BlockBackend connected to an existing BlockDriverState.
- *
- * @perm is a bitmasks of BLK_PERM_* constants which describes the
- * permissions to request for @bs that is attached to this
- * BlockBackend.  @shared_perm is a bitmask which describes which
- * permissions may be granted to other users of the attached node.
- * Both sets of permissions can be changed later using blk_set_perm().
- *
- * Return the new BlockBackend on success, null on failure.
- */
 BlockBackend *blk_new_with_bs(BlockDriverState *bs, uint64_t perm,
                               uint64_t shared_perm, Error **errp)
 {
@@ -373,21 +303,6 @@ BlockBackend *blk_new_with_bs(BlockDriverState *bs, uint64_t perm,
     return blk;
 }
 
-/*
- * Creates a new BlockBackend, opens a new BlockDriverState, and connects both.
- * By default, the new BlockBackend is in the main AioContext, but if the
- * parameters connect it with any existing node in a different AioContext, it
- * may end up there instead.
- *
- * Just as with bdrv_open(), after having called this function the reference to
- * @options belongs to the block layer (even on failure).
- *
- * TODO: Remove @filename and @flags; it should be possible to specify a whole
- * BDS tree just by specifying the @options QDict (or @reference,
- * alternatively). At the time of adding this function, this is not possible,
- * though, so callers of this function have to be able to specify @filename and
- * @flags.
- */
 BlockBackend *blk_new_open(const char *filename, const char *reference,
                            QDict *options, int flags, Error **errp)
 {
@@ -398,17 +313,6 @@ BlockBackend *blk_new_open(const char *filename, const char *reference,
 
     GLOBAL_STATE_CODE();
 
-    /*
-     * blk_new_open() is mainly used in .bdrv_create implementations and the
-     * tools where sharing isn't a major concern because the BDS stays private
-     * and the file is generally not supposed to be used by a second process,
-     * so we just request permission according to the flags.
-     *
-     * The exceptions are xen_disk and blockdev_init(); in these cases, the
-     * caller of blk_new_open() doesn't make use of the permissions, but they
-     * shouldn't hurt either. We can still share everything here because the
-     * guest devices will add their own blockers if they can't share.
-     */
     if ((flags & BDRV_O_NO_IO) == 0) {
         perm |= BLK_PERM_CONSISTENT_READ;
         if (flags & BDRV_O_RDWR) {
@@ -427,7 +331,6 @@ BlockBackend *blk_new_open(const char *filename, const char *reference,
         return NULL;
     }
 
-    /* bdrv_open() could have moved bs to a different AioContext */
     blk = blk_new(bdrv_get_aio_context(bs), perm, shared);
     blk->perm = perm;
     blk->shared_perm = shared;
@@ -481,10 +384,6 @@ int blk_get_refcnt(BlockBackend *blk)
     return blk ? blk->refcnt : 0;
 }
 
-/*
- * Increment @blk's reference count.
- * @blk must not be null.
- */
 void blk_ref(BlockBackend *blk)
 {
     assert(blk->refcnt > 0);
@@ -492,11 +391,6 @@ void blk_ref(BlockBackend *blk)
     blk->refcnt++;
 }
 
-/*
- * Decrement @blk's reference count.
- * If this drops it to zero, destroy @blk.
- * For convenience, do nothing if @blk is null.
- */
 void blk_unref(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -506,7 +400,6 @@ void blk_unref(BlockBackend *blk)
             blk->refcnt--;
         } else {
             blk_drain(blk);
-            /* blk_drain() cannot resurrect blk, nobody held a reference */
             assert(blk->refcnt == 1);
             blk->refcnt = 0;
             blk_delete(blk);
@@ -514,10 +407,6 @@ void blk_unref(BlockBackend *blk)
     }
 }
 
-/*
- * Behaves similarly to blk_next() but iterates over all BlockBackends, even the
- * ones which are hidden (i.e. are not referenced by the monitor).
- */
 BlockBackend *blk_all_next(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -538,16 +427,6 @@ void blk_remove_all_bs(void)
     }
 }
 
-/*
- * Return the monitor-owned BlockBackend after @blk.
- * If @blk is null, return the first one.
- * Else, return @blk's next sibling, which may be null.
- *
- * To iterate over all BlockBackends, do
- * for (blk = blk_next(NULL); blk; blk = blk_next(blk)) {
- *     ...
- * }
- */
 BlockBackend *blk_next(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -555,20 +434,14 @@ BlockBackend *blk_next(BlockBackend *blk)
                : QTAILQ_FIRST(&monitor_block_backends);
 }
 
-/* Iterates over all top-level BlockDriverStates, i.e. BDSs that are owned by
- * the monitor or attached to a BlockBackend */
 BlockDriverState *bdrv_next(BdrvNextIterator *it)
 {
     BlockDriverState *bs, *old_bs;
 
-    /* Must be called from the main loop */
     assert(qemu_get_current_aio_context() == qemu_get_aio_context());
 
     old_bs = it->bs;
 
-    /* First, return all root nodes of BlockBackends. In order to avoid
-     * returning a BDS twice when multiple BBs refer to it, we only return it
-     * if the BB is the first one in the parent list of the BDS. */
     if (it->phase == BDRV_NEXT_BACKEND_ROOTS) {
         BlockBackend *old_blk = it->blk;
 
@@ -591,9 +464,6 @@ BlockDriverState *bdrv_next(BdrvNextIterator *it)
         it->phase = BDRV_NEXT_MONITOR_OWNED;
     }
 
-    /* Then return the monitor-owned BDSes without a BB attached. Ignore all
-     * BDSes that are attached to a BlockBackend here; they have been handled
-     * by the above block already */
     do {
         it->bs = bdrv_next_monitor_owned(it->bs);
         bs = it->bs;
@@ -621,11 +491,8 @@ BlockDriverState *bdrv_first(BdrvNextIterator *it)
     return bdrv_next(it);
 }
 
-/* Must be called when aborting a bdrv_next() iteration before
- * bdrv_next() returns NULL */
 void bdrv_next_cleanup(BdrvNextIterator *it)
 {
-    /* Must be called from the main loop */
     assert(qemu_get_current_aio_context() == qemu_get_aio_context());
 
     bdrv_unref(it->bs);
@@ -637,16 +504,6 @@ void bdrv_next_cleanup(BdrvNextIterator *it)
     bdrv_next_reset(it);
 }
 
-/*
- * Add a BlockBackend into the list of backends referenced by the monitor, with
- * the given @name acting as the handle for the monitor.
- * Strictly for use by blockdev.c.
- *
- * @name must not be null or empty.
- *
- * Returns true on success and false on failure. In the latter case, an Error
- * object is returned through @errp.
- */
 bool monitor_add_blk(BlockBackend *blk, const char *name, Error **errp)
 {
     assert(!blk->name);
@@ -673,10 +530,6 @@ bool monitor_add_blk(BlockBackend *blk, const char *name, Error **errp)
     return true;
 }
 
-/*
- * Remove a BlockBackend from the list of backends referenced by the monitor.
- * Strictly for use by blockdev.c.
- */
 void monitor_remove_blk(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -690,20 +543,12 @@ void monitor_remove_blk(BlockBackend *blk)
     blk->name = NULL;
 }
 
-/*
- * Return @blk's name, a non-null string.
- * Returns an empty string iff @blk is not referenced by the monitor.
- */
 const char *blk_name(const BlockBackend *blk)
 {
     IO_CODE();
     return blk->name ?: "";
 }
 
-/*
- * Return the BlockBackend with name @name if it exists, else null.
- * @name must not be null.
- */
 BlockBackend *blk_by_name(const char *name)
 {
     BlockBackend *blk = NULL;
@@ -718,9 +563,6 @@ BlockBackend *blk_by_name(const char *name)
     return NULL;
 }
 
-/*
- * Return the BlockDriverState attached to @blk if any, else null.
- */
 BlockDriverState *blk_bs(BlockBackend *blk)
 {
     IO_CODE();
@@ -743,18 +585,12 @@ static BlockBackend * GRAPH_RDLOCK bdrv_first_blk(BlockDriverState *bs)
     return NULL;
 }
 
-/*
- * Returns true if @bs has an associated BlockBackend.
- */
 bool bdrv_has_blk(BlockDriverState *bs)
 {
     GLOBAL_STATE_CODE();
     return bdrv_first_blk(bs) != NULL;
 }
 
-/*
- * Returns true if @bs has only BlockBackends as parents.
- */
 bool bdrv_is_root_node(BlockDriverState *bs)
 {
     BdrvChild *c;
@@ -771,20 +607,12 @@ bool bdrv_is_root_node(BlockDriverState *bs)
     return true;
 }
 
-/*
- * Return @blk's DriveInfo if any, else null.
- */
 DriveInfo *blk_legacy_dinfo(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
     return blk->legacy_dinfo;
 }
 
-/*
- * Set @blk's DriveInfo to @dinfo, and return it.
- * @blk must not have a DriveInfo set already.
- * No other BlockBackend may have the same DriveInfo set.
- */
 DriveInfo *blk_set_legacy_dinfo(BlockBackend *blk, DriveInfo *dinfo)
 {
     assert(!blk->legacy_dinfo);
@@ -792,10 +620,6 @@ DriveInfo *blk_set_legacy_dinfo(BlockBackend *blk, DriveInfo *dinfo)
     return blk->legacy_dinfo = dinfo;
 }
 
-/*
- * Return the BlockBackend with DriveInfo @dinfo.
- * It must exist.
- */
 BlockBackend *blk_by_legacy_dinfo(DriveInfo *dinfo)
 {
     BlockBackend *blk = NULL;
@@ -809,9 +633,6 @@ BlockBackend *blk_by_legacy_dinfo(DriveInfo *dinfo)
     abort();
 }
 
-/*
- * Disassociates the currently associated BlockDriverState from @blk.
- */
 void blk_remove_bs(BlockBackend *blk)
 {
     BdrvChild *root;
@@ -822,10 +643,6 @@ void blk_remove_bs(BlockBackend *blk)
 
     blk_update_root_state(blk);
 
-    /* bdrv_root_unref_child() will cause blk->root to become stale and may
-     * switch to a completion coroutine later on. Let's drain all I/O here
-     * to avoid that and a potential QEMU crash.
-     */
     blk_drain(blk);
     root = blk->root;
     blk->root = NULL;
@@ -835,9 +652,6 @@ void blk_remove_bs(BlockBackend *blk)
     bdrv_graph_wrunlock();
 }
 
-/*
- * Associates a new BlockDriverState with @blk.
- */
 int blk_insert_bs(BlockBackend *blk, BlockDriverState *bs, Error **errp)
 {
     uint64_t perm, shared_perm;
@@ -868,18 +682,12 @@ int blk_insert_bs(BlockBackend *blk, BlockDriverState *bs, Error **errp)
     return 0;
 }
 
-/*
- * Change BlockDriverState associated with @blk.
- */
 int blk_replace_bs(BlockBackend *blk, BlockDriverState *new_bs, Error **errp)
 {
     GLOBAL_STATE_CODE();
     return bdrv_replace_child_bs(blk->root, new_bs, errp);
 }
 
-/*
- * Sets the permission bitmasks that the user of the BlockBackend needs.
- */
 static int coroutine_mixed_fn GRAPH_RDLOCK
 blk_set_perm_locked(BlockBackend *blk, uint64_t perm, uint64_t shared_perm,
                     Error **errp)
@@ -916,10 +724,6 @@ void blk_get_perm(BlockBackend *blk, uint64_t *perm, uint64_t *shared_perm)
     *shared_perm = blk->shared_perm;
 }
 
-/*
- * Attach device model @dev to @blk.
- * Return 0 on success, -EBUSY when a device model is attached already.
- */
 int blk_attach_dev(BlockBackend *blk, DeviceState *dev)
 {
     GLOBAL_STATE_CODE();
@@ -934,10 +738,6 @@ int blk_attach_dev(BlockBackend *blk, DeviceState *dev)
     return 0;
 }
 
-/*
- * Detach device model @dev from @blk.
- * @dev must be currently attached to @blk.
- */
 void blk_detach_dev(BlockBackend *blk, DeviceState *dev)
 {
     assert(blk->dev == dev);
@@ -949,19 +749,12 @@ void blk_detach_dev(BlockBackend *blk, DeviceState *dev)
     blk_unref(blk);
 }
 
-/*
- * Return the device model attached to @blk if any, else null.
- */
 DeviceState *blk_get_attached_dev(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
     return blk->dev;
 }
 
-/*
- * The caller is responsible for releasing the value returned
- * with g_free() after use.
- */
 static char *blk_get_attached_dev_id_or_path(BlockBackend *blk, bool want_id)
 {
     DeviceState *dev = blk->dev;
@@ -981,21 +774,11 @@ char *blk_get_attached_dev_id(BlockBackend *blk)
     return blk_get_attached_dev_id_or_path(blk, true);
 }
 
-/*
- * The caller is responsible for releasing the value returned
- * with g_free() after use.
- */
 static char *blk_get_attached_dev_path(BlockBackend *blk)
 {
     return blk_get_attached_dev_id_or_path(blk, false);
 }
 
-/*
- * Return the BlockBackend which has the device model @dev attached if it
- * exists, else null.
- *
- * @dev must not be null.
- */
 BlockBackend *blk_by_dev(void *dev)
 {
     BlockBackend *blk = NULL;
@@ -1011,11 +794,6 @@ BlockBackend *blk_by_dev(void *dev)
     return NULL;
 }
 
-/*
- * Set @blk's device model callbacks to @ops.
- * @opaque is the opaque argument to pass to the callbacks.
- * This is for use by device models.
- */
 void blk_set_dev_ops(BlockBackend *blk, const BlockDevOps *ops,
                      void *opaque)
 {
@@ -1023,22 +801,11 @@ void blk_set_dev_ops(BlockBackend *blk, const BlockDevOps *ops,
     blk->dev_ops = ops;
     blk->dev_opaque = opaque;
 
-    /* Are we currently quiesced? Should we enforce this right now? */
     if (qatomic_read(&blk->quiesce_counter) && ops && ops->drained_begin) {
         ops->drained_begin(opaque);
     }
 }
 
-/*
- * Notify @blk's attached device model of media change.
- *
- * If @load is true, notify of media load. This action can fail, meaning that
- * the medium cannot be loaded. @errp is set then.
- *
- * If @load is false, notify of media eject. This can never fail.
- *
- * Also send DEVICE_TRAY_MOVED events as appropriate.
- */
 void blk_dev_change_media_cb(BlockBackend *blk, bool load, Error **errp)
 {
     GLOBAL_STATE_CODE();
@@ -1068,29 +835,18 @@ static void blk_root_change_media(BdrvChild *child, bool load)
     blk_dev_change_media_cb(child->opaque, load, NULL);
 }
 
-/*
- * Does @blk's attached device model have removable media?
- * %true if no device model is attached.
- */
 bool blk_dev_has_removable_media(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
     return !blk->dev || (blk->dev_ops && blk->dev_ops->change_media_cb);
 }
 
-/*
- * Does @blk's attached device model have a tray?
- */
 bool blk_dev_has_tray(BlockBackend *blk)
 {
     IO_CODE();
     return blk->dev_ops && blk->dev_ops->is_tray_open;
 }
 
-/*
- * Notify @blk's attached device model of a media eject request.
- * If @force is true, the medium is about to be yanked out forcefully.
- */
 void blk_dev_eject_request(BlockBackend *blk, bool force)
 {
     GLOBAL_STATE_CODE();
@@ -1099,9 +855,6 @@ void blk_dev_eject_request(BlockBackend *blk, bool force)
     }
 }
 
-/*
- * Does @blk's attached device model have a tray, and is it open?
- */
 bool blk_dev_is_tray_open(BlockBackend *blk)
 {
     IO_CODE();
@@ -1111,10 +864,6 @@ bool blk_dev_is_tray_open(BlockBackend *blk)
     return false;
 }
 
-/*
- * Does @blk's attached device model have the medium locked?
- * %false if the device model has no such lock.
- */
 bool blk_dev_is_medium_locked(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -1124,9 +873,6 @@ bool blk_dev_is_medium_locked(BlockBackend *blk)
     return false;
 }
 
-/*
- * Notify @blk's attached device model of a backend size change.
- */
 static void blk_root_resize(BdrvChild *child)
 {
     BlockBackend *blk = child->opaque;
@@ -1143,8 +889,6 @@ void blk_iostatus_enable(BlockBackend *blk)
     blk->iostatus = BLOCK_DEVICE_IO_STATUS_OK;
 }
 
-/* The I/O status is only enabled if the drive explicitly
- * enables it _and_ the VM is configured to stop on errors */
 bool blk_iostatus_is_enabled(const BlockBackend *blk)
 {
     IO_CODE();
@@ -1227,25 +971,18 @@ blk_check_byte_request(BlockBackend *blk, int64_t offset, int64_t bytes)
     return 0;
 }
 
-/* Are we currently in a drained section? */
 bool blk_in_drain(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE(); /* change to IO_OR_GS_CODE(), if necessary */
     return qatomic_read(&blk->quiesce_counter);
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static void coroutine_fn blk_wait_while_drained(BlockBackend *blk)
 {
     assert(blk->in_flight > 0);
 
     if (qatomic_read(&blk->quiesce_counter) &&
         !qatomic_read(&blk->disable_request_queuing)) {
-        /*
-         * Take lock before decrementing in flight counter so main loop thread
-         * waits for us to enqueue ourselves before it can leave the drained
-         * section.
-         */
         qemu_mutex_lock(&blk->queued_requests_lock);
         blk_dec_in_flight(blk);
         qemu_co_queue_wait(&blk->queued_requests, &blk->queued_requests_lock);
@@ -1254,7 +991,6 @@ static void coroutine_fn blk_wait_while_drained(BlockBackend *blk)
     }
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static int coroutine_fn
 blk_co_do_preadv_part(BlockBackend *blk, int64_t offset, int64_t bytes,
                       QEMUIOVector *qiov, size_t qiov_offset,
@@ -1267,7 +1003,6 @@ blk_co_do_preadv_part(BlockBackend *blk, int64_t offset, int64_t bytes,
     blk_wait_while_drained(blk);
     GRAPH_RDLOCK_GUARD();
 
-    /* Call blk_bs() only after waiting, the graph may have changed */
     bs = blk_bs(blk);
     trace_blk_co_preadv(blk, bs, offset, bytes, flags);
 
@@ -1323,7 +1058,6 @@ int coroutine_fn blk_co_preadv_part(BlockBackend *blk, int64_t offset,
     return ret;
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static int coroutine_fn
 blk_co_do_pwritev_part(BlockBackend *blk, int64_t offset, int64_t bytes,
                        QEMUIOVector *qiov, size_t qiov_offset,
@@ -1336,7 +1070,6 @@ blk_co_do_pwritev_part(BlockBackend *blk, int64_t offset, int64_t bytes,
     blk_wait_while_drained(blk);
     GRAPH_RDLOCK_GUARD();
 
-    /* Call blk_bs() only after waiting, the graph may have changed */
     bs = blk_bs(blk);
     trace_blk_co_pwritev(blk, bs, offset, bytes, flags);
 
@@ -1585,10 +1318,6 @@ int64_t coroutine_fn blk_co_nb_sectors(BlockBackend *blk)
     }
 }
 
-/*
- * This wrapper is written by hand because this function is in the hot I/O path,
- * via blk_get_geometry.
- */
 int64_t coroutine_mixed_fn blk_nb_sectors(BlockBackend *blk)
 {
     BlockDriverState *bs = blk_bs(blk);
@@ -1602,7 +1331,6 @@ int64_t coroutine_mixed_fn blk_nb_sectors(BlockBackend *blk)
     }
 }
 
-/* return 0 as number of sectors if no device present or error */
 void coroutine_fn blk_co_get_geometry(BlockBackend *blk,
                                       uint64_t *nb_sectors_ptr)
 {
@@ -1610,9 +1338,6 @@ void coroutine_fn blk_co_get_geometry(BlockBackend *blk,
     *nb_sectors_ptr = ret < 0 ? 0 : ret;
 }
 
-/*
- * This wrapper is written by hand because this function is in the hot I/O path.
- */
 void coroutine_mixed_fn blk_get_geometry(BlockBackend *blk,
                                          uint64_t *nb_sectors_ptr)
 {
@@ -1652,7 +1377,6 @@ void blk_aio_cancel_async(BlockAIOCB *acb)
     bdrv_aio_cancel_async(acb);
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static int coroutine_fn
 blk_co_do_ioctl(BlockBackend *blk, unsigned long int req, void *buf)
 {
@@ -1698,7 +1422,6 @@ BlockAIOCB *blk_aio_ioctl(BlockBackend *blk, unsigned long int req, void *buf,
     return blk_aio_prwv(blk, req, 0, buf, blk_aio_ioctl_entry, 0, cb, opaque);
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static int coroutine_fn
 blk_co_do_pdiscard(BlockBackend *blk, int64_t offset, int64_t bytes)
 {
@@ -1747,7 +1470,6 @@ int coroutine_fn blk_co_pdiscard(BlockBackend *blk, int64_t offset,
     return ret;
 }
 
-/* To be called between exactly one pair of blk_inc/dec_in_flight() */
 static int coroutine_fn blk_co_do_flush(BlockBackend *blk)
 {
     IO_CODE();
@@ -1912,12 +1634,6 @@ BlockAIOCB *blk_aio_zone_append(BlockBackend *blk, int64_t *offset,
     return &acb->common;
 }
 
-/*
- * Send a zone_report command.
- * offset is a byte offset from the start of the device. No alignment
- * required for offset.
- * nr_zones represents IN maximum and OUT actual.
- */
 int coroutine_fn blk_co_zone_report(BlockBackend *blk, int64_t offset,
                                     unsigned int *nr_zones,
                                     BlockZoneDescriptor *zones)
@@ -1937,13 +1653,6 @@ int coroutine_fn blk_co_zone_report(BlockBackend *blk, int64_t offset,
     return ret;
 }
 
-/*
- * Send a zone_management command.
- * op is the zone operation;
- * offset is the byte offset from the start of the zoned device;
- * len is the maximum number of bytes the command should operate on. It
- * should be aligned with the device zone size.
- */
 int coroutine_fn blk_co_zone_mgmt(BlockBackend *blk, BlockZoneOp op,
         int64_t offset, int64_t len)
 {
@@ -1965,9 +1674,6 @@ int coroutine_fn blk_co_zone_mgmt(BlockBackend *blk, BlockZoneOp op,
     return ret;
 }
 
-/*
- * Send a zone_append command.
- */
 int coroutine_fn blk_co_zone_append(BlockBackend *blk, int64_t *offset,
         QEMUIOVector *qiov, BdrvRequestFlags flags)
 {
@@ -1997,7 +1703,6 @@ void blk_drain(BlockBackend *blk)
         bdrv_drained_begin(bs);
     }
 
-    /* We may have -ENOMEDIUM completions in flight */
     AIO_WAIT_WHILE(blk_get_aio_context(blk),
                    qatomic_read(&blk->in_flight) > 0);
 
@@ -2016,7 +1721,6 @@ void blk_drain_all(void)
     bdrv_drain_all_begin();
 
     while ((blk = blk_all_next(blk)) != NULL) {
-        /* We may have -ENOMEDIUM completions in flight */
         AIO_WAIT_WHILE_UNLOCKED(NULL, qatomic_read(&blk->in_flight) > 0);
     }
 
@@ -2074,10 +1778,6 @@ static void send_qmp_error_event(BlockBackend *blk,
                                    error == ENOSPC, strerror(error));
 }
 
-/* This is done by device models because, while the block layer knows
- * about the error, it does not know whether an operation comes from
- * the device or the block layer (from a job, for example).
- */
 void blk_error_action(BlockBackend *blk, BlockErrorAction action,
                       bool is_read, int error)
 {
@@ -2085,20 +1785,8 @@ void blk_error_action(BlockBackend *blk, BlockErrorAction action,
     IO_CODE();
 
     if (action == BLOCK_ERROR_ACTION_STOP) {
-        /* First set the iostatus, so that "info block" returns an iostatus
-         * that matches the events raised so far (an additional error iostatus
-         * is fine, but not a lost one).
-         */
         blk_iostatus_set_err(blk, error);
 
-        /* Then raise the request to stop the VM and the event.
-         * qemu_system_vmstop_request_prepare has two effects.  First,
-         * it ensures that the STOP event always comes after the
-         * BLOCK_IO_ERROR event.  Second, it ensures that even if management
-         * can observe the STOP event and do a "cont" before the STOP
-         * event is issued, the VM will not stop.  In this case, vm_start()
-         * also ensures that the STOP/RESUME pair of events is emitted.
-         */
         qemu_system_vmstop_request_prepare();
         send_qmp_error_event(blk, action, is_read, error);
         qemu_system_vmstop_request(RUN_STATE_IO_ERROR);
@@ -2107,10 +1795,6 @@ void blk_error_action(BlockBackend *blk, BlockErrorAction action,
     }
 }
 
-/*
- * Returns true if the BlockBackend can support taking write permissions
- * (because its root node is not read-only).
- */
 bool blk_supports_write_perm(BlockBackend *blk)
 {
     BlockDriverState *bs = blk_bs(blk);
@@ -2123,10 +1807,6 @@ bool blk_supports_write_perm(BlockBackend *blk)
     }
 }
 
-/*
- * Returns true if the BlockBackend can be written to in its current
- * configuration (i.e. if write permission have been requested)
- */
 bool blk_is_writable(BlockBackend *blk)
 {
     IO_CODE();
@@ -2194,8 +1874,6 @@ void coroutine_fn blk_co_eject(BlockBackend *blk, bool eject_flag)
         bdrv_co_eject(bs, eject_flag);
     }
 
-    /* Whether or not we ejected on the backend,
-     * the frontend experienced a tray event. */
     id = blk_get_attached_dev_id(blk);
     qapi_event_send_device_tray_moved(blk_name(blk), id,
                                       eject_flag);
@@ -2214,7 +1892,6 @@ int blk_get_flags(BlockBackend *blk)
     }
 }
 
-/* Returns the minimum request alignment, in bytes; guaranteed nonzero */
 uint32_t blk_get_request_alignment(BlockBackend *blk)
 {
     BlockDriverState *bs = blk_bs(blk);
@@ -2222,7 +1899,6 @@ uint32_t blk_get_request_alignment(BlockBackend *blk)
     return bs ? bs->bl.request_alignment : BDRV_SECTOR_SIZE;
 }
 
-/* Returns the maximum hardware transfer length, in bytes; guaranteed nonzero */
 uint64_t blk_get_max_hw_transfer(BlockBackend *blk)
 {
     BlockDriverState *bs = blk_bs(blk);
@@ -2236,7 +1912,6 @@ uint64_t blk_get_max_hw_transfer(BlockBackend *blk)
     return ROUND_DOWN(max, blk_get_request_alignment(blk));
 }
 
-/* Returns the maximum transfer length, in bytes; guaranteed nonzero */
 uint32_t blk_get_max_transfer(BlockBackend *blk)
 {
     BlockDriverState *bs = blk_bs(blk);
@@ -2275,13 +1950,6 @@ void *blk_blockalign(BlockBackend *blk, size_t size)
 }
 
 
-/**
- * Return BB's current AioContext.  Note that this context may change
- * concurrently at any time, with one exception: If the BB has a root node
- * attached, its context will only change through bdrv_try_change_aio_context(),
- * which creates a drained section.  Therefore, incrementing such a BB's
- * in-flight counter will prevent its context from changing.
- */
 AioContext *blk_get_aio_context(BlockBackend *blk)
 {
     IO_CODE();
@@ -2347,13 +2015,7 @@ static bool blk_root_change_aio_ctx(BdrvChild *child, AioContext *ctx,
     BdrvStateBlkRootContext *s;
 
     if (!blk->allow_aio_context_change) {
-        /*
-         * Manually created BlockBackends (those with a name) that are not
-         * attached to anything can change their AioContext without updating
-         * their user; return an error for others.
-         */
         if (!blk->name || blk->dev) {
-            /* TODO Add BB name/QOM path */
             error_setg(errp, "Cannot change iothread of active block backend");
             return false;
         }
@@ -2522,10 +2184,6 @@ int blk_probe_geometry(BlockBackend *blk, HDGeometry *geo)
     return bdrv_probe_geometry(blk_bs(blk), geo);
 }
 
-/*
- * Updates the BlockBackendRootState object with data from the currently
- * attached BlockDriverState.
- */
 void blk_update_root_state(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -2535,20 +2193,12 @@ void blk_update_root_state(BlockBackend *blk)
     blk->root_state.detect_zeroes = blk->root->bs->detect_zeroes;
 }
 
-/*
- * Returns the detect-zeroes setting to be used for bdrv_open() of a
- * BlockDriverState which is supposed to inherit the root state.
- */
 bool blk_get_detect_zeroes_from_root_state(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
     return blk->root_state.detect_zeroes;
 }
 
-/*
- * Returns the flags to be used for bdrv_open() of a BlockDriverState which is
- * supposed to inherit the root state.
- */
 int blk_get_open_flags_from_root_state(BlockBackend *blk)
 {
     GLOBAL_STATE_CODE();
@@ -2597,7 +2247,6 @@ static void blk_root_drained_end(BdrvChild *child)
         qemu_mutex_lock(&blk->queued_requests_lock);
         while (qemu_co_enter_next(&blk->queued_requests,
                                   &blk->queued_requests_lock)) {
-            /* Resume all queued requests */
         }
         qemu_mutex_unlock(&blk->queued_requests_lock);
     }

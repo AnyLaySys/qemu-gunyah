@@ -13,7 +13,6 @@ struct CPUArchId;
 #define NUMA_DISTANCE_MAX         254
 #define NUMA_DISTANCE_UNREACHABLE 255
 
-/* the value of AcpiHmatLBInfo flags */
 enum {
     HMAT_LB_MEM_MEMORY           = 0,
     HMAT_LB_MEM_CACHE_1ST_LEVEL  = 1,
@@ -22,7 +21,6 @@ enum {
     HMAT_LB_LEVELS   /* must be the last entry */
 };
 
-/* the value of AcpiHmatLBInfo data type */
 enum {
     HMAT_LB_DATA_ACCESS_LATENCY   = 0,
     HMAT_LB_DATA_READ_LATENCY     = 1,
@@ -59,40 +57,29 @@ struct HMAT_LB_Data {
 typedef struct HMAT_LB_Data HMAT_LB_Data;
 
 struct HMAT_LB_Info {
-    /* Indicates it's memory or the specified level memory side cache. */
     uint8_t     hierarchy;
 
-    /* Present the type of data, access/read/write latency or bandwidth. */
     uint8_t     data_type;
 
-    /* The range bitmap of bandwidth for calculating common base */
     uint64_t    range_bitmap;
 
-    /* The common base unit for latencies or bandwidths */
     uint64_t    base;
 
-    /* Array to store the latencies or bandwidths */
     GArray      *list;
 };
 typedef struct HMAT_LB_Info HMAT_LB_Info;
 
 struct NumaState {
-    /* Number of NUMA nodes */
     int num_nodes;
 
-    /* Allow setting NUMA distance for different NUMA nodes */
     bool have_numa_distance;
 
-    /* Detect if HMAT support is enabled. */
     bool hmat_enabled;
 
-    /* NUMA nodes information */
     NodeInfo nodes[MAX_NODES];
 
-    /* NUMA nodes HMAT Locality Latency and Bandwidth Information */
     HMAT_LB_Info *hmat_lb[HMAT_LB_LEVELS][HMAT_LB_TYPES];
 
-    /* Memory Side Cache Information Structure */
     NumaHmatCacheOptions *hmat_cache[MAX_NODES][HMAT_LB_LEVELS];
 };
 typedef struct NumaState NumaState;

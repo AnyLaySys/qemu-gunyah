@@ -1,24 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-/*
- * Input event codes
- *
- *    *** IMPORTANT ***
- * This file is not only included from C-code but also from devicetree source
- * files. As such this file MUST only contain comments and defines.
- *
- * Copyright (c) 1999-2002 Vojtech Pavlik
- * Copyright (c) 2015 Hans de Goede <hdegoede@redhat.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
- */
 #ifndef _INPUT_EVENT_CODES_H
 #define _INPUT_EVENT_CODES_H
 
-/*
- * Device properties and quirks
- */
 
 #define INPUT_PROP_POINTER		0x00	/* needs a pointer */
 #define INPUT_PROP_DIRECT		0x01	/* direct input devices */
@@ -31,9 +13,6 @@
 #define INPUT_PROP_MAX			0x1f
 #define INPUT_PROP_CNT			(INPUT_PROP_MAX + 1)
 
-/*
- * Event types
- */
 
 #define EV_SYN			0x00
 #define EV_KEY			0x01
@@ -50,9 +29,6 @@
 #define EV_MAX			0x1f
 #define EV_CNT			(EV_MAX+1)
 
-/*
- * Synchronization events.
- */
 
 #define SYN_REPORT		0
 #define SYN_CONFIG		1
@@ -61,16 +37,6 @@
 #define SYN_MAX			0xf
 #define SYN_CNT			(SYN_MAX+1)
 
-/*
- * Keys and buttons
- *
- * Most of the keys/buttons are modeled after USB HUT 1.12
- * (see http://www.usb.org/developers/hidpage).
- * Abbreviations in the comments:
- * AC - Application Control
- * AL - Application Launch Button
- * SC - System Control
- */
 
 #define KEY_RESERVED		0
 #define KEY_ESC			1
@@ -338,7 +304,6 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
-/* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
 #define BTN_0			0x100
@@ -632,22 +597,15 @@
 #define KEY_KBDINPUTASSIST_ACCEPT		0x264
 #define KEY_KBDINPUTASSIST_CANCEL		0x265
 
-/* Diagonal movement keys */
 #define KEY_RIGHT_UP			0x266
 #define KEY_RIGHT_DOWN			0x267
 #define KEY_LEFT_UP			0x268
 #define KEY_LEFT_DOWN			0x269
 
 #define KEY_ROOT_MENU			0x26a /* Show Device's Root Menu */
-/* Show Top Menu of the Media (e.g. DVD) */
 #define KEY_MEDIA_TOP_MENU		0x26b
 #define KEY_NUMERIC_11			0x26c
 #define KEY_NUMERIC_12			0x26d
-/*
- * Toggle Audio Description: refers to an audio service that helps blind and
- * visually impaired consumers understand the action in a program. Note: in
- * some countries this is referred to as "Video Description".
- */
 #define KEY_AUDIO_DESC			0x26e
 #define KEY_3D_MODE			0x26f
 #define KEY_NEXT_FAVORITE		0x270
@@ -657,26 +615,17 @@
 #define KEY_UNMUTE			0x274
 #define KEY_FASTREVERSE			0x275
 #define KEY_SLOWREVERSE			0x276
-/*
- * Control a data application associated with the currently viewed channel,
- * e.g. teletext or data broadcast application (MHEG, MHP, HbbTV, etc.)
- */
 #define KEY_DATA			0x277
 #define KEY_ONSCREEN_KEYBOARD		0x278
-/* Electronic privacy screen control */
 #define KEY_PRIVACY_SCREEN_TOGGLE	0x279
 
-/* Select an area of screen to be copied */
 #define KEY_SELECTIVE_SCREENSHOT	0x27a
 
-/* Move the focus to the next or previous user controllable element within a UI container */
 #define KEY_NEXT_ELEMENT               0x27b
 #define KEY_PREVIOUS_ELEMENT           0x27c
 
-/* Toggle Autopilot engagement */
 #define KEY_AUTOPILOT_ENGAGE_TOGGLE    0x27d
 
-/* Shortcut Keys */
 #define KEY_MARK_WAYPOINT              0x27e
 #define KEY_SOS                                0x27f
 #define KEY_NAV_CHART                  0x280
@@ -690,21 +639,6 @@
 #define KEY_NAV_INFO                   0x288
 #define KEY_BRIGHTNESS_MENU            0x289
 
-/*
- * Some keyboards have keys which do not have a defined meaning, these keys
- * are intended to be programmed / bound to macros by the user. For most
- * keyboards with these macro-keys the key-sequence to inject, or action to
- * take, is all handled by software on the host side. So from the kernel's
- * point of view these are just normal keys.
- *
- * The KEY_MACRO# codes below are intended for such keys, which may be labeled
- * e.g. G1-G18, or S1 - S30. The KEY_MACRO# codes MUST NOT be used for keys
- * where the marking on the key does indicate a defined meaning / purpose.
- *
- * The KEY_MACRO# codes MUST also NOT be used as fallback for when no existing
- * KEY_FOO define matches the marking / purpose. In this case a new KEY_FOO
- * define MUST be added.
- */
 #define KEY_MACRO1			0x290
 #define KEY_MACRO2			0x291
 #define KEY_MACRO3			0x292
@@ -736,16 +670,6 @@
 #define KEY_MACRO29			0x2ac
 #define KEY_MACRO30			0x2ad
 
-/*
- * Some keyboards with the macro-keys described above have some extra keys
- * for controlling the host-side software responsible for the macro handling:
- * -A macro recording start/stop key. Note that not all keyboards which emit
- *  KEY_MACRO_RECORD_START will also emit KEY_MACRO_RECORD_STOP if
- *  KEY_MACRO_RECORD_STOP is not advertised, then KEY_MACRO_RECORD_START
- *  should be interpreted as a recording start/stop toggle;
- * -Keys for switching between different macro (pre)sets, either a key for
- *  cycling through the configured presets or keys to directly select a preset.
- */
 #define KEY_MACRO_RECORD_START		0x2b0
 #define KEY_MACRO_RECORD_STOP		0x2b1
 #define KEY_MACRO_PRESET_CYCLE		0x2b2
@@ -753,12 +677,6 @@
 #define KEY_MACRO_PRESET2		0x2b4
 #define KEY_MACRO_PRESET3		0x2b5
 
-/*
- * Some keyboards have a buildin LCD panel where the contents are controlled
- * by the host. Often these have a number of keys directly below the LCD
- * intended for controlling a menu shown on the LCD. These keys often don't
- * have any labeling so we just name them KEY_KBD_LCD_MENU#
- */
 #define KEY_KBD_LCD_MENU1		0x2b8
 #define KEY_KBD_LCD_MENU2		0x2b9
 #define KEY_KBD_LCD_MENU3		0x2ba
@@ -807,14 +725,10 @@
 #define BTN_TRIGGER_HAPPY39		0x2e6
 #define BTN_TRIGGER_HAPPY40		0x2e7
 
-/* We avoid low common keys in module aliases so they don't get huge. */
 #define KEY_MIN_INTERESTING	KEY_MUTE
 #define KEY_MAX			0x2ff
 #define KEY_CNT			(KEY_MAX+1)
 
-/*
- * Relative axes
- */
 
 #define REL_X			0x00
 #define REL_Y			0x01
@@ -826,22 +740,12 @@
 #define REL_DIAL		0x07
 #define REL_WHEEL		0x08
 #define REL_MISC		0x09
-/*
- * 0x0a is reserved and should not be used in input drivers.
- * It was used by HID as REL_MISC+1 and userspace needs to detect if
- * the next REL_* event is correct or is just REL_MISC + n.
- * We define here REL_RESERVED so userspace can rely on it and detect
- * the situation described above.
- */
 #define REL_RESERVED		0x0a
 #define REL_WHEEL_HI_RES	0x0b
 #define REL_HWHEEL_HI_RES	0x0c
 #define REL_MAX			0x0f
 #define REL_CNT			(REL_MAX+1)
 
-/*
- * Absolute axes
- */
 
 #define ABS_X			0x00
 #define ABS_Y			0x01
@@ -873,13 +777,6 @@
 
 #define ABS_MISC		0x28
 
-/*
- * 0x2e is reserved and should not be used in input drivers.
- * It was used by HID as ABS_MISC+6 and userspace needs to detect if
- * the next ABS_* event is correct or is just ABS_MISC + n.
- * We define here ABS_RESERVED so userspace can rely on it and detect
- * the situation described above.
- */
 #define ABS_RESERVED		0x2e
 
 #define ABS_MT_SLOT		0x2f	/* MT slot being modified */
@@ -902,9 +799,6 @@
 #define ABS_MAX			0x3f
 #define ABS_CNT			(ABS_MAX+1)
 
-/*
- * Switch events
- */
 
 #define SW_LID			0x00  /* set = lid shut */
 #define SW_TABLET_MODE		0x01  /* set = tablet mode */
@@ -928,9 +822,6 @@
 #define SW_MAX_			0x10
 #define SW_CNT			(SW_MAX_+1)
 
-/*
- * Misc events
- */
 
 #define MSC_SERIAL		0x00
 #define MSC_PULSELED		0x01
@@ -941,9 +832,6 @@
 #define MSC_MAX			0x07
 #define MSC_CNT			(MSC_MAX+1)
 
-/*
- * LEDs
- */
 
 #define LED_NUML		0x00
 #define LED_CAPSL		0x01
@@ -959,18 +847,12 @@
 #define LED_MAX			0x0f
 #define LED_CNT			(LED_MAX+1)
 
-/*
- * Autorepeat values
- */
 
 #define REP_DELAY		0x00
 #define REP_PERIOD		0x01
 #define REP_MAX			0x01
 #define REP_CNT			(REP_MAX+1)
 
-/*
- * Sounds
- */
 
 #define SND_CLICK		0x00
 #define SND_BELL		0x01

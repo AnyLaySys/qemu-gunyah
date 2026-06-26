@@ -1,26 +1,4 @@
-/*
- * GPIO qemu power controller
- *
- * Copyright (c) 2020 Linaro Limited
- *
- * Author: Maxim Uvarov <maxim.uvarov@linaro.org>
- *
- * Virtual gpio driver which can be used on top of pl061
- * to reboot and shutdown qemu virtual machine. One of use
- * case is gpio driver for secure world application (ARM
- * Trusted Firmware.).
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
-/*
- * QEMU interface:
- * two named input GPIO lines:
- *   'reset' : when asserted, trigger system reset
- *   'shutdown' : when asserted, trigger system shutdown
- */
 
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"

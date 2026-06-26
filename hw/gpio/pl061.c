@@ -1,33 +1,3 @@
-/*
- * Arm PrimeCell PL061 General Purpose IO with additional
- * Luminary Micro Stellaris bits.
- *
- * Copyright (c) 2007 CodeSourcery.
- * Written by Paul Brook
- *
- * This code is licensed under the GPL.
- *
- * QEMU interface:
- *  + sysbus MMIO region 0: the device registers
- *  + sysbus IRQ: the GPIOINTR interrupt line
- *  + unnamed GPIO inputs 0..7: inputs to connect to the emulated GPIO lines
- *  + unnamed GPIO outputs 0..7: the emulated GPIO lines, considered as
- *    outputs
- *  + QOM property "pullups": an integer defining whether non-floating lines
- *    configured as inputs should be pulled up to logical 1 (ie whether in
- *    real hardware they have a pullup resistor on the line out of the PL061).
- *    This should be an 8-bit value, where bit 0 is 1 if GPIO line 0 should
- *    be pulled high, bit 1 configures line 1, and so on. The default is 0xff,
- *    indicating that all GPIO lines are pulled up to logical 1.
- *  + QOM property "pulldowns": an integer defining whether non-floating lines
- *    configured as inputs should be pulled down to logical 0 (ie whether in
- *    real hardware they have a pulldown resistor on the line out of the PL061).
- *    This should be an 8-bit value, where bit 0 is 1 if GPIO line 0 should
- *    be pulled low, bit 1 configures line 1, and so on. The default is 0x0.
- *    It is an error to set a bit in both "pullups" and "pulldowns". If a bit
- *    is 0 in both, then the line is considered to be floating, and it will
- *    not have qemu_set_irq() called on it when it is configured as an input.
- */
 
 #include "qemu/osdep.h"
 #include "hw/irq.h"
@@ -78,7 +48,6 @@ struct PL061State {
     qemu_irq irq;
     qemu_irq out[N_GPIOS];
     const unsigned char *id;
-    /* Properties, for non-Luminary PL061 */
     uint32_t pullups;
     uint32_t pulldowns;
 };
@@ -115,17 +84,9 @@ static const VMStateDescription vmstate_pl061 = {
 
 static uint8_t pl061_floating(PL061State *s)
 {
-    /*
-     * Return mask of bits which correspond to pins configured as inputs
-     * and which are floating (neither pulled up to 1 nor down to 0).
-     */
     uint8_t floating;
 
     if (s->id == pl061_id_luminary) {
-        /*
-         * If both PUR and PDR bits are clear, there is neither a pullup
-         * nor a pulldown in place, and the output truly floats.
-         */
         floating = ~(s->pur | s->pdr);
     } else {
         floating = ~(s->pullups | s->pulldowns);
@@ -135,18 +96,9 @@ static uint8_t pl061_floating(PL061State *s)
 
 static uint8_t pl061_pullups(PL061State *s)
 {
-    /*
-     * Return mask of bits which correspond to pins configured as inputs
-     * and which are pulled up to 1.
-     */
     uint8_t pullups;
 
     if (s->id == pl061_id_luminary) {
-        /*
-         * The Luminary variant of the PL061 has an extra registers which
-         * the guest can use to configure whether lines should be pullup
-         * or pulldown.
-         */
         pullups = s->pur;
     } else {
         pullups = s->pullups;
@@ -166,12 +118,6 @@ static void pl061_update(PL061State *s)
     trace_pl061_update(DEVICE(s)->canonical_path, s->dir, s->data,
                        pullups, floating);
 
-    /*
-     * Pins configured as output are driven from the data register;
-     * otherwise if they're pulled up they're 1, and if they're floating
-     * then we give them the same value they had previously, so we don't
-     * report any change to the other end.
-     */
     out = (s->data & s->dir) | pullups | (s->old_out_data & floating);
     changed = s->old_out_data ^ out;
     if (changed) {
@@ -186,7 +132,6 @@ static void pl061_update(PL061State *s)
         }
     }
 
-    /* Inputs */
     changed = (s->old_in_data ^ s->data) & ~s->dir;
     if (changed) {
         s->old_in_data = s->data;
@@ -197,12 +142,9 @@ static void pl061_update(PL061State *s)
                                          (s->data & mask) != 0);
 
                 if (!(s->isense & mask)) {
-                    /* Edge interrupt */
                     if (s->ibe & mask) {
-                        /* Any edge triggers the interrupt */
                         s->istate |= mask;
                     } else {
-                        /* Edge is selected by IEV */
                         s->istate |= ~(s->data ^ s->iev) & mask;
                     }
                 }
@@ -210,7 +152,6 @@ static void pl061_update(PL061State *s)
         }
     }
 
-    /* Level interrupt */
     s->istate |= ~(s->data ^ s->iev) & s->isense;
 
     trace_pl061_update_istate(DEVICE(s)->canonical_path,
@@ -452,16 +393,7 @@ static void pl061_enter_reset(Object *obj, ResetType type)
 
     trace_pl061_reset(DEVICE(s)->canonical_path);
 
-    /* reset values from PL061 TRM, Stellaris LM3S5P31 & LM3S8962 Data Sheet */
 
-    /*
-     * FIXME: For the LM3S6965, not all of the PL061 instances have the
-     * same reset values for GPIOPUR, GPIOAFSEL and GPIODEN, so in theory
-     * we should allow the board to configure these via properties.
-     * In practice, we don't wire anything up to the affected GPIO lines
-     * (PB7, PC0, PC1, PC2, PC3 -- they're used for JTAG), so we can
-     * get away with this inaccuracy.
-     */
     s->data = 0;
     s->old_in_data = 0;
     s->dir = 0;

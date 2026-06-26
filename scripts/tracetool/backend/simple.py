@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Simple built-in backend.
@@ -74,7 +73,6 @@ def generate_c(event, group):
 
     event_id = 'TRACE_' + event.name.upper()
     if "vcpu" in event.properties:
-        # already checked on the generic format code
         cond = "true"
     else:
         cond = "trace_event_get_state(%s)" % event_id
@@ -93,15 +91,12 @@ def generate_c(event, group):
 
     if len(event.args) > 0:
         for type_, name in event.args:
-            # string
             if is_string(type_):
                 out('    trace_record_write_str(&rec, %(name)s, arg%(name)s_len);',
                     name=name)
-            # pointer var (not string)
             elif type_.endswith('*'):
                 out('    trace_record_write_u64(&rec, (uintptr_t)(uint64_t *)%(name)s);',
                     name=name)
-            # primitive data type
             else:
                 out('    trace_record_write_u64(&rec, (uint64_t)%(name)s);',
                    name=name)

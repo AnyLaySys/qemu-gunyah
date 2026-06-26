@@ -1,14 +1,3 @@
-/*
- * QAPI util functions
- *
- * Authors:
- *  Hu Tao       <hutao@cn.fujitsu.com>
- *  Peter Lieven <pl@kamp.de>
- * 
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/compat-policy.h"
@@ -106,17 +95,6 @@ bool qapi_bool_parse(const char *name, const char *value, bool *obj, Error **err
     return false;
 }
 
-/*
- * Parse a valid QAPI name from @str.
- * A valid name consists of letters, digits, hyphen and underscore.
- * It may be prefixed by __RFQDN_ (downstream extension), where RFQDN
- * may contain only letters, digits, hyphen and period.
- * The special exception for enumeration names is not implemented.
- * See docs/devel/qapi-code-gen.rst for more on QAPI naming rules.
- * Keep this consistent with scripts/qapi-gen.py!
- * If @complete, the parse fails unless it consumes @str completely.
- * Return its length on success, -1 on failure.
- */
 int parse_qapi_name(const char *str, bool complete)
 {
     const char *p = str;

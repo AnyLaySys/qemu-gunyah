@@ -1,17 +1,3 @@
-/*
- * Virtio Accessor Support: In case your target can change endian.
- *
- * Copyright IBM, Corp. 2013
- *
- * Authors:
- *  Rusty Russell   <rusty@au.ibm.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- */
 
 #ifndef QEMU_VIRTIO_ACCESS_H
 #define QEMU_VIRTIO_ACCESS_H
@@ -30,7 +16,6 @@ static inline bool virtio_access_is_big_endian(VirtIODevice *vdev)
     return virtio_is_big_endian(vdev);
 #elif TARGET_BIG_ENDIAN
     if (virtio_vdev_has_feature(vdev, VIRTIO_F_VERSION_1)) {
-        /* Devices conforming to VIRTIO 1.0 or later are always LE. */
         return false;
     }
     return true;

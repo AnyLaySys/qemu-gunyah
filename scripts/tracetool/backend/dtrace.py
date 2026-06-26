@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 DTrace/SystemTAP backend.
@@ -40,10 +39,6 @@ def generate_h_begin(events, group):
     else:
         header = "trace-dtrace-%s.h" % group
 
-    # Workaround for ust backend, which also includes <sys/sdt.h> and may
-    # require SDT_USE_VARIADIC to be defined. If dtrace includes <sys/sdt.h>
-    # first without defining SDT_USE_VARIADIC then ust breaks because the
-    # STAP_PROBEV() macro is not defined.
     out('#ifndef SDT_USE_VARIADIC')
     out('#define SDT_USE_VARIADIC 1')
     out('#endif')
@@ -53,8 +48,6 @@ def generate_h_begin(events, group):
 
     out('#undef SDT_USE_VARIADIC')
 
-    # SystemTap defines <provider>_<name>_ENABLED() but other DTrace
-    # implementations might not.
     for e in events:
         out('#ifndef QEMU_%(uppername)s_ENABLED',
             '#define QEMU_%(uppername)s_ENABLED() true',

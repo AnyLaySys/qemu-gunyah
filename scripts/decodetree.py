@@ -1,24 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018 Linaro Limited
-#
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
-#
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, see <http://www.gnu.org/licenses/>.
-#
 
-#
-# Generate a decoding tree from a specification file.
-# See the syntax and semantics in docs/devel/decodetree.rst.
-#
 
 import io
 import os
@@ -46,44 +27,13 @@ output_null = False
 insntype = 'uint32_t'
 decode_function = 'decode'
 
-# An identifier for C.
 re_C_ident = '[a-zA-Z][a-zA-Z0-9_]*'
 
-# Identifiers for Arguments, Fields, Formats and Patterns.
 re_arg_ident = '&[a-zA-Z0-9_]*'
 re_fld_ident = '%[a-zA-Z0-9_]*'
 re_fmt_ident = '@[a-zA-Z0-9_]*'
 re_pat_ident = '[a-zA-Z0-9_]*'
 
-# Local implementation of a topological sort. We use the same API that
-# the Python graphlib does, so that when QEMU moves forward to a
-# baseline of Python 3.9 or newer this code can all be dropped and
-# replaced with:
-#    from graphlib import TopologicalSorter, CycleError
-#
-# https://docs.python.org/3.9/library/graphlib.html#graphlib.TopologicalSorter
-#
-# We only implement the parts of TopologicalSorter we care about:
-#  ts = TopologicalSorter(graph=None)
-#    create the sorter. graph is a dictionary whose keys are
-#    nodes and whose values are lists of the predecessors of that node.
-#    (That is, if graph contains "A" -> ["B", "C"] then we must output
-#    B and C before A.)
-#  ts.static_order()
-#    returns a list of all the nodes in sorted order, or raises CycleError
-#  CycleError
-#    exception raised if there are cycles in the graph. The second
-#    element in the args attribute is a list of nodes which form a
-#    cycle; the first and last element are the same, eg [a, b, c, a]
-#    (Our implementation doesn't give the order correctly.)
-#
-# For our purposes we can assume that the data set is always small
-# (typically 10 nodes or less, actual links in the graph very rare),
-# so we don't need to worry about efficiency of implementation.
-#
-# The core of this implementation is from
-# https://code.activestate.com/recipes/578272-topological-sort/
-# (but updated to Python 3), and is under the MIT license.
 
 class CycleError(ValueError):
     """Subclass of ValueError raised if cycles exist in the graph"""
@@ -95,7 +45,6 @@ class TopologicalSorter:
         self.graph = graph
 
     def static_order(self):
-        # We do the sort right here, unlike the stdlib version
         from functools import reduce
         data = {}
         r = []
@@ -103,14 +52,11 @@ class TopologicalSorter:
         if not self.graph:
             return []
 
-        # This code wants the values in the dict to be specifically sets
         for k, v in self.graph.items():
             data[k] = set(v)
 
-        # Find all items that don't depend on anything.
         extra_items_in_deps = (reduce(set.union, data.values())
                                - set(data.keys()))
-        # Add empty dependencies where needed
         data.update({item:{} for item in extra_items_in_deps})
         while True:
             ordered = set(item for item, dep in data.items() if not dep)
@@ -121,22 +67,15 @@ class TopologicalSorter:
                     for item, dep in data.items()
                         if item not in ordered}
         if data:
-            # This doesn't give as nice results as the stdlib, which
-            # gives you the cycle by listing the nodes in order. Here
-            # we only know the nodes in the cycle but not their order.
             raise CycleError(f'nodes are in a cycle', list(data.keys()))
 
         return r
-# end TopologicalSorter
 
 def error_with_file(file, lineno, *args):
     """Print an error message from file:line and args and exit."""
     global output_file
     global output_fd
 
-    # For the test suite expected-errors case, don't print the
-    # string "error: ", so they don't turn up as false positives
-    # if you grep the meson logs for strings like that.
     end = 'error: ' if not testforerror else 'detected: '
     prefix = ''
     if file:
@@ -152,12 +91,10 @@ def error_with_file(file, lineno, *args):
         output_fd.close()
         os.remove(output_file)
     exit(0 if testforerror else 1)
-# end error_with_file
 
 
 def error(lineno, *args):
     error_with_file(input_file, lineno, *args)
-# end error
 
 
 def output(*args):
@@ -248,7 +185,6 @@ def is_contiguous(bits):
 def eq_fields_for_args(flds_a, arg):
     if len(flds_a) != len(arg.fields):
         return False
-    # Only allow inference on default types
     for t in arg.types:
         if t != 'int':
             return False
@@ -298,7 +234,6 @@ class Field:
 
     def __ne__(self, other):
         return not self.__eq__(other)
-# end Field
 
 
 class MultiField:
@@ -340,7 +275,6 @@ class MultiField:
 
     def __eq__(self, other):
         return not self.__ne__(other)
-# end MultiField
 
 
 class ConstField:
@@ -361,7 +295,6 @@ class ConstField:
 
     def __cmp__(self, other):
         return self.value - other.value
-# end ConstField
 
 
 class FunctionField:
@@ -387,7 +320,6 @@ class FunctionField:
 
     def __ne__(self, other):
         return not self.__eq__(other)
-# end FunctionField
 
 
 class ParameterField:
@@ -411,7 +343,6 @@ class ParameterField:
 
     def __ne__(self, other):
         return not self.__eq__(other)
-# end ParameterField
 
 class NamedField:
     """Class representing a field already named in the pattern"""
@@ -438,7 +369,6 @@ class NamedField:
 
     def __ne__(self, other):
         return not self.__eq__(other)
-# end NamedField
 
 class Arguments:
     """Class representing the extracted fields of a format"""
@@ -460,7 +390,6 @@ class Arguments:
             for (n, t) in zip(self.fields, self.types):
                 output(f'    {t} {n};\n')
             output('} ', self.struct_name(), ';\n\n')
-# end Arguments
 
 class General:
     """Common code between instruction formats and instruction patterns"""
@@ -484,15 +413,7 @@ class General:
         return str_indent(i) + self.__str__()
 
     def dangling_references(self):
-        # Return a list of all named references which aren't satisfied
-        # directly by this format/pattern. This will be either:
-        #  * a format referring to a field which is specified by the
-        #    pattern(s) using it
-        #  * a pattern referring to a field which is specified by the
-        #    format it uses
-        #  * a user error (referring to a field that doesn't exist at all)
         if self.dangling is None:
-            # Compute this once and cache the answer
             dangling = []
             for n, f in self.fields.items():
                 for r in f.referenced_fields():
@@ -502,8 +423,6 @@ class General:
         return self.dangling
 
     def output_fields(self, indent, lvalue_formatter):
-        # We use a topological sort to ensure that any use of NamedField
-        # comes after the initialization of the field it is referencing.
         graph = {}
         for n, f in self.fields.items():
             refs = f.referenced_fields()
@@ -512,10 +431,6 @@ class General:
         try:
             ts = TopologicalSorter(graph)
             for n in ts.static_order():
-                # We only want to emit assignments for the keys
-                # in our fields list, not for anything that ends up
-                # in the tsort graph only because it was referenced as
-                # a NamedField.
                 try:
                     f = self.fields[n]
                     output(indent, lvalue_formatter(n), ' = ',
@@ -523,12 +438,8 @@ class General:
                 except KeyError:
                     pass
         except CycleError as e:
-            # The second element of args is a list of nodes which form
-            # a cycle (there might be others too, but only one is reported).
-            # Pretty-print it to tell the user.
             cycle = ' => '.join(e.args[1])
             error(self.lineno, 'field definitions form a cycle: ' + cycle)
-# end General
 
 
 class Format(General):
@@ -543,7 +454,6 @@ class Format(General):
                self.base.struct_name(), ' *a, ', insntype, ' insn)\n{\n')
         self.output_fields(str_indent(4), lambda n: 'a->' + n)
         output('}\n\n')
-# end Format
 
 
 class Pattern(General):
@@ -562,13 +472,6 @@ class Pattern(General):
         ind = str_indent(i)
         arg = self.base.base.name
         output(ind, '/* ', self.file, ':', str(self.lineno), ' */\n')
-        # We might have named references in the format that refer to fields
-        # in the pattern, or named references in the pattern that refer
-        # to fields in the format. This affects whether we extract the fields
-        # for the format before or after the ones for the pattern.
-        # For simplicity we don't allow cross references in both directions.
-        # This is also where we catch the syntax error of referring to
-        # a nonexistent field.
         fmt_refs = self.base.dangling_references()
         for r in fmt_refs:
             if r not in self.fields:
@@ -582,20 +485,17 @@ class Pattern(General):
                                 'cannot use format that uses fields defined '
                                 'in pattern'))
         if fmt_refs:
-            # pattern fields first
             self.output_fields(ind, lambda n: 'u.f_' + arg + '.' + n)
             assert not extracted, "dangling fmt refs but it was already extracted"
         if not extracted:
             output(ind, self.base.extract_name(),
                    '(ctx, &u.f_', arg, ', insn);\n')
         if not fmt_refs:
-            # pattern fields last
             self.output_fields(ind, lambda n: 'u.f_' + arg + '.' + n)
 
         output(ind, 'if (', translate_prefix, '_', self.name,
                '(ctx, &u.f_', arg, ')) return true;\n')
 
-    # Normal patterns do not have children.
     def build_tree(self):
         return
     def prop_masks(self):
@@ -605,7 +505,6 @@ class Pattern(General):
     def prop_width(self):
         return
 
-# end Pattern
 
 
 class MultiPattern(General):
@@ -637,13 +536,11 @@ class MultiPattern(General):
         fixedmask = insnmask
         undefmask = insnmask
 
-        # Collect fixedmask/undefmask for all of the children.
         for p in self.pats:
             p.prop_masks()
             fixedmask &= p.fixedmask
             undefmask &= p.undefmask
 
-        # Widen fixedmask until all fixedbits match
         repeat = True
         fixedbits = 0
         while repeat and fixedmask != 0:
@@ -681,7 +578,6 @@ class MultiPattern(General):
                                 'width mismatch in patterns within braces')
         self.width = width
 
-# end MultiPattern
 
 
 class IncMultiPattern(MultiPattern):
@@ -706,7 +602,6 @@ class IncMultiPattern(MultiPattern):
             error_with_file(self.file, self.lineno, 'empty pattern group')
         super().build_tree()
 
-#end IncMultiPattern
 
 
 class Tree:
@@ -736,20 +631,13 @@ class Tree:
     def output_code(self, i, extracted, outerbits, outermask):
         ind = str_indent(i)
 
-        # If we identified all nodes below have the same format,
-        # extract the fields now. But don't do it if the format relies
-        # on named fields from the insn pattern, as those won't have
-        # been initialised at this point.
         if not extracted and self.base and not self.base.dangling_references():
             output(ind, self.base.extract_name(),
                    '(ctx, &u.f_', self.base.base.name, ', insn);\n')
             extracted = True
 
-        # Attempt to aid the compiler in producing compact switch statements.
-        # If the bits in the mask are contiguous, extract them.
         sh = is_contiguous(self.thismask)
         if sh > 0:
-            # Propagate SH down into the local functions.
             def str_switch(b, sh=sh):
                 return f'(insn >> {sh}) & {b >> sh:#x}'
 
@@ -773,25 +661,21 @@ class Tree:
             s.output_code(i + 4, extracted, innerbits, innermask)
             output(ind, '    break;\n')
         output(ind, '}\n')
-# end Tree
 
 
 class ExcMultiPattern(MultiPattern):
     """Class representing a non-overlapping set of instruction patterns"""
 
     def output_code(self, i, extracted, outerbits, outermask):
-        # Defer everything to our decomposed Tree node
         self.tree.output_code(i, extracted, outerbits, outermask)
 
     @staticmethod
     def __build_tree(pats, outerbits, outermask):
-        # Find the intersection of all remaining fixedmask.
         innermask = ~outermask & insnmask
         for i in pats:
             innermask &= i.fixedmask
 
         if innermask == 0:
-            # Edge condition: One pattern covers the entire insnmask
             if len(pats) == 1:
                 t = Tree(outermask, innermask)
                 t.subs.append((0, pats[0]))
@@ -804,7 +688,6 @@ class ExcMultiPattern(MultiPattern):
 
         fullmask = outermask | innermask
 
-        # Sort each element of pats into the bin selected by the mask.
         bins = {}
         for i in pats:
             fb = i.fixedbits & innermask
@@ -813,8 +696,6 @@ class ExcMultiPattern(MultiPattern):
             else:
                 bins[fb] = [i]
 
-        # We must recurse if any bin has more than one element or if
-        # the single element in the bin has not been fully matched.
         t = Tree(fullmask, innermask)
 
         for b, l in bins.items():
@@ -834,13 +715,10 @@ class ExcMultiPattern(MultiPattern):
     def __prop_format(tree):
         """Propagate Format objects into the decode tree"""
 
-        # Depth first search.
         for (b, s) in tree.subs:
             if isinstance(s, Tree):
                 ExcMultiPattern.__prop_format(s)
 
-        # If all entries in SUBS have the same format, then
-        # propagate that into the tree.
         f = None
         for (b, s) in tree.subs:
             if f is None:
@@ -855,7 +733,6 @@ class ExcMultiPattern(MultiPattern):
         super().prop_format()
         self.__prop_format(self.tree)
 
-# end ExcMultiPattern
 
 
 def parse_field(lineno, name, toks):
@@ -864,8 +741,6 @@ def parse_field(lineno, name, toks):
     global insnwidth
     global re_C_ident
 
-    # A "simple" field will have only one entry;
-    # a "multifield" will have several.
     subs = []
     width = 0
     func = None
@@ -878,7 +753,6 @@ def parse_field(lineno, name, toks):
             continue
 
         if re.fullmatch(re_C_ident + ':s[0-9]+', t):
-            # Signed named field
             subtoks = t.split(':')
             n = subtoks[0]
             le = int(subtoks[1])
@@ -887,7 +761,6 @@ def parse_field(lineno, name, toks):
             width += le
             continue
         if re.fullmatch(re_C_ident + ':[0-9]+', t):
-            # Unsigned named field
             subtoks = t.split(':')
             n = subtoks[0]
             le = int(subtoks[1])
@@ -897,11 +770,9 @@ def parse_field(lineno, name, toks):
             continue
 
         if re.fullmatch('[0-9]+:s[0-9]+', t):
-            # Signed field extract
             subtoks = t.split(':s')
             sign = True
         elif re.fullmatch('[0-9]+:[0-9]+', t):
-            # Unsigned field extract
             subtoks = t.split(':')
             sign = False
         else:
@@ -937,7 +808,6 @@ def parse_field(lineno, name, toks):
     if name in fields:
         error(lineno, 'duplicate field', name)
     fields[name] = f
-# end parse_field
 
 
 def parse_arguments(lineno, name, toks):
@@ -968,7 +838,6 @@ def parse_arguments(lineno, name, toks):
     if name in arguments:
         error(lineno, 'duplicate argument set', name)
     arguments[name] = Arguments(name, flds, types, extern)
-# end parse_arguments
 
 
 def lookup_field(lineno, name):
@@ -1016,7 +885,6 @@ def infer_format(arg, fieldmask, flds, width):
         else:
             var_flds[n] = c
 
-    # Look for an existing format with the same argument set and fields
     for fmt in formats.values():
         if arg and fmt.base != arg:
             continue
@@ -1036,7 +904,6 @@ def infer_format(arg, fieldmask, flds, width):
     formats[name] = fmt
 
     return (fmt, const_flds)
-# end infer_format
 
 
 def parse_generic(lineno, parent_pat, name, toks):
@@ -1063,7 +930,6 @@ def parse_generic(lineno, parent_pat, name, toks):
     arg = None
     fmt = None
     for t in toks:
-        # '&Foo' gives a format an explicit argument set.
         if re.fullmatch(re_arg_ident, t):
             tt = t[1:]
             if arg:
@@ -1074,7 +940,6 @@ def parse_generic(lineno, parent_pat, name, toks):
                 error(lineno, 'undefined argument set', t)
             continue
 
-        # '@Foo' gives a pattern an explicit format.
         if re.fullmatch(re_fmt_ident, t):
             tt = t[1:]
             if fmt:
@@ -1085,27 +950,22 @@ def parse_generic(lineno, parent_pat, name, toks):
                 error(lineno, 'undefined format', t)
             continue
 
-        # '%Foo' imports a field.
         if re.fullmatch(re_fld_ident, t):
             tt = t[1:]
             flds = add_field_byname(lineno, flds, tt, tt)
             continue
 
-        # 'Foo=%Bar' imports a field with a different name.
         if re.fullmatch(re_C_ident + '=' + re_fld_ident, t):
             (fname, iname) = t.split('=%')
             flds = add_field_byname(lineno, flds, fname, iname)
             continue
 
-        # 'Foo=number' sets an argument field to a constant value
         if re.fullmatch(re_C_ident + '=[+-]?[0-9]+', t):
             (fname, value) = t.split('=')
             value = int(value)
             flds = add_field(lineno, flds, fname, ConstField(value))
             continue
 
-        # Pattern of 0s, 1s, dots and dashes indicate required zeros,
-        # required ones, or dont-cares.
         if re.fullmatch('[01.-]+', t):
             shift = len(t)
             fms = t.replace('0', '1')
@@ -1122,7 +982,6 @@ def parse_generic(lineno, parent_pat, name, toks):
             fixedbits = (fixedbits << shift) | fbs
             fixedmask = (fixedmask << shift) | fms
             undefmask = (undefmask << shift) | ubm
-        # Otherwise, fieldname:fieldwidth
         elif re.fullmatch(re_C_ident + ':s?[0-9]+', t):
             (fname, flen) = t.split(':')
             sign = False
@@ -1148,23 +1007,16 @@ def parse_generic(lineno, parent_pat, name, toks):
         undefmask <<= shift
         undefmask |= (1 << shift) - 1
 
-    # We should have filled in all of the bits of the instruction.
     elif not (is_format and width == 0) and width != insnwidth:
         error(lineno, f'definition has {width} bits')
 
-    # Do not check for fields overlapping fields; one valid usage
-    # is to be able to duplicate fields via import.
     fieldmask = 0
     for f in flds.values():
         fieldmask |= f.mask
 
-    # Fix up what we've parsed to match either a format or a pattern.
     if is_format:
-        # Formats cannot reference formats.
         if fmt:
             error(lineno, 'format referencing format')
-        # If an argument set is given, then there should be no fields
-        # without a place to store it.
         if arg:
             for f in flds.keys():
                 if f not in arg.fields:
@@ -1177,9 +1029,7 @@ def parse_generic(lineno, parent_pat, name, toks):
                      undefmask, fieldmask, flds, width)
         formats[name] = fmt
     else:
-        # Patterns can reference a format ...
         if fmt:
-            # ... but not an argument simultaneously
             if arg:
                 error(lineno, 'pattern specifies both format and argument set')
             if fixedmask & fmt.fixedmask:
@@ -1206,7 +1056,6 @@ def parse_generic(lineno, parent_pat, name, toks):
         parent_pat.pats.append(pat)
         allpatterns.append(pat)
 
-    # Validate the masks that we have assembled.
     if fieldmask & fixedmask:
         error(lineno, 'fieldmask overlaps fixedmask ',
               f'({whex(fieldmask)} & {whex(fixedmask)})')
@@ -1221,7 +1070,6 @@ def parse_generic(lineno, parent_pat, name, toks):
         if allbits != insnmask:
             error(lineno, 'bits left unspecified ',
                   f'({whex(allbits ^ insnmask)})')
-# end parse_general
 
 
 def parse_file(f, parent_pat):
@@ -1231,8 +1079,6 @@ def parse_file(f, parent_pat):
     global re_fmt_ident
     global re_pat_ident
 
-    # Read all of the lines of the file.  Concatenate lines
-    # ending in backslash; discard empty lines and comments.
     toks = []
     lineno = 0
     nesting = 0
@@ -1241,37 +1087,30 @@ def parse_file(f, parent_pat):
     for line in f:
         lineno += 1
 
-        # Expand and strip spaces, to find indent.
         line = line.rstrip()
         line = line.expandtabs()
         len1 = len(line)
         line = line.lstrip()
         len2 = len(line)
 
-        # Discard comments
         end = line.find('#')
         if end >= 0:
             line = line[:end]
 
         t = line.split()
         if len(toks) != 0:
-            # Next line after continuation
             toks.extend(t)
         else:
-            # Allow completely blank lines.
             if len1 == 0:
                 continue
             indent = len1 - len2
-            # Empty line due to comment.
             if len(t) == 0:
-                # Indentation must be correct, even for comment lines.
                 if indent != nesting:
                     error(lineno, 'indentation ', indent, ' != ', nesting)
                 continue
             start_lineno = lineno
             toks = t
 
-        # Continuation?
         if toks[-1] == '\\':
             toks.pop()
             continue
@@ -1279,12 +1118,10 @@ def parse_file(f, parent_pat):
         name = toks[0]
         del toks[0]
 
-        # End nesting?
         if name == '}' or name == ']':
             if len(toks) != 0:
                 error(start_lineno, 'extra tokens after close brace')
 
-            # Make sure { } and [ ] nest properly.
             if (name == '}') != isinstance(parent_pat, IncMultiPattern):
                 error(lineno, 'mismatched close brace')
 
@@ -1300,11 +1137,9 @@ def parse_file(f, parent_pat):
             toks = []
             continue
 
-        # Everything else should have current indentation.
         if indent != nesting:
             error(start_lineno, 'indentation ', indent, ' != ', nesting)
 
-        # Start nesting?
         if name == '{' or name == '[':
             if len(toks) != 0:
                 error(start_lineno, 'extra tokens after open brace')
@@ -1321,7 +1156,6 @@ def parse_file(f, parent_pat):
             toks = []
             continue
 
-        # Determine the type of object needing to be parsed.
         if re.fullmatch(re_fld_ident, name):
             parse_field(start_lineno, name[1:], toks)
         elif re.fullmatch(re_arg_ident, name):
@@ -1336,7 +1170,6 @@ def parse_file(f, parent_pat):
 
     if nesting != 0:
         error(lineno, 'missing close brace')
-# end parse_file
 
 
 class SizeTree:
@@ -1363,17 +1196,13 @@ class SizeTree:
     def output_code(self, i, extracted, outerbits, outermask):
         ind = str_indent(i)
 
-        # If we need to load more bytes to test, do so now.
         if extracted < self.width:
             output(ind, f'insn = {decode_function}_load_bytes',
                    f'(ctx, insn, {extracted // 8}, {self.width // 8});\n')
             extracted = self.width
 
-        # Attempt to aid the compiler in producing compact switch statements.
-        # If the bits in the mask are contiguous, extract them.
         sh = is_contiguous(self.mask)
         if sh > 0:
-            # Propagate SH down into the local functions.
             def str_switch(b, sh=sh):
                 return f'(insn >> {sh}) & {b >> sh:#x}'
 
@@ -1396,7 +1225,6 @@ class SizeTree:
             s.output_code(i + 4, extracted, innerbits, innermask)
         output(ind, '}\n')
         output(ind, 'return insn;\n')
-# end SizeTree
 
 class SizeLeaf:
     """Class representing a leaf node in a size decode tree"""
@@ -1415,19 +1243,16 @@ class SizeLeaf:
         global decode_function
         ind = str_indent(i)
 
-        # If we need to load more bytes, do so now.
         if extracted < self.width:
             output(ind, f'insn = {decode_function}_load_bytes',
                    f'(ctx, insn, {extracted // 8}, {self.width // 8});\n')
             extracted = self.width
         output(ind, 'return insn;\n')
-# end SizeLeaf
 
 
 def build_size_tree(pats, width, outerbits, outermask):
     global insnwidth
 
-    # Collect the mask of bits that are fixed in this width
     innermask = 0xff << (insnwidth - width)
     innermask &= ~outermask
     minwidth = None
@@ -1473,7 +1298,6 @@ def build_size_tree(pats, width, outerbits, outermask):
         s = build_size_tree(l, width, b | outerbits, fullmask)
         r.subs.append((b, s))
     return r
-# end build_size_tree
 
 
 def prop_size(tree):
@@ -1490,7 +1314,6 @@ def prop_size(tree):
     else:
         min = tree.width
     return min
-# end prop_size
 
 
 def main():
@@ -1563,9 +1386,6 @@ def main():
         parse_file(f, toppat)
         f.close()
 
-    # We do not want to compute masks for toppat, because those masks
-    # are used as a starting point for build_tree.  For toppat, we must
-    # insist that decode begins from naught.
     for i in toppat.pats:
         i.prop_masks()
 
@@ -1592,13 +1412,6 @@ def main():
         f = arguments[n]
         f.output_def()
 
-    # A single translate function can be invoked for different patterns.
-    # Make sure that the argument sets are the same, and declare the
-    # function only once.
-    #
-    # If we're sharing formats, we're likely also sharing trans_* functions,
-    # but we can't tell which ones.  Prevent issues from the compiler by
-    # suppressing redundant declaration warnings.
     if anyextern:
         output("#pragma GCC diagnostic push\n",
                "#pragma GCC diagnostic ignored \"-Wredundant-decls\"\n",
@@ -1650,7 +1463,6 @@ def main():
     if output_file:
         output_fd.close()
     exit(1 if testforerror else 0)
-# end main
 
 
 if __name__ == '__main__':

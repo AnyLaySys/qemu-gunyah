@@ -1,12 +1,3 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Load/store for 128-bit atomic operations, generic version.
- *
- * Copyright (C) 2018, 2023 Linaro, Ltd.
- *
- * See docs/devel/atomics.rst for discussion about the guarantees each
- * atomic primitive is meant to provide.
- */
 
 #ifndef HOST_ATOMIC128_LDST_H
 #define HOST_ATOMIC128_LDST_H
@@ -50,7 +41,6 @@ Int128 QEMU_ERROR("unsupported atomic") atomic16_read_ro(const Int128 *ptr);
 static inline Int128 ATTRIBUTE_ATOMIC128_OPT
 atomic16_read_rw(Int128 *ptr)
 {
-    /* Maybe replace 0 with 0, returning the old value.  */
     Int128 z = int128_make64(0);
     return atomic16_cmpxchg(ptr, z, z);
 }
@@ -72,7 +62,6 @@ atomic16_set(Int128 *ptr, Int128 val)
 # define HAVE_ATOMIC128_RO 0
 # define HAVE_ATOMIC128_RW 0
 
-/* Fallback definitions that must be optimized away, or error.  */
 Int128 QEMU_ERROR("unsupported atomic") atomic16_read_ro(const Int128 *ptr);
 Int128 QEMU_ERROR("unsupported atomic") atomic16_read_rw(Int128 *ptr);
 void QEMU_ERROR("unsupported atomic") atomic16_set(Int128 *ptr, Int128 val);

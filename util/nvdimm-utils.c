@@ -14,13 +14,6 @@ static int nvdimm_device_list(Object *obj, void *opaque)
     return 0;
 }
 
-/*
- * inquire NVDIMM devices and link them into the list which is
- * returned to the caller.
- *
- * Note: it is the caller's responsibility to free the list to avoid
- * memory leak.
- */
 GSList *nvdimm_get_device_list(void)
 {
     GSList *list = NULL;

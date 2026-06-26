@@ -1,22 +1,3 @@
-/*
- * ITS base class for a GICv3-based system
- *
- * Copyright (c) 2015 Samsung Electronics Co., Ltd.
- * Written by Pavel Fedin
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/pci/msi.h"
@@ -111,9 +92,6 @@ void gicv3_its_init_mmio(GICv3ITSState *s, const MemoryRegionOps *ops,
                           tops ? tops : &gicv3_its_trans_ops, s,
                           "translation", ITS_TRANS_SIZE);
 
-    /* Our two regions are always adjacent, therefore we now combine them
-     * into a single one in order to make our users' life easier.
-     */
     memory_region_init(&s->iomem_main, OBJECT(s), "gicv3_its", ITS_SIZE);
     memory_region_add_subregion(&s->iomem_main, 0, &s->iomem_its_cntrl);
     memory_region_add_subregion(&s->iomem_main, ITS_CONTROL_SIZE,
@@ -165,7 +143,6 @@ const char *its_class_name(void)
     if (gunyah_enabled()) {
         return "arm-its-gunyah";
     } else {
-        /* Software emulation based model */
         return "arm-gicv3-its";
     }
 }

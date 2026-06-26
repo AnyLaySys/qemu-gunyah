@@ -3,7 +3,6 @@
 
 #include "fpu/softfloat-types.h"
 
-/* Unions for reinterpreting between floats and integers.  */
 
 typedef union {
     float32 f;

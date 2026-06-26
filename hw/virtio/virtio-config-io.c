@@ -1,13 +1,3 @@
-/*
- * Virtio Support
- *
- * Copyright IBM, Corp. 2007
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "hw/virtio/virtio.h"

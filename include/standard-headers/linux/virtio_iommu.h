@@ -1,15 +1,8 @@
-/* SPDX-License-Identifier: BSD-3-Clause */
-/*
- * Virtio-iommu definition v0.12
- *
- * Copyright (C) 2019 Arm Ltd.
- */
 #ifndef _LINUX_VIRTIO_IOMMU_H
 #define _LINUX_VIRTIO_IOMMU_H
 
 #include "standard-headers/linux/types.h"
 
-/* Feature bits */
 #define VIRTIO_IOMMU_F_INPUT_RANGE		0
 #define VIRTIO_IOMMU_F_DOMAIN_RANGE		1
 #define VIRTIO_IOMMU_F_MAP_UNMAP		2
@@ -29,26 +22,20 @@ struct virtio_iommu_range_32 {
 };
 
 struct virtio_iommu_config {
-	/* Supported page sizes */
 	uint64_t					page_size_mask;
-	/* Supported IOVA range */
 	struct virtio_iommu_range_64		input_range;
-	/* Max domain ID size */
 	struct virtio_iommu_range_32		domain_range;
-	/* Probe buffer size */
 	uint32_t					probe_size;
 	uint8_t					bypass;
 	uint8_t					reserved[3];
 };
 
-/* Request types */
 #define VIRTIO_IOMMU_T_ATTACH			0x01
 #define VIRTIO_IOMMU_T_DETACH			0x02
 #define VIRTIO_IOMMU_T_MAP			0x03
 #define VIRTIO_IOMMU_T_UNMAP			0x04
 #define VIRTIO_IOMMU_T_PROBE			0x05
 
-/* Status types */
 #define VIRTIO_IOMMU_S_OK			0x00
 #define VIRTIO_IOMMU_S_IOERR			0x01
 #define VIRTIO_IOMMU_S_UNSUPP			0x02
@@ -143,13 +130,8 @@ struct virtio_iommu_req_probe {
 
 	uint8_t					properties[];
 
-	/*
-	 * Tail follows the variable-length properties array. No padding,
-	 * property lengths are all aligned on 8 bytes.
-	 */
 };
 
-/* Fault types */
 #define VIRTIO_IOMMU_FAULT_R_UNKNOWN		0
 #define VIRTIO_IOMMU_FAULT_R_DOMAIN		1
 #define VIRTIO_IOMMU_FAULT_R_MAPPING		2

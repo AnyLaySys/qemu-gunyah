@@ -1,15 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# QAPI code generation
-#
-# Copyright (c) 2015-2019 Red Hat Inc.
-#
-# Authors:
-#  Markus Armbruster <armbru@redhat.com>
-#  Marc-André Lureau <marcandre.lureau@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 from contextlib import contextmanager
 import os
@@ -63,17 +51,12 @@ class QAPIGen:
         return self._top() + self._preamble + self._body + self._bottom()
 
     def _top(self) -> str:
-        # pylint: disable=no-self-use
         return ''
 
     def _bottom(self) -> str:
-        # pylint: disable=no-self-use
         return ''
 
     def write(self, output_dir: str) -> None:
-        # Include paths starting with ../ are used to reuse modules of the main
-        # schema in specialised schemas. Don't overwrite the files that are
-        # already generated for the main schema.
         if self.fname.startswith('../'):
             return
         pathname = os.path.join(output_dir, self.fname)
@@ -82,7 +65,6 @@ class QAPIGen:
         if odir:
             os.makedirs(odir, exist_ok=True)
 
-        # use os.open for O_CREAT to create and read a non-existent file
         fd = os.open(pathname, os.O_RDWR | os.O_CREAT, 0o666)
         with os.fdopen(fd, 'r+', encoding='utf-8') as fp:
             text = self.get_content()
@@ -352,8 +334,6 @@ class QAPISchemaModularCVisitor(QAPISchemaVisitor):
                 self._add_module(name, self._builtin_blurb)
                 self._begin_builtin_module()
             else:
-                # The built-in module has not been created.  No code may
-                # be generated.
                 self._current_module = None
         else:
             assert QAPISchemaModule.is_user_module(name)

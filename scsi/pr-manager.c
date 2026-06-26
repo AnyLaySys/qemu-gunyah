@@ -1,13 +1,3 @@
-/*
- * Persistent reservation manager abstract class
- *
- * Copyright (c) 2017 Red Hat, Inc.
- *
- * Author: Paolo Bonzini <pbonzini@redhat.com>
- *
- * This code is licensed under the LGPL.
- *
- */
 
 #include "qemu/osdep.h"
 #include <scsi/sg.h>
@@ -41,7 +31,6 @@ static int pr_manager_worker(void *opaque)
 
     trace_pr_manager_run(fd, hdr->cmdp[0], hdr->cmdp[1]);
 
-    /* The reference was taken in pr_manager_execute.  */
     r = pr_mgr_class->run(pr_mgr, fd, hdr);
     object_unref(OBJECT(pr_mgr));
     return r;
@@ -59,7 +48,6 @@ int coroutine_fn pr_manager_execute(PRManager *pr_mgr, AioContext *ctx, int fd,
 
     trace_pr_manager_execute(fd, hdr->cmdp[0], hdr->cmdp[1]);
 
-    /* The matching object_unref is in pr_manager_worker.  */
     object_ref(OBJECT(pr_mgr));
     return thread_pool_submit_co(pr_manager_worker, &data);
 }

@@ -1,37 +1,9 @@
-/*
- *  Reset handlers.
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2016 Red Hat, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "system/reset.h"
 #include "hw/resettable.h"
 #include "hw/core/resetcontainer.h"
 
-/*
- * Return a pointer to the singleton container that holds all the Resettable
- * items that will be reset when qemu_devices_reset() is called.
- */
 static ResettableContainer *get_root_reset_container(void)
 {
     static ResettableContainer *root_reset_container;
@@ -43,10 +15,6 @@ static ResettableContainer *get_root_reset_container(void)
     return root_reset_container;
 }
 
-/*
- * This is an Object which implements Resettable simply to call the
- * callback function in the hold phase.
- */
 #define TYPE_LEGACY_RESET "legacy-reset"
 OBJECT_DECLARE_SIMPLE_TYPE(LegacyReset, LEGACY_RESET)
 
@@ -124,7 +92,6 @@ static void find_legacy_reset_cb(Object *obj, void *opaque, ResetType type)
     LegacyReset *lr;
     FindLegacyInfo *fli = opaque;
 
-    /* Not everything in the ResettableContainer will be a LegacyReset */
     lr = LEGACY_RESET(object_dynamic_cast(obj, TYPE_LEGACY_RESET));
     if (lr && lr->func == fli->func && lr->opaque == fli->opaque) {
         fli->lr = lr;
@@ -133,11 +100,6 @@ static void find_legacy_reset_cb(Object *obj, void *opaque, ResetType type)
 
 static LegacyReset *find_legacy_reset(QEMUResetHandler *func, void *opaque)
 {
-    /*
-     * Find the LegacyReset with the specified func and opaque,
-     * by getting the ResettableContainer to call our callback for
-     * every item in it.
-     */
     ResettableContainer *rootcon = get_root_reset_container();
     ResettableClass *rc = RESETTABLE_GET_CLASS(rootcon);
     FindLegacyInfo fli;
@@ -172,6 +134,5 @@ void qemu_unregister_resettable(Object *obj)
 
 void qemu_devices_reset(ResetType type)
 {
-    /* Reset the simulation */
     resettable_reset(OBJECT(get_root_reset_container()), type);
 }

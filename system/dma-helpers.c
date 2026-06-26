@@ -1,11 +1,3 @@
-/*
- * DMA helper functions
- *
- * Copyright (c) 2009,2020 Red Hat
- *
- * This work is licensed under the terms of the GNU General Public License
- * (GNU GPL), version 2 or later.
- */
 
 #include "qemu/osdep.h"
 #include "system/block-backend.h"
@@ -16,7 +8,6 @@
 #include "system/cpu-timers.h"
 #include "qemu/range.h"
 
-/* #define DEBUG_IOMMU */
 
 MemTxResult dma_memory_set(AddressSpace *as, dma_addr_t addr,
                            uint8_t c, dma_addr_t len, MemTxAttrs attrs)
@@ -119,7 +110,6 @@ static void dma_blk_cb(void *opaque, int ret)
 
     trace_dma_blk_cb(dbs, ret);
 
-    /* DMAAIOCB is not thread-safe and must be accessed only from dbs->ctx */
     assert(ctx == qemu_get_current_aio_context());
 
     dbs->acb = NULL;
@@ -136,13 +126,6 @@ static void dma_blk_cb(void *opaque, int ret)
         cur_len = dbs->sg->sg[dbs->sg_cur_index].len - dbs->sg_cur_byte;
         mem = dma_memory_map(dbs->sg->as, cur_addr, &cur_len, dbs->dir,
                              MEMTXATTRS_UNSPECIFIED);
-        /*
-         * Make reads deterministic in icount mode. Windows sometimes issues
-         * disk read requests with overlapping SGs. It leads
-         * to non-determinism, because resulting buffer contents may be mixed
-         * from several sectors. This code splits all SGs into several
-         * groups. SGs in every group do not overlap.
-         */
         if (mem && icount_enabled() && dbs->dir == DMA_DIRECTION_FROM_DEVICE) {
             int i;
             for (i = 0 ; i < dbs->iov.niov ; ++i) {
@@ -191,7 +174,6 @@ static void dma_aio_cancel(BlockAIOCB *acb)
 
     assert(!(dbs->acb && dbs->bh));
     if (dbs->acb) {
-        /* This will invoke dma_blk_cb.  */
         blk_aio_cancel_async(dbs->acb);
         return;
     }
@@ -334,10 +316,8 @@ uint64_t dma_aligned_pow2_mask(uint64_t start, uint64_t end, int max_addr_bits)
     size_mask = MIN(addr_mask, max_mask);
 
     if (alignment_mask <= size_mask) {
-        /* Increase the alignment of start */
         return alignment_mask;
     } else {
-        /* Find the largest page mask from size */
         if (addr_mask == UINT64_MAX) {
             return UINT64_MAX;
         }

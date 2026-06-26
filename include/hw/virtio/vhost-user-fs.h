@@ -1,15 +1,3 @@
-/*
- * Vhost-user filesystem virtio device
- *
- * Copyright 2018-2019 Red Hat, Inc.
- *
- * Authors:
- *  Stefan Hajnoczi <stefanha@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #ifndef QEMU_VHOST_USER_FS_H
 #define QEMU_VHOST_USER_FS_H
@@ -31,7 +19,6 @@ typedef struct {
 } VHostUserFSConf;
 
 struct VHostUserFS {
-    /*< private >*/
     VirtIODevice parent;
     VHostUserFSConf conf;
     struct vhost_virtqueue *vhost_vqs;
@@ -41,7 +28,6 @@ struct VHostUserFS {
     VirtQueue *hiprio_vq;
     int32_t bootindex;
 
-    /*< public >*/
 };
 
 #endif /* QEMU_VHOST_USER_FS_H */

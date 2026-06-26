@@ -1,10 +1,3 @@
-/*
- * QEMU Firmware configuration device emulation (QOM interfaces)
- *
- * Copyright 2020 Red Hat, Inc.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "hw/nvram/fw_cfg.h"

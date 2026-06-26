@@ -1,14 +1,3 @@
-/*
- * QEMU vhost-user backend
- *
- * Copyright (C) 2018 Red Hat Inc
- *
- * Authors:
- *  Marc-André Lureau <marcandre.lureau@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 #ifndef QEMU_VHOST_USER_BACKEND_H
 #define QEMU_VHOST_USER_BACKEND_H
 
@@ -28,7 +17,6 @@ OBJECT_DECLARE_SIMPLE_TYPE(VhostUserBackend,
 
 
 struct VhostUserBackend {
-    /* private */
     Object parent;
 
     char *chr_name;

@@ -1,12 +1,10 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
-/* Misc. things related to the system emulator.  */
 
 #include "qemu/timer.h"
 #include "qemu/notify.h"
 #include "qemu/uuid.h"
 
-/* vl.c */
 
 extern int only_migratable;
 extern const char *qemu_name;
@@ -15,7 +13,6 @@ extern bool qemu_uuid_set;
 
 const char *qemu_get_vm_name(void);
 
-/* Exit notifiers will run with BQL held. */
 void qemu_add_exit_notifier(Notifier *notify);
 void qemu_remove_exit_notifier(Notifier *notify);
 
@@ -65,12 +62,9 @@ extern int nb_option_roms;
 extern const char *prom_envs[MAX_PROM_ENVS];
 extern unsigned int nb_prom_envs;
 
-/* serial ports */
 
-/* Return the Chardev for serial port i, or NULL if none */
 Chardev *serial_hd(int i);
 
-/* parallel ports */
 
 #define MAX_PARALLEL_PORTS 3
 
@@ -93,7 +87,6 @@ void add_boot_device_lchs(DeviceState *dev, const char *suffix,
 void del_boot_device_lchs(DeviceState *dev, const char *suffix);
 char *get_boot_devices_lchs_list(size_t *size);
 
-/* handler to set the boot_device order for a specific type of MachineClass */
 typedef void QEMUBootSetHandler(void *opaque, const char *boot_order,
                                 Error **errp);
 void qemu_register_boot_set(QEMUBootSetHandler *func, void *opaque);

@@ -1,22 +1,3 @@
-/*
- * ARM GIC support - common bits of emulated and KVM kernel model
- *
- * Copyright (c) 2012 Linaro Limited
- * Written by Peter Maydell
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -79,13 +60,11 @@ static const VMStateDescription vmstate_gic_virt_state = {
     .minimum_version_id = 1,
     .needed = gic_virt_state_needed,
     .fields = (const VMStateField[]) {
-        /* Virtual interface */
         VMSTATE_UINT32_ARRAY(h_hcr, GICState, GIC_NCPU),
         VMSTATE_UINT32_ARRAY(h_misr, GICState, GIC_NCPU),
         VMSTATE_UINT32_2DARRAY(h_lr, GICState, GIC_MAX_LR, GIC_NCPU),
         VMSTATE_UINT32_ARRAY(h_apr, GICState, GIC_NCPU),
 
-        /* Virtual CPU interfaces */
         VMSTATE_UINT32_SUB_ARRAY(cpu_ctlr, GICState, GIC_NCPU, GIC_NCPU),
         VMSTATE_UINT16_SUB_ARRAY(priority_mask, GICState, GIC_NCPU, GIC_NCPU),
         VMSTATE_UINT16_SUB_ARRAY(running_priority, GICState, GIC_NCPU, GIC_NCPU),
@@ -134,13 +113,6 @@ void gic_init_irqs_and_mmio(GICState *s, qemu_irq_handler handler,
     SysBusDevice *sbd = SYS_BUS_DEVICE(s);
     int i = s->num_irq - GIC_INTERNAL;
 
-    /* For the GIC, also expose incoming GPIO lines for PPIs for each CPU.
-     * GPIO array layout is thus:
-     *  [0..N-1] SPIs
-     *  [N..N+31] PPIs for CPU 0
-     *  [N+32..N+63] PPIs for CPU 1
-     *   ...
-     */
     i += (GIC_INTERNAL * s->num_cpu);
     qdev_init_gpio_in(DEVICE(s), handler, i);
 
@@ -162,13 +134,9 @@ void gic_init_irqs_and_mmio(GICState *s, qemu_irq_handler handler,
         }
     }
 
-    /* Distributor */
     memory_region_init_io(&s->iomem, OBJECT(s), ops, s, "gic_dist", 0x1000);
     sysbus_init_mmio(sbd, &s->iomem);
 
-    /* This is the main CPU interface "for this core". It is always
-     * present because it is required by both software emulation and KVM.
-     */
     memory_region_init_io(&s->cpuiomem[0], OBJECT(s), ops ? &ops[1] : NULL,
                           s, "gic_cpu", s->revision == 2 ? 0x2000 : 0x100);
     sysbus_init_mmio(sbd, &s->cpuiomem[0]);
@@ -201,10 +169,6 @@ static void arm_gic_common_realize(DeviceState *dev, Error **errp)
                    num_irq, GIC_MAXIRQ);
         return;
     }
-    /* ITLinesNumber is represented as (N / 32) - 1 (see
-     * gic_dist_readb) so this is an implementation imposed
-     * restriction, not an architectural one:
-     */
     if (s->num_irq < 32 || (s->num_irq % 32)) {
         error_setg(errp,
                    "%d interrupt lines unsupported: not divisible by 32",
@@ -226,10 +190,6 @@ static void arm_gic_common_realize(DeviceState *dev, Error **errp)
             return;
         }
 
-        /* For now, set the number of implemented LRs to 4, as found in most
-         * real GICv2. This could be promoted as a QOM property if we need to
-         * emulate a variant with another num_lrs.
-         */
         s->num_lrs = 4;
     }
 }
@@ -268,13 +228,6 @@ static void arm_gic_common_reset_hold(Object *obj, ResetType type)
     int i, j;
     int resetprio;
 
-    /* If we're resetting a TZ-aware GIC as if secure firmware
-     * had set it up ready to start a kernel in non-secure,
-     * we need to set interrupt priorities to a "zero for the
-     * NS view" value. This is particularly critical for the
-     * priority_mask[] values, because if they are zero then NS
-     * code cannot ever rewrite the priority to anything else.
-     */
     if (s->security_extn && s->irq_reset_nonsecure) {
         resetprio = 0x80;
     } else {
@@ -285,9 +238,6 @@ static void arm_gic_common_reset_hold(Object *obj, ResetType type)
     arm_gic_common_reset_irq_state(s, 0, resetprio);
 
     if (s->virt_extn) {
-        /* vCPU states are stored at indexes GIC_NCPU .. GIC_NCPU+num_cpu.
-         * The exposed vCPU interface does not have security extensions.
-         */
         arm_gic_common_reset_irq_state(s, GIC_NCPU, 0);
     }
 
@@ -301,7 +251,6 @@ static void arm_gic_common_reset_hold(Object *obj, ResetType type)
     }
 
     for (i = 0; i < GIC_MAXIRQ; i++) {
-        /* For uniprocessor GICs all interrupts always target the sole CPU */
         if (s->num_cpu == 1) {
             s->irq_target[i] = 1;
         } else {
@@ -336,13 +285,6 @@ static void arm_gic_common_linux_init(ARMLinuxBootIf *obj,
     GICState *s = ARM_GIC_COMMON(obj);
 
     if (s->security_extn && !secure_boot) {
-        /* We're directly booting a kernel into NonSecure. If this GIC
-         * implements the security extensions then we must configure it
-         * to have all the interrupts be NonSecure (this is a job that
-         * is done by the Secure boot firmware in real hardware, and in
-         * this mode QEMU is acting as a minimalist firmware-and-bootloader
-         * equivalent).
-         */
         s->irq_reset_nonsecure = true;
     }
 }
@@ -350,13 +292,8 @@ static void arm_gic_common_linux_init(ARMLinuxBootIf *obj,
 static const Property arm_gic_common_properties[] = {
     DEFINE_PROP_UINT32("num-cpu", GICState, num_cpu, 1),
     DEFINE_PROP_UINT32("num-irq", GICState, num_irq, 32),
-    /* Revision can be 1 or 2 for GIC architecture specification
-     * versions 1 or 2, or 0 to indicate the legacy 11MPCore GIC.
-     */
     DEFINE_PROP_UINT32("revision", GICState, revision, 1),
-    /* True if the GIC should implement the security extensions */
     DEFINE_PROP_BOOL("has-security-extensions", GICState, security_extn, 0),
-    /* True if the GIC should implement the virtualization extensions */
     DEFINE_PROP_BOOL("has-virtualization-extensions", GICState, virt_extn, 0),
     DEFINE_PROP_UINT32("num-priority-bits", GICState, n_prio_bits, 8),
 };

@@ -1,22 +1,3 @@
-/*
- * ARM GIC support - internal interfaces
- *
- * Copyright (c) 2012 Linaro Limited
- * Written by Peter Maydell
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef QEMU_ARM_GIC_INTERNAL_H
 #define QEMU_ARM_GIC_INTERNAL_H
@@ -118,7 +99,6 @@ REG32(GICH_LR0, 0x100)
     FIELD(GICH_LR0, Grp1, 30, 1)
     FIELD(GICH_LR0, HW, 31, 1)
 
-/* Last LR register */
 REG32(GICH_LR63, 0x1fc)
 
 #define GICH_LR_MASK \
@@ -148,15 +128,11 @@ REG32(GICH_LR63, 0x1fc)
 #define GICH_LR_CLEAR_ACTIVE(entry) \
         ((entry) &= ~(GICH_LR_STATE_ACTIVE << R_GICH_LR0_State_SHIFT))
 
-/* Valid bits for GICC_CTLR for GICv1, v1 with security extensions,
- * GICv2 and GICv2 with security extensions:
- */
 #define GICC_CTLR_V1_MASK    0x1
 #define GICC_CTLR_V1_S_MASK  0x1f
 #define GICC_CTLR_V2_MASK    0x21f
 #define GICC_CTLR_V2_S_MASK  0x61f
 
-/* The special cases for the revision property: */
 #define REV_11MPCORE 0
 
 uint32_t gic_acknowledge_irq(GICState *s, int cpu, MemTxAttrs attrs);
@@ -168,11 +144,6 @@ static inline bool gic_test_pending(GICState *s, int irq, int cm)
     if (s->revision == REV_11MPCORE) {
         return s->irq_state[irq].pending & cm;
     } else {
-        /* Edge-triggered interrupts are marked pending on a rising edge, but
-         * level-triggered interrupts are either considered pending when the
-         * level is active or if software has explicitly written to
-         * GICD_ISPENDR to set the state pending.
-         */
         return (s->irq_state[irq].pending & cm) ||
             (!GIC_DIST_TEST_EDGE_TRIGGER(irq) && GIC_DIST_TEST_LEVEL(irq, cm));
     }
@@ -188,13 +159,6 @@ static inline int gic_get_vcpu_real_id(int cpu)
     return (cpu >= GIC_NCPU) ? (cpu - GIC_NCPU) : cpu;
 }
 
-/* Return true if the given vIRQ state exists in a LR and is either active or
- * pending and active.
- *
- * This function is used to check that a guest's `end of interrupt' or
- * `interrupts deactivation' request is valid, and matches with a LR of an
- * already acknowledged vIRQ (i.e. has the active bit set in its state).
- */
 static inline bool gic_virq_is_valid(GICState *s, int irq, int vcpu)
 {
     int cpu = gic_get_vcpu_real_id(vcpu);
@@ -212,20 +176,6 @@ static inline bool gic_virq_is_valid(GICState *s, int irq, int vcpu)
     return false;
 }
 
-/* Return a pointer on the LR entry matching the given vIRQ.
- *
- * This function is used to retrieve an LR for which we know for sure that the
- * corresponding vIRQ exists in the current context (i.e. its current state is
- * not `invalid'):
- *   - Either the corresponding vIRQ has been validated with gic_virq_is_valid()
- *     so it is `active' or `active and pending',
- *   - Or it was pending and has been selected by gic_get_best_virq(). It is now
- *     `pending', `active' or `active and pending', depending on what the guest
- *     already did with this vIRQ.
- *
- * Having multiple LRs with the same VirtualID leads to UNPREDICTABLE
- * behaviour in the GIC. We choose to return the first one that matches.
- */
 static inline uint32_t *gic_get_lr_entry(GICState *s, int irq, int vcpu)
 {
     int cpu = gic_get_vcpu_real_id(vcpu);
@@ -259,10 +209,6 @@ static inline void gic_clear_pending(GICState *s, int irq, int cpu)
         uint32_t *entry = gic_get_lr_entry(s, irq, cpu);
         GICH_LR_CLEAR_PENDING(*entry);
     } else {
-        /* Clear pending state for both level and edge triggered
-         * interrupts. (level triggered interrupts with an active line
-         * remain pending, see gic_test_pending)
-         */
         GIC_DIST_CLEAR_PENDING(irq, GIC_DIST_TEST_MODEL(irq) ? ALL_CPU_MASK
                                                              : (1 << cpu));
     }
@@ -287,21 +233,13 @@ static inline void gic_clear_active(GICState *s, int irq, int cpu)
         GICH_LR_CLEAR_ACTIVE(*entry);
 
         if (GICH_LR_HW(*entry)) {
-            /* Hardware interrupt. We must forward the deactivation request to
-             * the distributor.
-             */
             int phys_irq = GICH_LR_PHYS_ID(*entry);
             int rcpu = gic_get_vcpu_real_id(cpu);
 
             if (phys_irq < GIC_NR_SGIS || phys_irq >= GIC_MAXIRQ) {
-                /* UNPREDICTABLE behaviour, we choose to ignore the request */
                 return;
             }
 
-            /* This is equivalent to a NS write to DIR on the physical CPU
-             * interface. Hence group0 interrupt deactivation is ignored if
-             * the GIC is secure.
-             */
             if (!s->security_extn || GIC_DIST_TEST_GROUP(phys_irq, 1 << rcpu)) {
                 cm = phys_irq < GIC_INTERNAL ? 1 << rcpu : ALL_CPU_MASK;
                 GIC_DIST_CLEAR_ACTIVE(phys_irq, cm);

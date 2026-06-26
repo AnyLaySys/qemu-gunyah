@@ -1,8 +1,3 @@
-/*
- * BlockBackend RAM Registrar
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "system/block-backend.h"
@@ -40,10 +35,6 @@ void blk_ram_registrar_init(BlockRAMRegistrar *r, BlockBackend *blk)
         .ram_block_added = ram_block_added,
         .ram_block_removed = ram_block_removed,
 
-        /*
-         * .ram_block_resized() is not necessary because we use the max_size
-         * value that does not change across resize.
-         */
     };
     r->ok = true;
 

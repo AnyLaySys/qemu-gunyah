@@ -1,4 +1,3 @@
-# core qdev-related obj files, also used by *-user and unit tests
 hwcore_ss.add(files(
   'bus.c',
   'qdev-properties.c',
@@ -6,7 +5,6 @@ hwcore_ss.add(files(
   'resetcontainer.c',
   'resettable.c',
   'vmstate-if.c',
-  # irq.c needed for qdev GPIO handling:
   'irq.c',
   'clock.c',
   'qdev-clock.c',

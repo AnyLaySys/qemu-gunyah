@@ -1,9 +1,3 @@
-/* SPDX-License-Identifier: MIT */
-/*
- * Target independent opcode generation functions.
- *
- * Copyright (c) 2008 Fabrice Bellard
- */
 
 #ifndef TCG_TCG_OP_COMMON_H
 #define TCG_TCG_OP_COMMON_H
@@ -28,56 +22,20 @@ TCGv_i32 tcg_global_mem_new_i32(TCGv_ptr reg, intptr_t off, const char *name);
 TCGv_i64 tcg_global_mem_new_i64(TCGv_ptr reg, intptr_t off, const char *name);
 TCGv_ptr tcg_global_mem_new_ptr(TCGv_ptr reg, intptr_t off, const char *name);
 
-/* Generic ops.  */
 
 void gen_set_label(TCGLabel *l);
 void tcg_gen_br(TCGLabel *l);
 void tcg_gen_mb(TCGBar);
 
-/**
- * tcg_gen_exit_tb() - output exit_tb TCG operation
- * @tb: The TranslationBlock from which we are exiting
- * @idx: Direct jump slot index, or exit request
- *
- * See tcg/README for more info about this TCG operation.
- * See also tcg.h and the block comment above TB_EXIT_MASK.
- *
- * For a normal exit from the TB, back to the main loop, @tb should
- * be NULL and @idx should be 0.  Otherwise, @tb should be valid and
- * @idx should be one of the TB_EXIT_ values.
- */
 void tcg_gen_exit_tb(const TranslationBlock *tb, unsigned idx);
 
-/**
- * tcg_gen_goto_tb() - output goto_tb TCG operation
- * @idx: Direct jump slot index (0 or 1)
- *
- * See tcg/README for more info about this TCG operation.
- *
- * NOTE: In system emulation, direct jumps with goto_tb are only safe within
- * the pages this TB resides in because we don't take care of direct jumps when
- * address mapping changes, e.g. in tlb_flush(). In user mode, there's only a
- * static address translation, so the destination address is always valid, TBs
- * are always invalidated properly, and direct jumps are reset when mapping
- * changes.
- */
 void tcg_gen_goto_tb(unsigned idx);
 
-/**
- * tcg_gen_lookup_and_goto_ptr() - look up the current TB, jump to it if valid
- * @addr: Guest address of the target TB
- *
- * If the TB is not valid, jump to the epilogue.
- *
- * This operation is optional. If the TCG backend does not implement goto_ptr,
- * this op is equivalent to calling tcg_gen_exit_tb() with 0 as the argument.
- */
 void tcg_gen_lookup_and_goto_ptr(void);
 
 void tcg_gen_plugin_cb(unsigned from);
 void tcg_gen_plugin_mem_cb(TCGv_i64 addr, unsigned meminfo);
 
-/* 32 bit ops */
 
 void tcg_gen_movi_i32(TCGv_i32 ret, int32_t arg);
 void tcg_gen_addi_i32(TCGv_i32 ret, TCGv_i32 arg1, int32_t arg2);
@@ -152,7 +110,6 @@ void tcg_gen_umin_i32(TCGv_i32, TCGv_i32 arg1, TCGv_i32 arg2);
 void tcg_gen_umax_i32(TCGv_i32, TCGv_i32 arg1, TCGv_i32 arg2);
 void tcg_gen_abs_i32(TCGv_i32, TCGv_i32);
 
-/* Replicate a value of size @vece from @in to all the lanes in @out */
 void tcg_gen_dup_i32(unsigned vece, TCGv_i32 out, TCGv_i32 in);
 
 void tcg_gen_discard_i32(TCGv_i32 arg);
@@ -180,7 +137,6 @@ void tcg_gen_mul_i32(TCGv_i32 ret, TCGv_i32 arg1, TCGv_i32 arg2);
 void tcg_gen_neg_i32(TCGv_i32 ret, TCGv_i32 arg);
 void tcg_gen_not_i32(TCGv_i32 ret, TCGv_i32 arg);
 
-/* 64 bit ops */
 
 void tcg_gen_movi_i64(TCGv_i64 ret, int64_t arg);
 void tcg_gen_addi_i64(TCGv_i64 ret, TCGv_i64 arg1, int64_t arg2);
@@ -260,7 +216,6 @@ void tcg_gen_umin_i64(TCGv_i64, TCGv_i64 arg1, TCGv_i64 arg2);
 void tcg_gen_umax_i64(TCGv_i64, TCGv_i64 arg1, TCGv_i64 arg2);
 void tcg_gen_abs_i64(TCGv_i64, TCGv_i64);
 
-/* Replicate a value of size @vece from @in to all the lanes in @out */
 void tcg_gen_dup_i64(unsigned vece, TCGv_i64 out, TCGv_i64 in);
 
 void tcg_gen_st8_i64(TCGv_i64 arg1, TCGv_ptr arg2, tcg_target_long offset);
@@ -290,7 +245,6 @@ void tcg_gen_mul_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2);
 void tcg_gen_neg_i64(TCGv_i64 ret, TCGv_i64 arg);
 
 
-/* Size changing operations.  */
 
 void tcg_gen_extu_i32_i64(TCGv_i64 ret, TCGv_i32 arg);
 void tcg_gen_ext_i32_i64(TCGv_i64 ret, TCGv_i32 arg);
@@ -304,13 +258,11 @@ void tcg_gen_concat32_i64(TCGv_i64 ret, TCGv_i64 lo, TCGv_i64 hi);
 void tcg_gen_extr_i128_i64(TCGv_i64 lo, TCGv_i64 hi, TCGv_i128 arg);
 void tcg_gen_concat_i64_i128(TCGv_i128 ret, TCGv_i64 lo, TCGv_i64 hi);
 
-/* 128 bit ops */
 
 void tcg_gen_mov_i128(TCGv_i128 dst, TCGv_i128 src);
 void tcg_gen_ld_i128(TCGv_i128 ret, TCGv_ptr base, tcg_target_long offset);
 void tcg_gen_st_i128(TCGv_i128 val, TCGv_ptr base, tcg_target_long offset);
 
-/* Local load/store bit ops */
 
 void tcg_gen_qemu_ld_i32_chk(TCGv_i32, TCGTemp *, TCGArg, MemOp, TCGType);
 void tcg_gen_qemu_st_i32_chk(TCGv_i32, TCGTemp *, TCGArg, MemOp, TCGType);
@@ -319,7 +271,6 @@ void tcg_gen_qemu_st_i64_chk(TCGv_i64, TCGTemp *, TCGArg, MemOp, TCGType);
 void tcg_gen_qemu_ld_i128_chk(TCGv_i128, TCGTemp *, TCGArg, MemOp, TCGType);
 void tcg_gen_qemu_st_i128_chk(TCGv_i128, TCGTemp *, TCGArg, MemOp, TCGType);
 
-/* Atomic ops */
 
 void tcg_gen_atomic_cmpxchg_i32_chk(TCGv_i32, TCGTemp *, TCGv_i32, TCGv_i32,
                                     TCGArg, MemOp, TCGType);
@@ -406,7 +357,6 @@ void tcg_gen_atomic_umax_fetch_i32_chk(TCGv_i32, TCGTemp *, TCGv_i32,
 void tcg_gen_atomic_umax_fetch_i64_chk(TCGv_i64, TCGTemp *, TCGv_i64,
                                        TCGArg, MemOp, TCGType);
 
-/* Vector ops */
 
 void tcg_gen_mov_vec(TCGv_vec, TCGv_vec);
 void tcg_gen_dup_i32_vec(unsigned vece, TCGv_vec, TCGv_i32);
@@ -465,7 +415,6 @@ void tcg_gen_ld_vec(TCGv_vec r, TCGv_ptr base, TCGArg offset);
 void tcg_gen_st_vec(TCGv_vec r, TCGv_ptr base, TCGArg offset);
 void tcg_gen_stl_vec(TCGv_vec r, TCGv_ptr base, TCGArg offset, TCGType t);
 
-/* Host pointer ops */
 
 #if UINTPTR_MAX == UINT32_MAX
 # define PTR  i32

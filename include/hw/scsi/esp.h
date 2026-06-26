@@ -6,7 +6,6 @@
 #include "qemu/fifo8.h"
 #include "qom/object.h"
 
-/* esp.c */
 #define ESP_MAX_DEVS 7
 typedef void (*ESPDMAMemoryReadWriteFunc)(void *opaque, uint8_t *buf, int len);
 
@@ -54,7 +53,6 @@ struct ESPState {
 
     uint8_t mig_version_id;
 
-    /* Legacy fields for vmstate_esp version < 5 */
     uint32_t mig_dma_left;
     uint32_t mig_deferred_status;
     bool mig_deferred_complete;
@@ -70,9 +68,7 @@ struct ESPState {
 OBJECT_DECLARE_SIMPLE_TYPE(SysBusESPState, SYSBUS_ESP)
 
 struct SysBusESPState {
-    /*< private >*/
     SysBusDevice parent_obj;
-    /*< public >*/
 
     MemoryRegion iomem;
     MemoryRegion pdma;

@@ -1,44 +1,9 @@
-/*
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2009 Red Hat, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "net/queue.h"
 #include "qemu/queue.h"
 #include "net/net.h"
 
-/* The delivery handler may only return zero if it will call
- * qemu_net_queue_flush() when it determines that it is once again able
- * to deliver packets. It must also call qemu_net_queue_purge() in its
- * cleanup path.
- *
- * If a sent callback is provided to send(), the caller must handle a
- * zero return from the delivery handler by not sending any more packets
- * until we have invoked the callback. Only in that case will we queue
- * the packet.
- *
- * If a sent callback isn't provided, we just drop the packet to avoid
- * unbounded queueing.
- */
 
 struct NetPacket {
     QTAILQ_ENTRY(NetPacket) entry;

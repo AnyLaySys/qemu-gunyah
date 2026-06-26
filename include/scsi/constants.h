@@ -1,31 +1,8 @@
-/* Copyright (C) 1998, 1999 Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
 
-   The GNU C Library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) any later version.
-
-   The GNU C Library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
-
-   You should have received a copy of the GNU Lesser General Public
-   License along with this library; if not, see <http://www.gnu.org/licenses/>.
-*/
-
-/*
- * This header file contains public constants and structures used by
- * the scsi code for linux.
- */
 
 #ifndef SCSI_CONSTANTS_H
 #define SCSI_CONSTANTS_H
 
-/*
- *      SCSI opcodes
- */
 
 #define TEST_UNIT_READY       0x00
 #define REWIND                0x01
@@ -150,22 +127,13 @@
 #define READ_CD               0xbe
 #define SEND_DVD_STRUCTURE    0xbf
 
-/*
- * SERVICE ACTION IN subcodes
- */
 #define SAI_READ_CAPACITY_16  0x10
 
-/*
- * READ POSITION service action codes
- */
 #define SHORT_FORM_BLOCK_ID  0x00
 #define SHORT_FORM_VENDOR_SPECIFIC 0x01
 #define LONG_FORM            0x06
 #define EXTENDED_FORM        0x08
 
-/*
- *  SAM Status codes
- */
 
 #define GOOD                 0x00
 #define CHECK_CONDITION      0x02
@@ -181,9 +149,6 @@
 
 #define STATUS_MASK          0x3e
 
-/*
- *  SENSE KEYS
- */
 
 #define NO_SENSE            0x00
 #define RECOVERED_ERROR     0x01
@@ -200,9 +165,6 @@
 #define MISCOMPARE          0x0e
 
 
-/*
- *  DEVICE TYPES
- */
 
 #define TYPE_DISK           0x00
 #define TYPE_TAPE           0x01
@@ -224,7 +186,6 @@
 #define TYPE_INACTIVE       0x20
 #define TYPE_NO_LUN         0x7f
 
-/* Mode page codes for mode sense/set */
 #define MODE_PAGE_VENDOR_SPECIFIC             0x00
 #define MODE_PAGE_R_W_ERROR                   0x01
 #define MODE_PAGE_HD_GEOMETRY                 0x04
@@ -238,11 +199,8 @@
 #define MODE_PAGE_CAPABILITIES                0x2a
 #define MODE_PAGE_APPLE_VENDOR                0x30
 #define MODE_PAGE_ALLS                        0x3f
-/* Not in Mt. Fuji, but in ATAPI 2.6 -- deprecated now in favor
- * of MODE_PAGE_SENSE_POWER */
 #define MODE_PAGE_CDROM                       0x0d
 
-/* Event notification classes for GET EVENT STATUS NOTIFICATION */
 #define GESN_NO_EVENTS                0
 #define GESN_OPERATIONAL_CHANGE       1
 #define GESN_POWER_MANAGEMENT         2
@@ -251,7 +209,6 @@
 #define GESN_MULTIPLE_HOSTS           5
 #define GESN_DEVICE_BUSY              6
 
-/* Event codes for MEDIA event status notification */
 #define MEC_NO_CHANGE                 0
 #define MEC_EJECT_REQUESTED           1
 #define MEC_NEW_MEDIA                 2
@@ -263,16 +220,7 @@
 #define MS_TRAY_OPEN                  1
 #define MS_MEDIA_PRESENT              2
 
-/*
- * Based on values from <linux/cdrom.h> but extending CD_MINS
- * to the maximum common size allowed by the Orange's Book ATIP
- *
- * 90 and 99 min CDs are also available but using them as the
- * upper limit reduces the effectiveness of the heuristic to
- * detect DVDs burned to less than 25% of their maximum capacity
- */
 
-/* Some generally useful CD-ROM information */
 #define CD_MINS                       80 /* max. minutes per CD */
 #define CD_SECS                       60 /* seconds per minute */
 #define CD_FRAMES                     75 /* frames per second */
@@ -280,12 +228,7 @@
 #define CD_MAX_BYTES       (CD_MINS * CD_SECS * CD_FRAMES * CD_FRAMESIZE)
 #define CD_MAX_SECTORS     (CD_MAX_BYTES / 512)
 
-/*
- * The MMC values are not IDE specific and might need to be moved
- * to a common header if they are also needed for the SCSI emulation
- */
 
-/* Profile list from MMC-6 revision 1 table 91 */
 #define MMC_PROFILE_NONE                0x0000
 #define MMC_PROFILE_CD_ROM              0x0008
 #define MMC_PROFILE_CD_R                0x0009

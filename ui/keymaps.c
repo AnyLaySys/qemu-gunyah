@@ -1,26 +1,3 @@
-/*
- * QEMU keysym to keycode conversion using rdesktop keymaps
- *
- * Copyright (c) 2004 Johannes Schindelin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/datadir.h"
@@ -133,7 +110,6 @@ static int parse_keyboard_layout(kbd_layout_t *k,
                 int keysym;
                 keysym = get_keysym(table, keyname);
                 if (keysym == 0) {
-                    /* warn_report("unknown keysym %s", line);*/
                 } else {
                     const char *rest = line + offset + 1;
                     int keycode = strtol(rest, NULL, 0);
@@ -214,13 +190,7 @@ int keysym2scancode(kbd_layout_t *k, int keysym,
         return keysym2code->keycodes[0];
     }
 
-    /* We have multiple keysym -> keycode mappings. */
     if (down) {
-        /*
-         * On keydown: Check whenever we find one mapping where the
-         * modifier state of the mapping matches the current user
-         * interface modifier state.  If so, prefer that one.
-         */
         mods = 0;
         if (kbd && qkbd_state_modifier_get(kbd, QKBD_MOD_SHIFT)) {
             mods |= SCANCODE_SHIFT;
@@ -238,9 +208,6 @@ int keysym2scancode(kbd_layout_t *k, int keysym,
             }
         }
     } else {
-        /*
-         * On keyup: Try find a key which is actually down.
-         */
         for (i = 0; i < keysym2code->count; i++) {
             QKeyCode qcode = qemu_input_key_number_to_qcode
                 (keysym2code->keycodes[i]);

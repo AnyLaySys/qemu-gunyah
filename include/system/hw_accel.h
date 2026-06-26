@@ -1,12 +1,3 @@
-/*
- * QEMU Hardware accelerators support
- *
- * Copyright 2016 Google, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #ifndef QEMU_HW_ACCEL_H
 #define QEMU_HW_ACCEL_H

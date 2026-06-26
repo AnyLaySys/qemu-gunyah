@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-#
-# Copyright (C) 2023 Red Hat, Inc.
-#
-# SPDX-License-Identifier: GPL-2.0-or-later
 
 import sys
 import os

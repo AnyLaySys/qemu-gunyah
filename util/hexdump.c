@@ -1,17 +1,3 @@
-/*
-* Helper to hexdump a buffer
- *
- * Copyright (c) 2013 Red Hat, Inc.
- * Copyright (c) 2013 Gerd Hoffmann <kraxel@redhat.com>
- * Copyright (c) 2013 Peter Crosthwaite <peter.crosthwaite@xilinx.com>
- * Copyright (c) 2013 Xilinx, Inc
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -29,7 +15,6 @@ GString *qemu_hexdump_line(GString *str, const void *vbuf, size_t len,
     size_t u, b;
 
     if (str == NULL) {
-        /* Estimate the length of the output to avoid reallocs. */
         size_t est = len * 2;
         if (unit_len) {
             est += len / unit_len;

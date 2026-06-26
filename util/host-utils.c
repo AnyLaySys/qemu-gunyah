@@ -1,33 +1,8 @@
-/*
- * Utility compute operations used by translated code.
- *
- * Copyright (c) 2003 Fabrice Bellard
- * Copyright (c) 2007 Aurelien Jarno
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/host-utils.h"
 
 #ifndef CONFIG_INT128
-/* Long integer helpers */
 static inline void mul64(uint64_t *plow, uint64_t *phigh,
                          uint64_t a, uint64_t b)
 {
@@ -63,20 +38,17 @@ static inline void mul64(uint64_t *plow, uint64_t *phigh,
     *phigh = rh.ll;
 }
 
-/* Unsigned 64x64 -> 128 multiplication */
 void mulu64 (uint64_t *plow, uint64_t *phigh, uint64_t a, uint64_t b)
 {
     mul64(plow, phigh, a, b);
 }
 
-/* Signed 64x64 -> 128 multiplication */
 void muls64 (uint64_t *plow, uint64_t *phigh, int64_t a, int64_t b)
 {
     uint64_t rh;
 
     mul64(plow, &rh, a, b);
 
-    /* Adjust for signs.  */
     if (b < 0) {
         rh -= a;
     }
@@ -86,12 +58,6 @@ void muls64 (uint64_t *plow, uint64_t *phigh, int64_t a, int64_t b)
     *phigh = rh;
 }
 
-/*
- * Unsigned 128-by-64 division.
- * Returns the remainder.
- * Returns quotient via plow and phigh.
- * Also returns the remainder via the function return value.
- */
 uint64_t divu128(uint64_t *plow, uint64_t *phigh, uint64_t divisor)
 {
     uint64_t dhi = *phigh;
@@ -108,7 +74,6 @@ uint64_t divu128(uint64_t *plow, uint64_t *phigh, uint64_t divisor)
 
         if (dhi < divisor) {
             if (sh != 0) {
-                /* normalize the divisor, shifting the dividend accordingly */
                 divisor <<= sh;
                 dhi = (dhi << sh) | (dlo >> (64 - sh));
                 dlo <<= sh;
@@ -118,7 +83,6 @@ uint64_t divu128(uint64_t *plow, uint64_t *phigh, uint64_t divisor)
             *plow = udiv_qrnnd(&rem, dhi, dlo, divisor);
         } else {
             if (sh != 0) {
-                /* normalize the divisor, shifting the dividend accordingly */
                 divisor <<= sh;
                 dhighest = dhi >> (64 - sh);
                 dhi = (dhi << sh) | (dlo >> (64 - sh));
@@ -126,15 +90,6 @@ uint64_t divu128(uint64_t *plow, uint64_t *phigh, uint64_t divisor)
 
                 *phigh = udiv_qrnnd(&dhi, dhighest, dhi, divisor);
             } else {
-                /**
-                 * dhi >= divisor
-                 * Since the MSB of divisor is set (sh == 0),
-                 * (dhi - divisor) < divisor
-                 *
-                 * Thus, the high part of the quotient is 1, and we can
-                 * calculate the low part with a single call to udiv_qrnnd
-                 * after subtracting divisor from dhi
-                 */
                 dhi -= divisor;
                 *phigh = 1;
             }
@@ -142,19 +97,10 @@ uint64_t divu128(uint64_t *plow, uint64_t *phigh, uint64_t divisor)
             *plow = udiv_qrnnd(&rem, dhi, dlo, divisor);
         }
 
-        /*
-         * since the dividend/divisor might have been normalized,
-         * the remainder might also have to be shifted back
-         */
         return rem >> sh;
     }
 }
 
-/*
- * Signed 128-by-64 division.
- * Returns quotient via plow and phigh.
- * Also returns the remainder via the function return value.
- */
 int64_t divs128(uint64_t *plow, int64_t *phigh, int64_t divisor)
 {
     bool neg_quotient = false, neg_remainder = false;
@@ -202,17 +148,6 @@ int64_t divs128(uint64_t *plow, int64_t *phigh, int64_t divisor)
 }
 #endif
 
-/**
- * urshift - 128-bit Unsigned Right Shift.
- * @plow: in/out - lower 64-bit integer.
- * @phigh: in/out - higher 64-bit integer.
- * @shift: in - bytes to shift, between 0 and 127.
- *
- * Result is zero-extended and stored in plow/phigh, which are
- * input/output variables. Shift values outside the range will
- * be mod to 128. In other words, the caller is responsible to
- * verify/assert both the shift range and plow/phigh pointers.
- */
 void urshift(uint64_t *plow, uint64_t *phigh, int32_t shift)
 {
     shift &= 127;
@@ -230,18 +165,6 @@ void urshift(uint64_t *plow, uint64_t *phigh, int32_t shift)
     }
 }
 
-/**
- * ulshift - 128-bit Unsigned Left Shift.
- * @plow: in/out - lower 64-bit integer.
- * @phigh: in/out - higher 64-bit integer.
- * @shift: in - bytes to shift, between 0 and 127.
- * @overflow: out - true if any 1-bit is shifted out.
- *
- * Result is zero-extended and stored in plow/phigh, which are
- * input/output variables. Shift values outside the range will
- * be mod to 128. In other words, the caller is responsible to
- * verify/assert both the shift range and plow/phigh pointers.
- */
 void ulshift(uint64_t *plow, uint64_t *phigh, int32_t shift, bool *overflow)
 {
     uint64_t low = *plow;
@@ -252,7 +175,6 @@ void ulshift(uint64_t *plow, uint64_t *phigh, int32_t shift, bool *overflow)
         return;
     }
 
-    /* check if any bit will be shifted out */
     urshift(&low, &high, 128 - shift);
     if (low | high) {
         *overflow = true;
@@ -267,18 +189,6 @@ void ulshift(uint64_t *plow, uint64_t *phigh, int32_t shift, bool *overflow)
     }
 }
 
-/*
- * Unsigned 256-by-128 division.
- * Returns the remainder via r.
- * Returns lower 128 bit of quotient.
- * Needs a normalized divisor (most significant bit set to 1).
- *
- * Adapted from include/qemu/host-utils.h udiv_qrnnd,
- * from the GNU Multi Precision Library - longlong.h __udiv_qrnnd
- * (https://gmplib.org/repo/gmp/file/tip/longlong.h)
- *
- * Licensed under the GPLv2/LGPLv3
- */
 static Int128 udiv256_qrnnd(Int128 *r, Int128 n1, Int128 n0, Int128 d)
 {
     Int128 d0, d1, q0, q1, r1, r0, m;
@@ -329,12 +239,6 @@ static Int128 udiv256_qrnnd(Int128 *r, Int128 n1, Int128 n0, Int128 d)
     return int128_or(int128_lshift(q1, 64), q0);
 }
 
-/*
- * Unsigned 256-by-128 division.
- * Returns the remainder.
- * Returns quotient via plow and phigh.
- * Also returns the remainder via the function return value.
- */
 Int128 divu256(Int128 *plow, Int128 *phigh, Int128 divisor)
 {
     Int128 dhi = *phigh;
@@ -351,7 +255,6 @@ Int128 divu256(Int128 *plow, Int128 *phigh, Int128 divisor)
 
         if (int128_ult(dhi, divisor)) {
             if (sh != 0) {
-                /* normalize the divisor, shifting the dividend accordingly */
                 divisor = int128_lshift(divisor, sh);
                 dhi = int128_or(int128_lshift(dhi, sh),
                                 int128_urshift(dlo, (128 - sh)));
@@ -362,7 +265,6 @@ Int128 divu256(Int128 *plow, Int128 *phigh, Int128 divisor)
             *plow = udiv256_qrnnd(&rem, dhi, dlo, divisor);
         } else {
             if (sh != 0) {
-                /* normalize the divisor, shifting the dividend accordingly */
                 divisor = int128_lshift(divisor, sh);
                 dhighest = int128_rshift(dhi, (128 - sh));
                 dhi = int128_or(int128_lshift(dhi, sh),
@@ -371,15 +273,6 @@ Int128 divu256(Int128 *plow, Int128 *phigh, Int128 divisor)
 
                 *phigh = udiv256_qrnnd(&dhi, dhighest, dhi, divisor);
             } else {
-                /*
-                 * dhi >= divisor
-                 * Since the MSB of divisor is set (sh == 0),
-                 * (dhi - divisor) < divisor
-                 *
-                 * Thus, the high part of the quotient is 1, and we can
-                 * calculate the low part with a single call to udiv_qrnnd
-                 * after subtracting divisor from dhi
-                 */
                 dhi = int128_sub(dhi, divisor);
                 *phigh = int128_one();
             }
@@ -387,20 +280,11 @@ Int128 divu256(Int128 *plow, Int128 *phigh, Int128 divisor)
             *plow = udiv256_qrnnd(&rem, dhi, dlo, divisor);
         }
 
-        /*
-         * since the dividend/divisor might have been normalized,
-         * the remainder might also have to be shifted back
-         */
         rem = int128_urshift(rem, sh);
         return rem;
     }
 }
 
-/*
- * Signed 256-by-128 division.
- * Returns quotient via plow and phigh.
- * Also returns the remainder via the function return value.
- */
 Int128 divs256(Int128 *plow, Int128 *phigh, Int128 divisor)
 {
     bool neg_quotient = false, neg_remainder = false;

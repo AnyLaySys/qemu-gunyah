@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "qapi/qapi-commands-misc.h"
@@ -41,7 +40,6 @@ static CommandLineParameterInfoList *query_option_descs(const QemuOptDesc *desc)
     return param_list;
 }
 
-/* remove repeated entry from the info list */
 static void cleanup_infolist(CommandLineParameterInfoList *head)
 {
     CommandLineParameterInfoList *pre_entry, *cur, *del_entry;
@@ -63,7 +61,6 @@ static void cleanup_infolist(CommandLineParameterInfoList *head)
     }
 }
 
-/* merge the description items of two parameter infolists */
 static void connect_infolist(CommandLineParameterInfoList *head,
                              CommandLineParameterInfoList *new)
 {
@@ -76,7 +73,6 @@ static void connect_infolist(CommandLineParameterInfoList *head,
     cur->next = new;
 }
 
-/* access all the local QemuOptsLists for drive option */
 static CommandLineParameterInfoList *get_drive_infolist(void)
 {
     CommandLineParameterInfoList *head = NULL, *cur;
@@ -131,18 +127,12 @@ static CommandLineParameterInfoList *query_all_machine_properties(void)
     machines = object_class_get_list(TYPE_MACHINE, false);
     assert(machines);
 
-    /* Loop over all machine classes */
     for (curr_mach = machines; curr_mach; curr_mach = curr_mach->next) {
         object_class_property_iter_init(&op_iter, curr_mach->data);
-        /* ... and over the properties of each machine: */
         while ((prop = object_property_iter_next(&op_iter))) {
             if (!prop->set) {
                 continue;
             }
-            /*
-             * Check whether the property has already been put into the list
-             * (via another machine class)
-             */
             is_new = true;
             for (clpiter = params; clpiter != NULL; clpiter = clpiter->next) {
                 if (g_str_equal(clpiter->value->name, prop->name)) {
@@ -150,7 +140,6 @@ static CommandLineParameterInfoList *query_all_machine_properties(void)
                     break;
                 }
             }
-            /* If it hasn't been added before, add it now to the list */
             if (is_new) {
                 info = objprop_to_cmdline_prop(prop);
                 QAPI_LIST_PREPEND(params, info);
@@ -160,7 +149,6 @@ static CommandLineParameterInfoList *query_all_machine_properties(void)
 
     g_slist_free(machines);
 
-    /* Add entry for the "type" parameter */
     info = g_malloc0(sizeof(*info));
     info->name = g_strdup("type");
     info->type = COMMAND_LINE_PARAMETER_TYPE_STRING;

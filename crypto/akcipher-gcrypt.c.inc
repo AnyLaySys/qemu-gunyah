@@ -1,23 +1,3 @@
-/*
- * QEMU Crypto akcipher algorithms
- *
- * Copyright (c) 2022 Bytedance
- * Author: lei he <helei.sig11@bytedance.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include <gcrypt.h>
 
@@ -255,7 +235,6 @@ static int qcrypto_gcrypt_rsa_encrypt(QCryptoAkCipher *akcipher,
         goto cleanup;
     }
 
-    /* S-expression of cipher: (enc-val (rsa (a a-mpi))) */
     cipher_sexp_item = gcry_sexp_find_token(cipher_sexp, "a", 0);
     if (!cipher_sexp_item || gcry_sexp_length(cipher_sexp_item) != 2) {
         error_setg(errp, "Invalid ciphertext result");
@@ -281,7 +260,6 @@ static int qcrypto_gcrypt_rsa_encrypt(QCryptoAkCipher *akcipher,
             goto cleanup;
         }
 
-        /* We always padding leading-zeros for RSA-RAW */
         if (actual_len < out_len) {
             memmove((uint8_t *)out + (out_len - actual_len), out, actual_len);
             memset(out, 0, out_len - actual_len);
@@ -346,7 +324,6 @@ static int qcrypto_gcrypt_rsa_decrypt(QCryptoAkCipher *akcipher,
         goto cleanup;
     }
 
-    /* S-expression of plaintext: (value plaintext) */
     if (rsa->padding_alg == QCRYPTO_RSA_PADDING_ALGO_RAW) {
         data_mpi = gcry_sexp_nth_mpi(data_sexp, 1, GCRYMPI_FMT_USG);
         if (!data_mpi) {
@@ -364,7 +341,6 @@ static int qcrypto_gcrypt_rsa_decrypt(QCryptoAkCipher *akcipher,
             error_setg(errp, "Plaintext buffer length is too small");
             goto cleanup;
         }
-        /* We always padding leading-zeros for RSA-RAW */
         if (actual_len < out_len) {
             memmove((uint8_t *)out + (out_len - actual_len), out, actual_len);
             memset(out, 0, out_len - actual_len);
@@ -431,7 +407,6 @@ static int qcrypto_gcrypt_rsa_sign(QCryptoAkCipher *akcipher,
         goto cleanup;
     }
 
-    /* S-expression of signature: (sig-val (rsa (s s-mpi))) */
     sig_sexp_item = gcry_sexp_find_token(sig_sexp, "s", 0);
     if (!sig_sexp_item || gcry_sexp_length(sig_sexp_item) != 2) {
         error_setg(errp, "Invalid signature result");

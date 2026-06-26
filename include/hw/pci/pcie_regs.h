@@ -1,15 +1,7 @@
-/*
- * constants for pcie configurations space from pci express spec.
- *
- * TODO:
- * Those constants and macros should go to Linux pci_regs.h
- * Once they're merged, they will go away.
- */
 #ifndef QEMU_PCIE_REGS_H
 #define QEMU_PCIE_REGS_H
 
 
-/* express capability */
 
 #define PCI_EXP_VER1_SIZEOF             0x14 /* express capability of ver. 1 */
 #define PCI_EXP_VER2_SIZEOF             0x3c /* express capability of ver. 2 */
@@ -26,14 +18,11 @@
 #define PCI_EXT_CAP_ALIGNUP(x)                                  \
     (((x) + PCI_EXT_CAP_ALIGN - 1) & ~(PCI_EXT_CAP_ALIGN - 1))
 
-/* PCI_EXP_FLAGS */
 #define PCI_EXP_FLAGS_VER1              1
 #define PCI_EXP_FLAGS_VER2              2
 #define PCI_EXP_FLAGS_IRQ_SHIFT         ctz32(PCI_EXP_FLAGS_IRQ)
 #define PCI_EXP_FLAGS_TYPE_SHIFT        ctz32(PCI_EXP_FLAGS_TYPE)
 
-/* PCI_EXP_LINK{CAP, STA} */
-/* link speed */
 typedef enum PCIExpLinkSpeed {
     QEMU_PCI_EXP_LNK_2_5GT = 1,
     QEMU_PCI_EXP_LNK_5GT,
@@ -60,7 +49,6 @@ typedef enum PCIExpLinkWidth {
 #define QEMU_PCI_EXP_LNKCAP_MLW(width)  (width << PCI_EXP_LNK_MLW_SHIFT)
 #define QEMU_PCI_EXP_LNKSTA_NLW         QEMU_PCI_EXP_LNKCAP_MLW
 
-/* PCI_EXP_LINKCAP */
 #define PCI_EXP_LNKCAP_ASPMS_SHIFT      ctz32(PCI_EXP_LNKCAP_ASPMS)
 #define PCI_EXP_LNKCAP_ASPMS_0S         (1 << PCI_EXP_LNKCAP_ASPMS_SHIFT)
 
@@ -82,11 +70,9 @@ typedef enum PCIExpLinkWidth {
 
 #define PCI_EXP_DEVCTL2_EETLPPB         0x8000
 
-/* ARI */
 #define PCI_ARI_VER                     1
 #define PCI_ARI_SIZEOF                  8
 
-/* AER */
 #define PCI_ERR_VER                     2
 #define PCI_ERR_SIZEOF                  0x48
 
@@ -110,7 +96,6 @@ typedef enum PCIExpLinkWidth {
 
 #define PCI_SEC_STATUS_RCV_SYSTEM_ERROR         0x4000
 
-/* aer root error command/status */
 #define PCI_ERR_ROOT_CMD_EN_MASK        (PCI_ERR_ROOT_CMD_COR_EN |      \
                                          PCI_ERR_ROOT_CMD_NONFATAL_EN | \
                                          PCI_ERR_ROOT_CMD_FATAL_EN)
@@ -166,11 +151,9 @@ typedef enum PCIExpLinkWidth {
                                          PCI_ERR_COR_INTERNAL |         \
                                          PCI_ERR_COR_HL_OVERFLOW)
 
-/* ACS */
 #define PCI_ACS_VER                     0x1
 #define PCI_ACS_SIZEOF                  8
 
-/* DOE Capability Register Fields */
 #define PCI_DOE_VER                     0x1
 #define PCI_DOE_SIZEOF                  24
 

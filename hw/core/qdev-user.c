@@ -1,10 +1,3 @@
-/*
- * QDev helpers specific to user emulation.
- *
- * Copyright 2025 Linaro, Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 #include "qemu/osdep.h"
 #include "qom/object.h"
 #include "hw/qdev-core.h"

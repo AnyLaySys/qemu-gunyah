@@ -1,13 +1,3 @@
-/*
- * Memory Device Interface
- *
- * Copyright ProfitBricks GmbH 2012
- * Copyright (C) 2014 Red Hat Inc
- * Copyright (c) 2018 Red Hat Inc
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/error-report.h"
@@ -25,10 +15,8 @@ static bool memory_device_is_empty(const MemoryDeviceState *md)
     Error *local_err = NULL;
     MemoryRegion *mr;
 
-    /* dropping const here is fine as we don't touch the memory region */
     mr = mdc->get_memory_region((MemoryDeviceState *)md, &local_err);
     if (local_err) {
-        /* Not empty, we'll report errors later when containing the MR again. */
         error_free(local_err);
         return false;
     }
@@ -77,15 +65,10 @@ static unsigned int memory_device_get_memslots(MemoryDeviceState *md)
     return 1;
 }
 
-/*
- * Memslots that are reserved by memory devices (required but still reported
- * as free from KVM / vhost).
- */
 static unsigned int get_reserved_memslots(MachineState *ms)
 {
     if (ms->device_memory->used_memslots >
         ms->device_memory->required_memslots) {
-        /* This is unexpected, and we warned already in the memory notifier. */
         return 0;
     }
     return ms->device_memory->required_memslots -
@@ -119,18 +102,10 @@ static unsigned int memory_device_memslot_decision_limit(MachineState *ms,
     uint64_t available_space;
     unsigned int memslots;
 
-    /*
-     * If we only have less overall memslots than what we consider reasonable,
-     * just keep it to a minimum.
-     */
     if (max < MEMORY_DEVICES_SAFE_MAX_MEMSLOTS) {
         return 1;
     }
 
-    /*
-     * Consider our soft-limit across all memory devices. We don't really
-     * expect to exceed this limit in reasonable configurations.
-     */
     if (MEMORY_DEVICES_SOFT_MEMSLOT_LIMIT <=
         ms->device_memory->required_memslots) {
         return 1;
@@ -138,26 +113,15 @@ static unsigned int memory_device_memslot_decision_limit(MachineState *ms,
     memslots = MEMORY_DEVICES_SOFT_MEMSLOT_LIMIT -
                ms->device_memory->required_memslots;
 
-    /*
-     * Consider the actually still free memslots. This is only relevant if
-     * other memslot consumers would consume *significantly* more memslots than
-     * what we prepared for (> 253). Unlikely, but let's just handle it
-     * cleanly.
-     */
     memslots = MIN(memslots, free - reserved);
     if (memslots < 1 || unlikely(free < reserved)) {
         return 1;
     }
 
-    /* We cannot have any other memory devices? So give all to this device. */
     if (size == ms->maxram_size - ms->ram_size) {
         return memslots;
     }
 
-    /*
-     * Simple heuristic: equally distribute the memslots over the space
-     * still available for memory devices.
-     */
     available_space = ms->maxram_size - ms->ram_size -
                       ms->device_memory->used_region_size;
     memslots = (double)memslots * size / available_space;
@@ -173,17 +137,12 @@ static void memory_device_check_addable(MachineState *ms, MemoryDeviceState *md,
     const unsigned int reserved_memslots = get_reserved_memslots(ms);
     unsigned int required_memslots, memslot_limit;
 
-    /*
-     * Instruct the device to decide how many memslots to use, if applicable,
-     * before we query the number of required memslots the first time.
-     */
     if (mdc->decide_memslots) {
         memslot_limit = memory_device_memslot_decision_limit(ms, mr);
         mdc->decide_memslots(md, memslot_limit);
     }
     required_memslots = memory_device_get_memslots(md);
 
-    /* we will need memory slots for kvm and vhost */
     if (0 < required_memslots + reserved_memslots) {
         error_setg(errp, "hypervisor has not enough free memory slots left");
         return;
@@ -193,7 +152,6 @@ static void memory_device_check_addable(MachineState *ms, MemoryDeviceState *md,
         return;
     }
 
-    /* will we exceed the total amount of memory specified */
     if (used_region_size + size < used_region_size ||
         used_region_size + size > ms->maxram_size - ms->ram_size) {
         error_setg(errp, "not enough space, currently 0x%" PRIx64
@@ -215,7 +173,6 @@ static uint64_t memory_device_get_free_addr(MachineState *ms,
     range_init_nofail(&as, ms->device_memory->base,
                       memory_region_size(&ms->device_memory->mr));
 
-    /* start of address space indicates the maximum alignment we expect */
     if (!QEMU_IS_ALIGNED(range_lob(&as), align)) {
         warn_report("the alignment (0x%" PRIx64 ") exceeds the expected"
                     " maximum alignment, memory will get fragmented and not"
@@ -244,7 +201,6 @@ static uint64_t memory_device_get_free_addr(MachineState *ms,
         }
     }
 
-    /* find address range that will fit new memory device */
     object_child_foreach(OBJECT(ms), memory_device_build_list, &list);
     for (item = list; item; item = g_slist_next(item)) {
         const MemoryDeviceState *md = item->data;
@@ -299,7 +255,6 @@ MemoryDeviceInfoList *qmp_memory_device_list(void)
         const MemoryDeviceClass *mdc = MEMORY_DEVICE_GET_CLASS(item->data);
         MemoryDeviceInfo *info = g_new0(MemoryDeviceInfo, 1);
 
-        /* Let's query infotmation even for empty memory devices. */
         mdc->fill_device_info(md, info);
 
         QAPI_LIST_APPEND(tail, info);
@@ -345,7 +300,6 @@ void memory_device_pre_plug(MemoryDeviceState *md, MachineState *ms,
     uint64_t addr, align = 0;
     MemoryRegion *mr;
 
-    /* We support empty memory devices even without device memory. */
     if (memory_device_is_empty(md)) {
         return;
     }
@@ -367,13 +321,6 @@ void memory_device_pre_plug(MemoryDeviceState *md, MachineState *ms,
         goto out;
     }
 
-    /*
-     * We always want the memory region size to be multiples of the memory
-     * region alignment: for example, DIMMs with 1G+1byte size don't make
-     * any sense. Note that we don't check that the size is multiples
-     * of any additional alignment requirements the memory device might
-     * have when it comes to the address in physical address space.
-     */
     if (!QEMU_IS_ALIGNED(memory_region_size(mr),
                          memory_region_get_alignment(mr))) {
         error_setg(errp, "backend memory size must be multiple of 0x%"
@@ -414,10 +361,6 @@ void memory_device_plug(MemoryDeviceState *md, MachineState *ms)
     memslots = memory_device_get_memslots(md);
     addr = mdc->get_addr(md);
 
-    /*
-     * We expect that a previous call to memory_device_pre_plug() succeeded, so
-     * it can't fail at this point.
-     */
     mr = mdc->get_memory_region(md, &error_abort);
     g_assert(ms->device_memory);
 
@@ -442,10 +385,6 @@ void memory_device_unplug(MemoryDeviceState *md, MachineState *ms)
         return;
     }
 
-    /*
-     * We expect that a previous call to memory_device_pre_plug() succeeded, so
-     * it can't fail at this point.
-     */
     mr = mdc->get_memory_region(md, &error_abort);
     g_assert(ms->device_memory);
 
@@ -466,7 +405,6 @@ uint64_t memory_device_get_region_size(const MemoryDeviceState *md,
     const MemoryDeviceClass *mdc = MEMORY_DEVICE_GET_CLASS(md);
     MemoryRegion *mr;
 
-    /* dropping const here is fine as we don't touch the memory region */
     mr = mdc->get_memory_region((MemoryDeviceState *)md, errp);
     if (!mr) {
         return 0;
@@ -486,20 +424,6 @@ static void memory_devices_region_mod(MemoryListener *listener,
         return;
     }
 
-    /*
-     * The expectation is that each distinct RAM memory region section in
-     * our region for memory devices consumes exactly one memslot in KVM
-     * and in vhost. For vhost, this is true, except:
-     * * ROM memory regions don't consume a memslot. These get used very
-     *   rarely for memory devices (R/O NVDIMMs).
-     * * Memslots without a fd (memory-backend-ram) don't necessarily
-     *   consume a memslot. Such setups are quite rare and possibly bogus:
-     *   the memory would be inaccessible by such vhost devices.
-     *
-     * So for vhost, in corner cases we might over-estimate the number of
-     * memslots that are currently used or that might still be reserved
-     * (required - used).
-     */
     dms->used_memslots += add ? 1 : -1;
 
     if (dms->used_memslots > dms->required_memslots) {
@@ -533,7 +457,6 @@ void machine_memory_devices_init(MachineState *ms, hwaddr base, uint64_t size)
     memory_region_add_subregion(get_system_memory(), ms->device_memory->base,
                                 &ms->device_memory->mr);
 
-    /* Track the number of memslots used by memory devices. */
     ms->device_memory->listener.region_add = memory_devices_region_add;
     ms->device_memory->listener.region_del = memory_devices_region_del;
     memory_listener_register(&ms->device_memory->listener,

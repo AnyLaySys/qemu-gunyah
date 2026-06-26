@@ -1,10 +1,3 @@
-/*
- * TCG Helper Information Structure
- *
- * Copyright (c) 2023 Linaro Ltd
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef TCG_HELPER_INFO_H
 #define TCG_HELPER_INFO_H
@@ -16,9 +9,6 @@
 
 #define MAX_CALL_IARGS  7
 
-/*
- * Describe the calling convention of a given argument type.
- */
 typedef enum {
     TCG_CALL_RET_NORMAL,         /* by registers */
     TCG_CALL_RET_BY_REF,         /* for i128, by reference */
@@ -47,7 +37,6 @@ struct TCGHelperInfo {
     void *func;
     const char *name;
 
-    /* Used with g_once_init_enter. */
 #ifdef CONFIG_TCG_INTERPRETER
     ffi_cif *cif;
 #else
@@ -60,7 +49,6 @@ struct TCGHelperInfo {
     unsigned nr_out             : 8;
     TCGCallReturnKind out_kind  : 8;
 
-    /* Maximum physical arguments are constrained by TCG_TYPE_I128. */
     TCGCallArgumentLoc in[MAX_CALL_IARGS * (128 / TCG_TARGET_REG_BITS)];
 };
 

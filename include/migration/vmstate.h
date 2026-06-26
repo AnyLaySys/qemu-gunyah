@@ -1,28 +1,3 @@
-/*
- * QEMU migration/snapshot declarations
- *
- * Copyright (c) 2009-2011 Red Hat, Inc.
- *
- * Original author: Juan Quintela <quintela@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef QEMU_VMSTATE_H
 #define QEMU_VMSTATE_H
@@ -32,13 +7,6 @@
 typedef struct VMStateInfo VMStateInfo;
 typedef struct VMStateField VMStateField;
 
-/* VMStateInfo allows customized migration of objects that don't fit in
- * any category in VMStateFlags. Additional information is always passed
- * into get and put in terms of field and vmdesc parameters. However
- * these two parameters should only be used in cases when customized
- * handling is needed, such as QTAILQ. For primitive data types such as
- * integer, field and vmdesc parameters should be ignored inside get/put.
- */
 struct VMStateInfo {
     const char *name;
     int coroutine_mixed_fn (*get)(QEMUFile *f, void *pv, size_t size,
@@ -49,108 +17,38 @@ struct VMStateInfo {
 };
 
 enum VMStateFlags {
-    /* Ignored */
     VMS_SINGLE           = 0x001,
 
-    /* The struct member at opaque + VMStateField.offset is a pointer
-     * to the actual field (e.g. struct a { uint8_t *b;
-     * }). Dereference the pointer before using it as basis for
-     * further pointer arithmetic (see e.g. VMS_ARRAY). Does not
-     * affect the meaning of VMStateField.num_offset or
-     * VMStateField.size_offset; see VMS_VARRAY* and VMS_VBUFFER for
-     * those. */
     VMS_POINTER          = 0x002,
 
-    /* The field is an array of fixed size. VMStateField.num contains
-     * the number of entries in the array. The size of each entry is
-     * given by VMStateField.size and / or opaque +
-     * VMStateField.size_offset; see VMS_VBUFFER and
-     * VMS_MULTIPLY. Each array entry will be processed individually
-     * (VMStateField.info.get()/put() if VMS_STRUCT is not set,
-     * recursion into VMStateField.vmsd if VMS_STRUCT is set). May not
-     * be combined with VMS_VARRAY*. */
     VMS_ARRAY            = 0x004,
 
-    /* The field is itself a struct, containing one or more
-     * fields. Recurse into VMStateField.vmsd. Most useful in
-     * combination with VMS_ARRAY / VMS_VARRAY*, recursing into each
-     * array entry. */
     VMS_STRUCT           = 0x008,
 
-    /* The field is an array of variable size. The int32_t at opaque +
-     * VMStateField.num_offset contains the number of entries in the
-     * array. See the VMS_ARRAY description regarding array handling
-     * in general. May not be combined with VMS_ARRAY or any other
-     * VMS_VARRAY*. */
     VMS_VARRAY_INT32     = 0x010,
 
-    /* Ignored */
     VMS_BUFFER           = 0x020,
 
-    /* The field is a (fixed-size or variable-size) array of pointers
-     * (e.g. struct a { uint8_t *b[]; }). Dereference each array entry
-     * before using it. Note: Does not imply any one of VMS_ARRAY /
-     * VMS_VARRAY*; these need to be set explicitly. */
     VMS_ARRAY_OF_POINTER = 0x040,
 
-    /* The field is an array of variable size. The uint16_t at opaque
-     * + VMStateField.num_offset (subject to VMS_MULTIPLY_ELEMENTS)
-     * contains the number of entries in the array. See the VMS_ARRAY
-     * description regarding array handling in general. May not be
-     * combined with VMS_ARRAY or any other VMS_VARRAY*. */
     VMS_VARRAY_UINT16    = 0x080,
 
-    /* The size of the individual entries (a single array entry if
-     * VMS_ARRAY or any of VMS_VARRAY* are set, or the field itself if
-     * neither is set) is variable (i.e. not known at compile-time),
-     * but the same for all entries. Use the int32_t at opaque +
-     * VMStateField.size_offset (subject to VMS_MULTIPLY) to determine
-     * the size of each (and every) entry. */
     VMS_VBUFFER          = 0x100,
 
-    /* Multiply the entry size given by the int32_t at opaque +
-     * VMStateField.size_offset (see VMS_VBUFFER description) with
-     * VMStateField.size to determine the number of bytes to be
-     * allocated. Only valid in combination with VMS_VBUFFER. */
     VMS_MULTIPLY         = 0x200,
 
-    /* The field is an array of variable size. The uint8_t at opaque +
-     * VMStateField.num_offset (subject to VMS_MULTIPLY_ELEMENTS)
-     * contains the number of entries in the array. See the VMS_ARRAY
-     * description regarding array handling in general. May not be
-     * combined with VMS_ARRAY or any other VMS_VARRAY*. */
     VMS_VARRAY_UINT8     = 0x400,
 
-    /* The field is an array of variable size. The uint32_t at opaque
-     * + VMStateField.num_offset (subject to VMS_MULTIPLY_ELEMENTS)
-     * contains the number of entries in the array. See the VMS_ARRAY
-     * description regarding array handling in general. May not be
-     * combined with VMS_ARRAY or any other VMS_VARRAY*. */
     VMS_VARRAY_UINT32    = 0x800,
 
-    /* Fail loading the serialised VM state if this field is missing
-     * from the input. */
     VMS_MUST_EXIST       = 0x1000,
 
-    /* When loading serialised VM state, allocate memory for the
-     * (entire) field. Only valid in combination with
-     * VMS_POINTER. Note: Not all combinations with other flags are
-     * currently supported, e.g. VMS_ALLOC|VMS_ARRAY_OF_POINTER won't
-     * cause the individual entries to be allocated. */
     VMS_ALLOC            = 0x2000,
 
-    /* Multiply the number of entries given by the integer at opaque +
-     * VMStateField.num_offset (see VMS_VARRAY*) with VMStateField.num
-     * to determine the number of entries in the array. Only valid in
-     * combination with one of VMS_VARRAY*. */
     VMS_MULTIPLY_ELEMENTS = 0x4000,
 
-    /* A structure field that is like VMS_STRUCT, but uses
-     * VMStateField.struct_version_id to tell which version of the
-     * structure we are referencing to use. */
     VMS_VSTRUCT           = 0x8000,
 
-    /* Marker for end of list */
     VMS_END = 0x10000
 };
 
@@ -184,19 +82,6 @@ struct VMStateField {
 struct VMStateDescription {
     const char *name;
     bool unmigratable;
-    /*
-     * This VMSD describes something that should be sent during setup phase
-     * of migration. It plays similar role as save_setup() for explicitly
-     * registered vmstate entries, so it can be seen as a way to describe
-     * save_setup() in VMSD structures.
-     *
-     * Note that for now, a SaveStateEntry cannot have a VMSD and
-     * operations (e.g., save_setup()) set at the same time. Consequently,
-     * save_setup() and a VMSD with early_setup set to true are mutually
-     * exclusive. For this reason, also early_setup VMSDs are migrated in a
-     * QEMU_VM_SECTION_FULL section, while save_setup() data is migrated in
-     * a QEMU_VM_SECTION_START section.
-     */
     bool early_setup;
     int version_id;
     int minimum_version_id;
@@ -232,7 +117,6 @@ extern const VMStateInfo vmstate_info_uint32;
 extern const VMStateInfo vmstate_info_uint64;
 extern const VMStateInfo vmstate_info_fd;
 
-/** Put this in the stream when migrating a null pointer.*/
 #define VMS_NULLPTR_MARKER (0x30U) /* '0' */
 extern const VMStateInfo vmstate_info_nullptr;
 
@@ -248,19 +132,9 @@ extern const VMStateInfo vmstate_info_gtree;
 extern const VMStateInfo vmstate_info_qlist;
 
 #define type_check_2darray(t1,t2,n,m) ((t1(*)[n][m])0 - (t2*)0)
-/*
- * Check that type t2 is an array of type t1 of size n,
- * e.g. if t1 is 'foo' and n is 32 then t2 must be 'foo[32]'
- */
 #define type_check_array(t1,t2,n) ((t1(*)[n])0 - (t2*)0)
 #define type_check_pointer(t1,t2) ((t1**)0 - (t2*)0)
-/*
- * type of element 0 of the specified (array) field of the type.
- * Note that if the field is a pointer then this will return the
- * pointed-to type rather than complaining.
- */
 #define typeof_elt_of_field(type, field) typeof(((type *)0)->field[0])
-/* Check that field f in struct type t2 is an array of t1, of any size */
 #define type_check_varray(t1, t2, f)                                 \
     (type_check(t1, typeof_elt_of_field(t2, f))                      \
      + QEMU_BUILD_BUG_ON_ZERO(!QEMU_IS_ARRAY(((t2 *)0)->f)))
@@ -292,24 +166,6 @@ extern const VMStateInfo vmstate_info_qlist;
     (offsetof(_state, _field) +                                      \
      type_check_varray(_type, _state, _field))
 
-/* In the macros below, if there is a _version, that means the macro's
- * field will be processed only if the version being received is >=
- * the _version specified.  In general, if you add a new field, you
- * would increment the structure's version and put that version
- * number into the new field so it would only be processed with the
- * new version.
- *
- * In particular, for VMSTATE_STRUCT() and friends the _version does
- * *NOT* pick the version of the sub-structure.  It works just as
- * specified above.  The version of the top-level structure received
- * is passed down to all sub-structures.  This means that the
- * sub-structures must have version that are compatible with all the
- * structures that use them.
- *
- * If you want to specify the version of the sub-structure, use
- * VMSTATE_VSTRUCT(), which allows the specific sub-structure version
- * to be directly specified.
- */
 
 #define VMSTATE_SINGLE_TEST(_field, _state, _test, _version, _info, _type) { \
     .name         = (stringify(_field)),                             \
@@ -333,7 +189,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .offset       = vmstate_offset_value(_state, _field, _type),     \
 }
 
-/* Validate state using a boolean predicate. */
 #define VMSTATE_VALIDATE(_name, _test) { \
     .name         = (_name),                                         \
     .field_exists = (_test),                                         \
@@ -562,9 +417,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .offset     = vmstate_offset_varray(_state, _field, _type),      \
 }
 
-/* a variable length array (i.e. _type *_field) but we know the
- * length
- */
 #define VMSTATE_STRUCT_VARRAY_POINTER_KNOWN(_field, _state, _num, _version, _vmsd, _type) { \
     .name       = (stringify(_field)),                               \
     .num          = (_num),                                          \
@@ -707,14 +559,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .offset     = offsetof(_state, _field),                          \
 }
 
-/* Allocate a temporary of type 'tmp_type', set tmp->parent to _state
- * and execute the vmsd on the temporary.  Note that we're working with
- * the whole of _state here, not a field within it.
- * We compile time check that:
- *    That _tmp_type contains a 'parent' member that's a pointer to the
- *        '_state' type
- *    That the pointer is right at the start of _tmp_type.
- */
 #define VMSTATE_WITH_TMP_TEST(_state, _test, _tmp_type, _vmsd) {     \
     .name         = "tmp",                                           \
     .field_exists = (_test),                                         \
@@ -738,7 +582,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .flags        = VMS_BUFFER,                                      \
 }
 
-/* Discard size * field_num bytes, where field_num is a uint32 member */
 #define VMSTATE_UNUSED_VARRAY_UINT32(_state, _test, _version, _field_num, _size) {\
     .name         = "unused",                                        \
     .field_exists = (_test),                                         \
@@ -749,9 +592,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .flags        = VMS_VARRAY_UINT32 | VMS_BUFFER,                  \
 }
 
-/* _field_size should be a int32_t field in the _state struct giving the
- * size of the bitmap _field in bits.
- */
 #define VMSTATE_BITMAP_TEST(_field, _state, _test, _version, _field_size) { \
     .name         = (stringify(_field)),                             \
     .field_exists = (_test),                                         \
@@ -765,14 +605,6 @@ extern const VMStateInfo vmstate_info_qlist;
 #define VMSTATE_BITMAP(_field, _state, _version, _field_size) \
     VMSTATE_BITMAP_TEST(_field, _state, NULL, _version, _field_size)
 
-/* For migrating a QTAILQ.
- * Target QTAILQ needs be properly initialized.
- * _type: type of QTAILQ element
- * _next: name of QTAILQ entry field in QTAILQ element
- * _vmsd: VMSD for QTAILQ element
- * size: size of QTAILQ element
- * start: offset of QTAILQ entry in QTAILQ element
- */
 #define VMSTATE_QTAILQ_V(_field, _state, _version, _vmsd, _type, _next)  \
 {                                                                        \
     .name         = (stringify(_field)),                                 \
@@ -784,15 +616,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .start        = offsetof(_type, _next),                              \
 }
 
-/*
- * For migrating a GTree whose key is a pointer to _key_type and the
- * value, a pointer to _val_type
- * The target tree must have been properly initialized
- * _vmsd: Start address of the 2 element array containing the data vmsd
- *        and the key vmsd, in that order
- * _key_type: type of the key
- * _val_type: type of the value
- */
 #define VMSTATE_GTREE_V(_field, _state, _version, _vmsd,                       \
                         _key_type, _val_type)                                  \
 {                                                                              \
@@ -805,13 +628,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .offset       = offsetof(_state, _field),                                  \
 }
 
-/*
- * For migrating a GTree with direct key and the value a pointer
- * to _val_type
- * The target tree must have been properly initialized
- * _vmsd: data vmsd
- * _val_type: type of the value
- */
 #define VMSTATE_GTREE_DIRECT_KEY_V(_field, _state, _version, _vmsd, _val_type) \
 {                                                                              \
     .name         = (stringify(_field)),                                       \
@@ -823,15 +639,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .offset       = offsetof(_state, _field),                                  \
 }
 
-/*
- * For migrating a QLIST
- * Target QLIST needs be properly initialized.
- * _type: type of QLIST element
- * _next: name of QLIST_ENTRY entry field in QLIST element
- * _vmsd: VMSD for QLIST element
- * size: size of QLIST element
- * start: offset of QLIST_ENTRY in QTAILQ element
- */
 #define VMSTATE_QLIST_V(_field, _state, _version, _vmsd, _type, _next)  \
 {                                                                        \
     .name         = (stringify(_field)),                                 \
@@ -843,12 +650,6 @@ extern const VMStateInfo vmstate_info_qlist;
     .start        = offsetof(_type, _next),                              \
 }
 
-/* _f : field name
-   _f_n : num of elements field_name
-   _n : num of elements
-   _s : struct state name
-   _v : version
-*/
 
 #define VMSTATE_SINGLE(_field, _state, _version, _info, _type)        \
     VMSTATE_SINGLE_TEST(_field, _state, NULL, _version, _info, _type)
@@ -1163,20 +964,6 @@ extern const VMStateInfo vmstate_info_qlist;
 #define VMSTATE_BUFFER_UNSAFE(_field, _state, _version, _size)        \
     VMSTATE_BUFFER_UNSAFE_INFO(_field, _state, _version, vmstate_info_buffer, _size)
 
-/*
- * These VMSTATE_UNUSED*() macros can be used to fill in the holes
- * when some of the vmstate fields are obsolete to be compatible with
- * migrations between new/old binaries.
- *
- * CAUTION: when using any of the VMSTATE_UNUSED*() macros please be
- * sure that the size passed in is the size that was actually *sent*
- * rather than the size of the *structure*.  One example is the
- * boolean type - the size of the structure can vary depending on the
- * definition of boolean, however the size we actually sent is always
- * 1 byte (please refer to implementation of VMSTATE_BOOL_V and
- * vmstate_info_bool).  So here we should always pass in size==1
- * rather than size==sizeof(bool).
- */
 #define VMSTATE_UNUSED_V(_v, _size)                                   \
     VMSTATE_UNUSED_BUFFER(NULL, _v, _size)
 
@@ -1205,22 +992,12 @@ bool vmstate_section_needed(const VMStateDescription *vmsd, void *opaque);
 
 #define  VMSTATE_INSTANCE_ID_ANY  -1
 
-/* Returns: 0 on success, -1 on failure */
 int vmstate_register_with_alias_id(VMStateIf *obj, uint32_t instance_id,
                                    const VMStateDescription *vmsd,
                                    void *base, int alias_id,
                                    int required_for_version,
                                    Error **errp);
 
-/**
- * vmstate_register() - legacy function to register state
- * serialisation description
- *
- * New code shouldn't be using this function as QOM-ified devices have
- * dc->vmsd to store the serialisation description.
- *
- * Returns: 0 on success, -1 on failure
- */
 static inline int vmstate_register(VMStateIf *obj, int instance_id,
                                    const VMStateDescription *vmsd,
                                    void *opaque)
@@ -1229,26 +1006,10 @@ static inline int vmstate_register(VMStateIf *obj, int instance_id,
                                           opaque, -1, 0, NULL);
 }
 
-/**
- * vmstate_replace_hack_for_ppc() - ppc used to abuse vmstate_register
- *
- * Don't even think about using this function in new code.
- *
- * Returns: 0 on success, -1 on failure
- */
 int vmstate_replace_hack_for_ppc(VMStateIf *obj, int instance_id,
                                  const VMStateDescription *vmsd,
                                  void *opaque);
 
-/**
- * vmstate_register_any() - legacy function to register state
- * serialisation description and let the function choose the id
- *
- * New code shouldn't be using this function as QOM-ified devices have
- * dc->vmsd to store the serialisation description.
- *
- * Returns: 0 on success, -1 on failure
- */
 static inline int vmstate_register_any(VMStateIf *obj,
                                        const VMStateDescription *vmsd,
                                        void *opaque)

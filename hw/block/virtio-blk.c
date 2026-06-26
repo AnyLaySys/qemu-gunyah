@@ -1,15 +1,3 @@
-/*
- * Virtio Block Device
- *
- * Copyright IBM, Corp. 2007
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/defer-call.h"
@@ -76,8 +64,6 @@ static int virtio_blk_handle_rw_error(VirtIOBlockReq *req, int error,
     BlockErrorAction action = blk_get_error_action(s->blk, is_read, error);
 
     if (action == BLOCK_ERROR_ACTION_STOP) {
-        /* Break the link as the next request is going to be parsed from the
-         * ring again. Otherwise we may end up doing a double completion! */
         req->mr_next = NULL;
 
         WITH_QEMU_LOCK_GUARD(&s->rq_lock) {
@@ -108,23 +94,12 @@ static void virtio_blk_rw_complete(void *opaque, int ret)
         trace_virtio_blk_rw_complete(vdev, req, ret);
 
         if (req->qiov.nalloc != -1) {
-            /* If nalloc is != -1 req->qiov is a local copy of the original
-             * external iovec. It was allocated in submit_requests to be
-             * able to merge requests. */
             qemu_iovec_destroy(&req->qiov);
         }
 
         if (ret) {
             int p = virtio_ldl_p(VIRTIO_DEVICE(s), &req->out.type);
             bool is_read = !(p & VIRTIO_BLK_T_OUT);
-            /* Note that memory may be dirtied on read failure.  If the
-             * virtio request is not completed here, as is the case for
-             * BLOCK_ERROR_ACTION_STOP, the memory may not be copied
-             * correctly during live migration.  While this is ugly,
-             * it is acceptable because the device is free to write to
-             * the memory until the request is completed (which will
-             * happen on the other side of the migration).
-             */
             if (virtio_blk_handle_rw_error(req, -ret, is_read, true)) {
                 continue;
             }
@@ -186,24 +161,11 @@ static void virtio_blk_handle_scsi(VirtIOBlockReq *req)
     VirtIODevice *vdev = VIRTIO_DEVICE(blk);
     VirtQueueElement *elem = &req->elem;
 
-    /*
-     * We require at least one output segment each for the virtio_blk_outhdr
-     * and the SCSI command block.
-     *
-     * We also at least require the virtio_blk_inhdr, the virtio_scsi_inhdr
-     * and the sense buffer pointer in the input segments.
-     */
     if (elem->out_num < 2 || elem->in_num < 3) {
         status = VIRTIO_BLK_S_IOERR;
         goto fail;
     }
 
-    /*
-     * The scsi inhdr is placed in the second-to-last input segment, just
-     * before the regular inhdr.
-     *
-     * Just put anything nonzero so that the ioctl fails in the guest.
-     */
     scsi = (void *)elem->in_sg[elem->in_num - 2].iov_base;
     virtio_stl_p(vdev, &scsi->errors, 255);
     status = VIRTIO_BLK_S_UNSUPP;
@@ -227,9 +189,6 @@ static inline void submit_requests(VirtIOBlock *s, MultiReqBuffer *mrb,
         struct iovec *tmp_iov = qiov->iov;
         int tmp_niov = qiov->niov;
 
-        /* mrb->reqs[start]->qiov was initialized from external so we can't
-         * modify it here. We need to initialize it locally and then add the
-         * external iovecs. */
         qemu_iovec_init(qiov, niov);
 
         for (i = 0; i < tmp_niov; i++) {
@@ -271,10 +230,6 @@ static int multireq_compare(const void *a, const void *b)
     const VirtIOBlockReq *req1 = *(VirtIOBlockReq **)a,
                          *req2 = *(VirtIOBlockReq **)b;
 
-    /*
-     * Note that we can't simply subtract sector_num1 from sector_num2
-     * here as that could overflow the return value.
-     */
     if (req1->sector_num > req2->sector_num) {
         return 1;
     } else if (req1->sector_num < req2->sector_num) {
@@ -304,12 +259,6 @@ static void virtio_blk_submit_multireq(VirtIOBlock *s, MultiReqBuffer *mrb)
     for (i = 0; i < mrb->num_reqs; i++) {
         VirtIOBlockReq *req = mrb->reqs[i];
         if (num_reqs > 0) {
-            /*
-             * NOTE: We cannot merge the requests in below situations:
-             * 1. requests are not sequential
-             * 2. merge would exceed maximum number of IOVs
-             * 3. merge would exceed maximum transfer length of backend device
-             */
             if (sector_num + nb_sectors != req->sector_num ||
                 niov > blk_get_max_iov(s->blk) - req->qiov.niov ||
                 req->qiov.size > max_transfer ||
@@ -342,9 +291,6 @@ static void virtio_blk_handle_flush(VirtIOBlockReq *req, MultiReqBuffer *mrb)
     block_acct_start(blk_get_stats(s->blk), &req->acct, 0,
                      BLOCK_ACCT_FLUSH);
 
-    /*
-     * Make sure all outstanding writes are posted to the backing device.
-     */
     if (mrb->is_write && mrb->num_reqs > 0) {
         virtio_blk_submit_multireq(s, mrb);
     }
@@ -389,11 +335,6 @@ static uint8_t virtio_blk_handle_discard_write_zeroes(VirtIOBlockReq *req,
     max_sectors = is_write_zeroes ? s->conf.max_write_zeroes_sectors :
                   s->conf.max_discard_sectors;
 
-    /*
-     * max_sectors is at most BDRV_REQUEST_MAX_SECTORS, this check
-     * make us sure that "num_sectors << BDRV_SECTOR_BITS" can fit in
-     * the integer variable.
-     */
     if (unlikely(num_sectors > max_sectors)) {
         err_status = VIRTIO_BLK_S_IOERR;
         goto err;
@@ -406,10 +347,6 @@ static uint8_t virtio_blk_handle_discard_write_zeroes(VirtIOBlockReq *req,
         goto err;
     }
 
-    /*
-     * The device MUST set the status byte to VIRTIO_BLK_S_UNSUPP for discard
-     * and write zeroes commands if any unknown flag is set.
-     */
     if (unlikely(flags & ~VIRTIO_BLK_WRITE_ZEROES_FLAG_UNMAP)) {
         err_status = VIRTIO_BLK_S_UNSUPP;
         goto err;
@@ -429,10 +366,6 @@ static uint8_t virtio_blk_handle_discard_write_zeroes(VirtIOBlockReq *req,
                               bytes, blk_aio_flags,
                               virtio_blk_discard_write_zeroes_complete, req);
     } else { /* VIRTIO_BLK_T_DISCARD */
-        /*
-         * The device MUST set the status byte to VIRTIO_BLK_S_UNSUPP for
-         * discard commands if the unmap flag is set.
-         */
         if (unlikely(flags & VIRTIO_BLK_WRITE_ZEROES_FLAG_UNMAP)) {
             err_status = VIRTIO_BLK_S_UNSUPP;
             goto err;
@@ -466,11 +399,6 @@ typedef struct ZoneCmdData {
     };
 } ZoneCmdData;
 
-/*
- * check zoned_request: error checking before issuing requests. If all checks
- * passed, return true.
- * append: true if only zone append requests issued.
- */
 static bool check_zoned_request(VirtIOBlock *s, int64_t offset, int64_t len,
                              bool append, uint8_t *status) {
     BlockDriverState *bs = blk_bs(s->blk);
@@ -597,7 +525,6 @@ static void virtio_blk_zone_report_complete(void *opaque, int ret)
             g_assert_not_reached();
         }
 
-        /* TODO: it takes O(n^2) time complexity. Optimizations required. */
         n = iov_from_buf(in_iov, in_num, i, &desc, sizeof(desc));
         if (n != sizeof(desc)) {
             virtio_error(vdev, "Driver provided input buffer "
@@ -632,7 +559,6 @@ static void virtio_blk_handle_zone_report(VirtIOBlockReq *req,
         goto out;
     }
 
-    /* start byte offset of the zone report */
     offset = virtio_ldq_p(vdev, &req->out.sector) << BDRV_SECTOR_BITS;
     if (!check_zoned_request(s, offset, 0, false, &err_status)) {
         goto out;
@@ -688,14 +614,12 @@ static int virtio_blk_handle_zone_mgmt(VirtIOBlockReq *req, BlockZoneOp op)
 
     uint32_t type = virtio_ldl_p(vdev, &req->out.type);
     if (type == VIRTIO_BLK_T_ZONE_RESET_ALL) {
-        /* Entire drive capacity */
         offset = 0;
         len = capacity;
         trace_virtio_blk_handle_zone_reset_all(vdev, req, 0,
                                                bs->total_sectors);
     } else {
         if (bs->bl.zone_size > capacity - offset) {
-            /* The zoned device allows the last smaller zone. */
             len = capacity - bs->bl.zone_size * (bs->bl.nr_zones - 1ull);
         } else {
             len = bs->bl.zone_size;
@@ -818,7 +742,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
         return -1;
     }
 
-    /* We always touch the last byte, so just see how big in_iov is.  */
     req->in_len = iov_size(in_iov, in_num);
     req->in = (void *)in_iov[in_num - 1].iov_base
               + in_iov[in_num - 1].iov_len
@@ -828,9 +751,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
 
     type = virtio_ldl_p(vdev, &req->out.type);
 
-    /* VIRTIO_BLK_T_OUT defines the command direction. VIRTIO_BLK_T_BARRIER
-     * is an optional flag. Although a guest should not send this flag if
-     * not negotiated we ignored it in the past. So keep ignoring it. */
     switch (type & ~(VIRTIO_BLK_T_OUT | VIRTIO_BLK_T_BARRIER)) {
     case VIRTIO_BLK_T_IN:
     {
@@ -858,8 +778,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
         block_acct_start(blk_get_stats(s->blk), &req->acct, req->qiov.size,
                          is_write ? BLOCK_ACCT_WRITE : BLOCK_ACCT_READ);
 
-        /* merge would exceed maximum number of requests or IO direction
-         * changes */
         if (mrb->num_reqs > 0 && (mrb->num_reqs == VIRTIO_BLK_MAX_MERGE_REQS ||
                                   is_write != mrb->is_write ||
                                   !s->conf.request_merging)) {
@@ -897,10 +815,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
         break;
     case VIRTIO_BLK_T_GET_ID:
     {
-        /*
-         * NB: per existing s/n string convention the string is
-         * terminated by '\0' only when shorter than buffer.
-         */
         const char *serial = s->conf.serial ? s->conf.serial : "";
         size_t size = MIN(strlen(serial) + 1,
                           MIN(iov_size(in_iov, in_num),
@@ -911,18 +825,8 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
         break;
     }
     case VIRTIO_BLK_T_ZONE_APPEND & ~VIRTIO_BLK_T_OUT:
-        /*
-         * Passing out_iov/out_num and in_iov/in_num is not safe
-         * to access req->elem.out_sg directly because it may be
-         * modified by virtio_blk_handle_request().
-         */
         virtio_blk_handle_zone_append(req, out_iov, in_iov, out_num, in_num);
         break;
-    /*
-     * VIRTIO_BLK_T_DISCARD and VIRTIO_BLK_T_WRITE_ZEROES are defined with
-     * VIRTIO_BLK_T_OUT flag set. We masked this flag in the switch statement,
-     * so we must mask it for these requests, then we will check if it is set.
-     */
     case VIRTIO_BLK_T_DISCARD & ~VIRTIO_BLK_T_OUT:
     case VIRTIO_BLK_T_WRITE_ZEROES & ~VIRTIO_BLK_T_OUT:
     {
@@ -932,10 +836,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
                                VIRTIO_BLK_T_WRITE_ZEROES;
         uint8_t err_status;
 
-        /*
-         * Unsupported if VIRTIO_BLK_T_OUT is not set or the request contains
-         * more than one segment.
-         */
         if (unlikely(!(type & VIRTIO_BLK_T_OUT) ||
                      out_len > sizeof(dwz_hdr))) {
             virtio_blk_req_complete(req, VIRTIO_BLK_S_UNSUPP);
@@ -963,10 +863,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
     }
     default:
     {
-        /*
-         * Give subclasses a chance to handle unknown requests. This way the
-         * class lookup is not in the hot path.
-         */
         VirtIOBlkClass *vbk = VIRTIO_BLK_GET_CLASS(s);
         if (!vbk->handle_unknown_request ||
             !vbk->handle_unknown_request(req, mrb, type)) {
@@ -1016,9 +912,6 @@ static void virtio_blk_handle_output(VirtIODevice *vdev, VirtQueue *vq)
     VirtIOBlock *s = (VirtIOBlock *)vdev;
 
     if (!s->ioeventfd_disabled && !s->ioeventfd_started) {
-        /* Some guests kick before setting VIRTIO_CONFIG_S_DRIVER_OK so start
-         * ioeventfd here instead of waiting for .set_status().
-         */
         virtio_device_start_ioeventfd(vdev);
         if (!s->ioeventfd_disabled) {
             return;
@@ -1038,9 +931,6 @@ static void virtio_blk_dma_restart_bh(void *opaque)
     while (req) {
         VirtIOBlockReq *next = req->next;
         if (virtio_blk_handle_request(req, &mrb)) {
-            /* Device is now broken and won't do any processing until it gets
-             * reset. Already queued requests will be lost: let's purge them.
-             */
             while (req) {
                 next = req->next;
                 virtqueue_detach_element(req->vq, &req->elem, 0);
@@ -1056,7 +946,6 @@ static void virtio_blk_dma_restart_bh(void *opaque)
         virtio_blk_submit_multireq(s, &mrb);
     }
 
-    /* Paired with inc in virtio_blk_dma_restart_cb() */
     blk_dec_in_flight(s->conf.conf.blk);
 }
 
@@ -1072,7 +961,6 @@ static void virtio_blk_dma_restart_cb(void *opaque, bool running,
         return;
     }
 
-    /* Split the device-wide s->rq request list into per-vq request lists */
     vq_rq = g_new0(VirtIOBlockReq *, num_queues);
 
     WITH_QEMU_LOCK_GUARD(&s->rq_lock) {
@@ -1084,20 +972,17 @@ static void virtio_blk_dma_restart_cb(void *opaque, bool running,
         VirtIOBlockReq *next = rq->next;
         uint16_t idx = virtio_get_queue_index(rq->vq);
 
-        /* Only num_queues vqs were created so vq_rq[idx] is within bounds */
         assert(idx < num_queues);
         rq->next = vq_rq[idx];
         vq_rq[idx] = rq;
         rq = next;
     }
 
-    /* Schedule a BH to submit the requests in each vq's AioContext */
     for (uint16_t i = 0; i < num_queues; i++) {
         if (!vq_rq[i]) {
             continue;
         }
 
-        /* Paired with dec in virtio_blk_dma_restart_bh() */
         blk_inc_in_flight(s->conf.conf.blk);
 
         aio_bh_schedule_oneshot(s->vq_aio_context[i],
@@ -1111,20 +996,15 @@ static void virtio_blk_reset(VirtIODevice *vdev)
     VirtIOBlock *s = VIRTIO_BLK(vdev);
     VirtIOBlockReq *req;
 
-    /* Dataplane has stopped... */
     assert(!s->ioeventfd_started);
 
-    /* ...but requests may still be in flight. */
     blk_drain(s->blk);
 
-    /* We drop queued requests after blk_drain() because blk_drain() itself can
-     * produce them. */
     WITH_QEMU_LOCK_GUARD(&s->rq_lock) {
         while (s->rq) {
             req = s->rq;
             s->rq = req->next;
 
-            /* No other threads can access req->vq here */
             virtqueue_detach_element(req->vq, &req->elem, 0);
 
             g_free(req);
@@ -1134,8 +1014,6 @@ static void virtio_blk_reset(VirtIODevice *vdev)
     blk_set_enable_write_cache(s->blk, s->original_wce);
 }
 
-/* coalesce internal state, copy to pci i/o region 0
- */
 static void virtio_blk_update_config(VirtIODevice *vdev, uint8_t *config)
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
@@ -1156,17 +1034,6 @@ static void virtio_blk_update_config(VirtIODevice *vdev, uint8_t *config)
     virtio_stw_p(vdev, &blkcfg.min_io_size, conf->min_io_size / blk_size);
     virtio_stl_p(vdev, &blkcfg.opt_io_size, conf->opt_io_size / blk_size);
     blkcfg.geometry.heads = conf->heads;
-    /*
-     * We must ensure that the block device capacity is a multiple of
-     * the logical block size. If that is not the case, let's use
-     * sector_mask to adopt the geometry to have a correct picture.
-     * For those devices where the capacity is ok for the given geometry
-     * we don't touch the sector value of the geometry, since some devices
-     * (like s390 dasd) need a specific value. Here the capacity is already
-     * cyls*heads*secs*blk_size and the sector value is not block size
-     * divided by 512 - instead it is the amount of blk_size blocks
-     * per track (cylinder).
-     */
     length = blk_getlength(s->blk);
     if (length > 0 && length / conf->heads / conf->secs % blk_size) {
         blkcfg.geometry.sectors = conf->secs & ~s->sector_mask;
@@ -1187,11 +1054,6 @@ static void virtio_blk_update_config(VirtIODevice *vdev, uint8_t *config)
                      s->conf.max_discard_sectors);
         virtio_stl_p(vdev, &blkcfg.discard_sector_alignment,
                      discard_granularity >> BDRV_SECTOR_BITS);
-        /*
-         * We support only one segment per request since multiple segments
-         * are not widely used and there are no userspace APIs that allow
-         * applications to submit multiple segments in a single call.
-         */
         virtio_stl_p(vdev, &blkcfg.max_discard_seg, 1);
     }
     if (virtio_has_feature(s->host_features, VIRTIO_BLK_F_WRITE_ZEROES)) {
@@ -1242,7 +1104,6 @@ static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features,
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
 
-    /* Firstly sync all virtio-blk possible supported features */
     features |= s->host_features;
 
     virtio_add_feature(&features, VIRTIO_BLK_F_SEG_MAX);
@@ -1251,7 +1112,6 @@ static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features,
     virtio_add_feature(&features, VIRTIO_BLK_F_BLK_SIZE);
     if (!virtio_has_feature(features, VIRTIO_F_VERSION_1)) {
         virtio_clear_feature(&features, VIRTIO_F_ANY_LAYOUT);
-        /* Added for historical reasons, removing it could break migration.  */
         virtio_add_feature(&features, VIRTIO_BLK_F_SCSI);
     }
 
@@ -1282,21 +1142,6 @@ static void virtio_blk_set_status(VirtIODevice *vdev, uint8_t status)
         return;
     }
 
-    /* A guest that supports VIRTIO_BLK_F_CONFIG_WCE must be able to send
-     * cache flushes.  Thus, the "auto writethrough" behavior is never
-     * necessary for guests that support the VIRTIO_BLK_F_CONFIG_WCE feature.
-     * Leaving it enabled would break the following sequence:
-     *
-     *     Guest started with "-drive cache=writethrough"
-     *     Guest sets status to 0
-     *     Guest sets DRIVER bit in status field
-     *     Guest reads host features (WCE=0, CONFIG_WCE=1)
-     *     Guest writes guest features (WCE=0, CONFIG_WCE=1)
-     *     Guest writes 1 to the WCE configuration field (writeback mode)
-     *     Guest sets DRIVER_OK bit in status field
-     *
-     * s->blk would erroneously be placed in writethrough mode.
-     */
     if (!virtio_vdev_has_feature(vdev, VIRTIO_BLK_F_CONFIG_WCE)) {
         blk_set_enable_write_cache(s->blk,
                                    virtio_vdev_has_feature(vdev,
@@ -1370,11 +1215,6 @@ static void virtio_blk_resize(void *opaque)
 {
     VirtIODevice *vdev = VIRTIO_DEVICE(opaque);
 
-    /*
-     * virtio_notify_config() needs to acquire the BQL,
-     * so it can't be called from an iothread. Instead, schedule
-     * it to be run in the main context BH.
-     */
     aio_bh_schedule_oneshot(qemu_get_aio_context(), virtio_resize_cb, vdev);
 }
 
@@ -1398,7 +1238,6 @@ static void virtio_blk_ioeventfd_attach(VirtIOBlock *s)
     }
 }
 
-/* Suspend virtqueue ioeventfd processing during drain */
 static void virtio_blk_drained_begin(void *opaque)
 {
     VirtIOBlock *s = opaque;
@@ -1408,7 +1247,6 @@ static void virtio_blk_drained_begin(void *opaque)
     }
 }
 
-/* Resume virtqueue ioeventfd processing after drain */
 static void virtio_blk_drained_end(void *opaque)
 {
     VirtIOBlock *s = opaque;
@@ -1424,7 +1262,6 @@ static const BlockDevOps virtio_block_ops = {
     .drained_end   = virtio_blk_drained_end,
 };
 
-/* Context: BQL held */
 static bool virtio_blk_vq_aio_context_init(VirtIOBlock *s, Error **errp)
 {
     ERRP_GUARD();
@@ -1470,7 +1307,6 @@ static bool virtio_blk_vq_aio_context_init(VirtIOBlock *s, Error **errp)
             s->vq_aio_context[i] = ctx;
         }
 
-        /* Released in virtio_blk_vq_aio_context_cleanup() */
         object_ref(OBJECT(conf->iothread));
     } else {
         AioContext *ctx = qemu_get_aio_context();
@@ -1482,7 +1318,6 @@ static bool virtio_blk_vq_aio_context_init(VirtIOBlock *s, Error **errp)
     return true;
 }
 
-/* Context: BQL held */
 static void virtio_blk_vq_aio_context_cleanup(VirtIOBlock *s)
 {
     VirtIOBlkConf *conf = &s->conf;
@@ -1501,7 +1336,6 @@ static void virtio_blk_vq_aio_context_cleanup(VirtIOBlock *s)
     s->vq_aio_context = NULL;
 }
 
-/* Context: BQL held */
 static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
@@ -1518,7 +1352,6 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
 
     s->ioeventfd_starting = true;
 
-    /* Set up guest notifier (irq) */
     r = k->set_guest_notifiers(qbus->parent, nvqs, true);
     if (r != 0) {
         error_report("virtio-blk failed to set guest notifier (%d), "
@@ -1526,13 +1359,8 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
         goto fail_guest_notifiers;
     }
 
-    /*
-     * Batch all the host notifiers in a single transaction to avoid
-     * quadratic time complexity in address_space_update_ioeventfds().
-     */
     memory_region_transaction_begin();
 
-    /* Set up virtqueue notify */
     for (i = 0; i < nvqs; i++) {
         r = virtio_bus_set_host_notifier(VIRTIO_BUS(qbus), i, true);
         if (r != 0) {
@@ -1543,10 +1371,6 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
                 virtio_bus_set_host_notifier(VIRTIO_BUS(qbus), i, false);
             }
 
-            /*
-             * The transaction expects the ioeventfds to be open when it
-             * commits. Do it now, before the cleanup loop.
-             */
             memory_region_transaction_commit();
 
             while (j--) {
@@ -1558,10 +1382,6 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
 
     memory_region_transaction_commit();
 
-    /*
-     * Try to change the AioContext so that block jobs and other operations can
-     * co-locate their activity in the same AioContext. If it fails, nevermind.
-     */
     assert(nvqs > 0); /* enforced during ->realize() */
     r = blk_set_aio_context(s->conf.conf.blk, s->vq_aio_context[0],
                             &local_err);
@@ -1569,24 +1389,10 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
         warn_report_err(local_err);
     }
 
-    /*
-     * These fields must be visible to the IOThread when it processes the
-     * virtqueue, otherwise it will think ioeventfd has not started yet.
-     *
-     * Make sure ->ioeventfd_started is false when blk_set_aio_context() is
-     * called above so that draining does not cause the host notifier to be
-     * detached/attached prematurely.
-     */
     s->ioeventfd_starting = false;
     s->ioeventfd_started = true;
     smp_wmb(); /* paired with aio_notify_accept() on the read side */
 
-    /*
-     * Get this show started by hooking up our callbacks.  If drained now,
-     * virtio_blk_drained_end() will do this later.
-     * Attaching the notifier also kicks the virtqueues, processing any requests
-     * they may already have.
-     */
     if (!blk_in_drain(s->conf.conf.blk)) {
         virtio_blk_ioeventfd_attach(s);
     }
@@ -1600,10 +1406,6 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
     return -ENOSYS;
 }
 
-/* Stop notifications for new requests from guest.
- *
- * Context: BH in IOThread
- */
 static void virtio_blk_ioeventfd_stop_vq_bh(void *opaque)
 {
     VirtQueue *vq = opaque;
@@ -1611,14 +1413,9 @@ static void virtio_blk_ioeventfd_stop_vq_bh(void *opaque)
 
     virtio_queue_aio_detach_host_notifier(vq, qemu_get_current_aio_context());
 
-    /*
-     * Test and clear notifier after disabling event, in case poll callback
-     * didn't have time to run.
-     */
     virtio_queue_host_notifier_read(host_notifier);
 }
 
-/* Context: BQL held */
 static void virtio_blk_stop_ioeventfd(VirtIODevice *vdev)
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
@@ -1631,7 +1428,6 @@ static void virtio_blk_stop_ioeventfd(VirtIODevice *vdev)
         return;
     }
 
-    /* Better luck next time. */
     if (s->ioeventfd_disabled) {
         s->ioeventfd_disabled = false;
         s->ioeventfd_started = false;
@@ -1648,42 +1444,24 @@ static void virtio_blk_stop_ioeventfd(VirtIODevice *vdev)
         }
     }
 
-    /*
-     * Batch all the host notifiers in a single transaction to avoid
-     * quadratic time complexity in address_space_update_ioeventfds().
-     */
     memory_region_transaction_begin();
 
     for (i = 0; i < nvqs; i++) {
         virtio_bus_set_host_notifier(VIRTIO_BUS(qbus), i, false);
     }
 
-    /*
-     * The transaction expects the ioeventfds to be open when it
-     * commits. Do it now, before the cleanup loop.
-     */
     memory_region_transaction_commit();
 
     for (i = 0; i < nvqs; i++) {
         virtio_bus_cleanup_host_notifier(VIRTIO_BUS(qbus), i);
     }
 
-    /*
-     * Set ->ioeventfd_started to false before draining so that host notifiers
-     * are not detached/attached anymore.
-     */
     s->ioeventfd_started = false;
 
-    /* Wait for virtio_blk_dma_restart_bh() and in flight I/O to complete */
     blk_drain(s->conf.conf.blk);
 
-    /*
-     * Try to switch bs back to the QEMU main loop. If other users keep the
-     * BlockBackend in the iothread, that's ok
-     */
     blk_set_aio_context(s->conf.conf.blk, qemu_get_aio_context(), NULL);
 
-    /* Clean up guest notifier (irq) */
     k->set_guest_notifiers(qbus->parent, nvqs, false);
 
     s->ioeventfd_stopping = false;
@@ -1782,7 +1560,6 @@ static void virtio_blk_device_realize(DeviceState *dev, Error **errp)
     }
     qemu_coroutine_inc_pool_size(conf->num_queues * conf->queue_size / 2);
 
-    /* Don't start ioeventfd if transport does not support notifiers. */
     if (!virtio_device_ioeventfd_enabled(vdev)) {
         s->ioeventfd_disabled = true;
     }
@@ -1797,10 +1574,6 @@ static void virtio_blk_device_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    /*
-     * This must be after virtio_init() so virtio_blk_dma_restart_cb() gets
-     * called after ->start_ioeventfd() has already set blk's AioContext.
-     */
     s->change =
         qdev_add_vm_change_state_handler(dev, virtio_blk_dma_restart_cb, s);
 

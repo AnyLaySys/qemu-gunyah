@@ -1,14 +1,3 @@
-/*
- * QEMU host SGX EPC memory backend
- *
- * Copyright (C) 2019 Intel Corporation
- *
- * Authors:
- *   Sean Christopherson <sean.j.christopherson@intel.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include <sys/ioctl.h>

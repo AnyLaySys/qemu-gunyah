@@ -1,25 +1,7 @@
-/*
- * CRC16 (CCITT) Checksum Algorithm
- *
- * Copyright (c) 2021 Wind River Systems, Inc.
- *
- * Author:
- *   Bin Meng <bin.meng@windriver.com>
- *
- * From Linux kernel v5.10 lib/crc-ccitt.c
- *
- * SPDX-License-Identifier: GPL-2.0-only
- */
 
 #include "qemu/osdep.h"
 #include "qemu/crc-ccitt.h"
 
-/*
- * This mysterious table is just the CRC of each possible byte. It can be
- * computed using the standard bit-at-a-time methods. The polynomial can
- * be seen in entry 128, 0x8408. This corresponds to x^0 + x^5 + x^12.
- * Add the implicit x^16, and you have the standard CRC-CCITT.
- */
 uint16_t const crc_ccitt_table[256] = {
     0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
     0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
@@ -55,10 +37,6 @@ uint16_t const crc_ccitt_table[256] = {
     0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
 };
 
-/*
- * Similar table to calculate CRC16 variant known as CRC-CCITT-FALSE
- * Reflected bits order, does not augment final value.
- */
 uint16_t const crc_ccitt_false_table[256] = {
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
     0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
@@ -94,14 +72,6 @@ uint16_t const crc_ccitt_false_table[256] = {
     0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
 };
 
-/**
- * crc_ccitt - recompute the CRC (CRC-CCITT variant)
- * for the data buffer
- *
- * @crc: previous CRC value
- * @buffer: data pointer
- * @len: number of bytes in the buffer
- */
 uint16_t crc_ccitt(uint16_t crc, uint8_t const *buffer, size_t len)
 {
     while (len--) {
@@ -110,14 +80,6 @@ uint16_t crc_ccitt(uint16_t crc, uint8_t const *buffer, size_t len)
     return crc;
 }
 
-/**
- * crc_ccitt_false - recompute the CRC (CRC-CCITT-FALSE variant)
- * for the data buffer
- *
- * @crc: previous CRC value
- * @buffer: data pointer
- * @len: number of bytes in the buffer
- */
 uint16_t crc_ccitt_false(uint16_t crc, uint8_t const *buffer, size_t len)
 {
     while (len--) {

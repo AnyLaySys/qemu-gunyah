@@ -1,22 +1,3 @@
-/*
- * QEMU base64 helpers
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -33,20 +14,15 @@ uint8_t *qbase64_decode(const char *input,
     *out_len = 0;
 
     if (in_len != -1) {
-        /* Lack of NUL terminator is an error */
         if (input[in_len] != '\0') {
             error_setg(errp, "Base64 data is not NUL terminated");
             return NULL;
         }
-        /* Check there's no NULs embedded since we expect
-         * this to be valid base64 data */
         if (memchr(input, '\0', in_len) != NULL) {
             error_setg(errp, "Base64 data contains embedded NUL characters");
             return NULL;
         }
 
-        /* Now we know its a valid nul terminated string
-         * strspn is safe to use... */
     } else {
         in_len = strlen(input);
     }

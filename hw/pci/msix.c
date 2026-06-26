@@ -1,18 +1,3 @@
-/*
- * MSI-X device support
- *
- * This module includes support for MSI-X in pci devices.
- *
- * Author: Michael S. Tsirkin <mst@redhat.com>
- *
- *  Copyright (c) 2009, Red Hat Inc, Michael S. Tsirkin (mst@redhat.com)
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -25,7 +10,6 @@
 #include "qapi/error.h"
 #include "trace.h"
 
-/* MSI enable bit and maskall bit are in byte 1 in FLAGS register */
 #define MSIX_CONTROL_OFFSET (PCI_MSIX_FLAGS + 1)
 #define MSIX_ENABLE_MASK (PCI_MSIX_FLAGS_ENABLE >> 8)
 #define MSIX_MASKALL_MASK (PCI_MSIX_FLAGS_MASKALL >> 8)
@@ -45,10 +29,6 @@ MSIMessage msix_get_message(PCIDevice *dev, unsigned vector)
     return dev->msix_prepare_message(dev, vector);
 }
 
-/*
- * Special API for POWER to configure the vectors through
- * a side channel. Should never be used by devices.
- */
 void msix_set_message(PCIDevice *dev, int vector, struct MSIMessage msg)
 {
     uint8_t *table_entry = dev->msix_table + vector * PCI_MSIX_ENTRY_SIZE;
@@ -159,7 +139,6 @@ static void msix_update_function_masked(PCIDevice *dev)
     dev->msix_function_masked = !msix_enabled(dev) || msix_masked(dev);
 }
 
-/* Handle MSI-X capability config write. */
 void msix_write_config(PCIDevice *dev, uint32_t addr,
                        uint32_t val, int len)
 {
@@ -281,26 +260,6 @@ static void msix_mask_all(struct PCIDevice *dev, unsigned nentries)
     }
 }
 
-/*
- * Make PCI device @dev MSI-X capable
- * @nentries is the max number of MSI-X vectors that the device support.
- * @table_bar is the MemoryRegion that MSI-X table structure resides.
- * @table_bar_nr is number of base address register corresponding to @table_bar.
- * @table_offset indicates the offset that the MSI-X table structure starts with
- * in @table_bar.
- * @pba_bar is the MemoryRegion that the Pending Bit Array structure resides.
- * @pba_bar_nr is number of base address register corresponding to @pba_bar.
- * @pba_offset indicates the offset that the Pending Bit Array structure
- * starts with in @pba_bar.
- * Non-zero @cap_pos puts capability MSI-X at that offset in PCI config space.
- * @errp is for returning errors.
- *
- * Return 0 on success; set @errp and return -errno on error:
- * -ENOTSUP means lacking msi support for a msi-capable platform.
- * -EINVAL means capability overlap, happens when @cap_pos is non-zero,
- * also means a programming error, except device assignment, which can check
- * if a real HW is broken.
- */
 int msix_init(struct PCIDevice *dev, unsigned short nentries,
               MemoryRegion *table_bar, uint8_t table_bar_nr,
               unsigned table_offset, MemoryRegion *pba_bar,
@@ -311,7 +270,6 @@ int msix_init(struct PCIDevice *dev, unsigned short nentries,
     unsigned table_size, pba_size;
     uint8_t *config;
 
-    /* Nothing to do if MSI is not supported by interrupt controller */
     if (!msi_nonbroken) {
         error_setg(errp, "MSI-X is not supported by interrupt controller");
         return -ENOTSUP;
@@ -325,7 +283,6 @@ int msix_init(struct PCIDevice *dev, unsigned short nentries,
     table_size = nentries * PCI_MSIX_ENTRY_SIZE;
     pba_size = QEMU_ALIGN_UP(nentries, 64) / 8;
 
-    /* Sanity test: table & pba don't overlap, fit within BARs, min aligned */
     if ((table_bar_nr == pba_bar_nr &&
          ranges_overlap(table_offset, table_size, pba_offset, pba_size)) ||
         table_offset + table_size > memory_region_size(table_bar) ||
@@ -353,7 +310,6 @@ int msix_init(struct PCIDevice *dev, unsigned short nentries,
     pci_set_long(config + PCI_MSIX_TABLE, table_offset | table_bar_nr);
     pci_set_long(config + PCI_MSIX_PBA, pba_offset | pba_bar_nr);
 
-    /* Make flags bit writable. */
     dev->wmask[cap + MSIX_CONTROL_OFFSET] |= MSIX_ENABLE_MASK |
                                              MSIX_MASKALL_MASK;
 
@@ -384,13 +340,6 @@ int msix_init_exclusive_bar(PCIDevice *dev, unsigned short nentries,
     uint32_t bar_pba_offset = bar_size / 2;
     uint32_t bar_pba_size = QEMU_ALIGN_UP(nentries, 64) / 8;
 
-    /*
-     * Migration compatibility dictates that this remains a 4k
-     * BAR with the vector table in the lower half and PBA in
-     * the upper half for nentries which is lower or equal to 128.
-     * No need to care about using more than 65 entries for legacy
-     * machine types who has at most 64 queues.
-     */
     if (nentries * PCI_MSIX_ENTRY_SIZE > bar_pba_offset) {
         bar_pba_offset = nentries * PCI_MSIX_ENTRY_SIZE;
     }
@@ -438,7 +387,6 @@ static void msix_clear_all_vectors(PCIDevice *dev)
     }
 }
 
-/* Clean up resources for the device. */
 void msix_uninit(PCIDevice *dev, MemoryRegion *table_bar, MemoryRegion *pba_bar)
 {
     if (!msix_present(dev)) {
@@ -479,7 +427,6 @@ void msix_save(PCIDevice *dev, QEMUFile *f)
     qemu_put_buffer(f, dev->msix_pba, DIV_ROUND_UP(n, 8));
 }
 
-/* Should be called after restoring the config space. */
 void msix_load(PCIDevice *dev, QEMUFile *f)
 {
     unsigned n = dev->msix_entries_nr;
@@ -499,13 +446,11 @@ void msix_load(PCIDevice *dev, QEMUFile *f)
     }
 }
 
-/* Does device support MSI-X? */
 int msix_present(PCIDevice *dev)
 {
     return dev->cap_present & QEMU_PCI_CAP_MSIX;
 }
 
-/* Is MSI-X enabled? */
 int msix_enabled(PCIDevice *dev)
 {
     return (dev->cap_present & QEMU_PCI_CAP_MSIX) &&
@@ -513,7 +458,6 @@ int msix_enabled(PCIDevice *dev)
          MSIX_ENABLE_MASK);
 }
 
-/* Send an MSI-X message */
 void msix_notify(PCIDevice *dev, unsigned vector)
 {
     MSIMessage msg;
@@ -547,22 +491,13 @@ void msix_reset(PCIDevice *dev)
     msix_mask_all(dev, dev->msix_entries_nr);
 }
 
-/* PCI spec suggests that devices make it possible for software to configure
- * less vectors than supported by the device, but does not specify a standard
- * mechanism for devices to do so.
- *
- * We support this by asking devices to declare vectors software is going to
- * actually use, and checking this on the notification path. Devices that
- * don't want to follow the spec suggestion can declare all vectors as used. */
 
-/* Mark vector as used. */
 void msix_vector_use(PCIDevice *dev, unsigned vector)
 {
     assert(vector < dev->msix_entries_nr);
     dev->msix_entry_used[vector]++;
 }
 
-/* Mark vector as unused. */
 void msix_vector_unuse(PCIDevice *dev, unsigned vector)
 {
     assert(vector < dev->msix_entries_nr);

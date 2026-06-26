@@ -1,34 +1,3 @@
-/*
- * QEMU host block devices
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- *
- * This file incorporates work covered by the following copyright and
- * permission notice:
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "system/block-backend.h"
@@ -56,7 +25,6 @@
 #include "qemu/cutils.h"
 #include "qemu/main-loop.h"
 
-/* Protected by BQL */
 QTAILQ_HEAD(, BlockDriverState) monitor_bdrv_states =
     QTAILQ_HEAD_INITIALIZER(monitor_bdrv_states);
 
@@ -79,28 +47,10 @@ static const char *const if_name[IF_COUNT] = {
 };
 
 static int if_max_devs[IF_COUNT] = {
-    /*
-     * Do not change these numbers!  They govern how drive option
-     * index maps to unit and bus.  That mapping is ABI.
-     *
-     * All controllers used to implement if=T drives need to support
-     * if_max_devs[T] units, for any T with if_max_devs[T] != 0.
-     * Otherwise, some index values map to "impossible" bus, unit
-     * values.
-     *
-     * For instance, if you change [IF_SCSI] to 255, -drive
-     * if=scsi,index=12 no longer means bus=1,unit=5, but
-     * bus=0,unit=12.  With an lsi53c895a controller (7 units max),
-     * the drive can't be set up.  Regression.
-     */
     [IF_IDE] = 2,
     [IF_SCSI] = 7,
 };
 
-/**
- * Boards may call this to offer board-by-board overrides
- * of the default, global values.
- */
 void override_max_devs(BlockInterfaceType type, int max_devs)
 {
     BlockBackend *blk;
@@ -125,13 +75,6 @@ void override_max_devs(BlockInterfaceType type, int max_devs)
     if_max_devs[type] = max_devs;
 }
 
-/*
- * We automatically delete the drive when a device using it gets
- * unplugged.  Questionable feature, but we can't just drop it.
- * Device models call blockdev_mark_auto_del() to schedule the
- * automatic deletion, and generic qdev code calls blockdev_auto_del()
- * when deletion is actually safe.
- */
 void blockdev_mark_auto_del(BlockBackend *blk)
 {
     DriveInfo *dinfo = blk_legacy_dinfo(blk);
@@ -208,10 +151,6 @@ DriveInfo *drive_get(BlockInterfaceType type, int bus, int unit)
     return NULL;
 }
 
-/*
- * Check board claimed all -drive that are meant to be claimed.
- * Fatal error if any remain unclaimed.
- */
 void drive_check_orphaned(void)
 {
     BlockBackend *blk;
@@ -223,15 +162,6 @@ void drive_check_orphaned(void)
 
     for (blk = blk_next(NULL); blk; blk = blk_next(blk)) {
         dinfo = blk_legacy_dinfo(blk);
-        /*
-         * Ignore default drives, because we create certain default
-         * drives unconditionally, then leave them unclaimed.  Not the
-         * users fault.
-         * Ignore IF_VIRTIO or IF_XEN, because it gets desugared into
-         * -device, so we can leave failing to -device.
-         * Ignore IF_NONE, because leaving unclaimed IF_NONE remains
-         * available for device_add is a feature.
-         */
         if (dinfo->is_default || dinfo->type == IF_VIRTIO
             || dinfo->type == IF_XEN || dinfo->type == IF_NONE) {
             continue;
@@ -343,7 +273,6 @@ static bool parse_stats_intervals(BlockAcctStats *stats, QList *intervals,
 
 typedef enum { MEDIA_DISK, MEDIA_CDROM } DriveMediaType;
 
-/* All parameters but @opts are optional and may be set to NULL. */
 static void extract_common_blockdev_options(QemuOpts *opts, int *bdrv_flags,
     BlockdevDetectZeroesOptions *detect_zeroes, Error **errp)
 {
@@ -387,7 +316,6 @@ static OnOffAuto account_get_opt(QemuOpts *opts, const char *name)
     return ON_OFF_AUTO_OFF;
 }
 
-/* Takes the ownership of bs_opts */
 static BlockBackend *blockdev_init(const char *file, QDict *bs_opts,
                                    Error **errp)
 {
@@ -406,8 +334,6 @@ static BlockBackend *blockdev_init(const char *file, QDict *bs_opts,
     BlockdevDetectZeroesOptions detect_zeroes =
         BLOCKDEV_DETECT_ZEROES_OPTIONS_OFF;
 
-    /* Check common options by copying from bs_opts to opts, all other options
-     * stay in bs_opts for processing by bdrv_open(). */
     id = qdict_get_try_str(bs_opts, "id");
     opts = qemu_opts_create(&qemu_common_drive_opts, id, 1, errp);
     if (!opts) {
@@ -422,7 +348,6 @@ static BlockBackend *blockdev_init(const char *file, QDict *bs_opts,
         qdict_del(bs_opts, "id");
     }
 
-    /* extract parameters */
     account_invalid = account_get_opt(opts, "stats-account-invalid");
     account_failed = account_get_opt(opts, "stats-account-failed");
 
@@ -473,7 +398,6 @@ static BlockBackend *blockdev_init(const char *file, QDict *bs_opts,
 
     read_only = qemu_opt_get_bool(opts, BDRV_OPT_READ_ONLY, false);
 
-    /* init */
     if ((!file || !*file) && !qdict_size(bs_opts)) {
         BlockBackendRootState *blk_rs;
 
@@ -488,9 +412,6 @@ static BlockBackend *blockdev_init(const char *file, QDict *bs_opts,
             file = NULL;
         }
 
-        /* bdrv_open() defaults to the values in bdrv_flags (for compatibility
-         * with other callers) rather than what we want as the real defaults.
-         * Apply the defaults here instead. */
         qdict_set_default_str(bs_opts, BDRV_OPT_CACHE_DIRECT, "off");
         qdict_set_default_str(bs_opts, BDRV_OPT_CACHE_NO_FLUSH, "off");
         qdict_set_default_str(bs_opts, BDRV_OPT_READ_ONLY,
@@ -543,15 +464,11 @@ err_no_opts:
     return NULL;
 }
 
-/* Takes the ownership of bs_opts */
 BlockDriverState *bds_tree_init(QDict *bs_opts, Error **errp)
 {
     int bdrv_flags = 0;
 
     GLOBAL_STATE_CODE();
-    /* bdrv_open() defaults to the values in bdrv_flags (for compatibility
-     * with other callers) rather than what we want as the real defaults.
-     * Apply the defaults here instead. */
     qdict_set_default_str(bs_opts, BDRV_OPT_CACHE_DIRECT, "off");
     qdict_set_default_str(bs_opts, BDRV_OPT_CACHE_NO_FLUSH, "off");
     qdict_set_default_str(bs_opts, BDRV_OPT_READ_ONLY, "off");
@@ -573,7 +490,6 @@ void blockdev_close_all_bdrv_states(void)
     }
 }
 
-/* Iterates over the list of monitor-owned BlockDriverStates */
 BlockDriverState *bdrv_next_monitor_owned(BlockDriverState *bs)
 {
     GLOBAL_STATE_CODE();
@@ -595,7 +511,6 @@ static bool qemu_opt_rename(QemuOpts *opts, const char *from, const char *to,
         }
     }
 
-    /* rename all items in opts */
     while ((value = qemu_opt_get(opts, from))) {
         qemu_opt_set(opts, to, value, &error_abort);
         qemu_opt_unset(opts, from);
@@ -633,7 +548,6 @@ QemuOptsList qemu_legacy_drive_opts = {
             .help = "file name",
         },
 
-        /* Options that are passed on, but have special semantics with -drive */
         {
             .name = BDRV_OPT_READ_ONLY,
             .type = QEMU_OPT_BOOL,
@@ -675,7 +589,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
 
     GLOBAL_STATE_CODE();
 
-    /* Change legacy command line options into QMP ones */
     static const struct {
         const char *from;
         const char *to;
@@ -700,7 +613,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
             return NULL;
         }
 
-        /* Specific options take precedence */
         if (!qemu_opt_get(all_opts, BDRV_OPT_CACHE_WB)) {
             qemu_opt_set_bool(all_opts, BDRV_OPT_CACHE_WB,
                               !writethrough, &error_abort);
@@ -716,7 +628,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         qemu_opt_unset(all_opts, "cache");
     }
 
-    /* Get a QDict for processing the options */
     bs_opts = qdict_new();
     qemu_opts_to_qdict(all_opts, bs_opts);
 
@@ -726,7 +637,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         goto fail;
     }
 
-    /* Media type */
     value = qemu_opt_get(legacy_opts, "media");
     if (value) {
         if (!strcmp(value, "disk")) {
@@ -740,7 +650,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         }
     }
 
-    /* copy-on-read is disabled with a warning for read-only devices */
     read_only |= qemu_opt_get_bool(legacy_opts, BDRV_OPT_READ_ONLY, false);
     copy_on_read = qemu_opt_get_bool(legacy_opts, "copy-on-read", false);
 
@@ -752,7 +661,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
     qdict_put_str(bs_opts, BDRV_OPT_READ_ONLY, read_only ? "on" : "off");
     qdict_put_str(bs_opts, "copy-on-read", copy_on_read ? "on" : "off");
 
-    /* Controller type */
     value = qemu_opt_get(legacy_opts, "if");
     if (value) {
         for (type = 0;
@@ -767,8 +675,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         type = block_default_type;
     }
 
-    /* Device address specified by bus/unit or index.
-     * If none was specified, try to find the first free one. */
     bus_id  = qemu_opt_get_number(legacy_opts, "bus", 0);
     unit_id = qemu_opt_get_number(legacy_opts, "unit", -1);
     index   = qemu_opt_get_number(legacy_opts, "index", -1);
@@ -806,7 +712,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         goto fail;
     }
 
-    /* no id supplied -> create one */
     if (qemu_opts_id(all_opts) == NULL) {
         char *new_id;
         const char *mediastr = "";
@@ -824,7 +729,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         g_free(new_id);
     }
 
-    /* Add virtio block device */
     if (type == IF_VIRTIO) {
         QemuOpts *devopts;
         devopts = qemu_opts_create(qemu_find_opts("device"), NULL, 0,
@@ -845,7 +749,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
 
     filename = qemu_opt_get(legacy_opts, "file");
 
-    /* Check werror/rerror compatibility with if=... */
     werror = qemu_opt_get(legacy_opts, "werror");
     if (werror != NULL) {
         if (type != IF_IDE && type != IF_SCSI && type != IF_VIRTIO &&
@@ -866,14 +769,12 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
         qdict_put_str(bs_opts, "rerror", rerror);
     }
 
-    /* Actual block device init: Functionality shared with blockdev-add */
     blk = blockdev_init(filename, bs_opts, errp);
     bs_opts = NULL;
     if (!blk) {
         goto fail;
     }
 
-    /* Create legacy DriveInfo */
     dinfo = g_malloc0(sizeof(*dinfo));
     dinfo->opts = all_opts;
 
@@ -986,10 +887,6 @@ QemuOptsList qemu_drive_opts = {
     .name = "drive",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_drive_opts.head),
     .desc = {
-        /*
-         * no elements => accept any params
-         * validation will happen later
-         */
         { /* end of list */ }
     },
 };

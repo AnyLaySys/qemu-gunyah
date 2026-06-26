@@ -1,12 +1,3 @@
-/*
- * QAPI util functions
- *
- * Copyright Fujitsu, Inc. 2014
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #ifndef QAPI_UTIL_H
 #define QAPI_UTIL_H
@@ -30,12 +21,6 @@ bool qapi_bool_parse(const char *name, const char *value, bool *obj,
 
 int parse_qapi_name(const char *name, bool complete);
 
-/*
- * For any GenericList @list, insert @element at the front.
- *
- * Note that this macro evaluates @element exactly once, so it is safe
- * to have side-effects with that argument.
- */
 #define QAPI_LIST_PREPEND(list, element) do { \
     typeof(list) _tmp = g_malloc(sizeof(*(list))); \
     _tmp->value = (element); \
@@ -43,22 +28,12 @@ int parse_qapi_name(const char *name, bool complete);
     (list) = _tmp; \
 } while (0)
 
-/*
- * For any pointer to a GenericList @tail (usually the 'next' member of a
- * list element), insert @element at the back and update the tail.
- *
- * Note that this macro evaluates @element exactly once, so it is safe
- * to have side-effects with that argument.
- */
 #define QAPI_LIST_APPEND(tail, element) do { \
     *(tail) = g_malloc0(sizeof(**(tail))); \
     (*(tail))->value = (element); \
     (tail) = &(*(tail))->next; \
 } while (0)
 
-/*
- * For any GenericList @list, return its length.
- */
 #define QAPI_LIST_LENGTH(list)                                      \
     ({                                                              \
         size_t _len = 0;                                            \

@@ -1,22 +1,3 @@
-/*
- * QEMU file monitor Linux inotify impl
- *
- * Copyright (c) 2018 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/filemonitor.h"
@@ -75,11 +56,9 @@ static void qemu_file_monitor_watch(void *arg)
             goto cleanup;
         }
 
-        /* no more events right now */
         goto cleanup;
     }
 
-    /* Loop over all events in the buffer */
     while (used < len) {
         const char *name;
         QFileMonitorDir *dir;
@@ -88,10 +67,6 @@ static void qemu_file_monitor_watch(void *arg)
         gsize i;
         struct inotify_event *ev = (struct inotify_event *)(buf + used);
 
-        /*
-         * We trust the kernel to provide valid buffer with complete event
-         * records.
-         */
         assert(len - used >= sizeof(struct inotify_event));
         assert(len - used - sizeof(struct inotify_event) >= ev->len);
 
@@ -107,12 +82,6 @@ static void qemu_file_monitor_watch(void *arg)
             continue;
         }
 
-        /*
-         * During a rename operation, the old name gets
-         * IN_MOVED_FROM and the new name gets IN_MOVED_TO.
-         * To simplify life for callers, we turn these into
-         * DELETED and CREATED events
-         */
         switch (iev) {
         case IN_CREATE:
         case IN_MOVED_TO:
@@ -237,13 +206,6 @@ qemu_file_monitor_free(QFileMonitor *mon)
     }
     qemu_mutex_unlock(&mon->lock);
 
-    /*
-     * Can't free it yet, because another thread
-     * may be running event loop, so the inotify
-     * callback might be pending. Using an idle
-     * source ensures we'll only free after the
-     * pending callback is done
-     */
     g_idle_add((GSourceFunc)qemu_file_monitor_free_idle, mon);
 }
 

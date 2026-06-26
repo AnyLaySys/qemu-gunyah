@@ -1,33 +1,9 @@
-/*
- * QEMU Audio subsystem header
- *
- * Copyright (c) 2003-2005 Vassili Karpov (malc)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef QEMU_AUDIO_INT_H
 #define QEMU_AUDIO_INT_H
 
 #ifdef CONFIG_AUDIO_COREAUDIO
 #define FLOAT_MIXENG
-/* #define RECIPROCAL */
 #endif
 #include "mixeng.h"
 
@@ -158,21 +134,8 @@ struct audio_pcm_ops {
     void   (*fini_out)(HWVoiceOut *hw);
     size_t (*write)   (HWVoiceOut *hw, void *buf, size_t size);
     void   (*run_buffer_out)(HWVoiceOut *hw);
-    /*
-     * Get the free output buffer size. This is an upper limit. The size
-     * returned by function get_buffer_out may be smaller.
-     */
     size_t (*buffer_get_free)(HWVoiceOut *hw);
-    /*
-     * get a buffer that after later can be passed to put_buffer_out; optional
-     * returns the buffer, and writes it's size to size (in bytes)
-     */
     void  *(*get_buffer_out)(HWVoiceOut *hw, size_t *size);
-    /*
-     * put back the buffer returned by get_buffer_out; optional
-     * buf must be equal the pointer returned by get_buffer_out,
-     * size may be smaller
-     */
     size_t (*put_buffer_out)(HWVoiceOut *hw, void *buf, size_t size);
     void   (*enable_out)(HWVoiceOut *hw, bool enable);
     void   (*volume_out)(HWVoiceOut *hw, Volume *vol);
@@ -268,14 +231,6 @@ static inline size_t audio_ring_dist(size_t dst, size_t src, size_t len)
     return (dst >= src) ? (dst - src) : (len - src + dst);
 }
 
-/**
- * audio_ring_posb() - returns new position in ringbuffer in backward
- * direction at given distance
- *
- * @pos: current position in ringbuffer
- * @dist: distance in ringbuffer to walk in reverse direction
- * @len: size of ringbuffer
- */
 static inline size_t audio_ring_posb(size_t pos, size_t dist, size_t len)
 {
     return pos >= dist ? pos - dist : len - dist + pos;

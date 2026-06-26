@@ -1,28 +1,3 @@
-/*
- * QEMU<->ACPI BIOS PCI hotplug interface
- *
- * QEMU supports PCI hotplug via ACPI. This module
- * implements the interface between QEMU and the ACPI BIOS.
- * Interface specification - see docs/specs/acpi_pci_hotplug.txt
- *
- * Copyright (c) 2013, Red Hat Inc, Michael S. Tsirkin (mst@redhat.com)
- * Copyright (c) 2006 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #ifndef HW_ACPI_PCIHP_H
 #define HW_ACPI_PCIHP_H
@@ -69,7 +44,6 @@ void acpi_pcihp_device_unplug_request_cb(HotplugHandler *hotplug_dev,
                                          AcpiPciHpState *s, DeviceState *dev,
                                          Error **errp);
 
-/* Called on reset */
 void acpi_pcihp_reset(AcpiPciHpState *s);
 
 void build_append_pcihp_slots(Aml *parent_scope, PCIBus *bus);

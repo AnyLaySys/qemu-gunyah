@@ -1,15 +1,3 @@
-/*
- * QEMU memory mapping
- *
- * Copyright Fujitsu, Corp. 2011, 2012
- *
- * Authors:
- *     Wen Congyang <wency@cn.fujitsu.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/range.h"
@@ -20,7 +8,6 @@
 #include "exec/address-spaces.h"
 #include "hw/core/cpu.h"
 
-//#define DEBUG_GUEST_PHYS_REGION_ADD
 
 static void memory_mapping_list_add_mapping_sorted(MemoryMappingList *list,
                                                    MemoryMapping *mapping)
@@ -60,10 +47,6 @@ static inline bool mapping_contiguous(MemoryMapping *map,
            virt_addr == map->virt_addr + map->length;
 }
 
-/*
- * [map->phys_addr, map->phys_addr + map->length) and
- * [phys_addr, phys_addr + length) have intersection?
- */
 static inline bool mapping_have_same_region(MemoryMapping *map,
                                             hwaddr phys_addr,
                                             ram_addr_t length)
@@ -72,11 +55,6 @@ static inline bool mapping_have_same_region(MemoryMapping *map,
              phys_addr >= map->phys_addr + map->length);
 }
 
-/*
- * [map->phys_addr, map->phys_addr + map->length) and
- * [phys_addr, phys_addr + length) have intersection. The virtual address in the
- * intersection are the same?
- */
 static inline bool mapping_conflict(MemoryMapping *map,
                                     hwaddr phys_addr,
                                     hwaddr virt_addr)
@@ -84,11 +62,6 @@ static inline bool mapping_conflict(MemoryMapping *map,
     return virt_addr - map->virt_addr != phys_addr - map->phys_addr;
 }
 
-/*
- * [map->virt_addr, map->virt_addr + map->length) and
- * [virt_addr, virt_addr + length) have intersection. And the physical address
- * in the intersection are the same.
- */
 static inline void mapping_merge(MemoryMapping *map,
                                  hwaddr virt_addr,
                                  ram_addr_t length)
@@ -132,7 +105,6 @@ void memory_mapping_list_add_merge_sorted(MemoryMappingList *list,
         }
 
         if (phys_addr + length < memory_mapping->phys_addr) {
-            /* create a new region before memory_mapping */
             break;
         }
 
@@ -141,14 +113,12 @@ void memory_mapping_list_add_merge_sorted(MemoryMappingList *list,
                 continue;
             }
 
-            /* merge this region into memory_mapping */
             mapping_merge(memory_mapping, virt_addr, length);
             list->last_mapping = memory_mapping;
             return;
         }
     }
 
-    /* this region can not be merged into any existed memory mapping. */
     create_new_memory_mapping(list, phys_addr, virt_addr, length);
 }
 
@@ -204,17 +174,14 @@ static void guest_phys_block_add_section(GuestPhysListener *g,
                          section->offset_within_region;
     GuestPhysBlock *predecessor = NULL;
 
-    /* find continuity in guest physical address space */
     if (!QTAILQ_EMPTY(&g->list->head)) {
         hwaddr predecessor_size;
 
         predecessor = QTAILQ_LAST(&g->list->head);
         predecessor_size = predecessor->target_end - predecessor->target_start;
 
-        /* the memory API guarantees monotonically increasing traversal */
         g_assert(predecessor->target_end <= target_start);
 
-        /* we want continuity in both guest-physical and host-virtual memory */
         if (predecessor->target_end < target_start ||
             predecessor->host_addr + predecessor_size != host_addr ||
             predecessor->mr != section->mr) {
@@ -223,7 +190,6 @@ static void guest_phys_block_add_section(GuestPhysListener *g,
     }
 
     if (predecessor == NULL) {
-        /* isolated mapping, allocate it and add it to the list */
         GuestPhysBlock *block = g_malloc0(sizeof *block);
 
         block->target_start = target_start;
@@ -235,9 +201,6 @@ static void guest_phys_block_add_section(GuestPhysListener *g,
         QTAILQ_INSERT_TAIL(&g->list->head, block, next);
         ++g->list->num;
     } else {
-        /* expand predecessor until @target_end; predecessor's start doesn't
-         * change
-         */
         predecessor->target_end = target_end;
     }
 
@@ -262,14 +225,12 @@ static void guest_phys_blocks_region_add(MemoryListener *listener,
 {
     GuestPhysListener *g = container_of(listener, GuestPhysListener, listener);
 
-    /* we only care about RAM */
     if (!memory_region_is_ram(section->mr) ||
         memory_region_is_ram_device(section->mr) ||
         memory_region_is_nonvolatile(section->mr)) {
         return;
     }
 
-    /* for special sparse regions, only add populated parts */
     if (memory_region_has_ram_discard_manager(section->mr)) {
         RamDiscardManager *rdm;
 
@@ -325,10 +286,6 @@ bool qemu_get_guest_memory_mapping(MemoryMappingList *list,
         return true;
     }
 
-    /*
-     * If the guest doesn't use paging, the virtual address is equal to physical
-     * address.
-     */
     QTAILQ_FOREACH(block, &guest_phys_blocks->head, next) {
         offset = block->target_start;
         length = block->target_end - block->target_start;

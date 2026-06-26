@@ -1,21 +1,8 @@
-/*
- * Virtio SCSI HBA
- *
- * Copyright IBM, Corp. 2010
- *
- * Authors:
- *  Stefan Hajnoczi    <stefanha@linux.vnet.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- */
 
 #ifndef QEMU_VIRTIO_SCSI_H
 #define QEMU_VIRTIO_SCSI_H
 #include "qom/object.h"
 
-/* Override CDB/sense data size: they are dynamic (guest controlled) in QEMU */
 #define VIRTIO_SCSI_CDB_SIZE 0
 #define VIRTIO_SCSI_SENSE_SIZE 0
 #include "standard-headers/linux/virtio_scsi.h"
@@ -35,7 +22,6 @@ OBJECT_DECLARE_SIMPLE_TYPE(VirtIOSCSI, VIRTIO_SCSI)
 #define VIRTIO_SCSI_MAX_TARGET  255
 #define VIRTIO_SCSI_MAX_LUN     16383
 
-/* Number of virtqueues that are always present */
 #define VIRTIO_SCSI_VQ_NUM_FIXED    2
 
 #define VIRTIO_SCSI_AUTO_NUM_QUEUES UINT32_MAX
@@ -90,7 +76,6 @@ struct VirtIOSCSI {
 
     QemuMutex ctrl_lock; /* protects ctrl_vq */
 
-    /* Fields for dataplane below */
     AioContext **vq_aio_context; /* per-virtqueue AioContext pointer */
 
     bool dataplane_started;

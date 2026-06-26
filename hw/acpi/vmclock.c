@@ -1,13 +1,3 @@
-/*
- * Virtual Machine Clock Device
- *
- * Copyright © 2024 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Authors: David Woodhouse <dwmw2@infradead.org>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -31,7 +21,6 @@ void vmclock_build_acpi(VmclockState *vms, GArray *table_data,
     AcpiTable table = { .sig = "SSDT", .rev = 1,
                         .oem_id = oem_id, .oem_table_id = "VMCLOCK" };
 
-    /* Put VMCLOCK into a separate SSDT table */
     acpi_table_begin(&table, table_data);
     ssdt = init_aml_allocator();
 
@@ -41,7 +30,6 @@ void vmclock_build_acpi(VmclockState *vms, GArray *table_data,
     aml_append(dev, aml_name_decl("_CID", aml_string("VMCLOCK")));
     aml_append(dev, aml_name_decl("_DDN", aml_string("VMCLOCK")));
 
-    /* Simple status method */
     aml_append(dev, aml_name_decl("_STA", aml_int(0xf)));
 
     crs = aml_resource_template();
@@ -72,22 +60,16 @@ static void vmclock_update_guest(VmclockState *vms)
 
     seq_count = le32_to_cpu(vms->clk->seq_count) | 1;
     vms->clk->seq_count = cpu_to_le32(seq_count);
-    /* These barriers pair with read barriers in the guest */
     smp_wmb();
 
     disruption_marker = le64_to_cpu(vms->clk->disruption_marker);
     disruption_marker++;
     vms->clk->disruption_marker = cpu_to_le64(disruption_marker);
 
-    /* These barriers pair with read barriers in the guest */
     smp_wmb();
     vms->clk->seq_count = cpu_to_le32(seq_count + 1);
 }
 
-/*
- * After restoring an image, we need to update the guest memory to notify
- * it of clock disruption.
- */
 static int vmclock_post_load(void *opaque, int version_id)
 {
     VmclockState *vms = opaque;
@@ -122,10 +104,6 @@ static void vmclock_realize(DeviceState *dev, Error **errp)
 {
     VmclockState *vms = VMCLOCK(dev);
 
-    /*
-     * Given that this function is executing, there is at least one VMCLOCK
-     * device. Check if there are several.
-     */
     if (!find_vmclock_dev()) {
         error_setg(errp, "at most one %s device is permitted", TYPE_VMCLOCK);
         return;
@@ -145,7 +123,6 @@ static void vmclock_realize(DeviceState *dev, Error **errp)
     vms->clk->size = cpu_to_le16(VMCLOCK_SIZE);
     vms->clk->version = cpu_to_le16(1);
 
-    /* These are all zero and thus default, but be explicit */
     vms->clk->clock_status = VMCLOCK_STATUS_UNKNOWN;
     vms->clk->counter_id = VMCLOCK_COUNTER_INVALID;
 

@@ -1,11 +1,3 @@
-/*
- * IPMI ACPI firmware handling
- *
- * Copyright (c) 2015,2016 Corey Minyard, MontaVista Software, LLC
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "hw/acpi/aml-build.h"
@@ -16,10 +8,6 @@ static Aml *aml_ipmi_crs(IPMIFwInfo *info)
 {
     Aml *crs = aml_resource_template();
 
-    /*
-     * The base address is fixed and cannot change.  That may be different
-     * if someone does PCI, but we aren't there yet.
-     */
     switch (info->memspace) {
     case IPMI_MEMSPACE_IO:
         aml_append(crs, aml_io(AML_DECODE16, info->base_address,

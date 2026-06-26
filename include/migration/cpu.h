@@ -1,4 +1,3 @@
-/* Declarations for use for CPU state serialization.  */
 
 #ifndef MIGRATION_CPU_H
 #define MIGRATION_CPU_H

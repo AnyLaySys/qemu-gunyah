@@ -1,14 +1,3 @@
-/*
- * QEMU Machine
- *
- * Copyright (C) 2014 Red Hat Inc
- *
- * Authors:
- *   Marcel Apfelbaum <marcel.a@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/units.h"
@@ -270,7 +259,6 @@ const size_t hw_compat_2_7_len = G_N_ELEMENTS(hw_compat_2_7);
 
 GlobalProperty hw_compat_2_6[] = {
     { "virtio-mmio", "format_transport_address", "off" },
-    /* Optional because not all virtio-pci devices support legacy mode */
     { "virtio-pci", "disable-modern", "on",  .optional = true },
     { "virtio-pci", "disable-legacy", "off", .optional = true },
 };
@@ -565,11 +553,6 @@ static void machine_check_confidential_guest_support(const Object *obj,
                                                      Object *new_target,
                                                      Error **errp)
 {
-    /*
-     * So far the only constraint is that the target has the
-     * TYPE_CONFIDENTIAL_GUEST_SUPPORT interface, and that's checked
-     * by the QOM core
-     */
 }
 
 static bool machine_get_nvdimm(Object *obj, Error **errp)
@@ -763,7 +746,6 @@ HotpluggableCPUList *machine_query_hotpluggable_cpus(MachineState *machine)
     HotpluggableCPUList *head = NULL;
     MachineClass *mc = MACHINE_GET_CLASS(machine);
 
-    /* force board to initialize possible_cpus if it hasn't been done yet */
     mc->possible_cpu_arch_ids(machine);
 
     for (i = 0; i < machine->possible_cpus->len; i++) {
@@ -784,31 +766,6 @@ HotpluggableCPUList *machine_query_hotpluggable_cpus(MachineState *machine)
     return head;
 }
 
-/**
- * machine_set_cpu_numa_node:
- * @machine: machine object to modify
- * @props: specifies which cpu objects to assign to
- *         numa node specified by @props.node_id
- * @errp: if an error occurs, a pointer to an area to store the error
- *
- * Associate NUMA node specified by @props.node_id with cpu slots that
- * match socket/core/thread-ids specified by @props. It's recommended to use
- * query-hotpluggable-cpus.props values to specify affected cpu slots,
- * which would lead to exact 1:1 mapping of cpu slots to NUMA node.
- *
- * However for CLI convenience it's possible to pass in subset of properties,
- * which would affect all cpu slots that match it.
- * Ex for pc machine:
- *    -smp 4,cores=2,sockets=2 -numa node,nodeid=0 -numa node,nodeid=1 \
- *    -numa cpu,node-id=0,socket_id=0 \
- *    -numa cpu,node-id=1,socket_id=1
- * will assign all child cores of socket 0 to node 0 and
- * of socket 1 to node 1.
- *
- * On attempt of reassigning (already assigned) cpu slot to another NUMA node,
- * return error.
- * Empty subset is disallowed and function will return with error in this case.
- */
 void machine_set_cpu_numa_node(MachineState *machine,
                                const CpuInstanceProperties *props, Error **errp)
 {
@@ -822,16 +779,13 @@ void machine_set_cpu_numa_node(MachineState *machine,
         return;
     }
 
-    /* disabling node mapping is not supported, forbid it */
     assert(props->has_node_id);
 
-    /* force board to initialize possible_cpus if it hasn't been done yet */
     mc->possible_cpu_arch_ids(machine);
 
     for (i = 0; i < machine->possible_cpus->len; i++) {
         CPUArchId *slot = &machine->possible_cpus->cpus[i];
 
-        /* reject unsupported by board properties */
         if (props->has_thread_id && !slot->props.has_thread_id) {
             error_setg(errp, "thread-id is not supported");
             return;
@@ -862,7 +816,6 @@ void machine_set_cpu_numa_node(MachineState *machine,
             return;
         }
 
-        /* skip slots with explicit mismatch */
         if (props->has_thread_id && props->thread_id != slot->props.thread_id) {
                 continue;
         }
@@ -889,9 +842,6 @@ void machine_set_cpu_numa_node(MachineState *machine,
                 continue;
         }
 
-        /* reject assignment if slot is already assigned, for compatibility
-         * of legacy cpu_index mapping with SPAPR core based mapping do not
-         * error out if cpu thread and matched core have the same node-id */
         if (slot->props.has_node_id &&
             slot->props.node_id != props->node_id) {
             error_setg(errp, "CPU is already assigned to node-id: %" PRId64,
@@ -899,7 +849,6 @@ void machine_set_cpu_numa_node(MachineState *machine,
             return;
         }
 
-        /* assign slot to node as it's matched '-numa cpu' key */
         match = true;
         slot->props.node_id = props->node_id;
         slot->props.has_node_id = props->has_node_id;
@@ -1041,7 +990,6 @@ static void machine_set_boot(Object *obj, Visitor *v, const char *name,
     }
 
     machine_copy_boot_config(ms, config);
-    /* Strings live in ms->boot_config.  */
     free(config);
     return;
 
@@ -1078,7 +1026,6 @@ static bool create_default_memdev(MachineState *ms, const char *path,
     }
     object_property_add_child(object_get_objects_root(), mc->default_ram_id,
                               obj);
-    /* Ensure backend's memory region name is equal to mc->default_ram_id */
     if (!object_property_set_bool(obj, "x-use-canonical-path-for-ramblock-id",
                              false, errp)) {
         goto out;
@@ -1097,19 +1044,10 @@ static void machine_class_init(ObjectClass *oc, void *data)
 {
     MachineClass *mc = MACHINE_CLASS(oc);
 
-    /* Default 128 MB as guest ram size */
     mc->default_ram_size = 128 * MiB;
     mc->rom_file_has_mr = true;
-    /*
-     * SMBIOS 3.1.0 7.18.5 Memory Device — Extended Size
-     * use max possible value that could be encoded into
-     * 'Extended Size' field (2047Tb).
-     */
     mc->smbios_memory_device_size = 2047 * TiB;
 
-    /* numa node memory size aligned on 8MB by default.
-     * On Linux, each node's border has to be 8MB aligned
-     */
     mc->numa_mem_align_shift = 23;
 
     mc->create_default_memdev = create_default_memdev;
@@ -1216,7 +1154,6 @@ static void machine_class_init(ObjectClass *oc, void *data)
     object_class_property_set_description(oc, "confidential-guest-support",
                                           "Set confidential guest scheme to support");
 
-    /* For compatibility */
     object_class_property_add_str(oc, "memory-encryption",
         machine_get_memory_encryption, machine_set_memory_encryption);
     object_class_property_set_description(oc, "memory-encryption",
@@ -1290,7 +1227,6 @@ static void machine_initfn(Object *obj)
                                         "Table (HMAT)");
     }
 
-    /* default to mc->default_cpus */
     ms->smp.cpus = mc->default_cpus;
     ms->smp.max_cpus = mc->default_cpus;
     ms->smp.drawers = 1;
@@ -1436,19 +1372,15 @@ static void machine_numa_finish_cpu_init(MachineState *machine)
         const CPUArchId *cpu_slot = &possible_cpus->cpus[i];
 
         if (!cpu_slot->props.has_node_id) {
-            /* fetch default mapping from board and enable it */
             CpuInstanceProperties props = cpu_slot->props;
 
             props.node_id = mc->get_default_cpu_node_id(machine, i);
             if (!default_mapping) {
-                /* record slots with not set mapping,
-                 * TODO: make it hard error in future */
                 char *cpu_str = cpu_slot_to_string(cpu_slot);
                 g_string_append_printf(s, "%sCPU %d [%s]",
                                        s->len ? ", " : "", i, cpu_str);
                 g_free(cpu_str);
 
-                /* non mapped cpus used to fallback to node 0 */
                 props.node_id = 0;
             }
 
@@ -1483,11 +1415,6 @@ static void validate_cpu_cluster_to_numa_boundary(MachineState *ms)
         return;
     }
 
-    /*
-     * The Linux scheduling domain can't be parsed when the multiple CPUs
-     * in one cluster have been associated with different NUMA nodes. However,
-     * it's fine to associate one NUMA node with CPUs in different clusters.
-     */
     for (i = 0; i < possible_cpus->len; i++) {
         for (j = i + 1; j < possible_cpus->len; j++) {
             if (cpus[i].props.has_socket_id &&
@@ -1528,7 +1455,6 @@ MemoryRegion *machine_consume_memdev(MachineState *machine,
 const char *machine_class_default_cpu_type(MachineClass *mc)
 {
     if (mc->valid_cpu_types && !mc->valid_cpu_types[1]) {
-        /* Only a single CPU type allowed: use it as default. */
         return mc->valid_cpu_types[0];
     }
     return mc->default_cpu_type;
@@ -1541,11 +1467,6 @@ static bool is_cpu_type_supported(const MachineState *machine, Error **errp)
     CPUClass *cc;
     int i;
 
-    /*
-     * Check if the user specified CPU type is supported when the valid
-     * CPU types have been determined. Note that the user specified CPU
-     * type is provided through '-cpu' option.
-     */
     if (mc->valid_cpu_types) {
         assert(mc->valid_cpu_types[0] != NULL);
         for (i = 0; mc->valid_cpu_types[i]; i++) {
@@ -1554,7 +1475,6 @@ static bool is_cpu_type_supported(const MachineState *machine, Error **errp)
             }
         }
 
-        /* The user specified CPU type isn't valid */
         if (!mc->valid_cpu_types[i]) {
             g_autofree char *requested = cpu_model_from_type(machine->cpu_type);
             error_setg(errp, "Invalid CPU model: %s", requested);
@@ -1578,7 +1498,6 @@ static bool is_cpu_type_supported(const MachineState *machine, Error **errp)
         }
     }
 
-    /* Check if CPU type is deprecated and warn if so */
     cc = CPU_CLASS(oc);
     assert(cc != NULL);
     if (cc->deprecation_note) {
@@ -1594,7 +1513,6 @@ void machine_run_board_init(MachineState *machine, const char *mem_path, Error *
     ERRP_GUARD();
     MachineClass *machine_class = MACHINE_GET_CLASS(machine);
 
-    /* On 32-bit hosts, QEMU is limited by virtual address space */
     if (machine->ram_size > (2047 << 20) && HOST_LONG_BITS == 32) {
         error_setg(errp, "at most 2047 MB RAM can be simulated");
         return;
@@ -1642,25 +1560,13 @@ void machine_run_board_init(MachineState *machine, const char *mem_path, Error *
         machine->ram = machine_consume_memdev(machine, machine->memdev);
     }
 
-    /* Check if the CPU type is supported */
     if (machine->cpu_type && !is_cpu_type_supported(machine, errp)) {
         return;
     }
 
     if (machine->cgs) {
-        /*
-         * With confidential guests, the host can't see the real
-         * contents of RAM, so there's no point in it trying to merge
-         * areas.
-         */
         machine_set_mem_merge(OBJECT(machine), false, &error_abort);
 
-        /*
-         * Virtio devices can't count on directly accessing guest
-         * memory, so they need iommu_platform=on to use normal DMA
-         * mechanisms.  That requires also disabling legacy virtio
-         * support for those virtio pci devices which allow it.
-         */
         object_register_sugar_prop(TYPE_VIRTIO_PCI, "disable-legacy",
                                    "on", true);
         object_register_sugar_prop(TYPE_VIRTIO_DEVICE, "iommu_platform",
@@ -1713,30 +1619,13 @@ void qdev_machine_creation_done(void)
         qemu_register_reset(restore_boot_order, g_strdup(current_machine->boot_config.order));
     }
 
-    /*
-     * ok, initial machine setup is done, starting from now we can
-     * only create hotpluggable devices
-     */
     phase_advance(PHASE_MACHINE_READY);
     qdev_assert_realized_properly();
 
-    /* TODO: once all bus devices are qdevified, this should be done
-     * when bus is created by qdev.c */
-    /*
-     * This is where we arrange for the sysbus to be reset when the
-     * whole simulation is reset. In turn, resetting the sysbus will cause
-     * all devices hanging off it (and all their child buses, recursively)
-     * to be reset. Note that this will *not* reset any Device objects
-     * which are not attached to some part of the qbus tree!
-     */
     qemu_register_resettable(OBJECT(sysbus_get_default()));
 
     notifier_list_notify(&machine_init_done_notifiers, NULL);
 
-    /*
-     * If the user used -machine dumpdtb=file.dtb to request that we
-     * dump the DTB to a file, do it now, and exit.
-     */
     handle_machine_dumpdtb(current_machine);
 
     if (rom_check_and_register_reset() != 0) {

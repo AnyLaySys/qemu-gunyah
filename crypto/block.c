@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto block device encryption
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -122,7 +103,6 @@ static int qcrypto_block_headerlen_hdr_init_func(QCryptoBlock *block,
 {
     size_t *headerlenp = opaque;
 
-    /* Stash away the payload size */
     *headerlenp = headerlen;
     return 0;
 }
@@ -132,7 +112,6 @@ static int qcrypto_block_headerlen_hdr_write_func(QCryptoBlock *block,
         size_t offset, const uint8_t *buf, size_t buflen,
         void *opaque, Error **errp)
 {
-    /* Discard the bytes, we're not actually writing to an image */
     return 0;
 }
 
@@ -143,7 +122,6 @@ qcrypto_block_calculate_payload_offset(QCryptoBlockCreateOptions *create_opts,
                                        size_t *len,
                                        Error **errp)
 {
-    /* Fake LUKS creation in order to determine the payload size */
     g_autoptr(QCryptoBlock) crypto =
         qcrypto_block_create(create_opts, optprefix,
                              qcrypto_block_headerlen_hdr_init_func,
@@ -221,12 +199,6 @@ int qcrypto_block_encrypt(QCryptoBlock *block,
 
 QCryptoCipher *qcrypto_block_get_cipher(QCryptoBlock *block)
 {
-    /* Ciphers should be accessed through pop/push method to be thread-safe.
-     * Better, they should not be accessed externally at all (note, that
-     * pop/push are static functions)
-     * This function is used only in test with one thread (it's safe to skip
-     * pop/push interface), so it's enough to assert it here:
-     */
     assert(block->max_free_ciphers <= 1);
     return block->free_ciphers ? block->free_ciphers[0] : NULL;
 }
@@ -235,7 +207,6 @@ QCryptoCipher *qcrypto_block_get_cipher(QCryptoBlock *block)
 static QCryptoCipher *qcrypto_block_pop_cipher(QCryptoBlock *block,
                                                Error **errp)
 {
-    /* Usually there is a free cipher available */
     WITH_QEMU_LOCK_GUARD(&block->mutex) {
         if (block->n_free_ciphers > 0) {
             block->n_free_ciphers--;
@@ -243,7 +214,6 @@ static QCryptoCipher *qcrypto_block_pop_cipher(QCryptoBlock *block,
         }
     }
 
-    /* Otherwise allocate a new cipher */
     return qcrypto_cipher_new(block->alg, block->mode, block->key,
                               block->nkey, errp);
 }
@@ -277,16 +247,11 @@ int qcrypto_block_init_cipher(QCryptoBlock *block,
     assert(!block->free_ciphers && !block->max_free_ciphers &&
            !block->n_free_ciphers);
 
-    /* Stash away cipher parameters for qcrypto_block_pop_cipher() */
     block->alg = alg;
     block->mode = mode;
     block->key = g_memdup2(key, nkey);
     block->nkey = nkey;
 
-    /*
-     * Create a new cipher to validate the parameters now. This reduces the
-     * chance of cipher creation failing at I/O time.
-     */
     cipher = qcrypto_block_pop_cipher(block, errp);
     if (!cipher) {
         g_free(block->key);
@@ -310,7 +275,6 @@ void qcrypto_block_free_cipher(QCryptoBlock *block)
         return;
     }
 
-    /* All popped ciphers were eventually pushed back */
     assert(block->n_free_ciphers == block->max_free_ciphers);
 
     for (i = 0; i < block->max_free_ciphers; i++) {
@@ -324,9 +288,6 @@ void qcrypto_block_free_cipher(QCryptoBlock *block)
 
 QCryptoIVGen *qcrypto_block_get_ivgen(QCryptoBlock *block)
 {
-    /* ivgen should be accessed under mutex. However, this function is used only
-     * in test with one thread, so it's enough to assert it here:
-     */
     assert(block->max_free_ciphers <= 1);
     return block->ivgen;
 }

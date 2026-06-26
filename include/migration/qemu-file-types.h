@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef MIGRATION_QEMU_FILE_TYPES_H
 #define MIGRATION_QEMU_FILE_TYPES_H
@@ -92,7 +69,6 @@ static inline void qemu_get_8s(QEMUFile *f, uint8_t *pv)
     *pv = qemu_get_byte(f);
 }
 
-/* Signed versions for type safety */
 static inline void qemu_put_sbe16(QEMUFile *f, int v)
 {
     qemu_put_be16(f, (unsigned int)v);
@@ -167,16 +143,6 @@ size_t coroutine_mixed_fn qemu_get_counted_string(QEMUFile *f, char buf[256]);
 
 void qemu_put_counted_string(QEMUFile *f, const char *name);
 
-/**
- * migration_rate_exceeded: Check if we have exceeded rate for this interval
- *
- * Checks if we have already transferred more data that we are allowed
- * in the current interval.
- *
- * @f: QEMUFile used for main migration channel
- *
- * Returns if we should stop sending data for this interval.
- */
 bool migration_rate_exceeded(QEMUFile *f);
 
 #endif

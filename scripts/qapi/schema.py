@@ -1,20 +1,5 @@
-# -*- coding: utf-8 -*-
-#
-# QAPI schema internal representation
-#
-# Copyright (c) 2015-2019 Red Hat Inc.
-#
-# Authors:
-#  Markus Armbruster <armbru@redhat.com>
-#  Eric Blake <eblake@redhat.com>
-#  Marc-André Lureau <marcandre.lureau@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
-# pylint: disable=too-many-lines
 
-# TODO catching name collisions in generated code would be nice
 
 from __future__ import annotations
 
@@ -78,11 +63,6 @@ class QAPISchemaEntity:
     """
     def __init__(self, info: Optional[QAPISourceInfo]):
         self._module: Optional[QAPISchemaModule] = None
-        # For explicitly defined entities, info points to the (explicit)
-        # definition.  For builtins (and their arrays), info is None.
-        # For implicitly defined entities, info points to a place that
-        # triggered the implicit definition (there may be more than one
-        # such place).
         self.info = info
         self._checked = False
 
@@ -90,7 +70,6 @@ class QAPISchemaEntity:
         return "<%s at 0x%x>" % (type(self).__name__, id(self))
 
     def check(self, schema: QAPISchema) -> None:
-        # pylint: disable=unused-argument
         self._checked = True
 
     def connect_doc(self, doc: Optional[QAPIDoc] = None) -> None:
@@ -108,7 +87,6 @@ class QAPISchemaEntity:
         self._set_module(schema, self.info)
 
     def visit(self, visitor: QAPISchemaVisitor) -> None:
-        # pylint: disable=unused-argument
         assert self._checked
 
 
@@ -175,8 +153,6 @@ class QAPISchemaVisitor:
         pass
 
     def visit_needed(self, entity: QAPISchemaEntity) -> bool:
-        # pylint: disable=unused-argument
-        # Default to visiting everything
         return True
 
     def visit_include(self, name: str, info: Optional[QAPISourceInfo]) -> None:
@@ -325,17 +301,13 @@ class QAPISchemaInclude(QAPISchemaEntity):
 
 
 class QAPISchemaType(QAPISchemaDefinition, ABC):
-    # Return the C type for common use.
-    # For the types we commonly box, this is a pointer type.
     @abstractmethod
     def c_type(self) -> str:
         pass
 
-    # Return the C type to be used in a parameter list.
     def c_param_type(self) -> str:
         return self.c_type()
 
-    # Return the C type to be used where we suppress boxing.
     def c_unboxed_type(self) -> str:
         return self.c_type()
 
@@ -361,8 +333,6 @@ class QAPISchemaType(QAPISchemaDefinition, ABC):
         return self.name
 
     def need_has_if_optional(self) -> bool:
-        # When FOO is a pointer, has_FOO == !!FOO, i.e. has_FOO is redundant.
-        # Except for arrays; see QAPISchemaArrayType.need_has_if_optional().
         return not self.c_type().endswith(POINTER_SUFFIX)
 
     def check(self, schema: QAPISchema) -> None:
@@ -441,7 +411,6 @@ class QAPISchemaEnumType(QAPISchemaType):
             m.connect_doc(doc)
 
     def is_implicit(self) -> bool:
-        # See QAPISchema._def_predefineds()
         return self.name == 'QType'
 
     def c_type(self) -> str:
@@ -471,8 +440,6 @@ class QAPISchemaArrayType(QAPISchemaType):
         self.element_type: QAPISchemaType
 
     def need_has_if_optional(self) -> bool:
-        # When FOO is an array, we still need has_FOO to distinguish
-        # absent (!has_FOO) from present and empty (has_FOO && !FOO).
         return True
 
     def check(self, schema: QAPISchema) -> None:
@@ -526,8 +493,6 @@ class QAPISchemaObjectType(QAPISchemaType):
         local_members: List[QAPISchemaObjectTypeMember],
         branches: Optional[QAPISchemaBranches],
     ):
-        # struct has local_members, optional base, and no branches
-        # union has base, branches, and no local_members
         super().__init__(name, info, doc, ifcond, features)
         self.meta = 'union' if branches else 'struct'
         for m in local_members:
@@ -542,14 +507,9 @@ class QAPISchemaObjectType(QAPISchemaType):
         self._check_complete = False
 
     def check(self, schema: QAPISchema) -> None:
-        # This calls another type T's .check() exactly when the C
-        # struct emitted by gen_object() contains that T's C struct
-        # (pointers don't count).
         if self._check_complete:
-            # A previous .check() completed: nothing to do
             return
         if self._checked:
-            # Recursed: C struct contains itself
             raise QAPISemError(self.info,
                                "object %s contains itself" % self.name)
 
@@ -572,9 +532,6 @@ class QAPISchemaObjectType(QAPISchemaType):
             m.check(schema)
             m.check_clash(self.info, seen)
 
-        # self.check_clash() works in terms of the supertype, but
-        # self.members is declared List[QAPISchemaObjectTypeMember].
-        # Cast down to the subtype.
         members = cast(List[QAPISchemaObjectTypeMember], list(seen.values()))
 
         if self.branches:
@@ -584,9 +541,6 @@ class QAPISchemaObjectType(QAPISchemaType):
         self.members = members
         self._check_complete = True  # mark completed
 
-    # Check that the members of this type do not cause duplicate JSON members,
-    # and update seen to track the members seen so far. Report any errors
-    # on behalf of info, which is not necessarily self.info
     def check_clash(
         self,
         info: Optional[QAPISourceInfo],
@@ -607,8 +561,6 @@ class QAPISchemaObjectType(QAPISchemaType):
             m.connect_doc(doc)
 
     def is_implicit(self) -> bool:
-        # See QAPISchema._make_implicit_object_type(), as well as
-        # _def_predefineds()
         return self.name.startswith('q_')
 
     def is_empty(self) -> bool:
@@ -662,11 +614,7 @@ class QAPISchemaAlternateType(QAPISchemaType):
     def check(self, schema: QAPISchema) -> None:
         super().check(schema)
         self.alternatives.tag_member.check(schema)
-        # Not calling self.alternatives.check_clash(), because there's
-        # nothing to clash with
         self.alternatives.check(schema, {})
-        # Alternate branch names have no relation to the tag enum values;
-        # so we have to check for potential name collisions ourselves.
         seen: Dict[str, QAPISchemaMember] = {}
         types_seen: Dict[str, str] = {}
         for v in self.alternatives.variants:
@@ -684,7 +632,6 @@ class QAPISchemaAlternateType(QAPISchemaType):
                         if m.name in ['on', 'off']:
                             conflicting.add('QTYPE_QBOOL')
                         if re.match(r'[-+0-9.]', m.name):
-                            # lazy, could be tightened
                             conflicting.add('QTYPE_QNUM')
                 else:
                     conflicting.add('QTYPE_QNUM')
@@ -730,7 +677,6 @@ class QAPISchemaVariants:
         for v in self.variants:
             v.set_defined_in(name)
 
-    # pylint: disable=unused-argument
     def check(
             self, schema: QAPISchema, seen: Dict[str, QAPISchemaMember]
     ) -> None:
@@ -749,21 +695,17 @@ class QAPISchemaBranches(QAPISchemaVariants):
     def check(
             self, schema: QAPISchema, seen: Dict[str, QAPISchemaMember]
     ) -> None:
-        # We need to narrow the member type:
         tag_member = seen.get(c_name(self._tag_name))
         assert (tag_member is None
                 or isinstance(tag_member, QAPISchemaObjectTypeMember))
 
         base = "'base'"
-        # Pointing to the base type when not implicit would be
-        # nice, but we don't know it here
         if not tag_member or self._tag_name != tag_member.name:
             raise QAPISemError(
                 self.info,
                 "discriminator '%s' is not a member of %s"
                 % (self._tag_name, base))
         self.tag_member = tag_member
-        # Here we do:
         assert tag_member.defined_in
         base_type = schema.lookup_type(tag_member.defined_in)
         assert base_type
@@ -784,7 +726,6 @@ class QAPISchemaBranches(QAPISchemaVariants):
                 self.info,
                 "discriminator member '%s' of %s must not be conditional"
                 % (self._tag_name, base))
-        # branches that are not explicitly covered get an empty type
         assert tag_member.defined_in
         cases = {v.name for v in self.variants}
         for m in tag_member.type.members:
@@ -797,8 +738,6 @@ class QAPISchemaBranches(QAPISchemaVariants):
             raise QAPISemError(self.info, "union has no branches")
         for v in self.variants:
             v.check(schema)
-            # Union names must match enum values; alternate names are
-            # checked separately. Use 'seen' to tell the two apart.
             if seen:
                 if v.name not in tag_member.type.member_names():
                     raise QAPISemError(
@@ -818,10 +757,6 @@ class QAPISchemaBranches(QAPISchemaVariants):
         seen: Dict[str, QAPISchemaMember],
     ) -> None:
         for v in self.variants:
-            # Reset seen map for each variant, since qapi names from one
-            # branch do not affect another branch.
-            #
-            # v.type's typing is enforced in check() above.
             assert isinstance(v.type, QAPISchemaObjectType)
             v.type.check_clash(info, dict(seen))
 
@@ -886,17 +821,13 @@ class QAPISchemaMember:
         assert defined_in
 
         if defined_in.startswith('q_obj_'):
-            # See QAPISchema._make_implicit_object_type() - reverse the
-            # mapping there to create a nice human-readable description
             defined_in = defined_in[6:]
             if defined_in.endswith('-arg'):
-                # Implicit type created for a command's dict 'data'
                 assert role == 'member'
                 role = 'parameter'
                 meta = 'command'
                 defined_in = defined_in[:-4]
             elif defined_in.endswith('-base'):
-                # Implicit type created for a union's dict 'base'
                 role = 'base ' + role
                 defined_in = defined_in[:-5]
             else:
@@ -933,7 +864,6 @@ class QAPISchemaEnumMember(QAPISchemaMember):
 class QAPISchemaFeature(QAPISchemaMember):
     role = 'feature'
 
-    # Features which are standardized across all schemas
     SPECIAL_NAMES = ['deprecated', 'unstable']
 
     def is_special(self) -> bool:
@@ -1141,13 +1071,8 @@ class QAPISchema:
         self._entity_list: List[QAPISchemaEntity] = []
         self._entity_dict: Dict[str, QAPISchemaDefinition] = {}
         self._module_dict: Dict[str, QAPISchemaModule] = {}
-        # NB, values in the dict will identify the first encountered
-        # usage of a named feature only
         self._feature_dict: Dict[str, QAPISchemaFeature] = {}
 
-        # All schemas get the names defined in the QapiSpecialFeature enum.
-        # Rely on dict iteration order matching insertion order so that
-        # the special names are emitted first when generating code.
         for f in QAPISchemaFeature.SPECIAL_NAMES:
             self._feature_dict[f] = QAPISchemaFeature(f, None)
 
@@ -1167,11 +1092,8 @@ class QAPISchema:
         self._entity_list.append(ent)
 
     def _def_definition(self, defn: QAPISchemaDefinition) -> None:
-        # Only the predefined types are allowed to not have info
         assert defn.info or self._predefining
         self._def_entity(defn)
-        # TODO reject names that differ only in '_' vs. '.'  vs. '-',
-        # because they're liable to clash in generated C.
         other_defn = self._entity_dict.get(defn.name)
         if other_defn:
             if other_defn.info:
@@ -1232,10 +1154,6 @@ class QAPISchema:
         self, name: str, json_type: str, c_type: str
     ) -> None:
         self._def_definition(QAPISchemaBuiltinType(name, json_type, c_type))
-        # Instantiating only the arrays that are actually used would
-        # be nice, but we can't as long as their generated code
-        # (qapi-builtin-types.[ch]) may be shared by some other
-        # schema.
         self._make_array_type(name, None)
 
     def _def_predefineds(self) -> None:
@@ -1321,14 +1239,10 @@ class QAPISchema:
     ) -> Optional[str]:
         if not members:
             return None
-        # See also QAPISchemaObjectTypeMember.describe()
         name = 'q_obj_%s-%s' % (name, role)
         typ = self.lookup_entity(name)
         if typ:
             assert isinstance(typ, QAPISchemaObjectType)
-            # The implicit object type has multiple users.  This can
-            # only be a duplicate definition, which will be flagged
-            # later.
         else:
             self._def_definition(QAPISchemaObjectType(
                 name, info, None, ifcond, None, None, members, None))

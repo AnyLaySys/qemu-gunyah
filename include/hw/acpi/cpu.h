@@ -1,14 +1,3 @@
-/*
- * QEMU ACPI hotplug utilities
- *
- * Copyright (C) 2016 Red Hat Inc
- *
- * Authors:
- *   Igor Mammedov <imammedo@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 #ifndef ACPI_CPU_H
 #define ACPI_CPU_H
 

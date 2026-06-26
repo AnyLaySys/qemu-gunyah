@@ -1,24 +1,3 @@
-/*
- * QEMU monitor.c for ARM.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "hw/boards.h"
@@ -35,7 +14,6 @@ static GICCapability *gic_cap_new(int version)
 {
     GICCapability *cap = g_new0(GICCapability, 1);
     cap->version = version;
-    /* by default, support none */
     cap->emulated = false;
     cap->kernel = false;
     return cap;
@@ -59,12 +37,6 @@ GICCapabilityList *qmp_query_gic_capabilities(Error **errp)
 
 QEMU_BUILD_BUG_ON(ARM_MAX_VQ > 16);
 
-/*
- * These are cpu model features we want to advertise. The order here
- * matters as this is the order in which qmp_query_cpu_model_expansion
- * will attempt to set them. If there are dependencies between features,
- * then the order that considers those dependencies must be used.
- */
 static const char *cpu_model_advertised_features[] = {
     "aarch64", "pmu", "sve",
     "sve128", "sve256", "sve384", "sve512",

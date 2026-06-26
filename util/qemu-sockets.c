@@ -1,20 +1,3 @@
-/*
- *  inet and unix socket functions for qemu
- *
- *  (c) 2008 Gerd Hoffmann <kraxel@redhat.com>
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; under version 2 of the License.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 #include "qemu/osdep.h"
 
 #ifdef CONFIG_AF_VSOCK
@@ -100,29 +83,6 @@ bool fd_is_socket(int fd)
 }
 
 
-/*
- * Matrix we're trying to apply
- *
- *  ipv4  ipv6   family
- *   -     -       PF_UNSPEC
- *   -     f       PF_INET
- *   -     t       PF_INET6
- *   f     -       PF_INET6
- *   f     f       <error>
- *   f     t       PF_INET6
- *   t     -       PF_INET
- *   t     f       PF_INET
- *   t     t       PF_INET6/PF_UNSPEC
- *
- * NB, this matrix is only about getting the necessary results
- * from getaddrinfo(). Some of the cases require further work
- * after reading results from getaddrinfo in order to fully
- * apply the logic the end user wants.
- *
- * In the first and last cases, we must set IPV6_V6ONLY=0
- * when binding, to allow a single listener to potentially
- * accept both IPv4+6 addresses.
- */
 int inet_ai_family_from_address(InetSocketAddress *addr,
                                 Error **errp)
 {
@@ -132,16 +92,6 @@ int inet_ai_family_from_address(InetSocketAddress *addr,
         return PF_UNSPEC;
     }
     if ((addr->has_ipv6 && addr->ipv6) && (addr->has_ipv4 && addr->ipv4)) {
-        /*
-         * Some backends can only do a single listener. In that case
-         * we want empty hostname to resolve to "::" and then use the
-         * flag IPV6_V6ONLY==0 to get both protocols on 1 socket. This
-         * doesn't work for addresses other than "", so they're just
-         * inevitably broken until multiple listeners can be used,
-         * and thus we honour getaddrinfo automatic protocol detection
-         * Once all backends do multi-listener, remove the PF_INET6
-         * branch entirely.
-         */
         if (!addr->host || g_str_equal(addr->host, "")) {
             return PF_INET6;
         } else {
@@ -172,10 +122,6 @@ static int try_bind(int socket, InetSocketAddress *saddr, struct addrinfo *e)
 #ifndef IPV6_V6ONLY
     return bind(socket, e->ai_addr, e->ai_addrlen);
 #else
-    /*
-     * Deals with first & last cases in matrix in comment
-     * for inet_ai_family_from_address().
-     */
     int v6only =
         ((!saddr->has_ipv4 && !saddr->has_ipv6) ||
          (saddr->has_ipv4 && saddr->ipv4 &&
@@ -193,10 +139,6 @@ static int try_bind(int socket, InetSocketAddress *saddr, struct addrinfo *e)
         return 0;
     }
 
-    /* If we got EADDRINUSE from an IPv6 bind & v6only is unset,
-     * it could be that the IPv4 port is already claimed, so retry
-     * with v6only set
-     */
     if (e->ai_family == PF_INET6 && errno == EADDRINUSE && !v6only) {
         v6only = 1;
         goto rebind;
@@ -247,7 +189,6 @@ static int inet_listen_saddr(InetSocketAddress *saddr,
         port[0] = '\0';
     }
 
-    /* lookup */
     if (port_offset) {
         uint64_t baseport;
         if (strlen(port) == 0) {
@@ -273,7 +214,6 @@ static int inet_listen_saddr(InetSocketAddress *saddr,
         return -1;
     }
 
-    /* create socket + bind/listen */
     for (e = res; e != NULL; e = e->ai_next) {
 #ifdef HAVE_IPPROTO_MPTCP
         if (saddr->has_mptcp && saddr->mptcp) {
@@ -291,11 +231,6 @@ static int inet_listen_saddr(InetSocketAddress *saddr,
 
             slisten = create_fast_reuse_socket(e);
             if (slisten < 0) {
-                /* First time we expect we might fail to create the socket
-                 * eg if 'e' has AF_INET6 but ipv6 kmod is not loaded.
-                 * Later iterations should always succeed if first iteration
-                 * worked though, so treat that as fatal.
-                 */
                 if (p == port_min) {
                     continue;
                 } else {
@@ -321,11 +256,6 @@ static int inet_listen_saddr(InetSocketAddress *saddr,
                     goto listen_failed;
                 }
             }
-            /* Someone else managed to bind to the same port and beat us
-             * to listen on it! Socket semantics does not allow us to
-             * recover from this situation, so we need to recreate the
-             * socket to allow bind attempts for subsequent ports:
-             */
             close(slisten);
             slisten = -1;
         }
@@ -368,7 +298,6 @@ static int inet_connect_addr(const InetSocketAddress *saddr,
         return -1;
     }
 
-    /* connect to peer */
     do {
         rc = 0;
         if (connect(sock, addr->ai_addr, addr->ai_addrlen) < 0) {
@@ -411,14 +340,8 @@ static struct addrinfo *inet_parse_connect_saddr(InetSocketAddress *saddr,
         return NULL;
     }
 
-    /* lookup */
     rc = getaddrinfo(saddr->host, saddr->port, &ai, &res);
 
-    /* At least FreeBSD and OS-X 10.6 declare AI_V4MAPPED but
-     * then don't implement it in their getaddrinfo(). Detect
-     * this and retry without the flag since that's preferable
-     * to a fatal error
-     */
     if (rc == EAI_BADFLAGS &&
         (ai.ai_flags & AI_V4MAPPED)) {
         qatomic_set(&useV4Mapped, 0);
@@ -433,14 +356,6 @@ static struct addrinfo *inet_parse_connect_saddr(InetSocketAddress *saddr,
     return res;
 }
 
-/**
- * Create a socket and connect it to an address.
- *
- * @saddr: Inet socket address specification
- * @errp: set on error
- *
- * Returns: -1 on error, file descriptor on success.
- */
 int inet_connect_saddr(InetSocketAddress *saddr, Error **errp)
 {
     Error *local_err = NULL;
@@ -500,7 +415,6 @@ static int inet_dgram_saddr(InetSocketAddress *sraddr,
     const char *port;
     int sock = -1, rc;
 
-    /* lookup peer addr */
     memset(&ai,0, sizeof(ai));
     ai.ai_flags = AI_CANONNAME | AI_V4MAPPED | AI_ADDRCONFIG;
     ai.ai_socktype = SOCK_DGRAM;
@@ -525,7 +439,6 @@ static int inet_dgram_saddr(InetSocketAddress *sraddr,
         goto err;
     }
 
-    /* lookup local addr */
     memset(&ai,0, sizeof(ai));
     ai.ai_flags = AI_PASSIVE;
     ai.ai_family = peer->ai_family;
@@ -551,7 +464,6 @@ static int inet_dgram_saddr(InetSocketAddress *sraddr,
         goto err;
     }
 
-    /* create socket */
     sock = qemu_socket(peer->ai_family, peer->ai_socktype, peer->ai_protocol);
     if (sock < 0) {
         error_setg_errno(errp, errno, "Failed to create socket family %d",
@@ -560,13 +472,11 @@ static int inet_dgram_saddr(InetSocketAddress *sraddr,
     }
     socket_set_fast_reuse(sock);
 
-    /* bind socket */
     if (bind(sock, local->ai_addr, local->ai_addrlen) < 0) {
         error_setg_errno(errp, errno, "Failed to bind socket");
         goto err;
     }
 
-    /* connect to peer */
     if (connect(sock,peer->ai_addr,peer->ai_addrlen) < 0) {
         error_setg_errno(errp, errno, "Failed to connect to '%s:%s'",
                          addr, port);
@@ -591,7 +501,6 @@ err:
     return -1;
 }
 
-/* compatibility wrapper */
 static int inet_parse_flag(const char *flagname, const char *optstr, bool *val,
                            Error **errp)
 {
@@ -630,22 +539,18 @@ int inet_parse(InetSocketAddress *addr, const char *str, Error **errp)
 
     memset(addr, 0, sizeof(*addr));
 
-    /* parse address */
     if (str[0] == ':') {
-        /* no host given */
         host[0] = '\0';
         if (sscanf(str, ":%32[^,]%n", port, &pos) != 1) {
             error_setg(errp, "error parsing port in address '%s'", str);
             return -1;
         }
     } else if (str[0] == '[') {
-        /* IPv6 addr */
         if (sscanf(str, "[%64[^]]]:%32[^,]%n", host, port, &pos) != 2) {
             error_setg(errp, "error parsing IPv6 address '%s'", str);
             return -1;
         }
     } else {
-        /* hostname or IPv4 addr */
         if (sscanf(str, "%64[^:]:%32[^,]%n", host, port, &pos) != 2) {
             error_setg(errp, "error parsing address '%s'", str);
             return -1;
@@ -655,7 +560,6 @@ int inet_parse(InetSocketAddress *addr, const char *str, Error **errp)
     addr->host = g_strdup(host);
     addr->port = g_strdup(port);
 
-    /* parse options */
     optstr = str + pos;
     h = strstr(optstr, ",to=");
     if (h) {
@@ -745,7 +649,6 @@ static int vsock_connect_addr(const VsockSocketAddress *vaddr,
         return -1;
     }
 
-    /* connect to peer */
     do {
         rc = 0;
         if (connect(sock, (const struct sockaddr *)svm, sizeof(*svm)) < 0) {
@@ -907,13 +810,6 @@ static int unix_listen_saddr(UnixSocketAddress *saddr,
     }
 
     if (pathbuf != NULL) {
-        /*
-         * This dummy fd usage silences the mktemp() insecure warning.
-         * Using mkstemp() doesn't make things more secure here
-         * though.  bind() complains about existing files, so we have
-         * to unlink first and thus re-open the race window.  The
-         * worst case possible is bind() failing, i.e. a DoS attack.
-         */
         fd = mkstemp(pathbuf);
         if (fd < 0) {
             error_setg_errno(errp, errno,
@@ -1003,7 +899,6 @@ static int unix_connect_saddr(UnixSocketAddress *saddr, Error **errp)
     } else {
         memcpy(un.sun_path, saddr->path, pathlen);
     }
-    /* connect to peer */
     do {
         rc = 0;
         if (connect(sock, (struct sockaddr *) &un, addrlen) < 0) {
@@ -1024,7 +919,6 @@ static int unix_connect_saddr(UnixSocketAddress *saddr, Error **errp)
     return -1;
 }
 
-/* compatibility wrapper */
 int unix_listen(const char *str, Error **errp)
 {
     UnixSocketAddress *saddr;
@@ -1205,16 +1099,6 @@ int socket_listen(SocketAddress *addr, int num, Error **errp)
             return -1;
         }
 
-        /*
-         * If the socket is not yet in the listen state, then transition it to
-         * the listen state now.
-         *
-         * If it's already listening then this updates the backlog value as
-         * requested.
-         *
-         * If this socket cannot listen because it's already in another state
-         * (e.g. unbound or connected) then we'll catch the error here.
-         */
         if (listen(fd, num) != 0) {
             error_setg_errno(errp, errno, "Failed to listen on fd socket");
             close(fd);
@@ -1257,10 +1141,6 @@ int socket_dgram(SocketAddress *remote, SocketAddress *local, Error **errp)
 {
     int fd;
 
-    /*
-     * TODO SOCKET_ADDRESS_TYPE_FD when fd is AF_INET or AF_INET6
-     * (although other address families can do SOCK_DGRAM, too)
-     */
     switch (remote->type) {
     case SOCKET_ADDRESS_TYPE_INET:
         fd = inet_dgram_saddr(&remote->u.inet,
@@ -1324,7 +1204,6 @@ socket_sockaddr_to_address_unix(struct sockaddr_storage *sa,
     salen -= offsetof(struct sockaddr_un, sun_path);
 #ifdef CONFIG_LINUX
     if (salen > 0 && !su->sun_path[0]) {
-        /* Linux abstract socket */
         addr->u.q_unix.path = g_strndup(su->sun_path + 1, salen - 1);
         addr->u.q_unix.has_abstract = true;
         addr->u.q_unix.abstract = true;

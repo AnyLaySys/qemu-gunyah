@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "monitor/monitor.h"
@@ -64,12 +41,8 @@
 
 #endif /* CONFIG_LINUX */
 
-/* The Big QEMU Lock (BQL) */
 static QemuMutex bql;
 
-/*
- * The chosen accelerator is supposed to register this.
- */
 static const AccelOpsClass *cpus_accel;
 
 bool cpu_is_stopped(CPUState *cpu)
@@ -111,7 +84,6 @@ bool all_cpu_threads_idle(void)
     return true;
 }
 
-/***********************************************************/
 void hw_error(const char *fmt, ...)
 {
     va_list ap;
@@ -210,28 +182,12 @@ void cpu_exec_reset_hold(CPUState *cpu)
 
 int64_t cpus_get_virtual_clock(void)
 {
-    /*
-     * XXX
-     *
-     * need to check that cpus_accel is not NULL, because qcow2 calls
-     * qemu_get_clock_ns(CLOCK_VIRTUAL) without any accel initialized and
-     * with ticks disabled in some io-tests:
-     * 030 040 041 060 099 120 127 140 156 161 172 181 191 192 195 203 229 249 256 267
-     *
-     * is this expected?
-     *
-     * XXX
-     */
     if (cpus_accel && cpus_accel->get_virtual_clock) {
         return cpus_accel->get_virtual_clock();
     }
     return cpu_get_clock();
 }
 
-/*
- * Signal the new virtual time to the accelerator. This is only needed
- * by accelerators that need to track the changes as we warp time.
- */
 void cpus_set_virtual_clock(int64_t new_time)
 {
     if (cpus_accel && cpus_accel->set_virtual_clock) {
@@ -239,11 +195,6 @@ void cpus_set_virtual_clock(int64_t new_time)
     }
 }
 
-/*
- * return the time elapsed in VM between vm_start and vm_stop.  Unless
- * icount is active, cpus_get_elapsed_ticks() uses units of the host CPU cycle
- * counter.
- */
 int64_t cpus_get_elapsed_ticks(void)
 {
     if (cpus_accel->get_elapsed_ticks) {
@@ -270,9 +221,6 @@ void cpu_interrupt(CPUState *cpu, int mask)
     }
 }
 
-/*
- * True if the vm was previously suspended, and has not been woken or reset.
- */
 static int vm_was_suspended;
 
 void vm_set_suspended(bool suspended)
@@ -310,9 +258,6 @@ static int do_vm_stop(RunState state, bool send_stop)
     return ret;
 }
 
-/* Special vm_stop() variant for terminating the process.  Historically clients
- * did not expect a QMP STOP event and so we need to retain compatibility.
- */
 int vm_shutdown(void)
 {
     return do_vm_stop(RUN_STATE_SHUTDOWN, false);
@@ -360,12 +305,10 @@ static void sigbus_handler(int n, siginfo_t *siginfo, void *ctx)
     }
 
     if (current_cpu) {
-        /* Called asynchronously in VCPU thread.  */
         if (0) {
             sigbus_reraise();
         }
     } else {
-        /* Called synchronously (via signalfd) in main thread.  */
         if (0) {
             sigbus_reraise();
         }
@@ -376,10 +319,6 @@ static void qemu_init_sigbus(void)
 {
     struct sigaction action;
 
-    /*
-     * ALERT: when modifying this, take care that SIGBUS forwarding in
-     * qemu_prealloc_mem() will continue working as expected.
-     */
     memset(&action, 0, sizeof(action));
     action.sa_flags = SA_SIGINFO;
     action.sa_sigaction = sigbus_handler;
@@ -395,9 +334,7 @@ static void qemu_init_sigbus(void)
 
 static QemuThread io_thread;
 
-/* cpu creation */
 static QemuCond qemu_cpu_cond;
-/* system init */
 static QemuCond qemu_pause_cond;
 
 void qemu_init_cpu_loop(void)
@@ -507,7 +444,6 @@ void bql_block_unlock(bool increase)
 
     assert(bql_locked());
 
-    /* check for overflow! */
     new_value = bql_unlock_blocked + increase - !increase;
     assert((new_value > bql_unlock_blocked) == increase);
     bql_unlock_blocked = new_value;
@@ -529,10 +465,6 @@ void rust_bql_mock_lock(void)
     abort();
 }
 
-/*
- * The BQL is taken from so many places that it is worth profiling the
- * callers directly, instead of funneling them all through a single function.
- */
 void bql_lock_impl(const char *file, int line)
 {
     QemuMutexLockFunc bql_lock_fn = qatomic_read(&bql_mutex_lock_func);
@@ -560,14 +492,12 @@ void qemu_cond_timedwait_bql(QemuCond *cond, int ms)
     qemu_cond_timedwait(cond, &bql, ms);
 }
 
-/* signal CPU creation */
 void cpu_thread_signal_created(CPUState *cpu)
 {
     cpu->created = true;
     qemu_cond_signal(&qemu_cpu_cond);
 }
 
-/* signal CPU destruction */
 void cpu_thread_signal_destroyed(CPUState *cpu)
 {
     cpu->created = false;
@@ -657,7 +587,6 @@ void cpus_register_accel(const AccelOpsClass *ops)
 
 const AccelOpsClass *cpus_get_accel(void)
 {
-    /* broken if we call this early */
     assert(cpus_accel);
     return cpus_accel;
 }
@@ -671,14 +600,10 @@ void qemu_init_vcpu(CPUState *cpu)
     cpu->random_seed = qemu_guest_random_seed_thread_part1();
 
     if (!cpu->as) {
-        /* If the target cpu hasn't set up any address spaces itself,
-         * give it the default one.
-         */
         cpu->num_ases = 1;
         cpu_address_space_init(cpu, 0, "cpu-memory", cpu->memory);
     }
 
-    /* accelerators all implement the AccelOpsClass */
     g_assert(cpus_accel != NULL && cpus_accel->create_vcpu_thread != NULL);
     cpus_accel->create_vcpu_thread(cpu);
 
@@ -700,10 +625,6 @@ int vm_stop(RunState state)
     if (qemu_in_vcpu_thread()) {
         qemu_system_vmstop_request_prepare();
         qemu_system_vmstop_request(state);
-        /*
-         * FIXME: should not return to device code in case
-         * vm_stop() has been requested.
-         */
         cpu_stop_current();
         return 0;
     }
@@ -711,11 +632,6 @@ int vm_stop(RunState state)
     return do_vm_stop(state, true);
 }
 
-/**
- * Prepare for (re)starting the VM.
- * Returns 0 if the vCPUs should be restarted, -1 on an error condition,
- * and 1 otherwise.
- */
 int vm_prepare_start(bool step_pending)
 {
     int ret = vm_was_suspended ? 1 : 0;
@@ -727,26 +643,16 @@ int vm_prepare_start(bool step_pending)
         return -1;
     }
 
-    /* Ensure that a STOP/RESUME pair of events is emitted if a
-     * vmstop request was pending.  The BLOCK_IO_ERROR event, for
-     * example, according to documentation is always followed by
-     * the STOP event.
-     */
     if (runstate_is_running()) {
         qapi_event_send_stop();
         qapi_event_send_resume();
         return -1;
     }
 
-    /*
-     * WHPX accelerator needs to know whether we are going to step
-     * any CPUs, before starting the first one.
-     */
     if (cpus_accel->synchronize_pre_resume) {
         cpus_accel->synchronize_pre_resume(step_pending);
     }
 
-    /* We are sending this now, but the CPUs will be resumed shortly later */
     qapi_event_send_resume();
 
     cpu_enable_ticks();
@@ -772,8 +678,6 @@ void vm_resume(RunState state)
     }
 }
 
-/* does a state transition even if the VM is already stopped,
-   current state is forgotten forever */
 int vm_stop_force_state(RunState state)
 {
     if (runstate_is_live(runstate_get())) {
@@ -783,8 +687,6 @@ int vm_stop_force_state(RunState state)
         runstate_set(state);
 
         bdrv_drain_all();
-        /* Make sure to return an error if the flush in a previous vm_stop()
-         * failed. */
         ret = bdrv_flush_all();
         trace_vm_stop_flush_all(ret);
         return ret;

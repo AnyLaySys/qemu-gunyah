@@ -14,19 +14,9 @@ DECLARE_CLASS_CHECKERS(AcpiDevAmlIfClass, ACPI_DEV_AML_IF, TYPE_ACPI_DEV_AML_IF)
 typedef struct AcpiDevAmlIf AcpiDevAmlIf;
 typedef void (*dev_aml_fn)(AcpiDevAmlIf *adev, Aml *scope);
 
-/**
- * AcpiDevAmlIfClass:
- *
- * build_dev_aml: adds device specific AML blob to provided scope
- *
- * Interface is designed for providing generic callback that builds device
- * specific AML blob.
- */
 struct AcpiDevAmlIfClass {
-    /* <private> */
     InterfaceClass parent_class;
 
-    /* <public> */
     dev_aml_fn build_dev_aml;
 };
 

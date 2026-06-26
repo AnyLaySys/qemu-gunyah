@@ -1,14 +1,4 @@
-/*
- * QEMU Hypervisor.framework (HVF) support
- *
- * Copyright Google Inc., 2017
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
-/* header to be included in non-HVF-specific code */
 
 #ifndef HVF_H
 #define HVF_H
@@ -52,19 +42,9 @@ int hvf_arch_insert_hw_breakpoint(vaddr addr, vaddr len, int type);
 int hvf_arch_remove_hw_breakpoint(vaddr addr, vaddr len, int type);
 void hvf_arch_remove_all_hw_breakpoints(void);
 
-/*
- * hvf_update_guest_debug:
- * @cs: CPUState for the CPU to update
- *
- * Update guest to enable or disable debugging. Per-arch specifics will be
- * handled by calling down to hvf_arch_update_guest_debug.
- */
 int hvf_update_guest_debug(CPUState *cpu);
 void hvf_arch_update_guest_debug(CPUState *cpu);
 
-/*
- * Return whether the guest supports debugging.
- */
 bool hvf_arch_supports_guest_debug(void);
 #endif /* COMPILING_PER_TARGET */
 

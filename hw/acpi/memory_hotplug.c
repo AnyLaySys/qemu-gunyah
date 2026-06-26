@@ -141,9 +141,7 @@ static void acpi_memory_hotplug_write(void *opaque, hwaddr addr, uint64_t data,
     case 0x4: /* _OST event  */
         mdev = &mem_st->devs[mem_st->selector];
         if (data == 1) {
-            /* TODO: handle device insert OST event */
         } else if (data == 3) {
-            /* TODO: handle device remove OST event */
         }
         mdev->ost_event = data;
         trace_mhp_acpi_write_ost_ev(mem_st->selector, mdev->ost_event);
@@ -152,7 +150,6 @@ static void acpi_memory_hotplug_write(void *opaque, hwaddr addr, uint64_t data,
         mdev = &mem_st->devs[mem_st->selector];
         mdev->ost_status = data;
         trace_mhp_acpi_write_ost_status(mem_st->selector, mdev->ost_status);
-        /* TODO: implement memory removal on guest signal */
 
         info = acpi_memory_device_status(mem_st->selector, mdev);
         qapi_event_send_acpi_device_ost(info);
@@ -174,7 +171,6 @@ static void acpi_memory_hotplug_write(void *opaque, hwaddr addr, uint64_t data,
 
             dev = DEVICE(mdev->dimm);
             hotplug_ctrl = qdev_get_hotplug_handler(dev);
-            /* call pc-dimm unplug cb */
             hotplug_handler_unplug(hotplug_ctrl, dev, &local_err);
             if (local_err) {
                 trace_mhp_acpi_pc_dimm_delete_failed(mem_st->selector);
@@ -218,16 +214,6 @@ void acpi_memory_hotplug_init(MemoryRegion *as, Object *owner,
     memory_region_add_subregion(as, io_base, &state->io);
 }
 
-/**
- * acpi_memory_slot_status:
- * @mem_st: memory hotplug state
- * @dev: device
- * @errp: set in case of an error
- *
- * Obtain a single memory slot status.
- *
- * This function will be called by memory unplug request cb and unplug cb.
- */
 static MemStatus *
 acpi_memory_slot_status(MemHotplugState *mem_st,
                         DeviceState *dev, Error **errp)
@@ -413,13 +399,10 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
         aml_append(field, /* 1 if enabled, read only */
             aml_named_field(MEMORY_SLOT_ENABLED, 1));
         aml_append(field,
-            /*(read) 1 if has a insert event. (write) 1 to clear event */
             aml_named_field(MEMORY_SLOT_INSERT_EVENT, 1));
         aml_append(field,
-            /* (read) 1 if has a remove event. (write) 1 to clear event */
             aml_named_field(MEMORY_SLOT_REMOVE_EVENT, 1));
         aml_append(field,
-            /* initiates device eject, write only */
             aml_named_field(MEMORY_SLOT_EJECT, 1));
         aml_append(dev_container, field);
 
@@ -440,7 +423,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
             aml_append(ifctx, aml_return(zero));
         }
         aml_append(method, ifctx);
-        /* present, functioning, decoding, not shown in UI */
         aml_append(method, aml_return(aml_int(0xB)));
         aml_append(dev_container, method);
 
@@ -462,12 +444,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
 
             aml_append(method, aml_store(zero, idx));
             aml_append(method, aml_acquire(ctrl_lock, 0xFFFF));
-            /* build AML that:
-             * loops over all slots and Notifies DIMMs with
-             * Device Check or Eject Request notifications if
-             * slot has corresponding status bit set and clears
-             * slot status.
-             */
             while_ctx = aml_while(aml_lless(idx, slots_nr));
             {
                 Aml *ins_evt = aml_name(MEMORY_SLOT_INSERT_EVENT);
@@ -566,7 +542,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
             aml_append(method,
                 aml_store(aml_name(MEMORY_SLOT_SIZE_LOW), lenl));
 
-            /* 64-bit math: MAX = MIN + LEN - 1 */
             aml_append(method, aml_add(minl, lenl, maxl));
             aml_append(method, aml_add(minh, lenh, maxh));
             ifctx = aml_if(aml_lless(maxl, minl));
@@ -581,8 +556,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
             aml_append(method, ifctx);
             aml_append(method, aml_subtract(maxl, one, maxl));
 
-            /* return 32-bit _CRS if addr/size is in low mem */
-            /* TODO: remove it since all hotplugged DIMMs are in high mem */
             ifctx = aml_if(aml_equal(maxh, zero));
             {
                 crs_tmpl = aml_resource_template();
@@ -653,7 +626,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
         }
         aml_append(dev_container, method);
 
-        /* build memory devices */
         for (i = 0; i < nr_mem; i++) {
             Aml *dev;
             const char *s;
@@ -693,9 +665,6 @@ void build_memory_hotplug_aml(Aml *table, uint32_t nr_mem,
             aml_append(dev_container, dev);
         }
 
-        /* build Method(MEMORY_SLOT_NOTIFY_METHOD, 2) {
-         *     If (LEqual(Arg0, 0x00)) {Notify(MP00, Arg1)} ... }
-         */
         method = aml_method(MEMORY_SLOT_NOTIFY_METHOD, 2, AML_NOTSERIALIZED);
         for (i = 0; i < nr_mem; i++) {
             ifctx = aml_if(aml_equal(aml_arg(0), aml_int(i)));

@@ -1,26 +1,8 @@
-/*
- * QNum Module
- *
- * Copyright (C) 2009 Red Hat Inc.
- *
- * Authors:
- *  Luiz Capitulino <lcapitulino@redhat.com>
- *  Anthony Liguori <aliguori@us.ibm.com>
- *  Marc-André Lureau <marcandre.lureau@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qobject/qnum.h"
 #include "qobject-internal.h"
 
-/**
- * qnum_from_int(): Create a new QNum from an int64_t
- *
- * Return strong reference.
- */
 QNum *qnum_from_int(int64_t value)
 {
     QNum *qn = g_new(QNum, 1);
@@ -32,11 +14,6 @@ QNum *qnum_from_int(int64_t value)
     return qn;
 }
 
-/**
- * qnum_from_uint(): Create a new QNum from an uint64_t
- *
- * Return strong reference.
- */
 QNum *qnum_from_uint(uint64_t value)
 {
     QNum *qn = g_new(QNum, 1);
@@ -48,11 +25,6 @@ QNum *qnum_from_uint(uint64_t value)
     return qn;
 }
 
-/**
- * qnum_from_double(): Create a new QNum from a double
- *
- * Return strong reference.
- */
 QNum *qnum_from_double(double value)
 {
     QNum *qn = g_new(QNum, 1);
@@ -64,11 +36,6 @@ QNum *qnum_from_double(double value)
     return qn;
 }
 
-/**
- * qnum_get_try_int(): Get an integer representation of the number
- *
- * Return true on success.
- */
 bool qnum_get_try_int(const QNum *qn, int64_t *val)
 {
     switch (qn->kind) {
@@ -88,11 +55,6 @@ bool qnum_get_try_int(const QNum *qn, int64_t *val)
     g_assert_not_reached();
 }
 
-/**
- * qnum_get_int(): Get an integer representation of the number
- *
- * assert() on failure.
- */
 int64_t qnum_get_int(const QNum *qn)
 {
     int64_t val;
@@ -101,11 +63,6 @@ int64_t qnum_get_int(const QNum *qn)
     return val;
 }
 
-/**
- * qnum_get_uint(): Get an unsigned integer from the number
- *
- * Return true on success.
- */
 bool qnum_get_try_uint(const QNum *qn, uint64_t *val)
 {
     switch (qn->kind) {
@@ -125,11 +82,6 @@ bool qnum_get_try_uint(const QNum *qn, uint64_t *val)
     g_assert_not_reached();
 }
 
-/**
- * qnum_get_uint(): Get an unsigned integer from the number
- *
- * assert() on failure.
- */
 uint64_t qnum_get_uint(const QNum *qn)
 {
     uint64_t val;
@@ -138,11 +90,6 @@ uint64_t qnum_get_uint(const QNum *qn)
     return val;
 }
 
-/**
- * qnum_get_double(): Get a float representation of the number
- *
- * qnum_get_double() loses precision for integers beyond 53 bits.
- */
 double qnum_get_double(QNum *qn)
 {
     switch (qn->kind) {
@@ -165,22 +112,12 @@ char *qnum_to_string(QNum *qn)
     case QNUM_U64:
         return g_strdup_printf("%" PRIu64, qn->u.u64);
     case QNUM_DOUBLE:
-        /* 17 digits suffice for IEEE double */
         return g_strdup_printf("%.17g", qn->u.dbl);
     }
 
     g_assert_not_reached();
 }
 
-/**
- * qnum_is_equal(): Test whether the two QNums are equal
- *
- * Negative integers are never considered equal to unsigned integers,
- * but positive integers in the range [0, INT64_MAX] are considered
- * equal independently of whether the QNum's kind is i64 or u64.
- *
- * Doubles are never considered equal to integers.
- */
 bool qnum_is_equal(const QObject *x, const QObject *y)
 {
     QNum *num_x = qobject_to(QNum, x);
@@ -190,11 +127,8 @@ bool qnum_is_equal(const QObject *x, const QObject *y)
     case QNUM_I64:
         switch (num_y->kind) {
         case QNUM_I64:
-            /* Comparison in native int64_t type */
             return num_x->u.i64 == num_y->u.i64;
         case QNUM_U64:
-            /* Implicit conversion of x to uin64_t, so we have to
-             * check its sign before */
             return num_x->u.i64 >= 0 && num_x->u.i64 == num_y->u.u64;
         case QNUM_DOUBLE:
             return false;
@@ -205,7 +139,6 @@ bool qnum_is_equal(const QObject *x, const QObject *y)
         case QNUM_I64:
             return qnum_is_equal(y, x);
         case QNUM_U64:
-            /* Comparison in native uint64_t type */
             return num_x->u.u64 == num_y->u.u64;
         case QNUM_DOUBLE:
             return false;
@@ -217,7 +150,6 @@ bool qnum_is_equal(const QObject *x, const QObject *y)
         case QNUM_U64:
             return false;
         case QNUM_DOUBLE:
-            /* Comparison in native double type */
             return num_x->u.dbl == num_y->u.dbl;
         }
         abort();
@@ -226,10 +158,6 @@ bool qnum_is_equal(const QObject *x, const QObject *y)
     abort();
 }
 
-/**
- * qnum_destroy_obj(): Free all memory allocated by a
- * QNum object
- */
 void qnum_destroy_obj(QObject *obj)
 {
     assert(obj != NULL);

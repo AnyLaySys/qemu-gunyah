@@ -1,26 +1,3 @@
-/*
- * QEMU Boot Device Implement
- *
- * Copyright (c) 2014 HUAWEI TECHNOLOGIES CO., LTD.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -72,20 +49,10 @@ void qemu_boot_set(const char *boot_order, Error **errp)
 
 void validate_bootdevices(const char *devices, Error **errp)
 {
-    /* We just do some generic consistency checks */
     const char *p;
     int bitmap = 0;
 
     for (p = devices; *p != '\0'; p++) {
-        /* Allowed boot devices are:
-         * a-b: floppy disk drives
-         * c-f: IDE disk drives
-         * g-m: machine implementation dependent drives
-         * n-p: network devices
-         * It's up to each machine implementation to check if the given boot
-         * devices match the actual hardware implementation and firmware
-         * features.
-         */
         if (*p < 'a' || *p > 'p') {
             error_setg(errp, "Invalid boot device '%c'", *p);
             return;
@@ -105,17 +72,14 @@ void restore_boot_order(void *opaque)
 
     switch (bootcount++) {
     case 0:
-        /* First boot: use the one-time config */
         return;
     case 1:
-        /* Second boot: restore normal boot order */
         if (boot_set_handler) {
             qemu_boot_set(normal_boot_order, &error_abort);
         }
         g_free(normal_boot_order);
         return;
     default:
-        /* Subsequent boots: keep using normal boot order */
         return;
     }
 }
@@ -238,13 +202,6 @@ static char *get_boot_device_path(DeviceState *dev, bool ignore_suffixes,
     return bootpath;
 }
 
-/*
- * This function returns null terminated string that consist of new line
- * separated device paths.
- *
- * memory pointed by "size" is assigned total length of the array in bytes
- *
- */
 char *get_boot_devices_list(size_t *size)
 {
     FWBootEntry *i;
@@ -304,13 +261,11 @@ static void device_set_bootindex(Object *obj, Visitor *v, const char *name,
     if (!visit_type_int32(v, name, &boot_index, errp)) {
         return;
     }
-    /* check whether bootindex is present in fw_boot_order list  */
     check_boot_index(boot_index, &local_err);
     if (local_err) {
         error_propagate(errp, local_err);
         return;
     }
-    /* change bootindex to a new one */
     *prop->bootindex = boot_index;
 
     add_boot_device_path(*prop->bootindex, prop->dev, prop->suffix);
@@ -342,7 +297,6 @@ void device_add_bootindex_property(Object *obj, int32_t *bootindex,
                         property_release_bootindex,
                         prop);
 
-    /* initialize devices' bootindex property to -1 */
     object_property_set_int(obj, name, -1, NULL);
 }
 

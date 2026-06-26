@@ -1,15 +1,3 @@
-/*
- * Wrappers around mutex/cond/thread functions
- *
- * Copyright Red Hat, Inc. 2009
- *
- * Author:
- *  Marcelo Tosatti <mtosatti@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 #include "qemu/osdep.h"
 #include "qemu/thread.h"
 #include "qemu/atomic.h"
@@ -19,9 +7,6 @@
 #include "qemu/bitmap.h"
 
 
-// #include <android/log.h>
-// #define LOG_TAG "QEMU_Pthread"
-// #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 #ifdef CONFIG_PTHREAD_SET_NAME_NP
 #include <pthread_np.h>
@@ -57,7 +42,6 @@ void qemu_thread_naming(bool enable)
 #if !defined CONFIG_PTHREAD_SETNAME_NP_W_TID && \
     !defined CONFIG_PTHREAD_SETNAME_NP_WO_TID && \
     !defined CONFIG_PTHREAD_SET_NAME_NP
-    /* This is a debugging option, not fatal */
     if (enable) {
         fprintf(stderr, "qemu: thread naming not supported on this host\n");
     }
@@ -93,7 +77,6 @@ static void compute_abs_deadline(struct timespec *ts, int ms)
 void qemu_thread_init_tls(void)
 {
 #ifdef __ANDROID__
-    /* pthread_key-based TLS is auto-zeroed on first access */
     (void)android_thread_exit_ptr();
 #else
     memset(&thread_exit, 0, sizeof(thread_exit));
@@ -379,19 +362,6 @@ static inline void qemu_futex_wait(QemuEvent *ev, unsigned val)
 }
 #endif
 
-/* Valid transitions:
- * - free->set, when setting the event
- * - busy->set, when setting the event, followed by qemu_futex_wake
- * - set->free, when resetting the event
- * - free->busy, when waiting
- *
- * set->busy does not happen (it can be observed from the outside but
- * it really is set->free->busy).
- *
- * busy->free provably cannot happen; to enforce it, the set->free transition
- * is done with an OR, which becomes a no-op if the event has concurrently
- * transitioned to free or busy.
- */
 
 #define EV_SET         0
 #define EV_FREE        1
@@ -422,20 +392,12 @@ void qemu_event_set(QemuEvent *ev)
 {
     assert(ev->initialized);
 
-    /*
-     * Pairs with both qemu_event_reset() and qemu_event_wait().
-     *
-     * qemu_event_set has release semantics, but because it *loads*
-     * ev->value we need a full memory barrier here.
-     */
     smp_mb();
     if (qatomic_read(&ev->value) != EV_SET) {
         int old = qatomic_xchg(&ev->value, EV_SET);
 
-        /* Pairs with memory barrier in kernel futex_wait system call.  */
         smp_mb__after_rmw();
         if (old == EV_BUSY) {
-            /* There were waiters, wake them up.  */
             qemu_futex_wake(ev, INT_MAX);
         }
     }
@@ -445,16 +407,8 @@ void qemu_event_reset(QemuEvent *ev)
 {
     assert(ev->initialized);
 
-    /*
-     * If there was a concurrent reset (or even reset+wait),
-     * do nothing.  Otherwise change EV_SET->EV_FREE.
-     */
     qatomic_or(&ev->value, EV_FREE);
 
-    /*
-     * Order reset before checking the condition in the caller.
-     * Pairs with the first memory barrier in qemu_event_set().
-     */
     smp_mb__after_rmw();
 }
 
@@ -464,54 +418,21 @@ void qemu_event_wait(QemuEvent *ev)
 
     assert(ev->initialized);
 
-    /*
-     * qemu_event_wait must synchronize with qemu_event_set even if it does
-     * not go down the slow path, so this load-acquire is needed that
-     * synchronizes with the first memory barrier in qemu_event_set().
-     *
-     * If we do go down the slow path, there is no requirement at all: we
-     * might miss a qemu_event_set() here but ultimately the memory barrier in
-     * qemu_futex_wait() will ensure the check is done correctly.
-     */
     value = qatomic_load_acquire(&ev->value);
     if (value != EV_SET) {
         if (value == EV_FREE) {
-            /*
-             * Leave the event reset and tell qemu_event_set that there are
-             * waiters.  No need to retry, because there cannot be a concurrent
-             * busy->free transition.  After the CAS, the event will be either
-             * set or busy.
-             *
-             * This cmpxchg doesn't have particular ordering requirements if it
-             * succeeds (moving the store earlier can only cause qemu_event_set()
-             * to issue _more_ wakeups), the failing case needs acquire semantics
-             * like the load above.
-             */
             if (qatomic_cmpxchg(&ev->value, EV_FREE, EV_BUSY) == EV_SET) {
                 return;
             }
         }
 
-        /*
-         * This is the final check for a concurrent set, so it does need
-         * a smp_mb() pairing with the second barrier of qemu_event_set().
-         * The barrier is inside the FUTEX_WAIT system call.
-         */
         qemu_futex_wait(ev, EV_BUSY);
     }
 }
 
 
-/*
- * Note that in this implementation you can register a thread-exit
- * notifier for the main thread, but it will never be called.
- * This is OK because main thread exit can only happen when the
- * entire process is exiting, and the API allows notifiers to not
- * be called on process exit.
- */
 void qemu_thread_atexit_add(Notifier *notifier)
 {
-    //LOGI("NLI thread_exit: listaaa=%p\n", &thread_exit);
 
     notifier_list_add(&thread_exit, notifier);
 }
@@ -523,10 +444,6 @@ void qemu_thread_atexit_remove(Notifier *notifier)
 
 static void qemu_thread_atexit_notify(void *arg)
 {
-    /*
-     * Called when non-main thread exits (via qemu_thread_exit()
-     * or by returning from its start routine.)
-     */
     notifier_list_notify(&thread_exit, NULL);
 }
 
@@ -545,9 +462,6 @@ static void *qemu_thread_start(void *args)
 
     qemu_thread_init_tls();
 
-    /* Attempt to set the threads name; note that this is for debug, so
-     * we're not going to fail if we can't set it.
-     */
     if (name_threads && qemu_thread_args->name) {
 # if defined(CONFIG_PTHREAD_SETNAME_NP_W_TID)
         pthread_setname_np(pthread_self(), qemu_thread_args->name);
@@ -561,16 +475,6 @@ static void *qemu_thread_start(void *args)
     g_free(qemu_thread_args->name);
     g_free(qemu_thread_args);
 
-    /*
-     * GCC 11 with glibc 2.17 on PowerPC reports
-     *
-     * qemu-thread-posix.c:540:5: error: ‘__sigsetjmp’ accessing 656 bytes
-     *   in a region of size 528 [-Werror=stringop-overflow=]
-     * 540 |     pthread_cleanup_push(qemu_thread_atexit_notify, NULL);
-     *     |     ^~~~~~~~~~~~~~~~~~~~
-     *
-     * which is clearly nonsense.
-     */
 #pragma GCC diagnostic push
 #ifndef __clang__
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
@@ -603,13 +507,10 @@ void qemu_thread_create(QemuThread *thread, const char *name,
         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     }
 
-    /* Leave signal handling to the iothread.  */
     sigfillset(&set);
-    /* Blocking the signals can result in undefined behaviour. */
     sigdelset(&set, SIGSEGV);
     sigdelset(&set, SIGFPE);
     sigdelset(&set, SIGILL);
-    /* TODO avoid SIGBUS loss on macOS */
     pthread_sigmask(SIG_SETMASK, &set, &oldset);
 
     qemu_thread_args = g_new0(QemuThreadArgs, 1);
@@ -682,7 +583,6 @@ int qemu_thread_get_affinity(QemuThread *thread, unsigned long **host_cpus,
         }
     }
 
-    /* Convert the result into a proper bitmap. */
     *nbits = tmpbits;
     *host_cpus = bitmap_new(tmpbits);
     for (i = 0; i < tmpbits; i++) {

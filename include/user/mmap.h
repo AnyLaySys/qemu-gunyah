@@ -1,18 +1,8 @@
-/*
- * MMAP declarations for QEMU user emulation
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 #ifndef USER_MMAP_H
 #define USER_MMAP_H
 
 #include "user/abitypes.h"
 
-/*
- * mmap_next_start: The base address for the next mmap without hint,
- * increased after each successful map, starting at task_unmapped_base.
- * This is an optimization within QEMU and not part of ADDR_COMPAT_LAYOUT.
- */
 extern abi_ulong mmap_next_start;
 
 int target_mprotect(abi_ulong start, abi_ulong len, int prot);

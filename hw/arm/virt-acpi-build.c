@@ -1,30 +1,3 @@
-/* Support for generating ACPI tables and passing them to Guests
- *
- * ARM virt ACPI generation
- *
- * Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
- * Copyright (C) 2006 Fabrice Bellard
- * Copyright (C) 2013 Red Hat Inc
- *
- * Author: Michael S. Tsirkin <mst@redhat.com>
- *
- * Copyright (c) 2015 HUAWEI TECHNOLOGIES CO.,LTD.
- *
- * Author: Shannon Zhao <zhaoshenglong@huawei.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -162,7 +135,6 @@ static void acpi_dsdt_add_gpio(Aml *scope, const MemMapEntry *gpio_memmap,
                                  "GPO0", NULL, 0));
     aml_append(dev, aml_name_decl("_AEI", aei));
 
-    /* _E03 is handle for power button */
     Aml *method = aml_method("_E03", 0, AML_NOTSERIALIZED);
     aml_append(method, aml_notify(aml_name(ACPI_POWER_BUTTON_DEVICE),
                                   aml_int(0x80)));
@@ -210,22 +182,13 @@ static void acpi_dsdt_add_tpm(Aml *scope, VirtMachineState *vms)
 #define ROOT_COMPLEX_ENTRY_SIZE 36
 #define IORT_NODE_OFFSET 48
 
-/*
- * Append an ID mapping entry as described by "Table 4 ID mapping format" in
- * "IO Remapping Table System Software on ARM Platforms", Chapter 3.
- * Document number: ARM DEN 0049E.f, Apr 2024
- *
- * Note that @id_count gets internally subtracted by one, following the spec.
- */
 static void build_iort_id_mapping(GArray *table_data, uint32_t input_base,
                                   uint32_t id_count, uint32_t out_ref)
 {
     build_append_int_noprefix(table_data, input_base, 4); /* Input base */
-    /* Number of IDs - The number of IDs in the range minus one */
     build_append_int_noprefix(table_data, id_count - 1, 4);
     build_append_int_noprefix(table_data, input_base, 4); /* Output base */
     build_append_int_noprefix(table_data, out_ref, 4); /* Output Reference */
-    /* Flags */
     build_append_int_noprefix(table_data, 0 /* Single mapping (disabled) */, 4);
 }
 
@@ -235,7 +198,6 @@ struct AcpiIortIdMapping {
 };
 typedef struct AcpiIortIdMapping AcpiIortIdMapping;
 
-/* Build the iort ID mapping to SMMUv3 for a given PCI host bridge */
 static int
 iort_host_bridges(Object *obj, void *opaque)
 {
@@ -268,11 +230,6 @@ static int iort_idmap_compare(gconstpointer a, gconstpointer b)
     return idmap_a->input_base - idmap_b->input_base;
 }
 
-/*
- * Input Output Remapping Table (IORT)
- * Conforms to "IO Remapping Table System Software on ARM Platforms",
- * Document number: ARM DEN 0049E.b, Feb 2021
- */
 static void
 build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
@@ -285,7 +242,6 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     AcpiTable table = { .sig = "IORT", .rev = 3, .oem_id = vms->oem_id,
                         .oem_table_id = vms->oem_table_id };
-    /* Table 2 The IORT */
     acpi_table_begin(&table, table_data);
 
     if (vms->iommu == VIRT_IOMMU_SMMUV3) {
@@ -294,13 +250,8 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
         object_child_foreach_recursive(object_get_root(),
                                        iort_host_bridges, smmu_idmaps);
 
-        /* Sort the smmu idmap by input_base */
         g_array_sort(smmu_idmaps, iort_idmap_compare);
 
-        /*
-         * Split the whole RIDs by mapping from RC to SMMU,
-         * build the ID mapping from RC to ITS directly.
-         */
         for (i = 0; i < smmu_idmaps->len; i++) {
             idmap = &g_array_index(smmu_idmaps, AcpiIortIdMapping, i);
 
@@ -312,7 +263,6 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
             next_range.input_base = idmap->input_base + idmap->id_count;
         }
 
-        /* Append the last RC -> ITS ID mapping */
         if (next_range.input_base < 0x10000) {
             next_range.id_count = 0x10000 - next_range.input_base;
             g_array_append_val(its_idmaps, next_range);
@@ -324,14 +274,11 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
         nb_nodes = 2; /* RC, ITS */
         rc_mapping_count = 1;
     }
-    /* Number of IORT Nodes */
     build_append_int_noprefix(table_data, nb_nodes, 4);
 
-    /* Offset to Array of IORT Nodes */
     build_append_int_noprefix(table_data, IORT_NODE_OFFSET, 4);
     build_append_int_noprefix(table_data, 0, 4); /* Reserved */
 
-    /* Table 12 ITS Group Format */
     build_append_int_noprefix(table_data, 0 /* ITS Group */, 1); /* Type */
     node_size =  20 /* fixed header size */ + 4 /* 1 GIC ITS Identifier */;
     build_append_int_noprefix(table_data, node_size, 2); /* Length */
@@ -340,92 +287,70 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     build_append_int_noprefix(table_data, 0, 4); /* Number of ID mappings */
     build_append_int_noprefix(table_data, 0, 4); /* Reference to ID Array */
     build_append_int_noprefix(table_data, 1, 4); /* Number of ITSs */
-    /* GIC ITS Identifier Array */
     build_append_int_noprefix(table_data, 0 /* MADT translation_id */, 4);
 
     if (vms->iommu == VIRT_IOMMU_SMMUV3) {
         int irq =  vms->irqmap[VIRT_SMMU] + ARM_SPI_BASE;
 
         smmu_offset = table_data->len - table.table_offset;
-        /* Table 9 SMMUv3 Format */
         build_append_int_noprefix(table_data, 4 /* SMMUv3 */, 1); /* Type */
         node_size =  SMMU_V3_ENTRY_SIZE + ID_MAPPING_ENTRY_SIZE;
         build_append_int_noprefix(table_data, node_size, 2); /* Length */
         build_append_int_noprefix(table_data, 4, 1); /* Revision */
         build_append_int_noprefix(table_data, id++, 4); /* Identifier */
         build_append_int_noprefix(table_data, 1, 4); /* Number of ID mappings */
-        /* Reference to ID Array */
         build_append_int_noprefix(table_data, SMMU_V3_ENTRY_SIZE, 4);
-        /* Base address */
         build_append_int_noprefix(table_data, vms->memmap[VIRT_SMMU].base, 8);
-        /* Flags */
         build_append_int_noprefix(table_data, 1 /* COHACC Override */, 4);
         build_append_int_noprefix(table_data, 0, 4); /* Reserved */
         build_append_int_noprefix(table_data, 0, 8); /* VATOS address */
-        /* Model */
         build_append_int_noprefix(table_data, 0 /* Generic SMMU-v3 */, 4);
         build_append_int_noprefix(table_data, irq, 4); /* Event */
         build_append_int_noprefix(table_data, irq + 1, 4); /* PRI */
         build_append_int_noprefix(table_data, irq + 3, 4); /* GERR */
         build_append_int_noprefix(table_data, irq + 2, 4); /* Sync */
         build_append_int_noprefix(table_data, 0, 4); /* Proximity domain */
-        /* DeviceID mapping index (ignored since interrupts are GSIV based) */
         build_append_int_noprefix(table_data, 0, 4);
 
-        /* output IORT node is the ITS group node (the first node) */
         build_iort_id_mapping(table_data, 0, 0x10000, IORT_NODE_OFFSET);
     }
 
-    /* Table 17 Root Complex Node */
     build_append_int_noprefix(table_data, 2 /* Root complex */, 1); /* Type */
     node_size =  ROOT_COMPLEX_ENTRY_SIZE +
                  ID_MAPPING_ENTRY_SIZE * rc_mapping_count;
     build_append_int_noprefix(table_data, node_size, 2); /* Length */
     build_append_int_noprefix(table_data, 3, 1); /* Revision */
     build_append_int_noprefix(table_data, id++, 4); /* Identifier */
-    /* Number of ID mappings */
     build_append_int_noprefix(table_data, rc_mapping_count, 4);
-    /* Reference to ID Array */
     build_append_int_noprefix(table_data, ROOT_COMPLEX_ENTRY_SIZE, 4);
 
-    /* Table 14 Memory access properties */
-    /* CCA: Cache Coherent Attribute */
     build_append_int_noprefix(table_data, 1 /* fully coherent */, 4);
     build_append_int_noprefix(table_data, 0, 1); /* AH: Note Allocation Hints */
     build_append_int_noprefix(table_data, 0, 2); /* Reserved */
-    /* Table 15 Memory Access Flags */
     build_append_int_noprefix(table_data, 0x3 /* CCA = CPM = DACS = 1 */, 1);
 
     build_append_int_noprefix(table_data, 0, 4); /* ATS Attribute */
-    /* MCFG pci_segment */
     build_append_int_noprefix(table_data, 0, 4); /* PCI Segment number */
 
-    /* Memory address size limit */
     build_append_int_noprefix(table_data, 64, 1);
 
     build_append_int_noprefix(table_data, 0, 3); /* Reserved */
 
-    /* Output Reference */
     if (vms->iommu == VIRT_IOMMU_SMMUV3) {
         AcpiIortIdMapping *range;
 
-        /* translated RIDs connect to SMMUv3 node: RC -> SMMUv3 -> ITS */
         for (i = 0; i < smmu_idmaps->len; i++) {
             range = &g_array_index(smmu_idmaps, AcpiIortIdMapping, i);
-            /* output IORT node is the smmuv3 node */
             build_iort_id_mapping(table_data, range->input_base,
                                   range->id_count, smmu_offset);
         }
 
-        /* bypassed RIDs connect to ITS group node directly: RC -> ITS */
         for (i = 0; i < its_idmaps->len; i++) {
             range = &g_array_index(its_idmaps, AcpiIortIdMapping, i);
-            /* output IORT node is the ITS group node (the first node) */
             build_iort_id_mapping(table_data, range->input_base,
                                   range->id_count, IORT_NODE_OFFSET);
         }
     } else {
-        /* output IORT node is the ITS group node (the first node) */
         build_iort_id_mapping(table_data, 0, 0x10000, IORT_NODE_OFFSET);
     }
 
@@ -434,10 +359,6 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     g_array_free(its_idmaps, true);
 }
 
-/*
- * Serial Port Console Redirection Table (SPCR)
- * Rev: 1.07
- */
 static void
 spcr_setup(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
@@ -465,18 +386,10 @@ spcr_setup(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
         .pci_flags = 0,
         .pci_segment = 0,
     };
-    /*
-     * Passing NULL as the SPCR Table for Revision 2 doesn't support
-     * NameSpaceString.
-     */
     build_spcr(table_data, linker, &serial, 2, vms->oem_id, vms->oem_table_id,
                NULL);
 }
 
-/*
- * ACPI spec, Revision 5.1
- * 5.2.16 System Resource Affinity Table (SRAT)
- */
 static void
 build_srat(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
@@ -494,14 +407,10 @@ build_srat(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     for (i = 0; i < cpu_list->len; ++i) {
         uint32_t nodeid = cpu_list->cpus[i].props.node_id;
-        /*
-         * 5.2.16.4 GICC Affinity Structure
-         */
         build_append_int_noprefix(table_data, 3, 1);      /* Type */
         build_append_int_noprefix(table_data, 18, 1);     /* Length */
         build_append_int_noprefix(table_data, nodeid, 4); /* Proximity Domain */
         build_append_int_noprefix(table_data, i, 4); /* ACPI Processor UID */
-        /* Flags, Table 5-76 */
         build_append_int_noprefix(table_data, 1 /* Enabled */, 4);
         build_append_int_noprefix(table_data, 0, 4); /* Clock Domain */
     }
@@ -534,19 +443,10 @@ build_srat(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     acpi_table_end(linker, &table);
 }
 
-/*
- * ACPI spec, Revision 6.5
- * 5.2.25 Generic Timer Description Table (GTDT)
- */
 static void
 build_gtdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
     VirtMachineClass *vmc = VIRT_MACHINE_GET_CLASS(vms);
-    /*
-     * Table 5-117 Flag Definitions
-     * set only "Timer interrupt Mode" and assume "Timer Interrupt
-     * polarity" bit as '0: Interrupt is Active high'
-     */
     uint32_t irqflags = vmc->claim_edge_triggered_timers ?
         1 : /* Interrupt is Edge triggered */
         0;  /* Interrupt is Level triggered  */
@@ -555,41 +455,23 @@ build_gtdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     acpi_table_begin(&table, table_data);
 
-    /* CntControlBase Physical Address */
     build_append_int_noprefix(table_data, 0xFFFFFFFFFFFFFFFF, 8);
     build_append_int_noprefix(table_data, 0, 4); /* Reserved */
-    /*
-     * FIXME: clarify comment:
-     * The interrupt values are the same with the device tree when adding 16
-     */
-    /* Secure EL1 timer GSIV */
     build_append_int_noprefix(table_data, ARCH_TIMER_S_EL1_IRQ, 4);
-    /* Secure EL1 timer Flags */
     build_append_int_noprefix(table_data, irqflags, 4);
-    /* Non-Secure EL1 timer GSIV */
     build_append_int_noprefix(table_data, ARCH_TIMER_NS_EL1_IRQ, 4);
-    /* Non-Secure EL1 timer Flags */
     build_append_int_noprefix(table_data, irqflags |
                               1UL << 2, /* Always-on Capability */
                               4);
-    /* Virtual timer GSIV */
     build_append_int_noprefix(table_data, ARCH_TIMER_VIRT_IRQ, 4);
-    /* Virtual Timer Flags */
     build_append_int_noprefix(table_data, irqflags, 4);
-    /* Non-Secure EL2 timer GSIV */
     build_append_int_noprefix(table_data, ARCH_TIMER_NS_EL2_IRQ, 4);
-    /* Non-Secure EL2 timer Flags */
     build_append_int_noprefix(table_data, irqflags, 4);
-    /* CntReadBase Physical address */
     build_append_int_noprefix(table_data, 0xFFFFFFFFFFFFFFFF, 8);
-    /* Platform Timer Count */
     build_append_int_noprefix(table_data, 0, 4);
-    /* Platform Timer Offset */
     build_append_int_noprefix(table_data, 0, 4);
     if (vms->ns_el2_virt_timer_irq) {
-        /* Virtual EL2 Timer GSIV */
         build_append_int_noprefix(table_data, ARCH_TIMER_NS_EL2_VIRT_IRQ, 4);
-        /* Virtual EL2 Timer Flags */
         build_append_int_noprefix(table_data, irqflags, 4);
     } else {
         build_append_int_noprefix(table_data, 0, 4);
@@ -598,7 +480,6 @@ build_gtdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     acpi_table_end(linker, &table);
 }
 
-/* Debug Port Table 2 (DBG2) */
 static void
 build_dbg2(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
@@ -615,57 +496,39 @@ build_dbg2(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
                        4 + /* AddressSize[] */
                        namespace_length /* NamespaceString[] */;
 
-    /* OffsetDbgDeviceInfo */
     build_append_int_noprefix(table_data, 44, 4);
-    /* NumberDbgDeviceInfo */
     build_append_int_noprefix(table_data, 1, 4);
 
-    /* Table 2. Debug Device Information structure format */
     build_append_int_noprefix(table_data, 0, 1); /* Revision */
     build_append_int_noprefix(table_data, dbg2devicelength, 2); /* Length */
-    /* NumberofGenericAddressRegisters */
     build_append_int_noprefix(table_data, 1, 1);
-    /* NameSpaceStringLength */
     build_append_int_noprefix(table_data, namespace_length, 2);
     build_append_int_noprefix(table_data, 38, 2); /* NameSpaceStringOffset */
     build_append_int_noprefix(table_data, 0, 2); /* OemDataLength */
-    /* OemDataOffset (0 means no OEM data) */
     build_append_int_noprefix(table_data, 0, 2);
 
-    /* Port Type */
     build_append_int_noprefix(table_data, 0x8000 /* Serial */, 2);
-    /* Port Subtype */
     build_append_int_noprefix(table_data, 0x3 /* ARM PL011 UART */, 2);
     build_append_int_noprefix(table_data, 0, 2); /* Reserved */
-    /* BaseAddressRegisterOffset */
     build_append_int_noprefix(table_data, 22, 2);
-    /* AddressSizeOffset */
     build_append_int_noprefix(table_data, 34, 2);
 
-    /* BaseAddressRegister[] */
     build_append_gas(table_data, AML_AS_SYSTEM_MEMORY, 32, 0, 3,
                      vms->memmap[VIRT_UART0].base);
 
-    /* AddressSize[] */
     build_append_int_noprefix(table_data,
                               vms->memmap[VIRT_UART0].size, 4);
 
-    /* NamespaceString[] */
     g_array_append_vals(table_data, name, namespace_length);
 
     acpi_table_end(linker, &table);
 };
 
-/*
- * ACPI spec, Revision 6.0 Errata A
- * 5.2.12 Multiple APIC Description Table (MADT)
- */
 static void build_append_gicr(GArray *table_data, uint64_t base, uint32_t size)
 {
     build_append_int_noprefix(table_data, 0xE, 1);  /* Type */
     build_append_int_noprefix(table_data, 16, 1);   /* Length */
     build_append_int_noprefix(table_data, 0, 2);    /* Reserved */
-    /* Discovery Range Base Address */
     build_append_int_noprefix(table_data, base, 8);
     build_append_int_noprefix(table_data, size, 4); /* Discovery Range Length */
 }
@@ -680,19 +543,15 @@ build_madt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
                         .oem_table_id = vms->oem_table_id };
 
     acpi_table_begin(&table, table_data);
-    /* Local Interrupt Controller Address */
     build_append_int_noprefix(table_data, 0, 4);
     build_append_int_noprefix(table_data, 0, 4);   /* Flags */
 
-    /* 5.2.12.15 GIC Distributor Structure */
     build_append_int_noprefix(table_data, 0xC, 1); /* Type */
     build_append_int_noprefix(table_data, 24, 1);  /* Length */
     build_append_int_noprefix(table_data, 0, 2);   /* Reserved */
     build_append_int_noprefix(table_data, 0, 4);   /* GIC ID */
-    /* Physical Base Address */
     build_append_int_noprefix(table_data, memmap[VIRT_GIC_DIST].base, 8);
     build_append_int_noprefix(table_data, 0, 4);   /* System Vector Base */
-    /* GIC version */
     build_append_int_noprefix(table_data, vms->gic_version, 1);
     build_append_int_noprefix(table_data, 0, 3);   /* Reserved */
 
@@ -709,31 +568,22 @@ build_madt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
             gich = memmap[VIRT_GIC_HYP].base;
         }
 
-        /* 5.2.12.14 GIC Structure */
         build_append_int_noprefix(table_data, 0xB, 1);  /* Type */
         build_append_int_noprefix(table_data, 80, 1);   /* Length */
         build_append_int_noprefix(table_data, 0, 2);    /* Reserved */
         build_append_int_noprefix(table_data, i, 4);    /* GIC ID */
         build_append_int_noprefix(table_data, i, 4);    /* ACPI Processor UID */
-        /* Flags */
         build_append_int_noprefix(table_data, 1, 4);    /* Enabled */
-        /* Parking Protocol Version */
         build_append_int_noprefix(table_data, 0, 4);
-        /* Performance Interrupt GSIV */
         build_append_int_noprefix(table_data, pmu_interrupt, 4);
         build_append_int_noprefix(table_data, 0, 8); /* Parked Address */
-        /* Physical Base Address */
         build_append_int_noprefix(table_data, physical_base_address, 8);
         build_append_int_noprefix(table_data, gicv, 8); /* GICV */
         build_append_int_noprefix(table_data, gich, 8); /* GICH */
-        /* VGIC Maintenance interrupt */
         build_append_int_noprefix(table_data, vgic_interrupt, 4);
         build_append_int_noprefix(table_data, 0, 8);    /* GICR Base Address*/
-        /* MPIDR */
         build_append_int_noprefix(table_data, arm_cpu_mp_affinity(armcpu), 8);
-        /* Processor Power Efficiency Class */
         build_append_int_noprefix(table_data, 0, 1);
-        /* Reserved */
         build_append_int_noprefix(table_data, 0, 3);
     }
 
@@ -746,42 +596,31 @@ build_madt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
         }
 
         if (its_class_name() && !vmc->no_its) {
-            /*
-             * ACPI spec, Revision 6.0 Errata A
-             * (original 6.0 definition has invalid Length)
-             * 5.2.12.18 GIC ITS Structure
-             */
             build_append_int_noprefix(table_data, 0xF, 1);  /* Type */
             build_append_int_noprefix(table_data, 20, 1);   /* Length */
             build_append_int_noprefix(table_data, 0, 2);    /* Reserved */
             build_append_int_noprefix(table_data, 0, 4);    /* GIC ITS ID */
-            /* Physical Base Address */
             build_append_int_noprefix(table_data, memmap[VIRT_GIC_ITS].base, 8);
             build_append_int_noprefix(table_data, 0, 4);    /* Reserved */
         }
     } else {
         const uint16_t spi_base = vms->irqmap[VIRT_GIC_V2M] + ARM_SPI_BASE;
 
-        /* 5.2.12.16 GIC MSI Frame Structure */
         build_append_int_noprefix(table_data, 0xD, 1);  /* Type */
         build_append_int_noprefix(table_data, 24, 1);   /* Length */
         build_append_int_noprefix(table_data, 0, 2);    /* Reserved */
         build_append_int_noprefix(table_data, 0, 4);    /* GIC MSI Frame ID */
-        /* Physical Base Address */
         build_append_int_noprefix(table_data, memmap[VIRT_GIC_V2M].base, 8);
         build_append_int_noprefix(table_data, 1, 4);    /* Flags */
-        /* SPI Count */
         build_append_int_noprefix(table_data, NUM_GICV2M_SPIS, 2);
         build_append_int_noprefix(table_data, spi_base, 2); /* SPI Base */
     }
     acpi_table_end(linker, &table);
 }
 
-/* FADT */
 static void build_fadt_rev6(GArray *table_data, BIOSLinker *linker,
                             VirtMachineState *vms, unsigned dsdt_tbl_offset)
 {
-    /* ACPI v6.3 */
     AcpiFadtData fadt = {
         .rev = 6,
         .minor_ver = 3,
@@ -807,7 +646,6 @@ static void build_fadt_rev6(GArray *table_data, BIOSLinker *linker,
     build_fadt(table_data, linker, &fadt, vms->oem_id, vms->oem_table_id);
 }
 
-/* DSDT */
 static void
 build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
@@ -822,11 +660,6 @@ build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     acpi_table_begin(&table, table_data);
     dsdt = init_aml_allocator();
 
-    /* When booting the VM with UEFI, UEFI takes ownership of the RTC hardware.
-     * While UEFI can use libfdt to disable the RTC device node in the DTB that
-     * it passes to the OS, it cannot modify AML. Therefore, we won't generate
-     * the RTC ACPI device at all when using UEFI.
-     */
     scope = aml_scope("\\_SB");
     acpi_dsdt_add_cpus(scope, vms);
     acpi_dsdt_add_uart(scope, &memmap[VIRT_UART0],
@@ -871,7 +704,6 @@ build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     aml_append(dsdt, scope);
 
-    /* copy AML table into ACPI tables blob */
     g_array_append_vals(table_data, dsdt->buf->data, dsdt->buf->len);
 
     acpi_table_end(linker, &table);
@@ -880,20 +712,14 @@ build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
 typedef
 struct AcpiBuildState {
-    /* Copy of table in RAM (for patching). */
     MemoryRegion *table_mr;
     MemoryRegion *rsdp_mr;
     MemoryRegion *linker_mr;
-    /* Is table patched? */
     bool patched;
 } AcpiBuildState;
 
 static void acpi_align_size(GArray *blob, unsigned align)
 {
-    /*
-     * Align size to multiple of given size. This reduces the chance
-     * we need to change size in the future (breaking cross version migration).
-     */
     g_array_set_size(blob, ROUND_UP(acpi_data_len(blob), align));
 }
 
@@ -913,11 +739,9 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
                              ACPI_BUILD_TABLE_FILE, tables_blob,
                              64, false /* high memory */);
 
-    /* DSDT is pointed to by FADT */
     dsdt = tables_blob->len;
     build_dsdt(tables_blob, tables->linker, vms);
 
-    /* FADT MADT PPTT GTDT MCFG SPCR DBG2 pointed to by RSDT */
     acpi_add_table(table_offsets, tables_blob);
     build_fadt_rev6(tables_blob, tables->linker, vms, dsdt);
 
@@ -1000,12 +824,10 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
                    vms->oem_id, vms->oem_table_id);
     }
 
-    /* XSDT is pointed to by RSDP */
     xsdt = tables_blob->len;
     build_xsdt(tables_blob, tables->linker, table_offsets, vms->oem_id,
                vms->oem_table_id);
 
-    /* RSDP is in FSEG memory, so allocate it separately */
     {
         AcpiRsdpData rsdp_data = {
             .revision = 2,
@@ -1016,10 +838,6 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
         build_rsdp(tables->rsdp, tables->linker, &rsdp_data);
     }
 
-    /*
-     * The align size is 128, warn if 64k is not enough therefore
-     * the align size could be resized.
-     */
     if (tables_blob->len > ACPI_BUILD_TABLE_SIZE / 2) {
         warn_report("ACPI table size %u exceeds %d bytes,"
                     " migration may not work",
@@ -1030,7 +848,6 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
     acpi_align_size(tables_blob, ACPI_BUILD_TABLE_SIZE);
 
 
-    /* Cleanup memory that's no longer used. */
     g_array_free(table_offsets, true);
 }
 
@@ -1038,8 +855,6 @@ static void acpi_ram_update(MemoryRegion *mr, GArray *data)
 {
     uint32_t size = acpi_data_len(data);
 
-    /* Make sure RAM size is correct - in case it got changed
-     * e.g. by migration */
     memory_region_ram_resize(mr, size, &error_abort);
 
     memcpy(memory_region_get_ram_ptr(mr), data->data, size);
@@ -1051,7 +866,6 @@ static void virt_acpi_build_update(void *build_opaque)
     AcpiBuildState *build_state = build_opaque;
     AcpiBuildTables tables;
 
-    /* No state to update or already patched? Nothing to do. */
     if (!build_state || build_state->patched) {
         return;
     }
@@ -1105,7 +919,6 @@ void virt_acpi_setup(VirtMachineState *vms)
     acpi_build_tables_init(&tables);
     virt_acpi_build(vms, &tables);
 
-    /* Now expose it all to Guest */
     build_state->table_mr = acpi_add_rom_blob(virt_acpi_build_update,
                                               build_state, tables.table_data,
                                               ACPI_BUILD_TABLE_FILE);
@@ -1134,8 +947,5 @@ void virt_acpi_setup(VirtMachineState *vms)
     virt_acpi_build_reset(build_state);
     vmstate_register(NULL, 0, &vmstate_virt_acpi_build, build_state);
 
-    /* Cleanup tables but don't free the memory: we track it
-     * in build_state.
-     */
     acpi_build_tables_cleanup(&tables, false);
 }

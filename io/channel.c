@@ -1,22 +1,3 @@
-/*
- * QEMU I/O channels
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "block/aio-wait.h"
@@ -169,26 +150,18 @@ int coroutine_mixed_fn qio_channel_readv_full_all_eof(QIOChannel *ioc,
 
         if (len == 0) {
             if (local_nfds && *local_nfds) {
-                /*
-                 * Got some FDs, but no data yet. This isn't an EOF
-                 * scenario (yet), so carry on to try to read data
-                 * on next loop iteration
-                 */
                 goto next_iter;
             } else if (!partial) {
-                /* No fds and no data - EOF before any data read */
                 ret = 0;
                 goto cleanup;
             } else {
                 len = -1;
                 error_setg(errp,
                            "Unexpected end-of-file before all data were read");
-                /* Fallthrough into len < 0 handling */
             }
         }
 
         if (len < 0) {
-            /* Close any FDs we previously received */
             if (nfds && fds) {
                 size_t i;
                 for (i = 0; i < (*nfds); i++) {
@@ -603,7 +576,6 @@ static void qio_channel_restart_read(void *opaque)
         return;
     }
 
-    /* Assert that aio_co_wake() reenters the coroutine directly */
     assert(qemu_get_current_aio_context() ==
            qemu_coroutine_get_aio_context(co));
     aio_co_wake(co);
@@ -618,7 +590,6 @@ static void qio_channel_restart_write(void *opaque)
         return;
     }
 
-    /* Assert that aio_co_wake() reenters the coroutine directly */
     assert(qemu_get_current_aio_context() ==
            qemu_coroutine_get_aio_context(co));
     aio_co_wake(co);
@@ -641,14 +612,6 @@ qio_channel_set_fd_handlers(QIOChannel *ioc, GIOCondition condition)
         read_ctx = ctx;
         io_read = qio_channel_restart_read;
 
-        /*
-         * Thread safety: if the other coroutine is set and its AioContext
-         * matches ours, then there is mutual exclusion between read and write
-         * because they share a single thread and it's safe to set both read
-         * and write fd handlers here. If the AioContext does not match ours,
-         * then both threads may run in parallel but there is no shared state
-         * to worry about.
-         */
         if (ioc->write_coroutine && ioc->write_ctx == ctx) {
             write_ctx = ctx;
             io_write = qio_channel_restart_write;
@@ -722,8 +685,6 @@ void coroutine_fn qio_channel_yield(QIOChannel *ioc,
     qemu_coroutine_yield();
     assert(in_aio_context_home_thread(ioc_ctx));
 
-    /* Allow interrupting the operation by reentering the coroutine other than
-     * through the aio_fd_handlers. */
     if (condition == G_IO_IN) {
         assert(ioc->read_coroutine == NULL);
     } else if (condition == G_IO_OUT) {
@@ -779,7 +740,6 @@ static void qio_channel_finalize(Object *obj)
 {
     QIOChannel *ioc = QIO_CHANNEL(obj);
 
-    /* Must not have coroutines in qio_channel_yield() */
     assert(!ioc->read_coroutine);
     assert(!ioc->write_coroutine);
 

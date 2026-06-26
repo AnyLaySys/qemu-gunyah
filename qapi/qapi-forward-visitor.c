@@ -1,12 +1,3 @@
-/*
- * Forward Visitor
- *
- * Copyright (C) 2021 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/compat-policy.h"
@@ -132,10 +123,6 @@ static bool forward_field_start_alternate(Visitor *v, const char *name,
     if (!forward_field_translate_name(ffv, &name, errp)) {
         return false;
     }
-    /*
-     * The name passed to start_alternate is used also in the visit_type_* calls
-     * that retrieve the alternate's content; so, do not increase depth here.
-     */
     return visit_start_alternate(ffv->target, name, obj, size, errp);
 }
 
@@ -270,10 +257,6 @@ static bool forward_field_policy_skip(Visitor *v, const char *name,
 
 static void forward_field_complete(Visitor *v, void *opaque)
 {
-    /*
-     * Do nothing, the complete method will be called in due time
-     * on the target visitor.
-     */
 }
 
 static void forward_field_free(Visitor *v)
@@ -289,10 +272,6 @@ Visitor *visitor_forward_field(Visitor *target, const char *from, const char *to
 {
     ForwardFieldVisitor *v = g_new0(ForwardFieldVisitor, 1);
 
-    /*
-     * Clone and dealloc visitors don't use a name for the toplevel
-     * visit, so they make no sense here.
-     */
     assert(target->type == VISITOR_OUTPUT || target->type == VISITOR_INPUT);
 
     v->visitor.type = target->type;

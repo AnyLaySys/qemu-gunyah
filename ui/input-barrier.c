@@ -1,14 +1,3 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- * TODO:
- *
- *  - Enable SSL
- *  - Manage SetOptions/ResetOptions commands
- */
 
 #include "qemu/osdep.h"
 #include "qemu/main-loop.h"
@@ -35,12 +24,10 @@ struct InputBarrier {
     QIOChannelSocket *sioc;
     guint ioc_tag;
 
-    /* display properties */
     gchar *name;
     int16_t x_origin, y_origin;
     int16_t width, height;
 
-    /* keyboard/mouse server */
 
     SocketAddress saddr;
 
@@ -82,7 +69,6 @@ static const char *cmd_names[] = {
 
 static int input_barrier_to_qcode(uint16_t keyid, uint16_t keycode)
 {
-    /* keycode is optional, if it is not provided use keyid */
     if (keycode && keycode <= qemu_input_map_xorgkbd_to_qcode_len) {
         return qemu_input_map_xorgkbd_to_qcode[keycode];
     }
@@ -234,7 +220,6 @@ static gboolean readcmd(InputBarrier *ib, struct barrierMsg *msg)
 
     msg->cmd = cmd;
     switch (cmd) {
-    /* connection */
     case barrierCmdHello:
         read_short(msg->version.major, p, len);
         read_short(msg->version.minor, p, len);
@@ -248,7 +233,6 @@ static gboolean readcmd(InputBarrier *ib, struct barrierMsg *msg)
         i = 0;
         while (len && i < msg->set.nb) {
             read_int(msg->set.option[i].id, p, len);
-            /* it's a string, restore endianness */
             msg->set.option[i].id = htonl(msg->set.option[i].id);
             msg->set.option[i].nul = 0;
             read_int(msg->set.option[i].value, p, len);
@@ -258,7 +242,6 @@ static gboolean readcmd(InputBarrier *ib, struct barrierMsg *msg)
     case barrierCmdQInfo:
         break;
 
-    /* mouse */
     case barrierCmdDMouseMove:
     case barrierCmdDMouseRelMove:
         read_short(msg->mousepos.x, p, len);
@@ -277,7 +260,6 @@ static gboolean readcmd(InputBarrier *ib, struct barrierMsg *msg)
         }
         break;
 
-    /* keyboard */
     case barrierCmdDKeyDown:
     case barrierCmdDKeyUp:
         read_short(msg->key.keyid, p, len);
@@ -305,13 +287,11 @@ static gboolean readcmd(InputBarrier *ib, struct barrierMsg *msg)
     case barrierCmdCClose:
         break;
 
-    /* Invalid from the server */
     case barrierCmdHelloBack:
     case barrierCmdCNoop:
     case barrierCmdDInfo:
         break;
 
-    /* Error codes */
     case barrierCmdEIncompatible:
         read_short(msg->version.major, p, len);
         read_short(msg->version.minor, p, len);
@@ -336,7 +316,6 @@ static gboolean writecmd(InputBarrier *ib, struct barrierMsg *msg)
     p = ib->buffer;
     avail = MAX_HELLO_LENGTH;
 
-    /* reserve space to store the length */
     p += sizeof(int);
     avail -= sizeof(int);
 
@@ -369,10 +348,8 @@ static gboolean writecmd(InputBarrier *ib, struct barrierMsg *msg)
     case barrierCmdCInfoAck:
         break;
     case barrierCmdCResetOptions:
-        /* TODO: reset options */
         break;
     case barrierCmdDSetOptions:
-        /* TODO: set options */
         break;
     case barrierCmdCEnter:
         break;
@@ -384,7 +361,6 @@ static gboolean writecmd(InputBarrier *ib, struct barrierMsg *msg)
     case barrierCmdCLeave:
         break;
 
-    /* mouse */
     case barrierCmdDMouseMove:
         qemu_input_queue_abs(NULL, INPUT_AXIS_X, msg->mousepos.x,
                              ib->x_origin, ib->width);
@@ -418,7 +394,6 @@ static gboolean writecmd(InputBarrier *ib, struct barrierMsg *msg)
         qemu_input_event_sync();
         break;
 
-    /* keyboard */
     case barrierCmdDKeyDown:
         qemu_input_event_send_key_qcode(NULL,
                         input_barrier_to_qcode(msg->key.keyid, msg->key.button),
@@ -486,11 +461,6 @@ static void input_barrier_complete(UserCreatable *uc, Error **errp)
         return;
     }
 
-    /*
-     * Connect to the primary
-     * Primary is the server where the keyboard and the mouse
-     * are connected and forwarded to the secondary (the client)
-     */
 
     ib->sioc = qio_channel_socket_new();
     qio_channel_set_name(QIO_CHANNEL(ib->sioc), "barrier-client");

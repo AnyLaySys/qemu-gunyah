@@ -1,30 +1,3 @@
-/*
- * os-posix-lib.c
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2010 Red Hat, Inc.
- *
- * QEMU library functions on POSIX which are shared between QEMU and
- * the QEMU tools.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include <termios.h>
@@ -85,7 +58,6 @@ struct MemsetThread {
 };
 typedef struct MemsetThread MemsetThread;
 
-/* used by sigbus_handler() */
 static MemsetContext *sigbus_memset_context;
 struct sigaction sigbus_oldact;
 static QemuMutex sigbus_mutex;
@@ -98,7 +70,6 @@ int qemu_get_thread_id(void)
 #if defined(__linux__)
     return syscall(SYS_gettid);
 #elif defined(__FreeBSD__)
-    /* thread id is up to INT_MAX */
     long tid;
     thr_self(&tid);
     return (int)tid;
@@ -159,15 +130,7 @@ bool qemu_write_pidfile(const char *path, Error **errp)
             goto fail_close;
         }
 
-        /*
-         * Now make sure the path we locked is the same one that now
-         * exists on the filesystem.
-         */
         if (stat(path, &a) < 0) {
-            /*
-             * PID file disappeared, someone else must be racing with
-             * us, so try again.
-             */
             close(fd);
             continue;
         }
@@ -176,10 +139,6 @@ bool qemu_write_pidfile(const char *path, Error **errp)
             break;
         }
 
-        /*
-         * PID file was recreated, someone else must be racing with
-         * us, so try again.
-         */
         close(fd);
     }
 
@@ -203,7 +162,6 @@ fail_close:
     return false;
 }
 
-/* alloc shared memory pages */
 void *qemu_anon_ram_alloc(size_t size, uint64_t *alignment, bool shared,
                           bool noreserve)
 {
@@ -327,18 +285,6 @@ static void sigbus_handler(int signal)
     }
 
 #ifdef CONFIG_LINUX
-    /*
-     * We assume that the MCE SIGBUS handler could have been registered. We
-     * should never receive BUS_MCEERR_AO on any of our threads, but only on
-     * the main thread registered for PR_MCE_KILL_EARLY. Further, we should not
-     * receive BUS_MCEERR_AR triggered by action of other threads on one of
-     * our threads. So, no need to check for unrelated SIGBUS when seeing one
-     * for our threads.
-     *
-     * We will forward to the MCE handler, which will either handle the SIGBUS
-     * or reinstall the default SIGBUS handler and reraise the SIGBUS. The
-     * default SIGBUS handler will crash the process, so we don't care.
-     */
     if (sigbus_oldact.sa_flags & SA_SIGINFO) {
         sigbus_oldact.sa_sigaction(signal, siginfo, ctx);
         return;
@@ -353,18 +299,12 @@ static void *do_touch_pages(void *arg)
     sigset_t set, oldset;
     int ret = 0;
 
-    /*
-     * On Linux, the page faults from the loop below can cause mmap_sem
-     * contention with allocation of the thread stacks.  Do not start
-     * clearing until all threads have been created.
-     */
     qemu_mutex_lock(&page_mutex);
     while (!memset_args->context->all_threads_created) {
         qemu_cond_wait(&page_cond, &page_mutex);
     }
     qemu_mutex_unlock(&page_mutex);
 
-    /* unblock SIGBUS */
     sigemptyset(&set);
     sigaddset(&set, SIGBUS);
     pthread_sigmask(SIG_UNBLOCK, &set, &oldset);
@@ -377,14 +317,6 @@ static void *do_touch_pages(void *arg)
         size_t hpagesize = memset_args->hpagesize;
         size_t i;
         for (i = 0; i < numpages; i++) {
-            /*
-             * Read & write back the same value, so we don't
-             * corrupt existing user/app data that might be
-             * stored.
-             *
-             * 'volatile' to stop compiler optimizing this away
-             * to a no-op
-             */
             *(volatile char *)addr = *addr;
             addr += hpagesize;
         }
@@ -400,7 +332,6 @@ static void *do_madv_populate_write_pages(void *arg)
     char * const addr = memset_args->addr;
     int ret = 0;
 
-    /* See do_touch_pages(). */
     qemu_mutex_lock(&page_mutex);
     while (!memset_args->context->all_threads_created) {
         qemu_cond_wait(&page_cond, &page_mutex);
@@ -423,12 +354,9 @@ static inline int get_memset_num_threads(size_t hpagesize, size_t numpages,
         ret = MIN(MIN(host_procs, MAX_MEM_PREALLOC_THREAD_COUNT), max_threads);
     }
 
-    /* Especially with gigantic pages, don't create more threads than pages. */
     ret = MIN(ret, numpages);
-    /* Don't start threads to prealloc comparatively little memory. */
     ret = MIN(ret, MAX(1, hpagesize * numpages / (64 * MiB)));
 
-    /* In case sysconf() fails, we fall back to single threaded */
     return ret;
 }
 
@@ -459,10 +387,6 @@ static int touch_all_pages(char *area, size_t hpagesize, size_t numpages,
     int ret, i = 0;
     char *addr = area;
 
-    /*
-     * Asynchronous preallocation is only allowed when using MADV_POPULATE_WRITE
-     * and prealloc context for thread placement.
-     */
     if (!use_madv_populate_write || !tc) {
         async = false;
     }
@@ -477,10 +401,6 @@ static int touch_all_pages(char *area, size_t hpagesize, size_t numpages,
     }
 
     if (use_madv_populate_write) {
-        /*
-         * Avoid creating a single thread for MADV_POPULATE_WRITE when
-         * preallocating synchronously.
-         */
         if (context->num_threads == 1 && !async) {
             ret = 0;
             if (qemu_madvise(area, hpagesize * numpages,
@@ -517,10 +437,6 @@ static int touch_all_pages(char *area, size_t hpagesize, size_t numpages,
     }
 
     if (async) {
-        /*
-         * async requests currently require the BQL. Add it to the list and kick
-         * preallocation off during qemu_finish_async_prealloc_mem().
-         */
         assert(bql_locked());
         QLIST_INSERT_HEAD(&memset_contexts, context, next);
         return 0;
@@ -548,7 +464,6 @@ bool qemu_finish_async_prealloc_mem(Error **errp)
     int ret = 0, tmp;
     MemsetContext *context, *next_context;
 
-    /* Waiting for preallocation requires the BQL. */
     assert(bql_locked());
     if (QLIST_EMPTY(&memset_contexts)) {
         return true;
@@ -594,10 +509,6 @@ bool qemu_prealloc_mem(int fd, char *area, size_t sz, int max_threads,
     struct sigaction act;
     bool rv = true;
 
-    /*
-     * Sense on every invocation, as MADV_POPULATE_WRITE cannot be used for
-     * some special mappings, such as mapping /dev/mem.
-     */
     use_madv_populate_write = madv_populate_write_possible(area, hpagesize);
 
     if (!use_madv_populate_write) {
@@ -625,7 +536,6 @@ bool qemu_prealloc_mem(int fd, char *area, size_t sz, int max_threads,
         }
     }
 
-    /* touch pages simultaneously */
     ret = touch_all_pages(area, hpagesize, numpages, max_threads, tc, async,
                           use_madv_populate_write);
     if (ret) {
@@ -637,7 +547,6 @@ bool qemu_prealloc_mem(int fd, char *area, size_t sz, int max_threads,
     if (!use_madv_populate_write) {
         ret = sigaction(SIGBUS, &sigbus_oldact, NULL);
         if (ret) {
-            /* Terminate QEMU since it can't recover from error */
             perror("qemu_prealloc_mem: failed to reinstall signal handler");
             exit(1);
         }
@@ -651,7 +560,6 @@ char *qemu_get_pid_name(pid_t pid)
     char *name = NULL;
 
 #if defined(__FreeBSD__)
-    /* BSDs don't have /proc, but they provide a nice substitute */
     struct kinfo_proc *proc = kinfo_getproc(pid);
 
     if (proc) {
@@ -659,7 +567,6 @@ char *qemu_get_pid_name(pid_t pid)
         free(proc);
     }
 #else
-    /* Assume a system with reasonable procfs */
     char *pid_path;
     size_t len;
 
@@ -681,23 +588,14 @@ void *qemu_alloc_stack(size_t *sz)
 #endif
     size_t pagesz = qemu_real_host_page_size();
 #ifdef _SC_THREAD_STACK_MIN
-    /* avoid stacks smaller than _SC_THREAD_STACK_MIN */
     long min_stack_sz = sysconf(_SC_THREAD_STACK_MIN);
     *sz = MAX(MAX(min_stack_sz, 0), *sz);
 #endif
-    /* adjust stack size to a multiple of the page size */
     *sz = ROUND_UP(*sz, pagesz);
-    /* allocate one extra page for the guard page */
     *sz += pagesz;
 
     flags = MAP_PRIVATE | MAP_ANONYMOUS;
 #if defined(MAP_STACK) && defined(__OpenBSD__)
-    /* Only enable MAP_STACK on OpenBSD. Other OS's such as
-     * Linux/FreeBSD/NetBSD have a flag with the same name
-     * but have differing functionality. OpenBSD will SEGV
-     * if it spots execution with a stack pointer pointing
-     * at memory that was not allocated with MAP_STACK.
-     */
     flags |= MAP_STACK;
 #endif
 
@@ -707,7 +605,6 @@ void *qemu_alloc_stack(size_t *sz)
         abort();
     }
 
-    /* Stack grows down -- guard page at the bottom. */
     if (mprotect(ptr, pagesz, PROT_NONE) != 0) {
         perror("failed to set up stack guard page");
         abort();
@@ -723,7 +620,6 @@ void *qemu_alloc_stack(size_t *sz)
 }
 
 #ifdef CONFIG_DEBUG_STACK_USAGE
-/* Android: __thread in dlopen'd .so corrupts TLS block */
 static unsigned int max_stack_usage;
 #endif
 
@@ -750,15 +646,6 @@ void qemu_free_stack(void *stack, size_t sz)
     munmap(stack, sz);
 }
 
-/*
- * Disable CFI checks.
- * We are going to call a signal handler directly. Such handler may or may not
- * have been defined in our binary, so there's no guarantee that the pointer
- * used to set the handler is a cfi-valid pointer. Since the handlers are
- * stored in kernel memory, changing the handler to an attacker-defined
- * function requires being able to call a sigaction() syscall,
- * which is not as easy as overwriting a pointer in memory.
- */
 QEMU_DISABLE_CFI
 void sigaction_invoke(struct sigaction *action,
                       struct qemu_signalfd_siginfo *info)
@@ -768,16 +655,8 @@ void sigaction_invoke(struct sigaction *action,
     si.si_errno = info->ssi_errno;
     si.si_code = info->ssi_code;
 
-    /* Convert the minimal set of fields defined by POSIX.
-     * Positive si_code values are reserved for kernel-generated
-     * signals, where the valid siginfo fields are determined by
-     * the signal number.  But according to POSIX, it is unspecified
-     * whether SI_USER and SI_QUEUE have values less than or equal to
-     * zero.
-     */
     if (info->ssi_code == SI_USER || info->ssi_code == SI_QUEUE ||
         info->ssi_code <= 0) {
-        /* SIGTERM, etc.  */
         si.si_pid = info->ssi_pid;
         si.si_uid = info->ssi_uid;
     } else if (info->ssi_signo == SIGILL || info->ssi_signo == SIGFPE ||
@@ -810,12 +689,6 @@ int qemu_msync(void *addr, size_t length, int fd)
 {
     size_t align_mask = ~(qemu_real_host_page_size() - 1);
 
-    /**
-     * There are no strict reqs as per the length of mapping
-     * to be synced. Still the length needs to follow the address
-     * alignment changes. Additionally - round the size to the multiple
-     * of PAGE_SIZE
-     */
     length += ((uintptr_t)addr & (qemu_real_host_page_size() - 1));
     length = (length + ~align_mask) & align_mask;
 
@@ -833,10 +706,8 @@ static bool qemu_close_all_open_fd_proc(const int *skip, unsigned int nskip)
 
     dir = opendir("/proc/self/fd");
     if (!dir) {
-        /* If /proc is not mounted, there is nothing that can be done. */
         return false;
     }
-    /* Avoid closing the directory. */
     dfd = dirfd(dir);
 
     for (de = readdir(dir); de; de = readdir(dir)) {
@@ -852,11 +723,9 @@ static bool qemu_close_all_open_fd_proc(const int *skip, unsigned int nskip)
 
         for (unsigned int i = skip_start; i < skip_end; i++) {
             if (fd < skip[i]) {
-                /* We are below the next skipped fd, break */
                 break;
             } else if (fd == skip[i]) {
                 close_fd = false;
-                /* Restrict the range as we found fds matching start/end */
                 if (i == skip_start) {
                     skip_start++;
                 } else if (i == skip_end) {
@@ -886,20 +755,17 @@ static bool qemu_close_all_open_fd_close_range(const int *skip,
     int ret;
 
     do {
-        /* Find the start boundary of the range to close */
         while (cur_skip < nskip && first == skip[cur_skip]) {
             cur_skip++;
             first++;
         }
 
-        /* Find the upper boundary of the range to close */
         last = max_fd;
         if (cur_skip < nskip) {
             last = skip[cur_skip] - 1;
             last = MIN(last, max_fd);
         }
 
-        /* With the adjustments to the range, we might be done. */
         if (first > last) {
             break;
         }
@@ -923,7 +789,6 @@ static void qemu_close_all_open_fd_fallback(const int *skip, unsigned int nskip,
 {
     unsigned int cur_skip = 0;
 
-    /* Fallback */
     for (int i = 0; i < open_max; i++) {
         if (cur_skip < nskip && i == skip[cur_skip]) {
             cur_skip++;
@@ -933,9 +798,6 @@ static void qemu_close_all_open_fd_fallback(const int *skip, unsigned int nskip,
     }
 }
 
-/*
- * Close all open file descriptors.
- */
 void qemu_close_all_open_fd(const int *skip, unsigned int nskip)
 {
     int open_max = sysconf(_SC_OPEN_MAX);
@@ -950,17 +812,13 @@ void qemu_close_all_open_fd(const int *skip, unsigned int nskip)
 
 int qemu_shm_alloc(size_t size, Error **errp)
 {
-/* ANDROID_DISABLE_POSIX_SHM */
 #ifdef __ANDROID__
-    /* Android NDK does not expose shm_open/shm_unlink. We do not need SHM here. */
     if (errp) {
         error_setg_errno(errp, ENOSYS,
                          "POSIX shared memory is not supported on Android in this build");
     }
     return -1;
 #else
-    /* This Android build script removed the non-Android implementation to avoid
-     * NDK header incompatibilities. If you hit this branch, rebuild without __ANDROID__. */
     if (errp) {
         error_setg_errno(errp, ENOSYS, "qemu_shm_alloc stub reached");
     }

@@ -1,17 +1,3 @@
-/*
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 #ifndef QEMU_ACPI_DEFS_H
 #define QEMU_ACPI_DEFS_H
 
@@ -80,11 +66,6 @@ typedef struct AcpiFadtData {
     uint16_t iapc_boot_arch;   /* IAPC_BOOT_ARCH */
     uint8_t minor_ver;         /* FADT Minor Version */
 
-    /*
-     * respective tables offsets within ACPI_BUILD_TABLE_FILE,
-     * NULL if table doesn't exist (in that case field's value
-     * won't be patched by linker and will be kept set to 0)
-     */
     unsigned *facs_tbl_offset; /* FACS offset in */
     unsigned *dsdt_tbl_offset;
     unsigned *xdsdt_tbl_offset;
@@ -98,7 +79,6 @@ typedef struct AcpiGas {
     uint64_t addr;             /* Address */
 } AcpiGas;
 
-/* SPCR (Serial Port Console Redirection table) */
 typedef struct AcpiSpcrData {
     uint8_t interface_type;
     uint8_t reserved[3];

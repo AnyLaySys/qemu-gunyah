@@ -1,7 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef KEYVAL_H
 #define KEYVAL_H

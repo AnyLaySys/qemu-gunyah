@@ -1,11 +1,3 @@
-/*
- * QEMU yank feature
- *
- * Copyright (c) Lukas Straub <lukasstraub2@web.de>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -32,12 +24,6 @@ struct YankInstanceEntry {
 typedef struct YankFuncAndParam YankFuncAndParam;
 typedef struct YankInstanceEntry YankInstanceEntry;
 
-/*
- * This lock protects the yank_instance_list below. Because it's taken by
- * OOB-capable commands, it must be "fast", i.e. it may only be held for a
- * bounded, short time. See docs/devel/qapi-code-gen.rst for additional
- * information.
- */
 static QemuMutex yank_lock;
 
 static QLIST_HEAD(, YankInstanceEntry) yank_instance_list

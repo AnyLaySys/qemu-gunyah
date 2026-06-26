@@ -1,26 +1,3 @@
-/*
- * L2/refcount table cache for the QCOW2 format
- *
- * Copyright (c) 2010 Kevin Wolf <kwolf@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "block/block-io.h"
@@ -66,14 +43,12 @@ static inline const char *qcow2_cache_get_name(BDRVQcow2State *s, Qcow2Cache *c)
     } else if (c == s->l2_table_cache) {
         return "L2 table";
     } else {
-        /* Do not abort, because this is not critical */
         return "unknown";
     }
 }
 
 static void qcow2_cache_table_release(Qcow2Cache *c, int i, int num_tables)
 {
-/* Using MADV_DONTNEED to discard memory is a Linux-specific feature */
 #ifdef CONFIG_LINUX
     void *t = qcow2_cache_get_table_addr(c, i);
     int align = qemu_real_host_page_size();
@@ -99,12 +74,10 @@ void qcow2_cache_clean_unused(Qcow2Cache *c)
     while (i < c->size) {
         int to_clean = 0;
 
-        /* Skip the entries that we don't need to clean */
         while (i < c->size && !can_clean_entry(c, i)) {
             i++;
         }
 
-        /* And count how many we can clean in a row */
         while (i < c->size && can_clean_entry(c, i)) {
             c->entries[i].offset = 0;
             c->entries[i].lru_counter = 0;
@@ -343,7 +316,6 @@ qcow2_cache_do_get(BlockDriverState *bs, Qcow2Cache *c, uint64_t offset,
         return -EIO;
     }
 
-    /* Check if the table is already cached */
     i = lookup_index = (offset / c->table_size * 4) % c->size;
     do {
         const Qcow2CachedTable *t = &c->entries[i];
@@ -360,12 +332,9 @@ qcow2_cache_do_get(BlockDriverState *bs, Qcow2Cache *c, uint64_t offset,
     } while (i != lookup_index);
 
     if (min_lru_index == -1) {
-        /* This can't happen in current synchronous code, but leave the check
-         * here as a reminder for whoever starts using AIO with the cache */
         abort();
     }
 
-    /* Cache miss: write a table back and replace it */
     i = min_lru_index;
     trace_qcow2_cache_get_replace_entry(qemu_coroutine_self(),
                                         c == s->l2_table_cache, i);
@@ -392,7 +361,6 @@ qcow2_cache_do_get(BlockDriverState *bs, Qcow2Cache *c, uint64_t offset,
 
     c->entries[i].offset = offset;
 
-    /* And return the right table */
 found:
     c->entries[i].ref++;
     *table = qcow2_cache_get_table_addr(c, i);

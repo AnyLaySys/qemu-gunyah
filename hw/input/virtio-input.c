@@ -1,8 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -18,7 +13,6 @@
 
 #define VIRTIO_INPUT_VM_VERSION 1
 
-/* ----------------------------------------------------------------- */
 
 void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event)
 {
@@ -29,7 +23,6 @@ void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event)
         return;
     }
 
-    /* queue up events ... */
     if (vinput->qindex == vinput->qsize) {
         vinput->qsize++;
         vinput->queue = g_realloc(vinput->queue, vinput->qsize *
@@ -37,13 +30,11 @@ void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event)
     }
     vinput->queue[vinput->qindex++].event = *event;
 
-    /* ... until we see a report sync ... */
     if (event->type != cpu_to_le16(EV_SYN) ||
         event->code != cpu_to_le16(SYN_REPORT)) {
         return;
     }
 
-    /* ... then check available space ... */
     for (i = 0; i < vinput->qindex; i++) {
         elem = virtqueue_pop(vinput->evt, sizeof(VirtQueueElement));
         if (!elem) {
@@ -57,7 +48,6 @@ void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event)
         vinput->queue[i].elem = elem;
     }
 
-    /* ... and finally pass them to the guest */
     for (i = 0; i < vinput->qindex; i++) {
         elem = vinput->queue[i].elem;
         len = iov_from_buf(elem->in_sg, elem->in_num,
@@ -71,7 +61,6 @@ void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event)
 
 static void virtio_input_handle_evt(VirtIODevice *vdev, VirtQueue *vq)
 {
-    /* nothing */
 }
 
 static void virtio_input_handle_sts(VirtIODevice *vdev, VirtQueue *vq)
@@ -121,7 +110,6 @@ void virtio_input_add_config(VirtIOInput *vinput,
     VirtIOInputConfig *cfg;
 
     if (virtio_input_find_config(vinput, config->select, config->subsel)) {
-        /* should not happen */
         fprintf(stderr, "%s: duplicate config: %d/%d\n",
                 __func__, config->select, config->subsel);
         abort();
@@ -332,7 +320,6 @@ static const TypeInfo virtio_input_info = {
     .instance_finalize = virtio_input_finalize,
 };
 
-/* ----------------------------------------------------------------- */
 
 static void virtio_register_types(void)
 {

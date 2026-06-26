@@ -1,22 +1,3 @@
-/*
- * QEMU I/O channels driver websockets
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #ifndef QIO_CHANNEL_WEBSOCK_H
 #define QIO_CHANNEL_WEBSOCK_H
@@ -36,21 +17,6 @@ union QIOChannelWebsockMask {
     uint32_t u;
 };
 
-/**
- * QIOChannelWebsock
- *
- * The QIOChannelWebsock class provides a channel wrapper which
- * can transparently run the HTTP websockets protocol. This is
- * usually used over a TCP socket, but there is actually no
- * technical restriction on which type of master channel is
- * used as the transport.
- *
- * This channel object is currently only capable of running as
- * a websocket server and is a pretty crude implementation
- * of it, not supporting the full websockets protocol feature
- * set. It is sufficient to use with a simple websockets
- * client for encapsulating stream protocols in a browser client.
- */
 
 struct QIOChannelWebsock {
     QIOChannel parent;
@@ -67,39 +33,9 @@ struct QIOChannelWebsock {
     uint8_t opcode;
 };
 
-/**
- * qio_channel_websock_new_server:
- * @master: the underlying channel object
- *
- * Create a new websockets channel that runs the server
- * side of the protocol.
- *
- * After creating the channel, it is mandatory to call
- * the qio_channel_websock_handshake() method before attempting
- * todo any I/O on the channel.
- *
- * Once the handshake has completed, all I/O should be done
- * via the new websocket channel object and not the original
- * master channel
- *
- * Returns: the new websockets channel object
- */
 QIOChannelWebsock *
 qio_channel_websock_new_server(QIOChannel *master);
 
-/**
- * qio_channel_websock_handshake:
- * @ioc: the websocket channel object
- * @func: the callback to invoke when completed
- * @opaque: opaque data to pass to @func
- * @destroy: optional callback to free @opaque
- *
- * Perform the websocket handshake. This method
- * will return immediately and the handshake will
- * continue in the background, provided the main
- * loop is running. When the handshake is complete,
- * or fails, the @func callback will be invoked.
- */
 void qio_channel_websock_handshake(QIOChannelWebsock *ioc,
                                    QIOTaskFunc func,
                                    gpointer opaque,

@@ -1,15 +1,3 @@
-/*
- * Virtio GPU Device
- *
- * Copyright Red Hat, Inc. 2013-2014
- *
- * Authors:
- *     Dave Airlie <airlied@redhat.com>
- *     Gerd Hoffmann <kraxel@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef HW_VIRTIO_GPU_BSWAP_H
 #define HW_VIRTIO_GPU_BSWAP_H

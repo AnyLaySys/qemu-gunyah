@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -67,7 +44,6 @@ static gboolean pty_chr_timer(gpointer opaque)
 
     pty_chr_timer_cancel(s);
     if (!s->connected) {
-        /* Next poll ... */
         qemu_chr_be_update_read_handlers(chr, chr->gcontext);
     }
     return FALSE;
@@ -115,10 +91,6 @@ static int char_pty_chr_write(Chardev *chr, const uint8_t *buf, int len)
         return io_channel_send(s->ioc, buf, len);
     }
 
-    /*
-     * The other side might already be re-connected, but the timer might
-     * not have fired yet. So let's check here whether we can write again:
-     */
     pfd.fd = QIO_CHANNEL_FILE(s->ioc)->fd;
     pfd.events = G_IO_OUT;
     pfd.revents = 0;
@@ -185,9 +157,6 @@ static void pty_chr_state(Chardev *chr, int connected)
             qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
         }
         s->connected = 0;
-        /* (re-)connect poll interval for idle guests: once per second.
-         * We check more frequently in case the guests sends data to
-         * the virtual device linked to our pty. */
         pty_chr_rearm_timer(chr, 1000);
     } else {
         pty_chr_timer_cancel(s);
@@ -209,7 +178,6 @@ static void char_pty_finalize(Object *obj)
     Chardev *chr = CHARDEV(obj);
     PtyChardev *s = PTY_CHARDEV(obj);
 
-    /* unlink symlink */
     if (s->path) {
         unlink(s->path);
         g_free(s->path);
@@ -239,7 +207,6 @@ static void char_pty_finalize(Object *obj)
 #ifdef __sun__
 
 #if !defined(HAVE_OPENPTY)
-/* Once illumos has openpty(), this is going to be removed. */
 static int openpty(int *amaster, int *aslave, char *name,
                    struct termios *termp, struct winsize *winp)
 {
@@ -302,7 +269,6 @@ static void cfmakeraw (struct termios *termios_p)
 }
 #endif
 
-/* like openpty() but also makes it raw; return master fd */
 static int qemu_openpty_raw(int *aslave, char *pty_name)
 {
     int amaster;
@@ -319,7 +285,6 @@ static int qemu_openpty_raw(int *aslave, char *pty_name)
         return -1;
     }
 
-    /* Set raw attributes on the pty. */
     tcgetattr(*aslave, &tty);
     cfmakeraw(&tty);
     tcsetattr(*aslave, TCSAFLUSH, &tty);
@@ -366,7 +331,6 @@ static void char_pty_open(Chardev *chr,
     s->timer_src = NULL;
     *be_opened = false;
 
-    /* create symbolic link */
     if (path) {
         int res = symlink(pty_name, path);
 

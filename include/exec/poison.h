@@ -1,5 +1,3 @@
-/* Poison identifiers that should not be used when building
-   target independent device code.  */
 
 #ifndef HW_POISON_H
 #define HW_POISON_H

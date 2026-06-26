@@ -1,26 +1,3 @@
-/*
- * QEMU graphical console
- *
- * Copyright (c) 2004 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "ui/console.h"
@@ -156,7 +133,6 @@ static void graphic_hw_update_bh(void *con)
 void qemu_console_co_wait_update(QemuConsole *con)
 {
     if (qemu_co_queue_empty(&con->dump_queue)) {
-        /* Defer the update, it will restart the pending coroutines */
         aio_bh_schedule_oneshot(qemu_get_aio_context(),
                                 graphic_hw_update_bh, con);
     }
@@ -363,25 +339,17 @@ qemu_console_register(QemuConsole *c)
         c->index = last->index + 1;
         QTAILQ_INSERT_TAIL(&consoles, c, next);
     } else {
-        /*
-         * HACK: Put graphical consoles before text consoles.
-         *
-         * Only do that for coldplugged devices.  After initial device
-         * initialization we will not renumber the consoles any more.
-         */
         QemuConsole *it = QTAILQ_FIRST(&consoles);
 
         while (QTAILQ_NEXT(it, next) != NULL && QEMU_IS_GRAPHIC_CONSOLE(it)) {
             it = QTAILQ_NEXT(it, next);
         }
         if (QEMU_IS_GRAPHIC_CONSOLE(it)) {
-            /* have no text consoles */
             c->index = it->index + 1;
             QTAILQ_INSERT_AFTER(&consoles, it, c, next);
         } else {
             c->index = it->index;
             QTAILQ_INSERT_BEFORE(it, c, next);
-            /* renumber text consoles */
             for (i = c->index + 1; it != NULL; it = QTAILQ_NEXT(it, next), i++) {
                 it->index = i;
             }
@@ -394,7 +362,6 @@ qemu_console_finalize(Object *obj)
 {
     QemuConsole *c = QEMU_CONSOLE(obj);
 
-    /* TODO: check this code path, and unregister from consoles */
     g_clear_pointer(&c->surface, qemu_free_displaysurface);
     g_clear_pointer(&c->gl_unblock_timer, timer_free);
     g_clear_pointer(&c->ui_timer, timer_free);
@@ -664,7 +631,6 @@ void console_handle_touch_event(QemuConsole *con,
 
 void qemu_console_set_display_gl_ctx(QemuConsole *con, DisplayGLCtx *gl)
 {
-    /* display has opengl support */
     assert(con);
     if (con->gl) {
         error_report("The console already has an OpenGL context.");
@@ -757,15 +723,9 @@ int dpy_set_ui_info(QemuConsole *con, QemuUIInfo *info, bool delay)
         return -1;
     }
     if (memcmp(&con->ui_info, info, sizeof(con->ui_info)) == 0) {
-        /* nothing changed -- ignore */
         return 0;
     }
 
-    /*
-     * Typically we get a flood of these as the user resizes the window.
-     * Wait until the dust has settled (one second without updates), then
-     * go notify the guest.
-     */
     con->ui_info = *info;
     timer_mod(con->ui_timer,
               qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + (delay ? 1000 : 0));
@@ -854,7 +814,6 @@ bool dpy_gfx_check_format(QemuConsole *con,
 
     QLIST_FOREACH(dcl, &s->listeners, next) {
         if (dcl->con && dcl->con != con) {
-            /* dcl bound to another console -> skip */
             continue;
         }
         if (dcl->ops->dpy_gfx_check_format) {
@@ -862,7 +821,6 @@ bool dpy_gfx_check_format(QemuConsole *con,
                 return false;
             }
         } else {
-            /* default is to allow native 32 bpp only */
             if (format != qemu_default_pixman_format(32, true)) {
                 return false;
             }
@@ -1134,10 +1092,7 @@ void dpy_gl_update(QemuConsole *con,
     graphic_hw_gl_block(con, false);
 }
 
-/***********************************************************/
-/* register display */
 
-/* console.c internal use only */
 static DisplayState *get_alloc_displaystate(void)
 {
     if (!display_state) {
@@ -1146,19 +1101,12 @@ static DisplayState *get_alloc_displaystate(void)
     return display_state;
 }
 
-/*
- * Called by main(), after creating QemuConsoles
- * and before initializing ui (sdl/...).
- */
 DisplayState *init_displaystate(void)
 {
     gchar *name;
     QemuConsole *con;
 
     QTAILQ_FOREACH(con, &consoles, next) {
-        /* Hook up into the qom tree here (not in object_new()), once
-         * all QemuConsoles are created and the order / numbering
-         * doesn't change any more */
         name = g_strdup_printf("console[%d]", con->index);
         object_property_add_child(object_get_container("backend"),
                                   name, OBJECT(con));
@@ -1211,7 +1159,6 @@ QemuConsole *graphic_console_init(DeviceState *dev, uint32_t head,
 }
 
 static const GraphicHwOps unused_ops = {
-    /* no callbacks */
 };
 
 void graphic_console_close(QemuConsole *con)

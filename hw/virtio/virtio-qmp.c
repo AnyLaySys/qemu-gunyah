@@ -1,13 +1,3 @@
-/*
- * Virtio QMP helpers
- *
- * Copyright IBM, Corp. 2007
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "virtio-qmp.h"
@@ -38,9 +28,7 @@
 #define FEATURE_ENTRY(name, desc) (qmp_virtio_feature_map_t) \
     { .virtio_bit = name, .feature_desc = desc }
 
-/* Virtio transport features mapping */
 static const qmp_virtio_feature_map_t virtio_transport_map[] = {
-    /* Virtio device transport features */
 #ifndef VIRTIO_CONFIG_NO_LEGACY
     FEATURE_ENTRY(VIRTIO_F_NOTIFY_ON_EMPTY, \
             "VIRTIO_F_NOTIFY_ON_EMPTY: Notify when device runs out of avail. "
@@ -63,7 +51,6 @@ static const qmp_virtio_feature_map_t virtio_transport_map[] = {
             "VIRTIO_F_SR_IOV: Device supports single root I/O virtualization"),
     FEATURE_ENTRY(VIRTIO_F_RING_RESET, \
             "VIRTIO_F_RING_RESET: Driver can reset a queue individually"),
-    /* Virtio ring transport features */
     FEATURE_ENTRY(VIRTIO_RING_F_INDIRECT_DESC, \
             "VIRTIO_RING_F_INDIRECT_DESC: Indirect descriptors supported"),
     FEATURE_ENTRY(VIRTIO_RING_F_EVENT_IDX, \
@@ -71,7 +58,6 @@ static const qmp_virtio_feature_map_t virtio_transport_map[] = {
     { -1, "" }
 };
 
-/* Vhost-user protocol features mapping */
 static const qmp_virtio_feature_map_t vhost_user_protocol_map[] = {
     FEATURE_ENTRY(VHOST_USER_PROTOCOL_F_MQ, \
             "VHOST_USER_PROTOCOL_F_MQ: Multiqueue protocol supported"),
@@ -130,7 +116,6 @@ static const qmp_virtio_feature_map_t vhost_user_protocol_map[] = {
     { -1, "" }
 };
 
-/* virtio device configuration statuses */
 static const qmp_virtio_feature_map_t virtio_config_status_map[] = {
     FEATURE_ENTRY(VIRTIO_CONFIG_S_DRIVER_OK, \
             "VIRTIO_CONFIG_S_DRIVER_OK: Driver setup and ready"),
@@ -148,7 +133,6 @@ static const qmp_virtio_feature_map_t virtio_config_status_map[] = {
     { -1, "" }
 };
 
-/* virtio-blk features mapping */
 #ifdef CONFIG_VIRTIO_BLK
 static const qmp_virtio_feature_map_t virtio_blk_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_BLK_F_SIZE_MAX, \
@@ -193,7 +177,6 @@ static const qmp_virtio_feature_map_t virtio_blk_feature_map[] = {
 };
 #endif
 
-/* virtio-serial features mapping */
 #ifdef CONFIG_VIRTIO_SERIAL
 static const qmp_virtio_feature_map_t virtio_serial_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_CONSOLE_F_SIZE, \
@@ -206,7 +189,6 @@ static const qmp_virtio_feature_map_t virtio_serial_feature_map[] = {
 };
 #endif
 
-/* virtio-gpu features mapping */
 #ifdef CONFIG_VIRTIO_GPU
 static const qmp_virtio_feature_map_t virtio_gpu_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_GPU_F_VIRGL, \
@@ -229,7 +211,6 @@ static const qmp_virtio_feature_map_t virtio_gpu_feature_map[] = {
 };
 #endif
 
-/* virtio-input features mapping */
 #ifdef CONFIG_VIRTIO_INPUT
 static const qmp_virtio_feature_map_t virtio_input_feature_map[] = {
     FEATURE_ENTRY(VHOST_F_LOG_ALL, \
@@ -241,7 +222,6 @@ static const qmp_virtio_feature_map_t virtio_input_feature_map[] = {
 };
 #endif
 
-/* virtio-net features mapping */
 #ifdef CONFIG_VIRTIO_NET
 static const qmp_virtio_feature_map_t virtio_net_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_NET_F_CSUM, \
@@ -329,7 +309,6 @@ static const qmp_virtio_feature_map_t virtio_net_feature_map[] = {
 };
 #endif
 
-/* virtio-scsi features mapping */
 #ifdef CONFIG_VIRTIO_SCSI
 static const qmp_virtio_feature_map_t virtio_scsi_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_SCSI_F_INOUT, \
@@ -352,7 +331,6 @@ static const qmp_virtio_feature_map_t virtio_scsi_feature_map[] = {
 };
 #endif
 
-/* virtio/vhost-user-fs features mapping */
 #ifdef CONFIG_VHOST_USER_FS
 static const qmp_virtio_feature_map_t virtio_fs_feature_map[] = {
     FEATURE_ENTRY(VHOST_F_LOG_ALL, \
@@ -364,7 +342,6 @@ static const qmp_virtio_feature_map_t virtio_fs_feature_map[] = {
 };
 #endif
 
-/* virtio/vhost-user-i2c features mapping */
 #ifdef CONFIG_VIRTIO_I2C_ADAPTER
 static const qmp_virtio_feature_map_t virtio_i2c_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_I2C_F_ZERO_LENGTH_REQUEST, \
@@ -378,7 +355,6 @@ static const qmp_virtio_feature_map_t virtio_i2c_feature_map[] = {
 };
 #endif
 
-/* virtio/vhost-vsock features mapping */
 #ifdef CONFIG_VHOST_VSOCK
 static const qmp_virtio_feature_map_t virtio_vsock_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_VSOCK_F_SEQPACKET, \
@@ -392,7 +368,6 @@ static const qmp_virtio_feature_map_t virtio_vsock_feature_map[] = {
 };
 #endif
 
-/* virtio-balloon features mapping */
 #ifdef CONFIG_VIRTIO_BALLOON
 static const qmp_virtio_feature_map_t virtio_balloon_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_BALLOON_F_MUST_TELL_HOST, \
@@ -412,7 +387,6 @@ static const qmp_virtio_feature_map_t virtio_balloon_feature_map[] = {
 };
 #endif
 
-/* virtio-crypto features mapping */
 #ifdef CONFIG_VIRTIO_CRYPTO
 static const qmp_virtio_feature_map_t virtio_crypto_feature_map[] = {
     FEATURE_ENTRY(VHOST_F_LOG_ALL, \
@@ -421,7 +395,6 @@ static const qmp_virtio_feature_map_t virtio_crypto_feature_map[] = {
 };
 #endif
 
-/* virtio-iommu features mapping */
 #ifdef CONFIG_VIRTIO_IOMMU
 static const qmp_virtio_feature_map_t virtio_iommu_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_IOMMU_F_INPUT_RANGE, \
@@ -446,7 +419,6 @@ static const qmp_virtio_feature_map_t virtio_iommu_feature_map[] = {
 };
 #endif
 
-/* virtio-mem features mapping */
 #ifdef CONFIG_VIRTIO_MEM
 static const qmp_virtio_feature_map_t virtio_mem_feature_map[] = {
 #ifndef CONFIG_ACPI
@@ -463,7 +435,6 @@ static const qmp_virtio_feature_map_t virtio_mem_feature_map[] = {
 };
 #endif
 
-/* virtio-rng features mapping */
 #ifdef CONFIG_VIRTIO_RNG
 static const qmp_virtio_feature_map_t virtio_rng_feature_map[] = {
     FEATURE_ENTRY(VHOST_F_LOG_ALL, \
@@ -475,7 +446,6 @@ static const qmp_virtio_feature_map_t virtio_rng_feature_map[] = {
 };
 #endif
 
-/* virtio/vhost-gpio features mapping */
 #ifdef CONFIG_VHOST_USER_GPIO
 static const qmp_virtio_feature_map_t virtio_gpio_feature_map[] = {
     FEATURE_ENTRY(VIRTIO_GPIO_F_IRQ, \
@@ -554,11 +524,9 @@ VirtioDeviceFeatures *qmp_decode_features(uint16_t device_id, uint64_t bitmap)
     features = g_new0(VirtioDeviceFeatures, 1);
     features->has_dev_features = true;
 
-    /* transport features */
     features->transports = CONVERT_FEATURES(strList, virtio_transport_map, 0,
                                             bitmap);
 
-    /* device features */
     switch (device_id) {
 #ifdef CONFIG_VIRTIO_SERIAL
     case VIRTIO_ID_CONSOLE:
@@ -650,7 +618,6 @@ VirtioDeviceFeatures *qmp_decode_features(uint16_t device_id, uint64_t bitmap)
             CONVERT_FEATURES(strList, virtio_gpio_feature_map, 0, bitmap);
         break;
 #endif
-    /* No features */
     case VIRTIO_ID_9P:
     case VIRTIO_ID_PMEM:
     case VIRTIO_ID_IOMEM:
@@ -695,7 +662,6 @@ static int query_dev_child(Object *child, void *opaque)
         VirtIODevice *vdev = VIRTIO_DEVICE(dev);
         VirtioInfo *info = g_new(VirtioInfo, 1);
 
-        /* Get canonical path & name of device */
         info->path = object_get_canonical_path(dev);
         info->name = g_strdup(vdev->name);
         QAPI_LIST_PREPEND(*vdevs, info);
@@ -707,7 +673,6 @@ VirtioInfoList *qmp_x_query_virtio(Error **errp)
 {
     VirtioInfoList *vdevs = NULL;
 
-    /* Query the QOM composition tree recursively for virtio devices */
     object_child_foreach_recursive(object_get_root(), query_dev_child, &vdevs);
     if (vdevs == NULL) {
         error_setg(errp, "No virtio devices found");
@@ -717,7 +682,6 @@ VirtioInfoList *qmp_x_query_virtio(Error **errp)
 
 VirtIODevice *qmp_find_virtio_device(const char *path)
 {
-    /* Verify the canonical path is a realized virtio device */
     Object *dev = object_dynamic_cast(object_resolve_path(path, NULL),
                                       TYPE_VIRTIO_DEVICE);
     if (!dev || !DEVICE(dev)->realized) {

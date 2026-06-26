@@ -1,16 +1,3 @@
-/*
- * reqlist API
- *
- * Copyright (C) 2013 Proxmox Server Solutions
- * Copyright (c) 2021 Virtuozzo International GmbH.
- *
- * Authors:
- *  Dietmar Maurer (dietmar@proxmox.com)
- *  Vladimir Sementsov-Ogievskiy <vsementsov@virtuozzo.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/range.h"
@@ -60,7 +47,6 @@ void coroutine_fn reqlist_wait_all(BlockReqList *reqs, int64_t offset,
                                    int64_t bytes, CoMutex *lock)
 {
     while (reqlist_wait_one(reqs, offset, bytes, lock)) {
-        /* continue */
     }
 }
 

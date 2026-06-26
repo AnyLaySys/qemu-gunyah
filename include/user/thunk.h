@@ -1,21 +1,3 @@
-/*
- *  Generic thunking code to convert data between host and target CPU
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef USER_THUNK_H
 #define USER_THUNK_H
@@ -27,7 +9,6 @@
 #include "cpu.h"
 #include "user/abitypes.h"
 
-/* types enums definitions */
 
 typedef enum argtype {
     TYPE_NULL,
@@ -53,11 +34,9 @@ typedef enum argtype {
 #define THUNK_HOST   1
 
 typedef struct {
-    /* standard struct handling */
     const argtype *field_types;
     int nb_fields;
     int *field_offsets[2];
-    /* special handling */
     void (*convert[2])(void *dst, const void *src);
     void (*print)(void *arg);
     int size[2];
@@ -65,7 +44,6 @@ typedef struct {
     const char *name;
 } StructEntry;
 
-/* Translation table for bitmasks... */
 typedef struct bitmask_transtbl {
     unsigned int target_mask;
     unsigned int target_bits;

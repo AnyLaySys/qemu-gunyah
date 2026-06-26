@@ -1,9 +1,3 @@
-/*
- * QEMU EDID generator.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 #include "qemu/osdep.h"
 #include "qemu/bswap.h"
 #include "hw/display/edid.h"
@@ -16,7 +10,6 @@ static const struct edid_mode {
     uint32_t bit;
     uint32_t dta;
 } modes[] = {
-    /* dea/dta extension timings (all @ 50 Hz) */
     { .xres = 5120,   .yres = 2160,   .dta = 125 },
     { .xres = 4096,   .yres = 2160,   .dta = 101 },
     { .xres = 3840,   .yres = 2160,   .dta =  96 },
@@ -24,10 +17,8 @@ static const struct edid_mode {
     { .xres = 2048,   .yres = 1152 },
     { .xres = 1920,   .yres = 1080,   .dta =  31 },
 
-    /* dea/dta extension timings (all @ 60 Hz) */
     { .xres = 3840,   .yres = 2160,   .dta =  97 },
 
-    /* additional standard timings 3 (all @ 60Hz) */
     { .xres = 1920,   .yres = 1200,   .xtra3 = 10,   .bit = 0 },
     { .xres = 1600,   .yres = 1200,   .xtra3 =  9,   .bit = 2 },
     { .xres = 1680,   .yres = 1050,   .xtra3 =  9,   .bit = 5 },
@@ -42,7 +33,6 @@ static const struct edid_mode {
     { .xres = 1440,   .yres = 1050,   .xtra3 =  8,   .bit = 1 },
     { .xres = 1360,   .yres =  768,   .xtra3 =  8,   .bit = 7 },
 
-    /* established timings (all @ 60Hz) */
     { .xres = 1024,   .yres =  768,   .byte  = 36,   .bit = 3 },
     { .xres =  800,   .yres =  600,   .byte  = 35,   .bit = 0 },
     { .xres =  640,   .yres =  480,   .byte  = 35,   .bit = 5 },
@@ -63,7 +53,6 @@ typedef struct Timings {
 static void generate_timings(Timings *timings, uint32_t refresh_rate,
                              uint32_t xres, uint32_t yres)
 {
-    /* pull some realistic looking timings out of thin air */
     timings->xfront = xres * 25 / 100;
     timings->xsync  = xres *  3 / 100;
     timings->xblank = xres * 35 / 100;
@@ -84,7 +73,6 @@ static void edid_ext_dta(uint8_t *dta)
     dta[2] = 0x05;
     dta[3] = 0x00;
 
-    /* video data block */
     dta[4] = 0x40;
 }
 
@@ -224,26 +212,20 @@ static void edid_desc_ranges(uint8_t *desc)
 {
     edid_desc_type(desc, 0xfd);
 
-    /* vertical (50 -> 125 Hz) */
     desc[5] =  50;
     desc[6] = 125;
 
-    /* horizontal (30 -> 160 kHz) */
     desc[7] =  30;
     desc[8] = 160;
 
-    /* max dot clock (2550 MHz) */
     desc[9] = 2550 / 10;
 
-    /* no extended timing information */
     desc[10] = 0x01;
 
-    /* padding */
     desc[11] = '\n';
     memset(desc + 12, ' ', 6);
 }
 
-/* additional standard timings 3 */
 static void edid_desc_xtra3_std(uint8_t *desc)
 {
     edid_desc_type(desc, 0xf7);
@@ -391,7 +373,6 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
     uint32_t dpi = 100; /* if no width_mm/height_mm */
     uint32_t large_screen = 0;
 
-    /* =============== set defaults  =============== */
 
     if (!info->vendor || strlen(info->vendor) != 3) {
         info->vendor = "RHT";
@@ -419,7 +400,6 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
         large_screen = 1;
     }
 
-    /* =============== extensions  =============== */
 
     if (size >= 256) {
         dta = edid + 128;
@@ -433,9 +413,7 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
         init_displayid(did);
     }
 
-    /* =============== header information =============== */
 
-    /* fixed */
     edid[0] = 0x00;
     edid[1] = 0xff;
     edid[2] = 0xff;
@@ -445,7 +423,6 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
     edid[6] = 0xff;
     edid[7] = 0x00;
 
-    /* manufacturer id, product code, serial number */
     uint16_t vendor_id = ((((info->vendor[0] - '@') & 0x1f) << 10) |
                           (((info->vendor[1] - '@') & 0x1f) <<  5) |
                           (((info->vendor[2] - '@') & 0x1f) <<  0));
@@ -455,50 +432,36 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
     stw_le_p(edid + 10, model_nr);
     stl_le_p(edid + 12, serial_nr);
 
-    /* manufacture week and year */
     edid[16] = 42;
     edid[17] = 2014 - 1990;
 
-    /* edid version */
     edid[18] = 1;
     edid[19] = 4;
 
 
-    /* =============== basic display parameters =============== */
 
-    /* video input: digital, 8bpc, displayport */
     edid[20] = 0xa5;
 
-    /* screen size: undefined */
     edid[21] = width_mm / 10;
     edid[22] = height_mm / 10;
 
-    /* display gamma: 2.2 */
     edid[23] = 220 - 100;
 
-    /* supported features bitmap: std sRGB, preferred timing */
     edid[24] = 0x06;
 
 
-    /* =============== chromaticity coordinates =============== */
 
-    /* standard sRGB colorspace */
     edid_colorspace(edid,
                     0.6400, 0.3300,   /* red   */
                     0.3000, 0.6000,   /* green */
                     0.1500, 0.0600,   /* blue  */
                     0.3127, 0.3290);  /* white point  */
 
-    /* =============== established timing bitmap =============== */
-    /* =============== standard timing information =============== */
-
-    /* both filled by edid_fill_modes() */
 
 
-    /* =============== descriptor blocks =============== */
+
 
     if (!large_screen) {
-        /* The DTD section has only 12 bits to store the resolution */
         edid_desc_timing(desc, &timings, info->prefx, info->prefy,
                          width_mm, height_mm);
         desc = edid_desc_next(edid, dta, desc);
@@ -508,10 +471,6 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
     edid_desc_xtra3_std(xtra3);
     desc = edid_desc_next(edid, dta, desc);
     edid_fill_modes(edid, xtra3, dta, info->maxx, info->maxy);
-    /*
-     * dta video data block is finished at thus point,
-     * so dta descriptor offsets don't move any more.
-     */
 
     edid_desc_ranges(desc);
     desc = edid_desc_next(edid, dta, desc);
@@ -531,14 +490,12 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
         desc = edid_desc_next(edid, dta, desc);
     }
 
-    /* =============== display id extensions =============== */
 
     if (did && large_screen) {
         qemu_displayid_generate(did, &timings, info->prefx, info->prefy,
                                 width_mm, height_mm);
     }
 
-    /* =============== finish up =============== */
 
     edid_checksum(edid, 127);
     if (dta) {
@@ -555,7 +512,6 @@ size_t qemu_edid_size(uint8_t *edid)
 
     if (edid[0] != 0x00 ||
         edid[1] != 0xff) {
-        /* doesn't look like a valid edid block */
         return 0;
     }
 

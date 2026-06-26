@@ -1,7 +1,3 @@
-/*
- * No host specific aes acceleration.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef GENERIC_HOST_CRYPTO_AES_ROUND_H
 #define GENERIC_HOST_CRYPTO_AES_ROUND_H

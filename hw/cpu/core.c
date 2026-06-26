@@ -1,11 +1,3 @@
-/*
- * CPU core abstract device
- *
- * Copyright (C) 2016 Bharata B Rao <bharata@linux.vnet.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 
@@ -67,11 +59,6 @@ static void cpu_core_instance_init(Object *obj)
 {
     CPUCore *core = CPU_CORE(obj);
 
-    /*
-     * Only '-device something-cpu-core,help' can get us there before
-     * the machine has been created. We don't care to set nr_threads
-     * in this case since it isn't used afterwards.
-     */
     if (current_machine) {
         core->nr_threads = current_machine->smp.threads;
     }

@@ -1,17 +1,3 @@
-/*
- *  SCSI helpers
- *
- *  Copyright 2017 Red Hat, Inc.
- *
- *  Authors:
- *   Fam Zheng <famz@redhat.com>
- *   Paolo Bonzini <pbonzini@redhat.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- */
 
 #include "qemu/osdep.h"
 #include "scsi/constants.h"
@@ -148,190 +134,147 @@ int scsi_build_sense(uint8_t *buf, SCSISense sense)
     return scsi_build_sense_buf(buf, SCSI_SENSE_LEN, sense, true);
 }
 
-/*
- * Predefined sense codes
- */
 
-/* No sense data available */
 const struct SCSISense sense_code_NO_SENSE = {
     .key = NO_SENSE , .asc = 0x00 , .ascq = 0x00
 };
 
-/* LUN not ready, Manual intervention required */
 const struct SCSISense sense_code_LUN_NOT_READY = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x03
 };
 
-/* LUN not ready, Medium not present */
 const struct SCSISense sense_code_NO_MEDIUM = {
     .key = NOT_READY, .asc = 0x3a, .ascq = 0x00
 };
 
-/* LUN not ready, medium removal prevented */
 const struct SCSISense sense_code_NOT_READY_REMOVAL_PREVENTED = {
     .key = NOT_READY, .asc = 0x53, .ascq = 0x02
 };
 
-/* Hardware error, internal target failure */
 const struct SCSISense sense_code_TARGET_FAILURE = {
     .key = HARDWARE_ERROR, .asc = 0x44, .ascq = 0x00
 };
 
-/* Illegal request, invalid command operation code */
 const struct SCSISense sense_code_INVALID_OPCODE = {
     .key = ILLEGAL_REQUEST, .asc = 0x20, .ascq = 0x00
 };
 
-/* Illegal request, LBA out of range */
 const struct SCSISense sense_code_LBA_OUT_OF_RANGE = {
     .key = ILLEGAL_REQUEST, .asc = 0x21, .ascq = 0x00
 };
 
-/* Illegal request, Invalid field in CDB */
 const struct SCSISense sense_code_INVALID_FIELD = {
     .key = ILLEGAL_REQUEST, .asc = 0x24, .ascq = 0x00
 };
 
-/* Illegal request, Invalid field in parameter list */
 const struct SCSISense sense_code_INVALID_PARAM = {
     .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x00
 };
 
-/* Illegal request, Invalid value in parameter list */
 const struct SCSISense sense_code_INVALID_PARAM_VALUE = {
     .key = ILLEGAL_REQUEST, .asc = 0x26, .ascq = 0x01
 };
 
-/* Illegal request, Parameter list length error */
 const struct SCSISense sense_code_INVALID_PARAM_LEN = {
     .key = ILLEGAL_REQUEST, .asc = 0x1a, .ascq = 0x00
 };
 
-/* Illegal request, LUN not supported */
 const struct SCSISense sense_code_LUN_NOT_SUPPORTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x25, .ascq = 0x00
 };
 
-/* Illegal request, Saving parameters not supported */
 const struct SCSISense sense_code_SAVING_PARAMS_NOT_SUPPORTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x39, .ascq = 0x00
 };
 
-/* Illegal request, Incompatible medium installed */
 const struct SCSISense sense_code_INCOMPATIBLE_FORMAT = {
     .key = ILLEGAL_REQUEST, .asc = 0x30, .ascq = 0x00
 };
 
-/* Illegal request, medium removal prevented */
 const struct SCSISense sense_code_ILLEGAL_REQ_REMOVAL_PREVENTED = {
     .key = ILLEGAL_REQUEST, .asc = 0x53, .ascq = 0x02
 };
 
-/* Illegal request, Invalid Transfer Tag */
 const struct SCSISense sense_code_INVALID_TAG = {
     .key = ILLEGAL_REQUEST, .asc = 0x4b, .ascq = 0x01
 };
 
-/* Command aborted, I/O process terminated */
 const struct SCSISense sense_code_IO_ERROR = {
     .key = ABORTED_COMMAND, .asc = 0x00, .ascq = 0x06
 };
 
-/* Command aborted, I_T Nexus loss occurred */
 const struct SCSISense sense_code_I_T_NEXUS_LOSS = {
     .key = ABORTED_COMMAND, .asc = 0x29, .ascq = 0x07
 };
 
-/* Command aborted, Logical Unit failure */
 const struct SCSISense sense_code_LUN_FAILURE = {
     .key = ABORTED_COMMAND, .asc = 0x3e, .ascq = 0x01
 };
 
-/* Command aborted, Overlapped Commands Attempted */
 const struct SCSISense sense_code_OVERLAPPED_COMMANDS = {
     .key = ABORTED_COMMAND, .asc = 0x4e, .ascq = 0x00
 };
 
-/* Command aborted, LUN Communication Failure */
 const struct SCSISense sense_code_LUN_COMM_FAILURE = {
     .key = ABORTED_COMMAND, .asc = 0x08, .ascq = 0x00
 };
 
-/* Command aborted, LUN does not respond to selection */
 const struct SCSISense sense_code_LUN_NOT_RESPONDING = {
     .key = ABORTED_COMMAND, .asc = 0x05, .ascq = 0x00
 };
 
-/* Command aborted, Command Timeout during processing */
 const struct SCSISense sense_code_COMMAND_TIMEOUT = {
     .key = ABORTED_COMMAND, .asc = 0x2e, .ascq = 0x02
 };
 
-/* Command aborted, Commands cleared by device server */
 const struct SCSISense sense_code_COMMAND_ABORTED = {
     .key = ABORTED_COMMAND, .asc = 0x2f, .ascq = 0x02
 };
 
-/* Medium Error, Unrecovered read error */
 const struct SCSISense sense_code_READ_ERROR = {
     .key = MEDIUM_ERROR, .asc = 0x11, .ascq = 0x00
 };
 
-/* Not ready, Cause not reportable */
 const struct SCSISense sense_code_NOT_READY = {
     .key = NOT_READY, .asc = 0x04, .ascq = 0x00
 };
 
-/* Unit attention, Capacity data has changed */
 const struct SCSISense sense_code_CAPACITY_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x2a, .ascq = 0x09
 };
 
-/* Unit attention, Power on, reset or bus device reset occurred */
 const struct SCSISense sense_code_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x00
 };
 
-/* Unit attention, SCSI bus reset */
 const struct SCSISense sense_code_SCSI_BUS_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x02
 };
 
-/* Unit attention, No medium */
 const struct SCSISense sense_code_UNIT_ATTENTION_NO_MEDIUM = {
     .key = UNIT_ATTENTION, .asc = 0x3a, .ascq = 0x00
 };
 
-/* Unit attention, Medium may have changed */
 const struct SCSISense sense_code_MEDIUM_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x28, .ascq = 0x00
 };
 
-/* Unit attention, Reported LUNs data has changed */
 const struct SCSISense sense_code_REPORTED_LUNS_CHANGED = {
     .key = UNIT_ATTENTION, .asc = 0x3f, .ascq = 0x0e
 };
 
-/* Unit attention, Device internal reset */
 const struct SCSISense sense_code_DEVICE_INTERNAL_RESET = {
     .key = UNIT_ATTENTION, .asc = 0x29, .ascq = 0x04
 };
 
-/* Data Protection, Write Protected */
 const struct SCSISense sense_code_WRITE_PROTECTED = {
     .key = DATA_PROTECT, .asc = 0x27, .ascq = 0x00
 };
 
-/* Data Protection, Space Allocation Failed Write Protect */
 const struct SCSISense sense_code_SPACE_ALLOC_FAILED = {
     .key = DATA_PROTECT, .asc = 0x27, .ascq = 0x07
 };
 
-/*
- * scsi_convert_sense
- *
- * Convert between fixed and descriptor sense buffers
- */
 int scsi_convert_sense(uint8_t *in_buf, int in_len,
                        uint8_t *buf, int len, bool fixed)
 {
@@ -363,7 +306,6 @@ static bool scsi_sense_is_guest_recoverable(int key, int asc, int ascq)
     case NOT_READY:
     case ILLEGAL_REQUEST:
     case DATA_PROTECT:
-        /* Parse ASCQ */
         break;
     default:
         return false;
@@ -401,7 +343,6 @@ int scsi_sense_to_errno(int key, int asc, int ascq)
     case NOT_READY:
     case ILLEGAL_REQUEST:
     case DATA_PROTECT:
-        /* Parse ASCQ */
         break;
     default:
         return EIO;
@@ -463,7 +404,6 @@ const char *scsi_command_name(uint8_t cmd)
         [ FORMAT_UNIT              ] = "FORMAT_UNIT",
         [ READ_BLOCK_LIMITS        ] = "READ_BLOCK_LIMITS",
         [ REASSIGN_BLOCKS          ] = "REASSIGN_BLOCKS/INITIALIZE ELEMENT STATUS",
-        /* LOAD_UNLOAD and INITIALIZE_ELEMENT_STATUS use the same operation code */
         [ READ_6                   ] = "READ_6",
         [ WRITE_6                  ] = "WRITE_6",
         [ SET_CAPACITY             ] = "SET_CAPACITY",
@@ -481,7 +421,6 @@ const char *scsi_command_name(uint8_t cmd)
         [ ERASE                    ] = "ERASE",
         [ MODE_SENSE               ] = "MODE_SENSE",
         [ START_STOP               ] = "START_STOP/LOAD_UNLOAD",
-        /* LOAD_UNLOAD and START_STOP use the same operation code */
         [ RECEIVE_DIAGNOSTIC       ] = "RECEIVE_DIAGNOSTIC",
         [ SEND_DIAGNOSTIC          ] = "SEND_DIAGNOSTIC",
         [ ALLOW_MEDIUM_REMOVAL     ] = "ALLOW_MEDIUM_REMOVAL",
@@ -489,7 +428,6 @@ const char *scsi_command_name(uint8_t cmd)
         [ READ_10                  ] = "READ_10",
         [ WRITE_10                 ] = "WRITE_10",
         [ SEEK_10                  ] = "SEEK_10/POSITION_TO_ELEMENT",
-        /* SEEK_10 and POSITION_TO_ELEMENT use the same operation code */
         [ WRITE_VERIFY_10          ] = "WRITE_VERIFY_10",
         [ VERIFY_10                ] = "VERIFY_10",
         [ SEARCH_HIGH              ] = "SEARCH_HIGH",
@@ -497,11 +435,9 @@ const char *scsi_command_name(uint8_t cmd)
         [ SEARCH_LOW               ] = "SEARCH_LOW",
         [ SET_LIMITS               ] = "SET_LIMITS",
         [ PRE_FETCH                ] = "PRE_FETCH/READ_POSITION",
-        /* READ_POSITION and PRE_FETCH use the same operation code */
         [ SYNCHRONIZE_CACHE        ] = "SYNCHRONIZE_CACHE",
         [ LOCK_UNLOCK_CACHE        ] = "LOCK_UNLOCK_CACHE",
         [ READ_DEFECT_DATA         ] = "READ_DEFECT_DATA/INITIALIZE_ELEMENT_STATUS_WITH_RANGE",
-        /* READ_DEFECT_DATA and INITIALIZE_ELEMENT_STATUS_WITH_RANGE use the same operation code */
         [ MEDIUM_SCAN              ] = "MEDIUM_SCAN",
         [ COMPARE                  ] = "COMPARE",
         [ COPY_VERIFY              ] = "COPY_VERIFY",
@@ -537,10 +473,8 @@ const char *scsi_command_name(uint8_t cmd)
         [ VERIFY_16                ] = "VERIFY_16",
         [ PRE_FETCH_16             ] = "PRE_FETCH_16",
         [ SYNCHRONIZE_CACHE_16     ] = "SPACE_16/SYNCHRONIZE_CACHE_16",
-        /* SPACE_16 and SYNCHRONIZE_CACHE_16 use the same operation code */
         [ LOCATE_16                ] = "LOCATE_16",
         [ WRITE_SAME_16            ] = "ERASE_16/WRITE_SAME_16",
-        /* ERASE_16 and WRITE_SAME_16 use the same operation code */
         [ SERVICE_ACTION_IN_16     ] = "SERVICE_ACTION_IN_16",
         [ WRITE_LONG_16            ] = "WRITE_LONG_16",
         [ REPORT_LUNS              ] = "REPORT_LUNS",
@@ -550,7 +484,6 @@ const char *scsi_command_name(uint8_t cmd)
         [ READ_12                  ] = "READ_12",
         [ WRITE_12                 ] = "WRITE_12",
         [ ERASE_12                 ] = "ERASE_12/GET_PERFORMANCE",
-        /* ERASE_12 and GET_PERFORMANCE use the same operation code */
         [ SERVICE_ACTION_IN_12     ] = "SERVICE_ACTION_IN_12",
         [ WRITE_VERIFY_12          ] = "WRITE_VERIFY_12",
         [ VERIFY_12                ] = "VERIFY_12",
@@ -559,7 +492,6 @@ const char *scsi_command_name(uint8_t cmd)
         [ SEARCH_LOW_12            ] = "SEARCH_LOW_12",
         [ READ_ELEMENT_STATUS      ] = "READ_ELEMENT_STATUS",
         [ SEND_VOLUME_TAG          ] = "SEND_VOLUME_TAG/SET_STREAMING",
-        /* SEND_VOLUME_TAG and SET_STREAMING use the same operation code */
         [ READ_CD                  ] = "READ_CD",
         [ READ_DEFECT_DATA_12      ] = "READ_DEFECT_DATA_12",
         [ READ_DVD_STRUCTURE       ] = "READ_DVD_STRUCTURE",
@@ -588,11 +520,6 @@ int scsi_sense_from_errno(int errno_value, SCSISense *sense)
     case EDOM:
         return TASK_SET_FULL;
 #ifdef CONFIG_LINUX
-        /* These errno mapping are specific to Linux.  For more information:
-         * - scsi_check_sense and scsi_decide_disposition in drivers/scsi/scsi_error.c
-         * - scsi_result_to_blk_status in drivers/scsi/scsi_lib.c
-         * - blk_errors[] in block/blk-core.c
-         */
     case EBADE:
         return RESERVATION_CONFLICT;
     case ENODATA:

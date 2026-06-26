@@ -1,27 +1,3 @@
-/*
- * Support for generating PCI related ACPI tables and passing them to Guests
- *
- * Copyright (C) 2006 Fabrice Bellard
- * Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
- * Copyright (C) 2013-2019 Red Hat Inc
- * Copyright (C) 2019 Intel Corporation
- *
- * Author: Wei Yang <richardw.yang@linux.intel.com>
- * Author: Michael S. Tsirkin <mst@redhat.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/error-report.h"
@@ -34,10 +10,6 @@
 #include "hw/pci/pci_device.h"
 #include "hw/pci/pcie_host.h"
 
-/*
- * PCI Firmware Specification, Revision 3.0
- * 4.1.2 MCFG Table Description.
- */
 void build_mcfg(GArray *table_data, BIOSLinker *linker, AcpiMcfgInfo *info,
                 const char *oem_id, const char *oem_table_id)
 {
@@ -46,31 +18,19 @@ void build_mcfg(GArray *table_data, BIOSLinker *linker, AcpiMcfgInfo *info,
 
     acpi_table_begin(&table, table_data);
 
-    /* Reserved */
     build_append_int_noprefix(table_data, 0, 8);
-    /*
-     * Memory Mapped Enhanced Configuration Space Base Address Allocation
-     * Structure
-     */
-    /* Base address, processor-relative */
     build_append_int_noprefix(table_data, info->base, 8);
-    /* PCI segment group number */
     build_append_int_noprefix(table_data, 0, 2);
-    /* Starting PCI Bus number */
     build_append_int_noprefix(table_data, 0, 1);
-    /* Final PCI Bus number */
     build_append_int_noprefix(table_data, PCIE_MMCFG_BUS(info->size - 1), 1);
-    /* Reserved */
     build_append_int_noprefix(table_data, 0, 4);
 
     acpi_table_end(linker, &table);
 }
 
 typedef struct AcpiGenericInitiator {
-    /* private */
     Object parent;
 
-    /* public */
     char *pci_dev;
     uint32_t node;
 } AcpiGenericInitiator;
@@ -174,7 +134,6 @@ static int build_acpi_generic_initiator(Object *obj, void *opaque)
 
     bus = object_property_get_uint(o, "busnr", &error_fatal);
     devfn = object_property_get_uint(o, "addr", &error_fatal);
-    /* devfn is constrained in PCI to be 8 bit but storage is an int32_t */
     assert(devfn >= 0 && devfn < PCI_DEVFN_MAX);
 
     build_srat_pci_generic_initiator(table_data, gi->node, 0, bus, devfn);
@@ -183,10 +142,8 @@ static int build_acpi_generic_initiator(Object *obj, void *opaque)
 }
 
 typedef struct AcpiGenericPort {
-    /* private */
     Object parent;
 
-    /* public */
     char *pci_bus;
     uint32_t node;
 } AcpiGenericPort;

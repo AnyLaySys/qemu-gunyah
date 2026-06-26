@@ -1,7 +1,3 @@
-/*
- * AArch64 specific clmul acceleration.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef AARCH64_HOST_CRYPTO_CLMUL_H
 #define AARCH64_HOST_CRYPTO_CLMUL_H
@@ -9,10 +5,6 @@
 #include "host/cpuinfo.h"
 #include <arm_neon.h>
 
-/*
- * 64x64->128 pmull is available with FEAT_PMULL.
- * Both FEAT_AES and FEAT_PMULL are covered under the same macro.
- */
 #ifdef __ARM_FEATURE_AES
 # define HAVE_CLMUL_ACCEL  true
 #else

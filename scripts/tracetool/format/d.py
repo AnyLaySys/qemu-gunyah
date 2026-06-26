@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 trace/generated-tracers.dtrace (DTrace only).
@@ -16,8 +15,6 @@ from tracetool import out
 from sys import platform
 
 
-# Reserved keywords from
-# https://wikis.oracle.com/display/DTrace/Types,+Operators+and+Expressions
 RESERVED_WORDS = (
     'auto', 'goto', 'sizeof', 'break', 'if', 'static', 'case', 'import',
     'string', 'char', 'inline', 'stringof', 'const', 'int', 'struct',
@@ -33,9 +30,6 @@ def generate(events, backend, group):
     events = [e for e in events
               if "disable" not in e.properties]
 
-    # SystemTap's dtrace(1) warns about empty "provider qemu {}" but is happy
-    # with an empty file.  Avoid the warning.
-    # But dtrace on macOS can't deal with empty files.
     if not events and platform != "darwin":
         return
 
@@ -47,18 +41,13 @@ def generate(events, backend, group):
         args = []
         for type_, name in e.args:
             if platform == "darwin":
-                # macOS dtrace accepts only C99 _Bool
                 if type_ == 'bool':
                     type_ = '_Bool'
                 if type_ == 'bool *':
                     type_ = '_Bool *'
-                # It converts int8_t * in probe points to char * in header
-                # files and introduces [-Wpointer-sign] warning.
-                # Avoid it by changing probe type to signed char * beforehand.
                 if type_ == 'int8_t *':
                     type_ = 'signed char *'
 
-            # SystemTap dtrace(1) emits a warning when long long is used
             type_ = type_.replace('unsigned long long', 'uint64_t')
             type_ = type_.replace('signed long long', 'int64_t')
             type_ = type_.replace('long long', 'int64_t')
@@ -67,7 +56,6 @@ def generate(events, backend, group):
                 name += '_'
             args.append(type_ + ' ' + name)
 
-        # Define prototype for probe arguments
         out('',
             'probe %(name)s(%(args)s);',
             name=e.name,

@@ -200,7 +200,6 @@ static void qemu_input_event_trace(QemuConsole *src, InputEvent *evt)
             trace_input_event_key_qcode(idx, name, key->down);
             break;
         case KEY_VALUE_KIND__MAX:
-            /* keep gcc happy */
             break;
         }
         break;
@@ -225,7 +224,6 @@ static void qemu_input_event_trace(QemuConsole *src, InputEvent *evt)
         trace_input_event_mtt(idx, name, mtt->value);
         break;
     case INPUT_EVENT_KIND__MAX:
-        /* keep gcc happy */
         break;
     }
 }
@@ -308,7 +306,6 @@ void qemu_input_event_send_impl(QemuConsole *src, InputEvent *evt)
 
     qemu_input_event_trace(src, evt);
 
-    /* send event */
     s = qemu_input_find_handler(1 << evt->type, src);
     if (!s) {
         return;
@@ -319,20 +316,10 @@ void qemu_input_event_send_impl(QemuConsole *src, InputEvent *evt)
 
 void qemu_input_event_send(QemuConsole *src, InputEvent *evt)
 {
-    /* Expect all parts of QEMU to send events with QCodes exclusively.
-     * Key numbers are only supported as end-user input via QMP */
     assert(!(evt->type == INPUT_EVENT_KIND_KEY &&
              evt->u.key.data->key->type == KEY_VALUE_KIND_NUMBER));
 
 
-    /*
-     * 'sysrq' was mistakenly added to hack around the fact that
-     * the ps2 driver was not generating correct scancodes sequences
-     * when 'alt+print' was pressed. This flaw is now fixed and the
-     * 'sysrq' key serves no further purpose. We normalize it to
-     * 'print', so that downstream receivers of the event don't
-     * need to deal with this mistake
-     */
     if (evt->type == INPUT_EVENT_KIND_KEY &&
         evt->u.key.data->key->u.qcode.data == Q_KEY_CODE_SYSRQ) {
         evt->u.key.data->key->u.qcode.data = Q_KEY_CODE_PRINT;

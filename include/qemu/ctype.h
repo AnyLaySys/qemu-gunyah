@@ -1,9 +1,3 @@
-/*
- * QEMU TCG support
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef QEMU_CTYPE_H
 #define QEMU_CTYPE_H

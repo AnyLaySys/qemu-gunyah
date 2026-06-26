@@ -1,12 +1,3 @@
-/*
- * EIF (Enclave Image Format) related helpers
- *
- * Copyright (c) 2024 Dorjoy Chowdhury <dorjoychy111@gmail.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/bswap.h"
@@ -20,7 +11,6 @@
 
 #define MAX_SECTIONS 32
 
-/* members are ordered according to field order in .eif file */
 typedef struct EifHeader {
     uint8_t  magic[4]; /* must be .eif in ascii i.e., [46, 101, 105, 102] */
     uint16_t version;
@@ -35,12 +25,7 @@ typedef struct EifHeader {
     uint32_t eif_crc32;
 } QEMU_PACKED EifHeader;
 
-/* members are ordered according to field order in .eif file */
 typedef struct EifSectionHeader {
-    /*
-     * 0 = invalid, 1 = kernel, 2 = cmdline, 3 = ramdisk, 4 = signature,
-     * 5 = metadata
-     */
     uint16_t section_type;
     uint16_t flags;
     uint64_t section_size;
@@ -103,7 +88,6 @@ static bool read_eif_header(FILE *f, EifHeader *header, uint32_t *crc,
         return false;
     }
 
-    /* Exclude header->eif_crc32 field from CRC calculation */
     *crc = crc32(*crc, (uint8_t *)header, header_size - 4);
 
     header->version = be16_to_cpu(header->version);
@@ -150,9 +134,6 @@ static bool read_eif_section_header(FILE *f, EifSectionHeader *section_header,
     return true;
 }
 
-/*
- * Upon success, the caller is responsible for unlinking and freeing *tmp_path.
- */
 static bool get_tmp_file(const char *template, char **tmp_path, Error **errp)
 {
     int tmp_fd;
@@ -183,9 +164,6 @@ static void safe_unlink(char *f)
     }
 }
 
-/*
- * Upon success, the caller is reponsible for unlinking and freeing *kernel_path
- */
 static bool read_eif_kernel(FILE *f, uint64_t size, char **kernel_path,
                             QCryptoHash *hash0, QCryptoHash *hash1,
                             uint32_t *crc, Error **errp)
@@ -399,7 +377,6 @@ static bool get_signature_fingerprint_sha384(FILE *eif, uint64_t size,
     return ret;
 }
 
-/* Expects file to have offset 0 before this function is called */
 static long get_file_size(FILE *f, Error **errp)
 {
     long size;
@@ -429,10 +406,6 @@ static bool get_SHA384_hash(QCryptoHash *h, uint8_t *hash, Error **errp)
     return qcrypto_hash_finalize_bytes(h, &hash, &hash_len, errp) == 0;
 }
 
-/*
- * Upon success, the caller is reponsible for unlinking and freeing
- * *kernel_path, *initrd_path and freeing *cmdline.
- */
 bool read_eif_file(const char *eif_path, const char *machine_initrd,
                    char **kernel_path, char **initrd_path, char **cmdline,
                    uint8_t *image_hash, uint8_t *bootstrap_hash,
@@ -446,11 +419,8 @@ bool read_eif_file(const char *eif_path, const char *machine_initrd,
     uint32_t crc = 0;
     EifHeader eif_header;
     bool seen_sections[EIF_SECTION_MAX] = {false};
-    /* kernel + ramdisks + cmdline SHA384 hash */
     g_autoptr(QCryptoHash) hash0 = NULL;
-    /* kernel + boot ramdisk + cmdline SHA384 hash */
     g_autoptr(QCryptoHash) hash1 = NULL;
-    /* application ramdisk(s) SHA384 hash */
     g_autoptr(QCryptoHash) hash2 = NULL;
 
     *signature_found = false;
@@ -568,13 +538,6 @@ bool read_eif_file(const char *eif_path, const char *machine_initrd,
         {
             QCryptoHash *h = hash2;
             if (!seen_sections[EIF_SECTION_RAMDISK]) {
-                /*
-                 * If this is the first time we are seeing a ramdisk section,
-                 * we need to:
-                 * 1) hash it into bootstrap (hash1) instead of app (hash2)
-                 *    along with image (hash0)
-                 * 2) create the initrd temporary file.
-                 */
                 h = hash1;
                 if (!get_tmp_file("eif-initrd-XXXXXX", initrd_path, errp)) {
                     goto cleanup;
@@ -603,7 +566,6 @@ bool read_eif_file(const char *eif_path, const char *machine_initrd,
             }
             break;
         default:
-            /* other sections including invalid or unknown sections */
         {
             uint8_t *buf;
             size_t got;
@@ -650,11 +612,6 @@ bool read_eif_file(const char *eif_path, const char *machine_initrd,
         goto cleanup;
     }
 
-    /*
-     * Let's append the initrd file from "-initrd" option if any. Although
-     * we pass the crc pointer to read_eif_ramdisk, it is not useful anymore.
-     * We have already done the crc mismatch check above this code.
-     */
     if (machine_initrd) {
         machine_initrd_f = fopen(machine_initrd, "rb");
         if (machine_initrd_f == NULL) {

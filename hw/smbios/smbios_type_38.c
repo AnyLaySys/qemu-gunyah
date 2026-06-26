@@ -1,18 +1,9 @@
-/*
- * IPMI SMBIOS firmware handling
- *
- * Copyright (c) 2015,2016 Corey Minyard, MontaVista Software, LLC
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "hw/firmware/smbios.h"
 #include "qemu/error-report.h"
 #include "smbios_build.h"
 
-/* SMBIOS type 38 - IPMI */
 struct smbios_type_38 {
     struct smbios_structure_header header;
     uint8_t interface_type;
@@ -38,7 +29,6 @@ static void smbios_build_one_type_38(IPMIFwInfo *info)
     assert(info->ipmi_spec_minor_revision <= 15);
     assert(info->ipmi_spec_major_revision <= 15);
 
-    /* or 1 to set it to I/O space */
     switch (info->memspace) {
     case IPMI_MEMSPACE_IO:
         baseaddr |= 1;

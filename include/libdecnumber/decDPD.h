@@ -1,65 +1,6 @@
-/* Conversion lookup tables for the decNumber C Library.
-   Copyright (C) 2007 Free Software Foundation, Inc.
-   Contributed by IBM Corporation.  Author Mike Cowlishaw.
-
-   This file is part of GCC.
-
-   GCC is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
-
-   In addition to the permissions in the GNU General Public License,
-   the Free Software Foundation gives you unlimited permission to link
-   the compiled version of this file into combinations with other
-   programs, and to distribute those combinations without any
-   restriction coming from the use of this file.  (The General Public
-   License restrictions do apply in other respects; for example, they
-   cover modification of the file, and distribution when not linked
-   into a combine executable.)
-
-   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
-
-/* ------------------------------------------------------------------------ */
-/* Binary Coded Decimal and Densely Packed Decimal conversion lookup tables */
-/* [Automatically generated -- do not edit.  2007.05.05]		    */
-/* ------------------------------------------------------------------------ */
-/* ------------------------------------------------------------------------ */
-/* For details, see: http://www2.hursley.ibm.com/decimal/DPDecimal.html	    */
 
 
-/* This include file defines several DPD and BCD conversion tables:	    */
-/*									    */
-/*   uint16_t BCD2DPD[2458];	 -- BCD -> DPD (0x999 => 2457)		    */
-/*   uint16_t BIN2DPD[1000];	 -- Bin -> DPD (999 => 2457)		    */
-/*   uint8_t  BIN2CHAR[4001];	 -- Bin -> CHAR (999 => '\3' '9' '9' '9')   */
-/*   uint8_t  BIN2BCD8[4000];	 -- Bin -> bytes (999 => 9 9 9 3)	    */
-/*   uint16_t DPD2BCD[1024];	 -- DPD -> BCD (0x3FF => 0x999)		    */
-/*   uint16_t DPD2BIN[1024];	 -- DPD -> BIN (0x3FF => 999)		    */
-/*   uint32_t DPD2BINK[1024];	 -- DPD -> BIN * 1000 (0x3FF => 999000)	    */
-/*   uint32_t DPD2BINM[1024];	 -- DPD -> BIN * 1E+6 (0x3FF => 999000000)  */
-/*   uint8_t  DPD2BCD8[4096];	 -- DPD -> bytes (x3FF => 9 9 9 3)	    */
-/*									    */
-/* In all cases the result (10 bits or 12 bits, or binary) is right-aligned */
-/* in the table entry.	BIN2CHAR entries are a single byte length (0 for    */
-/* value 0) followed by three digit characters; a trailing terminator is    */
-/* included to allow 4-char moves always.  BIN2BCD8 and DPD2BCD8 entries    */
-/* are similar with the three BCD8 digits followed by a one-byte length	    */
-/* (again, length=0 for value 0).					    */
-/*									    */
-/* To use a table, its name, prefixed with DEC_, must be defined with a	    */
-/* value of 1 before this header file is included.  For example:	    */
-/*    #define DEC_BCD2DPD 1						    */
-/* This mechanism allows software to only include tables that are needed.   */
-/* ------------------------------------------------------------------------ */
+
 
 #if defined(DEC_BCD2DPD) && DEC_BCD2DPD==1 && !defined(DECBCD2DPD)
 #define DECBCD2DPD

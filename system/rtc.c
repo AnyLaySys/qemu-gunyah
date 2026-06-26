@@ -1,26 +1,3 @@
-/*
- * RTC configuration and clock read
- *
- * Copyright (c) 2003-2020 QEMU contributors
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -42,15 +19,12 @@ static int rtc_realtime_clock_offset; /* used only with QEMU_CLOCK_REALTIME */
 static int rtc_host_datetime_offset = -1; /* valid & used only with
                                              RTC_BASE_DATETIME */
 QEMUClockType rtc_clock;
-/***********************************************************/
-/* RTC reference time/date access */
 static time_t qemu_ref_timedate(QEMUClockType clock)
 {
     time_t value = qemu_clock_get_ms(clock) / 1000;
     switch (clock) {
     case QEMU_CLOCK_REALTIME:
         value -= rtc_realtime_clock_offset;
-        /* fall through */
     case QEMU_CLOCK_VIRTUAL:
         value += rtc_ref_start_datetime;
         break;
@@ -112,7 +86,6 @@ static void configure_rtc_base_datetime(const char *startdate)
 
     if (sscanf(startdate, "%d-%d-%dT%d:%d:%d", &tm.tm_year, &tm.tm_mon,
                &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6) {
-        /* OK */
     } else if (sscanf(startdate, "%d-%d-%d",
                       &tm.tm_year, &tm.tm_mon, &tm.tm_mday) == 3) {
         tm.tm_hour = 0;
@@ -139,7 +112,6 @@ void configure_rtc(QemuOpts *opts)
 {
     const char *value;
 
-    /* Set defaults */
     rtc_clock = QEMU_CLOCK_HOST;
     rtc_ref_start_datetime = qemu_clock_get_ms(QEMU_CLOCK_HOST) / 1000;
     rtc_realtime_clock_offset = qemu_clock_get_ms(QEMU_CLOCK_REALTIME) / 1000;
@@ -173,7 +145,6 @@ void configure_rtc(QemuOpts *opts)
         if (!strcmp(value, "slew")) {
             warn_report("driftfix 'slew' is not available with this machine");
         } else if (!strcmp(value, "none")) {
-            /* discard is default */
         } else {
             error_report("invalid option value '%s'", value);
             exit(1);

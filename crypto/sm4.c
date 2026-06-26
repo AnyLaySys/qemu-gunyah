@@ -1,13 +1,3 @@
-/*
- * QEMU crypto sm4 support
- *
- * Copyright (C) 2013 - 2018 Linaro Ltd <ard.biesheuvel@linaro.org>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "crypto/sm4.h"

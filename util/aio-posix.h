@@ -1,18 +1,3 @@
-/*
- * AioContext POSIX event loop implementation internal APIs
- *
- * Copyright IBM, Corp. 2008
- * Copyright Red Hat, Inc. 2020
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #ifndef AIO_POSIX_H
 #define AIO_POSIX_H
@@ -41,7 +26,6 @@ struct AioHandler {
     AioPolledEvent poll;
 };
 
-/* Add a handler to a ready list */
 void aio_add_ready_handler(AioHandlerList *ready_list, AioHandler *node,
                            int revents);
 

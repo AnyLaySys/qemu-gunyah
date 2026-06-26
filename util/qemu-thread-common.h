@@ -1,14 +1,3 @@
-/*
- * Common qemu-thread implementation header file.
- *
- * Copyright Red Hat, Inc. 2018
- *
- * Authors:
- *  Peter Xu <peterx@redhat.com>,
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef QEMU_THREAD_COMMON_H
 #define QEMU_THREAD_COMMON_H

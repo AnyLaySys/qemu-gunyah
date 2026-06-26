@@ -1,10 +1,3 @@
-/*
- *  Self-announce
- *  (c) 2017-2019 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -33,10 +26,6 @@ int64_t qemu_announce_timer_step(AnnounceTimer *timer)
     return step;
 }
 
-/*
- * If 'free_named' is true, then remove the timer from the list
- * and free the timer itself.
- */
 void qemu_announce_timer_del(AnnounceTimer *timer, bool free_named)
 {
     bool free_timer = false;
@@ -48,10 +37,6 @@ void qemu_announce_timer_del(AnnounceTimer *timer, bool free_named)
     timer->params.interfaces = NULL;
     if (free_named && timer->params.id) {
         AnnounceTimer *list_timer;
-        /*
-         * Sanity check: There should only be one timer on the list with
-         * the id.
-         */
         list_timer = g_datalist_get_data(&named_timers, timer->params.id);
         assert(timer == list_timer);
         free_timer = true;
@@ -66,20 +51,12 @@ void qemu_announce_timer_del(AnnounceTimer *timer, bool free_named)
     }
 }
 
-/*
- * Under BQL/main thread
- * Reset the timer to the given parameters/type/notifier.
- */
 void qemu_announce_timer_reset(AnnounceTimer *timer,
                                AnnounceParameters *params,
                                QEMUClockType type,
                                QEMUTimerCB *cb,
                                void *opaque)
 {
-    /*
-     * We're under the BQL, so the current timer can't
-     * be firing, so we should be able to delete it.
-     */
     qemu_announce_timer_del(timer, false);
 
     QAPI_CLONE_MEMBERS(AnnounceParameters, &timer->params, params);
@@ -98,12 +75,10 @@ void qemu_announce_timer_reset(AnnounceTimer *timer,
 static int announce_self_create(uint8_t *buf,
                                 uint8_t *mac_addr)
 {
-    /* Ethernet header. */
     memset(buf, 0xff, 6);         /* destination MAC addr */
     memcpy(buf + 6, mac_addr, 6); /* source MAC addr */
     *(uint16_t *)(buf + 12) = htons(ETH_P_RARP); /* ethertype */
 
-    /* RARP header. */
     *(uint16_t *)(buf + 14) = htons(ARP_HTYPE_ETH); /* hardware addr space */
     *(uint16_t *)(buf + 16) = htons(ARP_PTYPE_IP); /* protocol addr space */
     *(buf + 18) = 6; /* hardware addr length (ethernet) */
@@ -114,15 +89,11 @@ static int announce_self_create(uint8_t *buf,
     memcpy(buf + 32, mac_addr, 6); /* target hw addr */
     memset(buf + 38, 0x00, 4);     /* target protocol addr */
 
-    /* Padding to get up to 60 bytes (ethernet min packet size, minus FCS). */
     memset(buf + 42, 0x00, 18);
 
     return 60; /* len (FCS will be added by hardware) */
 }
 
-/*
- * Helper to print ethernet mac address
- */
 static const char *qemu_ether_ntoa(const MACAddr *mac)
 {
     static char ret[18];
@@ -142,12 +113,10 @@ static void qemu_announce_self_iter(NICState *nic, void *opaque)
 
     if (timer->params.has_interfaces) {
         strList *entry = timer->params.interfaces;
-        /* Skip unless we find our name in the requested list */
         skip = true;
 
         while (entry) {
             if (!strcmp(entry->value, nic->ncs->name)) {
-                /* Found us */
                 skip = false;
                 break;
             }
@@ -166,7 +135,6 @@ static void qemu_announce_self_iter(NICState *nic, void *opaque)
 
         qemu_send_packet_raw(qemu_get_queue(nic), buf, len);
 
-        /* if the NIC provides it's own announcement support, use it as well */
         if (nic->ncs->info->announce) {
             nic->ncs->info->announce(nic->ncs);
         }

@@ -379,7 +379,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
 
         aml_append(cpu_ctrl_dev, aml_name_decl("_CRS", crs));
 
-        /* declare CPU hotplug MMIO region with related access fields */
         aml_append(cpu_ctrl_dev,
             aml_operation_region("PRST", rs, aml_int(base_addr),
                                  ACPI_CPU_HOTPLUG_REG_LEN));
@@ -387,34 +386,23 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
         field = aml_field("PRST", AML_BYTE_ACC, AML_NOLOCK,
                           AML_WRITE_AS_ZEROS);
         aml_append(field, aml_reserved_field(ACPI_CPU_FLAGS_OFFSET_RW * 8));
-        /* 1 if enabled, read only */
         aml_append(field, aml_named_field(CPU_ENABLED, 1));
-        /* (read) 1 if has a insert event. (write) 1 to clear event */
         aml_append(field, aml_named_field(CPU_INSERT_EVENT, 1));
-        /* (read) 1 if has a remove event. (write) 1 to clear event */
         aml_append(field, aml_named_field(CPU_REMOVE_EVENT, 1));
-        /* initiates device eject, write only */
         aml_append(field, aml_named_field(CPU_EJECT_EVENT, 1));
-        /* tell firmware to do device eject, write only */
         aml_append(field, aml_named_field(CPU_FW_EJECT_EVENT, 1));
         aml_append(field, aml_reserved_field(3));
         aml_append(field, aml_named_field(CPU_COMMAND, 8));
         aml_append(cpu_ctrl_dev, field);
 
         field = aml_field("PRST", AML_DWORD_ACC, AML_NOLOCK, AML_PRESERVE);
-        /* CPU selector, write only */
         aml_append(field, aml_named_field(CPU_SELECTOR, 32));
-        /* flags + cmd + 2byte align */
         aml_append(field, aml_reserved_field(4 * 8));
         aml_append(field, aml_named_field(CPU_DATA, 32));
         aml_append(cpu_ctrl_dev, field);
 
         if (opts.has_legacy_cphp) {
             method = aml_method("_INI", 0, AML_SERIALIZED);
-            /* switch off legacy CPU hotplug HW and use new one,
-             * on reboot system is in new mode and writing 0
-             * in CPU_SELECTOR selects BSP, which is NOP at
-             * the time _INI is called */
             aml_append(method, aml_store(zero, aml_name(CPU_SELECTOR)));
             aml_append(cpu_ctrl_dev, method);
         }
@@ -504,15 +492,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
 
             aml_append(method, aml_acquire(ctrl_lock, 0xFFFF));
 
-            /*
-             * Windows versions newer than XP (including Windows 10/Windows
-             * Server 2019), do support* VarPackageOp but, it is cripled to hold
-             * the same elements number as old PackageOp.
-             * For compatibility with Windows XP (so it won't crash) use ACPI1.0
-             * PackageOp which can hold max 255 elements.
-             *
-             * use named package as old Windows don't support it in local var
-             */
             aml_append(method, aml_name_decl(CPU_ADDED_LIST,
                                              aml_package(max_cpus_per_pass)));
             aml_append(method, aml_name_decl(CPU_EJ_LIST,
@@ -520,11 +499,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
 
             aml_append(method, aml_store(zero, uid));
             aml_append(method, aml_store(one, has_job));
-            /*
-             * CPU_ADDED_LIST can hold limited number of elements, outer loop
-             * allows to process CPUs in batches which let us to handle more
-             * CPUs than CPU_ADDED_LIST can hold.
-             */
             while_ctx2 = aml_while(aml_equal(has_job, one));
             {
                 aml_append(while_ctx2, aml_store(zero, has_job));
@@ -533,37 +507,20 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                 aml_append(while_ctx2, aml_store(zero, num_added_cpus));
                 aml_append(while_ctx2, aml_store(zero, num_ej_cpus));
 
-                /*
-                 * Scan CPUs, till there are CPUs with events or
-                 * CPU_ADDED_LIST capacity is exhausted
-                 */
                 while_ctx = aml_while(aml_land(aml_equal(has_event, one),
                                       aml_lless(uid, aml_int(arch_ids->len))));
                 {
-                     /*
-                      * clear loop exit condition, ins_evt/rm_evt checks will
-                      * set it to 1 while next_cpu_cmd returns a CPU with events
-                      */
                      aml_append(while_ctx, aml_store(zero, has_event));
 
                      aml_append(while_ctx, aml_store(uid, cpu_selector));
                      aml_append(while_ctx, aml_store(next_cpu_cmd, cpu_cmd));
 
-                     /*
-                      * wrap around case, scan is complete, exit loop.
-                      * It happens since events are not cleared in scan loop,
-                      * so next_cpu_cmd continues to find already processed CPUs
-                      */
                      ifctx = aml_if(aml_lless(cpu_data, uid));
                      {
                          aml_append(ifctx, aml_break());
                      }
                      aml_append(while_ctx, ifctx);
 
-                     /*
-                      * if CPU_ADDED_LIST is full, exit inner loop and process
-                      * collected CPUs
-                      */
                      ifctx = aml_if(aml_lor(
                          aml_equal(num_added_cpus, aml_int(max_cpus_per_pass)),
                          aml_equal(num_ej_cpus, aml_int(max_cpus_per_pass))
@@ -577,7 +534,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                      aml_append(while_ctx, aml_store(cpu_data, uid));
                      ifctx = aml_if(aml_equal(ins_evt, one));
                      {
-                         /* cache added CPUs to Notify/Wakeup later */
                          aml_append(ifctx, aml_store(uid,
                              aml_index(new_cpus, num_added_cpus)));
                          aml_append(ifctx, aml_increment(num_added_cpus));
@@ -587,7 +543,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
 
                      ifctx = aml_if(aml_equal(rm_evt, one));
                      {
-                         /* cache to be removed CPUs to Notify later */
                          aml_append(ifctx, aml_store(uid,
                              aml_index(ej_cpus, num_ej_cpus)));
                          aml_append(ifctx, aml_increment(num_ej_cpus));
@@ -598,11 +553,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                 }
                 aml_append(while_ctx2, while_ctx);
 
-                /*
-                 * in case FW negotiated ICH9_LPC_SMI_F_CPU_HOTPLUG_BIT,
-                 * make upcall to FW, so it can pull in new CPUs before
-                 * OS is notified and wakes them up
-                 */
                 if (opts.smi_path) {
                     ifctx = aml_if(aml_lgreater(num_added_cpus, zero));
                     {
@@ -612,7 +562,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                     aml_append(while_ctx2, ifctx);
                 }
 
-                /* Notify OSPM about new CPUs and clear insert events */
                 aml_append(while_ctx2, aml_store(zero, cpu_idx));
                 while_ctx = aml_while(aml_lless(cpu_idx, num_added_cpus));
                 {
@@ -628,9 +577,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                 }
                 aml_append(while_ctx2, while_ctx);
 
-                /*
-                 * Notify OSPM about to be removed CPUs and clear remove flag
-                 */
                 aml_append(while_ctx2, aml_store(zero, cpu_idx));
                 while_ctx = aml_while(aml_lless(cpu_idx, num_ej_cpus));
                 {
@@ -645,15 +591,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                 }
                 aml_append(while_ctx2, while_ctx);
 
-                /*
-                 * If another batch is needed, then it will resume scanning
-                 * exactly at -- and not after -- the last CPU that's currently
-                 * in CPU_ADDED_LIST. In other words, the last CPU in
-                 * CPU_ADDED_LIST is going to be re-checked. That's OK: we've
-                 * just cleared the insert event for *all* CPUs in
-                 * CPU_ADDED_LIST, including the last one. So the scan will
-                 * simply seek past it.
-                 */
             }
             aml_append(method, while_ctx2);
             aml_append(method, aml_release(ctrl_lock));
@@ -676,7 +613,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
         }
         aml_append(cpus_dev, method);
 
-        /* build Processor object for each processor */
         for (i = 0; i < arch_ids->len; i++) {
             Aml *dev;
             Aml *uid = aml_int(i);
@@ -695,7 +631,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
             aml_append(method, aml_return(aml_call1(CPU_STS_METHOD, uid)));
             aml_append(dev, method);
 
-            /* build _MAT object */
             build_madt_cpu(i, arch_ids, madt_buf, true); /* set enabled flag */
             aml_append(dev, aml_name_decl("_MAT",
                 aml_buffer(madt_buf->len, (uint8_t *)madt_buf->data)));
@@ -714,10 +649,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
             );
             aml_append(dev, method);
 
-            /* Linux guests discard SRAT info for non-present CPUs
-             * as a result _PXM is required for all CPUs which might
-             * be hot-plugged. For simplicity, add it for all CPUs.
-             */
             if (arch_ids->cpus[i].props.has_node_id) {
                 aml_append(dev, aml_name_decl("_PXM",
                            aml_int(arch_ids->cpus[i].props.node_id)));

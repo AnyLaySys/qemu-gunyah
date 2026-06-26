@@ -1,16 +1,3 @@
-/*
- * Virtio Support
- *
- * Copyright IBM, Corp. 2007-2008
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *  Rusty Russell     <rusty@rustcorp.com.au>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- */
 
 #ifndef QEMU_VIRTIO_BALLOON_H
 #define QEMU_VIRTIO_BALLOON_H
@@ -54,16 +41,8 @@ struct VirtIOBalloon {
     QEMUTimer *stats_timer;
     IOThread *iothread;
     QEMUBH *free_page_bh;
-    /*
-     * Lock to synchronize threads to access the free page reporting related
-     * fields (e.g. free_page_hint_status).
-     */
     QemuMutex free_page_lock;
     QemuCond  free_page_cond;
-    /*
-     * Set to block iothread to continue reading free page hints as the VM is
-     * stopped.
-     */
     bool block_iothread;
     NotifierWithReturn free_page_hint_notify;
     int64_t stats_last_update;
@@ -73,7 +52,6 @@ struct VirtIOBalloon {
     bool qemu_4_0_config_size;
     uint32_t poison_val;
 
-    /* State of the resettable container */
     ResettableState reset_state;
 };
 

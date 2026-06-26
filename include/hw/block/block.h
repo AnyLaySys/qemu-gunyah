@@ -1,12 +1,3 @@
-/*
- * Common code for block device models
- *
- * Copyright (C) 2012 Red Hat, Inc.
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #ifndef HW_BLOCK_H
 #define HW_BLOCK_H
@@ -15,7 +6,6 @@
 #include "qapi/qapi-types-block-core.h"
 #include "hw/qdev-properties-system.h"
 
-/* Configuration */
 
 typedef struct BlockConf {
     BlockBackend *blk;
@@ -26,7 +16,6 @@ typedef struct BlockConf {
     uint32_t opt_io_size;
     int32_t bootindex;
     uint32_t discard_granularity;
-    /* geometry, not all devices use this */
     uint32_t cyls, heads, secs;
     uint32_t lcyls, lheads, lsecs;
     OnOffAuto wce;
@@ -86,12 +75,10 @@ static inline unsigned int get_physical_block_exp(BlockConf *conf)
     DEFINE_PROP_BLOCKDEV_ON_ERROR("werror", _state, _conf.werror,       \
                                   BLOCKDEV_ON_ERROR_AUTO)
 
-/* Backend access helpers */
 
 bool blk_check_size_and_read_all(BlockBackend *blk, DeviceState *dev,
                                  void *buf, hwaddr size, Error **errp);
 
-/* Configuration helpers */
 
 bool blkconf_geometry(BlockConf *conf, int *trans,
                       unsigned cyls_max, unsigned heads_max, unsigned secs_max,
@@ -100,7 +87,6 @@ bool blkconf_blocksizes(BlockConf *conf, Error **errp);
 bool blkconf_apply_backend_options(BlockConf *conf, bool readonly,
                                    bool resizable, Error **errp);
 
-/* Hard disk geometry */
 
 void hd_geometry_guess(BlockBackend *blk,
                        uint32_t *pcyls, uint32_t *pheads, uint32_t *psecs,

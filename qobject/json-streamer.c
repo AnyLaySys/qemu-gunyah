@@ -1,15 +1,3 @@
-/*
- * JSON streaming support
- *
- * Copyright IBM, Corp. 2009
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -62,10 +50,6 @@ void json_message_process_token(JSONLexer *lexer, GString *input,
         break;
     }
 
-    /*
-     * Security consideration, we limit total memory allocated per object
-     * and the maximum recursion depth that a message can force.
-     */
     if (parser->token_size + input->len + 1 > MAX_TOKEN_SIZE) {
         error_setg(&err, "JSON token size limit exceeded");
         goto out_emit;

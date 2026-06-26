@@ -1,64 +1,4 @@
-/*
- *  Software MMU support (per-target)
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
-/*
- * Generate inline load/store functions for all MMU modes (typically
- * at least _user and _kernel) as well as _data versions, for all data
- * sizes.
- *
- * Used by target op helpers.
- *
- * The syntax for the accessors is:
- *
- * load:  cpu_ld{sign}{size}{end}_{mmusuffix}(env, ptr)
- *        cpu_ld{sign}{size}{end}_{mmusuffix}_ra(env, ptr, retaddr)
- *        cpu_ld{sign}{size}{end}_mmuidx_ra(env, ptr, mmu_idx, retaddr)
- *        cpu_ld{sign}{size}{end}_mmu(env, ptr, oi, retaddr)
- *
- * store: cpu_st{size}{end}_{mmusuffix}(env, ptr, val)
- *        cpu_st{size}{end}_{mmusuffix}_ra(env, ptr, val, retaddr)
- *        cpu_st{size}{end}_mmuidx_ra(env, ptr, val, mmu_idx, retaddr)
- *        cpu_st{size}{end}_mmu(env, ptr, val, oi, retaddr)
- *
- * sign is:
- * (empty): for 32 and 64 bit sizes
- *   u    : unsigned
- *   s    : signed
- *
- * size is:
- *   b: 8 bits
- *   w: 16 bits
- *   l: 32 bits
- *   q: 64 bits
- *
- * end is:
- * (empty): for target native endian, or for 8 bit access
- *     _be: for forced big endian
- *     _le: for forced little endian
- *
- * mmusuffix is one of the generic suffixes "data" or "code", or "mmuidx".
- * The "mmuidx" suffix carries an extra mmu_idx argument that specifies
- * the index to use; the "data" and "code" suffixes take the index from
- * cpu_mmu_index().
- *
- * The "mmu" suffix carries the full MemOpIdx, with both mmu_idx and the
- * MemOp including alignment requirements.  The alignment will be enforced.
- */
 #ifndef CPU_LDST_H
 #define CPU_LDST_H
 
@@ -311,19 +251,6 @@ uint32_t cpu_lduw_code(CPUArchState *env, abi_ptr addr);
 uint32_t cpu_ldl_code(CPUArchState *env, abi_ptr addr);
 uint64_t cpu_ldq_code(CPUArchState *env, abi_ptr addr);
 
-/**
- * tlb_vaddr_to_host:
- * @env: CPUArchState
- * @addr: guest virtual address to look up
- * @access_type: 0 for read, 1 for write, 2 for execute
- * @mmu_idx: MMU index to use for lookup
- *
- * Look up the specified guest virtual index in the TCG softmmu TLB.
- * If we can translate a host virtual address suitable for direct RAM
- * access, without causing a guest exception, then return it.
- * Otherwise (TLB entry is for an I/O access, guest software
- * TLB fill required, etc) return NULL.
- */
 #ifdef CONFIG_USER_ONLY
 static inline void *tlb_vaddr_to_host(CPUArchState *env, abi_ptr addr,
                                       MMUAccessType access_type, int mmu_idx)
@@ -335,32 +262,17 @@ void *tlb_vaddr_to_host(CPUArchState *env, vaddr addr,
                         MMUAccessType access_type, int mmu_idx);
 #endif
 
-/*
- * For user-only, helpers that use guest to host address translation
- * must protect the actual host memory access by recording 'retaddr'
- * for the signal handler.  This is required for a race condition in
- * which another thread unmaps the page between a probe and the
- * actual access.
- */
 #ifdef CONFIG_USER_ONLY
 extern __thread uintptr_t helper_retaddr;
 
 static inline void set_helper_retaddr(uintptr_t ra)
 {
     helper_retaddr = ra;
-    /*
-     * Ensure that this write is visible to the SIGSEGV handler that
-     * may be invoked due to a subsequent invalid memory operation.
-     */
     signal_barrier();
 }
 
 static inline void clear_helper_retaddr(void)
 {
-    /*
-     * Ensure that previous memory operations have succeeded before
-     * removing the data visible to the signal handler.
-     */
     signal_barrier();
     helper_retaddr = 0;
 }

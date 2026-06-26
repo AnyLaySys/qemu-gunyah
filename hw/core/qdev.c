@@ -1,29 +1,4 @@
-/*
- *  Dynamic device configuration and creation.
- *
- *  Copyright (c) 2009 CodeSourcery
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
-/* The theory here is that it should be possible to create a machine without
-   knowledge of specific devices.  Historically board init routines have
-   passed a bunch of arguments to each device, requiring the board know
-   exactly which device it is dealing with.  This file provides an abstract
-   API for device configuration and initialization.  Devices will generally
-   inherit from a particular bus (e.g. PCI or I2C) rather than
-   this API directly.  */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -68,10 +43,8 @@ static void bus_remove_child(BusState *bus, DeviceState *child)
 
             bus->num_children--;
 
-            /* This gives back ownership of kid->child back to us.  */
             object_property_del(OBJECT(bus), name);
 
-            /* free the bus kid, when it is safe to do so*/
             call_rcu(kid, bus_free_bus_child, rcu);
             break;
         }
@@ -90,7 +63,6 @@ static void bus_add_child(BusState *bus, DeviceState *child)
 
     QTAILQ_INSERT_HEAD_RCU(&bus->children, kid, sibling);
 
-    /* This transfers ownership of kid->child to the property.  */
     snprintf(name, sizeof(name), "child[%d]", kid->index);
     object_property_add_link(OBJECT(bus), name,
                              object_get_typename(OBJECT(child)),
@@ -120,13 +92,6 @@ bool qdev_set_parent_bus(DeviceState *dev, BusState *bus, Error **errp)
         trace_qdev_update_parent_bus(dev, object_get_typename(OBJECT(dev)),
             old_parent_bus, object_get_typename(OBJECT(old_parent_bus)),
             OBJECT(bus), object_get_typename(OBJECT(bus)));
-        /*
-         * Keep a reference to the device while it's not plugged into
-         * any bus, to avoid it potentially evaporating when it is
-         * dereffed in bus_remove_child().
-         * Also keep the ref of the parent bus until the end, so that
-         * we can safely call resettable_change_parent() below.
-         */
         object_ref(OBJECT(dev));
         bus_remove_child(dev->parent_bus, dev);
     }
@@ -499,10 +464,6 @@ static void device_set_realized(Object *obj, bool value, Error **errp)
 
         DEVICE_LISTENER_CALL(realize, Forward, dev);
 
-        /*
-         * always free/re-initialize here since the value cannot be cleaned up
-         * in device_unrealize due to its usage later on in the unplug path
-         */
         g_free(dev->canonical_path);
         dev->canonical_path = object_get_canonical_path(OBJECT(dev));
         QLIST_FOREACH(ncl, &dev->clocks, node) {
@@ -524,10 +485,6 @@ static void device_set_realized(Object *obj, bool value, Error **errp)
             }
         }
 
-        /*
-         * Clear the reset state, in case the object was previously unrealized
-         * with a dirty state.
-         */
         resettable_state_clear(&dev->reset);
 
         QLIST_FOREACH(bus, &dev->child_bus, sibling) {
@@ -536,10 +493,6 @@ static void device_set_realized(Object *obj, bool value, Error **errp)
             }
         }
         if (dev->hotplugged) {
-            /*
-             * Reset the device, as well as its subtree which, at this point,
-             * should be realized too.
-             */
             resettable_assert_reset(OBJECT(dev), RESET_TYPE_COLD);
             resettable_change_parent(OBJECT(dev), OBJECT(dev->parent_bus),
                                      NULL);
@@ -558,19 +511,8 @@ static void device_set_realized(Object *obj, bool value, Error **errp)
 
     } else if (!value && dev->realized) {
 
-        /*
-         * Change the value so that any concurrent users are aware
-         * that the device is going to be unrealized
-         *
-         * TODO: change .realized property to enum that states
-         * each phase of the device realization/unrealization
-         */
 
         qatomic_set(&dev->realized, value);
-        /*
-         * Ensure that concurrent users see this update prior to
-         * any other changes done by unrealize.
-         */
         smp_wmb();
 
         QLIST_FOREACH(bus, &dev->child_bus, sibling) {
@@ -608,10 +550,6 @@ post_realize_fail:
 fail:
     error_propagate(errp, local_err);
     if (unattached_parent) {
-        /*
-         * Beware, this doesn't just revert
-         * object_property_add_child(), it also runs bus_remove()!
-         */
         object_unparent(OBJECT(dev));
         unattached_count--;
     }
@@ -652,15 +590,10 @@ static void device_initfn(Object *obj)
 
 static void device_post_init(Object *obj)
 {
-    /*
-     * Note: ordered so that the user's global properties take
-     * precedence.
-     */
     object_apply_compat_props(obj);
     qdev_prop_set_globals(DEVICE(obj));
 }
 
-/* Unlink device from bus and free the structure.  */
 static void device_finalize(Object *obj)
 {
     NamedGPIOList *ngl, *next;
@@ -674,14 +607,10 @@ static void device_finalize(Object *obj)
         qemu_free_irqs(ngl->in, ngl->num_in);
         g_free(ngl->name);
         g_free(ngl);
-        /* ngl->out irqs are owned by the other end and should not be freed
-         * here
-         */
     }
 
     qdev_finalize_clocklist(dev);
 
-    /* Only send event if the device had been completely realized */
     if (dev->pending_deleted_event) {
         g_assert(dev->canonical_path);
 
@@ -697,9 +626,6 @@ static void device_class_base_init(ObjectClass *class, void *data)
 {
     DeviceClass *klass = DEVICE_CLASS(class);
 
-    /* We explicitly look up properties in the superclasses,
-     * so do not propagate them to the subclasses.
-     */
     klass->props_ = NULL;
     klass->props_count_ = 0;
 }
@@ -739,24 +665,12 @@ static void device_class_init(ObjectClass *class, void *data)
 
     class->unparent = device_unparent;
 
-    /* by default all devices were considered as hotpluggable,
-     * so with intent to check it in generic qdev_unplug() /
-     * device_set_realized() functions make every device
-     * hotpluggable. Devices that shouldn't be hotpluggable,
-     * should override it in their class_init()
-     */
     dc->hotpluggable = true;
     dc->user_creatable = true;
     vc->get_id = device_vmstate_if_get_id;
     rc->get_state = device_get_reset_state;
     rc->child_foreach = device_reset_child_foreach;
 
-    /*
-     * A NULL legacy_reset implies a three-phase reset device. Devices can
-     * only be reset using three-phase aware mechanisms, but we still support
-     * for transitional purposes leaf classes which set the old legacy_reset
-     * method via device_class_set_legacy_reset().
-     */
     dc->legacy_reset = NULL;
 
     object_class_property_add_bool(class, "realized",
@@ -778,15 +692,6 @@ static void do_legacy_reset(Object *obj, ResetType type)
 
 void device_class_set_legacy_reset(DeviceClass *dc, DeviceReset dev_reset)
 {
-    /*
-     * A legacy DeviceClass::reset has identical semantics to the
-     * three-phase "hold" method, with no "enter" or "exit"
-     * behaviour. Classes that use this legacy function must be leaf
-     * classes that do not chain up to their parent class reset.
-     * There is no mechanism for resetting a device that does not
-     * use the three-phase APIs, so the only place which calls
-     * the legacy_reset hook is do_legacy_reset().
-     */
     ResettableClass *rc = RESETTABLE_CLASS(dc);
 
     rc->phases.enter = NULL;
@@ -817,10 +722,6 @@ Object *qdev_get_machine(void)
 
     if (dev == NULL) {
         dev = object_resolve_path_component(object_get_root(), "machine");
-        /*
-         * Any call to this function before machine is created is treated
-         * as a programming error as of now.
-         */
         assert(dev);
     }
 

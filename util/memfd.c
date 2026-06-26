@@ -1,29 +1,3 @@
-/*
- * memfd.c
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * QEMU library functions on POSIX which are shared between QEMU and
- * the QEMU tools.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 
@@ -99,19 +73,12 @@ err:
     return -1;
 }
 
-/*
- * This is a best-effort helper for shared memory allocation, with
- * optional sealing. The helper will do his best to allocate using
- * memfd with sealing, but may fallback on other methods without
- * sealing.
- */
 void *qemu_memfd_alloc(const char *name, size_t size, unsigned int seals,
                        int *fd, Error **errp)
 {
     void *ptr;
     int mfd = qemu_memfd_create(name, size, false, 0, seals, NULL);
 
-    /* some systems have memfd without sealing */
     if (mfd == -1) {
         mfd = qemu_memfd_create(name, size, false, 0, 0, NULL);
     }
@@ -168,12 +135,6 @@ enum {
     MEMFD_TODO
 };
 
-/**
- * qemu_memfd_alloc_check():
- *
- * Check if qemu_memfd_alloc() can allocate, including using a
- * fallback implementation when host doesn't support memfd.
- */
 bool qemu_memfd_alloc_check(void)
 {
     static int memfd_check = MEMFD_TODO;
@@ -191,11 +152,6 @@ bool qemu_memfd_alloc_check(void)
     return memfd_check == MEMFD_OK;
 }
 
-/**
- * qemu_memfd_check():
- *
- * Check if host supports memfd.  Cache the answer for the common case flags=0.
- */
 bool qemu_memfd_check(unsigned int flags)
 {
 #ifdef CONFIG_LINUX

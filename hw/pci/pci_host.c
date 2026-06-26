@@ -1,22 +1,3 @@
-/*
- * pci_host.c
- *
- * Copyright (c) 2009 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/pci/pci.h"
@@ -28,8 +9,6 @@
 #include "migration/vmstate.h"
 #include "trace.h"
 
-/* debug PCI */
-//#define DEBUG_PCI
 
 #ifdef DEBUG_PCI
 #define PCI_DPRINTF(fmt, ...) \
@@ -38,14 +17,7 @@ do { printf("pci_host_data: " fmt , ## __VA_ARGS__); } while (0)
 #define PCI_DPRINTF(fmt, ...)
 #endif
 
-/*
- * PCI address
- * bit 16 - 24: bus number
- * bit  8 - 15: devfun number
- * bit  0 -  7: offset in configuration space of a given pci device
- */
 
-/* the helper function to get a PCIDevice* for a given pci address */
 static inline PCIDevice *pci_dev_find_by_addr(PCIBus *bus, uint32_t addr)
 {
     uint8_t bus_num = addr >> 16;
@@ -64,11 +36,6 @@ static void pci_adjust_config_limit(PCIBus *bus, uint32_t *limit)
 
 static bool is_pci_dev_ejected(PCIDevice *pci_dev)
 {
-    /*
-     * device unplug was requested and the guest acked it,
-     * so we stop responding config accesses even if the
-     * device is not deleted (failover flow)
-     */
     return pci_dev && pci_dev->partially_hotplugged &&
            !pci_dev->qdev.pending_deleted_event;
 }
@@ -82,9 +49,6 @@ void pci_host_config_write_common(PCIDevice *pci_dev, uint32_t addr,
     }
 
     assert(len <= 4);
-    /* non-zero functions are only exposed when function 0 is present,
-     * allowing direct removal of unexposed functions.
-     */
     if ((pci_dev->qdev.hotplugged && !pci_get_function_0(pci_dev)) ||
         !pci_dev->enabled || is_pci_dev_ejected(pci_dev)) {
         return;
@@ -107,9 +71,6 @@ uint32_t pci_host_config_read_common(PCIDevice *pci_dev, uint32_t addr,
     }
 
     assert(len <= 4);
-    /* non-zero functions are only exposed when function 0 is present,
-     * allowing direct removal of unexposed functions.
-     */
     if ((pci_dev->qdev.hotplugged && !pci_get_function_0(pci_dev)) ||
         !pci_dev->enabled || is_pci_dev_ejected(pci_dev)) {
         return ~0x0;

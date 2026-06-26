@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "chardev/char.h"
@@ -104,7 +81,6 @@ static void tcp_chr_accept(QIONetListener *listener,
 static int tcp_chr_read_poll(void *opaque);
 static void tcp_chr_disconnect_locked(Chardev *chr);
 
-/* Called with chr_write_lock held.  */
 static int tcp_chr_write(Chardev *chr, const uint8_t *buf, int len)
 {
     SocketChardev *s = SOCKET_CHARDEV(chr);
@@ -114,9 +90,6 @@ static int tcp_chr_write(Chardev *chr, const uint8_t *buf, int len)
                                         s->write_msgfds,
                                         s->write_msgfds_num);
 
-        /* free the written msgfds in any cases
-         * other than ret < 0 && errno == EAGAIN
-         */
         if (!(ret < 0 && EAGAIN == errno)
             && s->write_msgfds_num) {
             g_free(s->write_msgfds);
@@ -126,7 +99,6 @@ static int tcp_chr_write(Chardev *chr, const uint8_t *buf, int len)
 
         if (ret < 0 && errno != EAGAIN) {
             if (tcp_chr_read_poll(chr) <= 0) {
-                /* Perform disconnect and return error. */
                 trace_chr_socket_poll_err(chr, chr->label);
                 tcp_chr_disconnect_locked(chr);
             } /* else let the read handler finish it properly */
@@ -134,7 +106,6 @@ static int tcp_chr_write(Chardev *chr, const uint8_t *buf, int len)
 
         return ret;
     } else {
-        /* Indicate an error. */
         errno = EIO;
         return -1;
     }
@@ -155,22 +126,6 @@ static void tcp_chr_process_IAC_bytes(Chardev *chr,
                                       SocketChardev *s,
                                       uint8_t *buf, int *size)
 {
-    /* Handle any telnet or tn3270 client's basic IAC options.
-     * For telnet options, it satisfies char by char mode with no echo.
-     * For tn3270 options, it satisfies binary mode with EOR.
-     * All IAC options will be removed from the buf and the do_opt
-     * pointer will be used to track the state of the width of the
-     * IAC information.
-     *
-     * RFC854: "All TELNET commands consist of at least a two byte sequence.
-     * The commands dealing with option negotiation are three byte sequences,
-     * the third byte being the code for the option referenced."
-     * "IAC BREAK", "IAC IP", "IAC NOP" and the double IAC are two bytes.
-     * "IAC SB", "IAC SE" and "IAC EOR" are saved to split up data boundary
-     * for tn3270.
-     * NOP, Break and Interrupt Process(IP) might be encountered during a TN3270
-     * session, and NOP and IP need to be done later.
-     */
 
     int i;
     int j = 0;
@@ -178,7 +133,6 @@ static void tcp_chr_process_IAC_bytes(Chardev *chr,
     for (i = 0; i < *size; i++) {
         if (s->do_telnetopt > 1) {
             if ((unsigned char)buf[i] == IAC && s->do_telnetopt == 2) {
-                /* Double IAC means send an IAC */
                 if (j != i) {
                     buf[j] = buf[i];
                 }
@@ -187,7 +141,6 @@ static void tcp_chr_process_IAC_bytes(Chardev *chr,
             } else {
                 if ((unsigned char)buf[i] == IAC_BREAK
                     && s->do_telnetopt == 2) {
-                    /* Handle IAC break commands by sending a serial break */
                     qemu_chr_be_event(chr, CHR_EVENT_BREAK);
                     s->do_telnetopt++;
                 } else if (s->is_tn3270 && ((unsigned char)buf[i] == IAC_EOR
@@ -200,7 +153,6 @@ static void tcp_chr_process_IAC_bytes(Chardev *chr,
                 } else if (s->is_tn3270 && ((unsigned char)buf[i] == IAC_IP
                            || (unsigned char)buf[i] == IAC_NOP)
                            && s->do_telnetopt == 2) {
-                    /* TODO: IP and NOP need to be implemented later. */
                     s->do_telnetopt++;
                 }
                 s->do_telnetopt++;
@@ -235,7 +187,6 @@ static int tcp_get_msgfds(Chardev *chr, int *fds, int num)
 
         memcpy(fds, s->read_msgfds, to_copy * sizeof(int));
 
-        /* Close unused fds */
         for (i = to_copy; i < s->read_msgfds_num; i++) {
             close(s->read_msgfds[i]);
         }
@@ -252,7 +203,6 @@ static int tcp_set_msgfds(Chardev *chr, int *fds, int num)
 {
     SocketChardev *s = SOCKET_CHARDEV(chr);
 
-    /* clear old pending fd array */
     g_free(s->write_msgfds);
     s->write_msgfds = NULL;
     s->write_msgfds_num = 0;
@@ -294,7 +244,6 @@ static ssize_t tcp_chr_recv(Chardev *chr, char *buf, size_t len)
     }
 
     if (msgfds_num) {
-        /* close and clean read_msgfds */
         for (i = 0; i < s->read_msgfds_num; i++) {
             close(s->read_msgfds[i]);
         }
@@ -313,7 +262,6 @@ static ssize_t tcp_chr_recv(Chardev *chr, char *buf, size_t len)
             continue;
         }
 
-        /* O_NONBLOCK is preserved across SCM_RIGHTS so reset it */
         qemu_socket_set_block(fd);
 
 #ifndef MSG_CMSG_CLOEXEC
@@ -460,11 +408,6 @@ static void update_disconnected_filename(SocketChardev *s)
     }
 }
 
-/* NB may be called even if tcp_chr_connect has not been
- * reached, due to TLS or telnet initialization failure,
- * so can *not* assume s->state == TCP_CHARDEV_STATE_CONNECTED
- * This must be called with chr->chr_write_lock held.
- */
 static void tcp_chr_disconnect_locked(Chardev *chr)
 {
     SocketChardev *s = SOCKET_CHARDEV(chr);
@@ -510,7 +453,6 @@ static gboolean tcp_chr_read(QIOChannel *chan, GIOCondition cond, void *opaque)
     }
     size = tcp_chr_recv(chr, (void *)buf, len);
     if (size == 0 || (size == -1 && errno != EAGAIN)) {
-        /* connection closed */
         tcp_chr_disconnect(chr);
     } else if (size > 0) {
         if (s->do_telnetopt) {
@@ -551,7 +493,6 @@ static int tcp_chr_sync_read(Chardev *chr, const uint8_t *buf, int len)
         qio_channel_set_blocking(s->ioc, false, NULL);
     }
     if (size == 0) {
-        /* connection closed */
         tcp_chr_disconnect(chr);
     }
 
@@ -581,7 +522,6 @@ static char *qemu_chr_compute_filename(SocketChardev *s)
     case AF_INET6:
         left  = "[";
         right = "]";
-        /* fall through */
     case AF_INET:
         getnameinfo((struct sockaddr *) ss, ss_len, shost, sizeof(shost),
                     sserv, sizeof(sserv), NI_NUMERICHOST | NI_NUMERICSERV);
@@ -614,21 +554,6 @@ static void update_ioc_handlers(SocketChardev *s)
 
     remove_hup_source(s);
     s->hup_source = qio_channel_create_watch(s->ioc, G_IO_HUP);
-    /*
-     * poll() is liable to return POLLHUP even when there is
-     * still incoming data available to read on the FD. If
-     * we have the hup_source at the same priority as the
-     * main io_add_watch_poll GSource, then we might end up
-     * processing the POLLHUP event first, closing the FD,
-     * and as a result silently discard data we should have
-     * read.
-     *
-     * By setting the hup_source to G_PRIORITY_DEFAULT + 1,
-     * we ensure that io_add_watch_poll GSource will always
-     * be dispatched first, thus guaranteeing we will be
-     * able to process all incoming data before closing the
-     * FD
-     */
     g_source_set_priority(s->hup_source, G_PRIORITY_DEFAULT + 1);
     g_source_set_callback(s->hup_source, (GSourceFunc)tcp_chr_hup,
                           chr, NULL);
@@ -662,11 +587,6 @@ static void tcp_chr_update_read_handler(Chardev *chr)
     SocketChardev *s = SOCKET_CHARDEV(chr);
 
     if (s->listener && s->state == TCP_CHARDEV_STATE_DISCONNECTED) {
-        /*
-         * It's possible that chardev context is changed in
-         * qemu_chr_be_update_read_handlers().  Reset it for QIO net
-         * listener if there is.
-         */
         qio_net_listener_set_client_func_full(s->listener, tcp_chr_accept,
                                               chr, NULL, chr->gcontext);
     }
@@ -726,11 +646,9 @@ static void tcp_chr_telnet_init(Chardev *chr)
     TCPChardevTelnetInit *init;
     size_t n = 0;
 
-    /* Destroy existing task */
     tcp_chr_telnet_destroy(s);
 
     if (s->telnet_init) {
-        /* We are possibly during a handshake already */
         goto cont;
     }
 
@@ -746,15 +664,12 @@ static void tcp_chr_telnet_init(Chardev *chr)
 
     if (!s->is_tn3270) {
         init->buflen = 12;
-        /* Prep the telnet negotiation to put telnet in binary,
-         * no echo, single char mode */
         IACSET(init->buf, 0xff, 0xfb, 0x01);  /* IAC WILL ECHO */
         IACSET(init->buf, 0xff, 0xfb, 0x03);  /* IAC WILL Suppress go ahead */
         IACSET(init->buf, 0xff, 0xfb, 0x00);  /* IAC WILL Binary */
         IACSET(init->buf, 0xff, 0xfd, 0x00);  /* IAC DO Binary */
     } else {
         init->buflen = 21;
-        /* Prep the TN3270 negotiation based on RFC1576 */
         IACSET(init->buf, 0xff, 0xfd, 0x19);  /* IAC DO EOR */
         IACSET(init->buf, 0xff, 0xfb, 0x19);  /* IAC WILL EOR */
         IACSET(init->buf, 0xff, 0xfd, 0x00);  /* IAC DO BINARY */
@@ -1031,17 +946,6 @@ static int tcp_chr_wait_connected(Chardev *chr, Error **errp)
 
     tcp_chr_reconn_timer_cancel(s);
 
-    /*
-     * We expect states to be as follows:
-     *
-     *  - server
-     *    - wait   -> CONNECTED
-     *    - nowait -> DISCONNECTED
-     *  - client
-     *    - reconnect == 0 -> CONNECTED
-     *    - reconnect != 0 -> CONNECTING
-     *
-     */
     if (s->state == TCP_CHARDEV_STATE_CONNECTING) {
         if (!s->connect_task) {
             error_setg(errp,
@@ -1049,33 +953,12 @@ static int tcp_chr_wait_connected(Chardev *chr, Error **errp)
                        "while waiting for connection completion");
             return -1;
         }
-        /*
-         * tcp_chr_wait_connected should only ever be run from the
-         * main loop thread associated with chr->gcontext, otherwise
-         * qio_task_wait_thread has a dangerous race condition with
-         * free'ing of the s->connect_task object.
-         *
-         * Acquiring the main context doesn't 100% prove we're in
-         * the main loop thread, but it does at least guarantee
-         * that the main loop won't be executed by another thread
-         * avoiding the race condition with the task idle callback.
-         */
         g_main_context_acquire(chr->gcontext);
         qio_task_wait_thread(s->connect_task);
         g_main_context_release(chr->gcontext);
 
-        /*
-         * The completion callback (qemu_chr_socket_connected) for
-         * s->connect_task should have set this to NULL by the time
-         * qio_task_wait_thread has returned.
-         */
         assert(!s->connect_task);
 
-        /*
-         * NB we are *not* guaranteed to have "s->state == ..CONNECTED"
-         * at this point as this first connect may be failed, so
-         * allow the next loop to run regardless.
-         */
     }
 
     while (s->state != TCP_CHARDEV_STATE_CONNECTED) {
@@ -1119,10 +1002,6 @@ static void char_socket_finalize(Object *obj)
     }
     g_free(s->tls_authz);
     if (s->registered_yank) {
-        /*
-         * In the chardev-change special-case, we shouldn't unregister the yank
-         * instance, as it still may be needed.
-         */
         if (!chr->handover_yank_instance) {
             yank_unregister_instance(CHARDEV_YANK_INSTANCE(chr->label));
         }
@@ -1185,15 +1064,6 @@ static void tcp_chr_connect_client_async(Chardev *chr)
                                char_socket_yank_iochannel,
                                QIO_CHANNEL(sioc));
     }
-    /*
-     * Normally code would use the qio_channel_socket_connect_async
-     * method which uses a QIOTask + qio_task_set_error internally
-     * to avoid blocking. The tcp_chr_wait_connected method, however,
-     * needs a way to synchronize with completion of the background
-     * connect task which can't be done with the QIOChannelSocket
-     * async APIs. Thus we must use QIOTask directly to implement
-     * the non-blocking concept locally.
-     */
     s->connect_task = qio_task_new(OBJECT(sioc),
                                    qemu_chr_socket_connected,
                                    object_ref(OBJECT(chr)),
@@ -1290,7 +1160,6 @@ static bool qmp_chardev_validate_socket(ChardevSocket *sock,
                                         SocketAddress *addr,
                                         Error **errp)
 {
-    /* Validate any options which have a dependency on address type */
     switch (addr->type) {
     case SOCKET_ADDRESS_TYPE_FD:
         if (sock->has_reconnect) {
@@ -1337,7 +1206,6 @@ static bool qmp_chardev_validate_socket(ChardevSocket *sock,
         return false;
     }
 
-    /* Validate any options which have a dependency on client vs server */
     if (!sock->has_server || sock->server) {
         if (sock->has_reconnect) {
             error_setg(errp,
@@ -1425,16 +1293,11 @@ static void qmp_chardev_open_socket(Chardev *chr,
 
     qemu_chr_set_feature(chr, QEMU_CHAR_FEATURE_RECONNECTABLE);
 #ifndef _WIN32
-    /* TODO SOCKET_ADDRESS_FD where fd has AF_UNIX */
     if (addr->type == SOCKET_ADDRESS_TYPE_UNIX) {
         qemu_chr_set_feature(chr, QEMU_CHAR_FEATURE_FD_PASS);
     }
 #endif
 
-    /*
-     * In the chardev-change special-case, we shouldn't register a new yank
-     * instance, as there already may be one.
-     */
     if (!chr->handover_yank_instance) {
         if (!yank_register_instance(CHARDEV_YANK_INSTANCE(chr->label), errp)) {
             return;
@@ -1442,7 +1305,6 @@ static void qmp_chardev_open_socket(Chardev *chr,
     }
     s->registered_yank = true;
 
-    /* be isn't opened until we get a connection */
     *be_opened = false;
 
     update_disconnected_filename(s);
@@ -1505,10 +1367,6 @@ static void qemu_chr_parse_socket(QemuOpts *opts, ChardevBackend *backend,
         !qemu_opt_get_bool(opts, "delay", true) ||
         qemu_opt_get_bool(opts, "nodelay", false);
 
-    /*
-     * We have different default to QMP for 'server', hence
-     * we can't just check for existence of 'server'
-     */
     sock->has_server = true;
     sock->server = qemu_opt_get_bool(opts, "server", false);
     sock->has_telnet = qemu_opt_get(opts, "telnet");
@@ -1517,10 +1375,6 @@ static void qemu_chr_parse_socket(QemuOpts *opts, ChardevBackend *backend,
     sock->tn3270 = qemu_opt_get_bool(opts, "tn3270", false);
     sock->has_websocket = qemu_opt_get(opts, "websocket");
     sock->websocket = qemu_opt_get_bool(opts, "websocket", false);
-    /*
-     * We have different default to QMP for 'wait' when 'server'
-     * is set, hence we can't just check for existence of 'wait'
-     */
     sock->has_wait = qemu_opt_find(opts, "wait") || sock->server;
     sock->wait = qemu_opt_get_bool(opts, "wait", true);
     sock->has_reconnect = qemu_opt_find(opts, "reconnect");

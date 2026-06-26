@@ -1,26 +1,3 @@
-/*
- * QEMU main system emulation loop
- *
- * Copyright (c) 2003-2020 QEMU contributors
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "audio/audio.h"
@@ -61,7 +38,6 @@ static NotifierList exit_notifiers =
 
 static RunState current_run_state = RUN_STATE_PRELAUNCH;
 
-/* We use RUN_STATE__MAX but any invalid value will do */
 static RunState vmstop_requested = RUN_STATE__MAX;
 static QemuMutex vmstop_lock;
 
@@ -194,7 +170,6 @@ static void runstate_init(void)
     qemu_mutex_init(&vmstop_lock);
 }
 
-/* This function will abort() on invalid state transitions */
 void runstate_set(RunState new_state)
 {
     assert(new_state < RUN_STATE__MAX);
@@ -273,18 +248,6 @@ struct VMChangeStateEntry {
 static QTAILQ_HEAD(, VMChangeStateEntry) vm_change_state_head =
     QTAILQ_HEAD_INITIALIZER(vm_change_state_head);
 
-/**
- * qemu_add_vm_change_state_handler_prio:
- * @cb: the callback to invoke
- * @opaque: user data passed to the callback
- * @priority: low priorities execute first when the vm runs and the reverse is
- *            true when the vm stops
- *
- * Register a callback function that is invoked when the vm starts or stops
- * running.
- *
- * Returns: an entry to be freed using qemu_del_vm_change_state_handler()
- */
 VMChangeStateEntry *qemu_add_vm_change_state_handler_prio(
         VMChangeStateHandler *cb, void *opaque, int priority)
 {
@@ -292,23 +255,6 @@ VMChangeStateEntry *qemu_add_vm_change_state_handler_prio(
                                                       priority);
 }
 
-/**
- * qemu_add_vm_change_state_handler_prio_full:
- * @cb: the main callback to invoke
- * @prepare_cb: a callback to invoke before the main callback
- * @opaque: user data passed to the callbacks
- * @priority: low priorities execute first when the vm runs and the reverse is
- *            true when the vm stops
- *
- * Register a main callback function and an optional prepare callback function
- * that are invoked when the vm starts or stops running. The main callback and
- * the prepare callback are called in two separate phases: First all prepare
- * callbacks are called and only then all main callbacks are called. As its
- * name suggests, the prepare callback can be used to do some preparatory work
- * before invoking the main callback.
- *
- * Returns: an entry to be freed using qemu_del_vm_change_state_handler()
- */
 VMChangeStateEntry *
 qemu_add_vm_change_state_handler_prio_full(VMChangeStateHandler *cb,
                                            VMChangeStateHandler *prepare_cb,
@@ -323,7 +269,6 @@ qemu_add_vm_change_state_handler_prio_full(VMChangeStateHandler *cb,
     e->opaque = opaque;
     e->priority = priority;
 
-    /* Keep list sorted in ascending priority order */
     QTAILQ_FOREACH(other, &vm_change_state_head, entries) {
         if (priority < other->priority) {
             QTAILQ_INSERT_BEFORE(other, e, entries);
@@ -414,9 +359,6 @@ static void qemu_kill_report(void)
 {
     if (!qtest_driver() && shutdown_signal) {
         if (shutdown_pid == 0) {
-            /* This happens for eg ^C at the terminal, so it's worth
-             * avoiding printing an odd message in that case.
-             */
             error_report("terminating on signal %d", shutdown_signal);
         } else {
             char *shutdown_cmd = qemu_get_pid_name(shutdown_pid);
@@ -470,9 +412,6 @@ static int qemu_debug_requested(void)
     return r;
 }
 
-/*
- * Reset the VM. Issue an event unless @reason is SHUTDOWN_CAUSE_NONE.
- */
 void qemu_system_reset(ShutdownCause reason)
 {
     MachineClass *mc;
@@ -503,13 +442,6 @@ void qemu_system_reset(ShutdownCause reason)
         qapi_event_send_reset(shutdown_caused_by_guest(reason), reason);
     }
 
-    /*
-     * Some boards use the machine reset callback to point CPUs to the firmware
-     * entry point.  Assume that this is not the case for boards that support
-     * non-resettable CPUs (currently used only for confidential guests), in
-     * which case cpu_synchronize_all_post_init() is enough because
-     * it does _more_  than cpu_synchronize_all_post_reset().
-     */
     if (cpus_are_resettable()) {
         cpu_synchronize_all_post_reset();
     } else {
@@ -519,9 +451,6 @@ void qemu_system_reset(ShutdownCause reason)
     vm_set_suspended(false);
 }
 
-/*
- * Wake the VM after suspend.
- */
 static void qemu_system_wakeup(void)
 {
     MachineClass *mc;
@@ -540,11 +469,6 @@ void qemu_system_guest_panicked(GuestPanicInformation *info)
     if (current_cpu) {
         current_cpu->crash_occurred = true;
     }
-    /*
-     * TODO:  Currently the available panic actions are: none, pause, and
-     * shutdown, but in principle debug and reset could be supported as well.
-     * Investigate any potential use cases for the unimplemented actions.
-     */
     if (panic_action == PANIC_ACTION_PAUSE
         || (panic_action == PANIC_ACTION_SHUTDOWN && shutdown_action == SHUTDOWN_ACTION_PAUSE)) {
         qapi_event_send_guest_panicked(GUEST_PANIC_ACTION_PAUSE, info);
@@ -681,16 +605,9 @@ void qemu_system_killed(int signal, pid_t pid)
     shutdown_pid = pid;
     shutdown_action = SHUTDOWN_ACTION_POWEROFF;
 
-    /* Cannot call qemu_system_shutdown_request directly because
-     * we are in a signal handler.
-     */
     shutdown_requested = SHUTDOWN_CAUSE_HOST_SIGNAL;
     qemu_notify_event();
 
-    /*
-     * Gunyah workaround: vCPU threads may be stuck in GH_VCPU_RUN
-     * and won't exit cleanly.  Force-exit on second signal.
-     */
     kill_count++;
     if (kill_count >= 2) {
         _exit(0);
@@ -778,10 +695,6 @@ static bool main_loop_should_exit(int *status)
         pause_all_vcpus();
         qemu_system_reset(request);
         resume_all_vcpus();
-        /*
-         * runstate can change in pause_all_vcpus()
-         * as iothread mutex is unlocked
-         */
         if (!runstate_check(RUN_STATE_RUNNING) &&
                 !runstate_check(RUN_STATE_INMIGRATE) &&
                 !runstate_check(RUN_STATE_FINISH_MIGRATE)) {
@@ -866,28 +779,16 @@ void qemu_init_subsystems(void)
 
 void qemu_cleanup(int status)
 {
-    /* No more vcpu or device emulation activity beyond this point */
     vm_shutdown();
 
-    /*
-     * We must cancel all block jobs while the block layer is drained,
-     * or cancelling will be affected by throttling and thus may block
-     * for an extended period of time.
-     * Begin the drained section after vm_shutdown() to avoid requests being
-     * stuck in the BlockBackend's request queue.
-     * We do not need to end this section, because we do not want any
-     * requests happening from here on anyway.
-     */
     bdrv_drain_all_begin();
     job_cancel_sync_all();
     bdrv_close_all();
 
-    /* vhost-user must be cleaned up before chardevs.  */
     tpm_cleanup();
     net_cleanup();
     audio_cleanup();
     monitor_cleanup();
     qemu_chr_cleanup();
     user_creatable_cleanup();
-    /* TODO: unref root container, check all devices are ok */
 }

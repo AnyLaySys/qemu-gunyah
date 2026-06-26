@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef __ASM_MMAN_H
 #define __ASM_MMAN_H
 
@@ -7,7 +6,6 @@
 #define PROT_BTI	0x10		/* BTI guarded page */
 #define PROT_MTE	0x20		/* Normal Tagged mapping */
 
-/* Override any generic PKEY permission defines */
 #define PKEY_DISABLE_EXECUTE	0x4
 #define PKEY_DISABLE_READ	0x8
 #undef PKEY_ACCESS_MASK

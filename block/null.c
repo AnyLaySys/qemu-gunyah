@@ -1,14 +1,3 @@
-/*
- * Null block driver
- *
- * Authors:
- *  Fam Zheng <famz@redhat.com>
- *
- * Copyright (C) 2014 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -55,8 +44,6 @@ static QemuOptsList runtime_opts = {
 static void null_co_parse_filename(const char *filename, QDict *options,
                                    Error **errp)
 {
-    /* This functions only exists so that a null-co:// filename is accepted
-     * with the null-co driver. */
     if (strcmp(filename, "null-co://")) {
         error_setg(errp, "The only allowed filename for this driver is "
                          "'null-co://'");
@@ -67,8 +54,6 @@ static void null_co_parse_filename(const char *filename, QDict *options,
 static void null_aio_parse_filename(const char *filename, QDict *options,
                                     Error **errp)
 {
-    /* This functions only exists so that a null-aio:// filename is accepted
-     * with the null-aio driver. */
     if (strcmp(filename, "null-aio://")) {
         error_setg(errp, "The only allowed filename for this driver is "
                          "'null-aio://'");
@@ -174,7 +159,6 @@ static inline BlockAIOCB *null_aio_common(BlockDriverState *bs,
     BDRVNullState *s = bs->opaque;
 
     acb = qemu_aio_get(&null_aiocb_info, bs, cb, opaque);
-    /* Only emulate latency after vcpu is running. */
     if (s->latency_ns) {
         aio_timer_init(bdrv_get_aio_context(bs), &acb->timer,
                        QEMU_CLOCK_REALTIME, SCALE_NS,
@@ -251,7 +235,6 @@ static void null_refresh_filename(BlockDriverState *bs)
     for (e = qdict_first(bs->full_open_options); e;
          e = qdict_next(bs->full_open_options, e))
     {
-        /* These options can be ignored */
         if (strcmp(qdict_entry_key(e), "filename") &&
             strcmp(qdict_entry_key(e), "driver") &&
             strcmp(qdict_entry_key(e), NULL_OPT_LATENCY))

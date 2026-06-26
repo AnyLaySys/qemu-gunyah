@@ -1,11 +1,3 @@
-/*
- * Common code for block device models
- *
- * Copyright (C) 2012 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "block/block_int-common.h"
@@ -15,14 +7,6 @@
 #include "qapi/error.h"
 #include "qapi/qapi-types-block.h"
 
-/*
- * Read the non-zeroes parts of @blk into @buf
- * Reading all of the @blk is expensive if the zeroes parts of @blk
- * is large enough. Therefore check the block status and only write
- * the non-zeroes block into @buf.
- *
- * Return 0 on success, non-zero on error.
- */
 static int blk_pread_nonzeroes(BlockBackend *blk, hwaddr size, void *buf)
 {
     int ret;
@@ -48,17 +32,6 @@ static int blk_pread_nonzeroes(BlockBackend *blk, hwaddr size, void *buf)
     }
 }
 
-/*
- * Read the entire contents of @blk into @buf.
- * @blk's contents must be @size bytes, and @size must be at most
- * BDRV_REQUEST_MAX_BYTES.
- * On success, return true.
- * On failure, store an error through @errp and return false.
- *
- * This function not intended for actual block devices, which read on
- * demand.  It's for things like memory devices that (ab)use a block
- * backend to provide persistence.
- */
 bool blk_check_size_and_read_all(BlockBackend *blk, DeviceState *dev,
                                  void *buf, hwaddr size, Error **errp)
 {
@@ -81,12 +54,6 @@ bool blk_check_size_and_read_all(BlockBackend *blk, DeviceState *dev,
         return false;
     }
 
-    /*
-     * We could loop for @size > BDRV_REQUEST_MAX_BYTES, but if we
-     * ever get to the point we want to read *gigabytes* here, we
-     * should probably rework the device to be more like an actual
-     * block device and read only on demand.
-     */
     assert(size <= BDRV_REQUEST_MAX_BYTES);
     ret = blk_pread_nonzeroes(blk, size, buf);
     if (ret < 0) {
@@ -129,7 +96,6 @@ bool blkconf_blocksizes(BlockConf *conf, Error **errp)
         abort();
     }
 
-    /* fill in detected values if they are not defined via qemu command line */
     if (!conf->physical_block_size) {
         if (use_blocksizes) {
            conf->physical_block_size = blocksizes.phys;
@@ -169,10 +135,6 @@ bool blkconf_blocksizes(BlockConf *conf, Error **errp)
         return false;
     }
 
-    /*
-     * all devices which support min_io_size (scsi and virtio-blk) expose it to
-     * the guest as a uint16_t in units of logical blocks
-     */
     if (conf->min_io_size / conf->logical_block_size > UINT16_MAX) {
         error_setg(errp, "min_io_size must not exceed %u logical blocks",
                    UINT16_MAX);

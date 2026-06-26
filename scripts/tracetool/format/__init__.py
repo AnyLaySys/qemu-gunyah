@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Format management.
@@ -50,7 +49,6 @@ def get_list():
     for modname in sorted(modnames):
         module = tracetool.try_import("tracetool.format." + modname)
 
-        # just in case; should never fail unless non-module files are put there
         if not module[0]:
             continue
         module = module[1]

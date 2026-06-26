@@ -32,8 +32,6 @@ from .schema import (
 from .source import QAPISourceInfo
 
 
-# variants must be emitted before their container; track what has already
-# been output
 objects_seen = set()
 
 
@@ -84,7 +82,6 @@ const QEnumLookup %(c_name)s_lookup = {
 def gen_enum(name: str,
              members: List[QAPISchemaEnumMember],
              prefix: Optional[str] = None) -> str:
-    # append automatically generated _MAX value
     enum_members = members + [QAPISchemaEnumMember('_MAX', None)]
 
     ret = mcgen('''
@@ -194,10 +191,6 @@ struct %(c_name)s {
     if variants:
         ret += gen_variants(variants)
 
-    # Make sure that all structs have at least one member; this avoids
-    # potential issues with attempting to malloc space for zero-length
-    # structs in C, and also incompatibility with C++ (where an empty
-    # struct is size 1).
     if (not base or base.is_empty()) and not members and not variants:
         ret += mcgen('''
     char qapi_dummy_for_empty_struct;
@@ -212,8 +205,6 @@ struct %(c_name)s {
 
 
 def gen_upcast(name: str, base: QAPISchemaObjectType) -> str:
-    # C makes const-correctness ugly.  We have to cast away const to let
-    # this function work for both const and non-const obj.
     return mcgen('''
 
 static inline %(base)s *qapi_%(c_name)s_base(const %(c_name)s *obj)
@@ -314,7 +305,6 @@ class QAPISchemaGenTypeVisitor(QAPISchemaModularCVisitor):
                                       prefix=self._prefix))
 
     def visit_begin(self, schema: QAPISchema) -> None:
-        # gen_object() is recursive, ensure it doesn't visit the empty type
         objects_seen.add(schema.the_empty_object_type.name)
 
     def _gen_type_cleanup(self, name: str) -> None:
@@ -350,7 +340,6 @@ class QAPISchemaGenTypeVisitor(QAPISchemaModularCVisitor):
                           base: Optional[QAPISchemaObjectType],
                           members: List[QAPISchemaObjectTypeMember],
                           branches: Optional[QAPISchemaBranches]) -> None:
-        # Nothing to do for the special empty builtin
         if name == 'q_empty':
             return
         with ifcontext(ifcond, self._genh):
@@ -359,10 +348,7 @@ class QAPISchemaGenTypeVisitor(QAPISchemaModularCVisitor):
         with ifcontext(ifcond, self._genh, self._genc):
             if base and not base.is_implicit():
                 self._genh.add(gen_upcast(name, base))
-            # TODO Worth changing the visitor signature, so we could
-            # directly use rather than repeat type.is_implicit()?
             if not name.startswith('q_'):
-                # implicit types won't be directly allocated/freed
                 self._gen_type_cleanup(name)
 
     def visit_alternate_type(self,

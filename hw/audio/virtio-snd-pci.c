@@ -1,12 +1,3 @@
-/*
- * VIRTIO Sound Device PCI Bindings
- *
- * Copyright (c) 2023 Emmanouil Pitsidianakis <manos.pitsidianakis@linaro.org>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qom/object.h"
@@ -15,9 +6,6 @@
 #include "hw/virtio/virtio-pci.h"
 #include "hw/audio/virtio-snd.h"
 
-/*
- * virtio-snd-pci: This extends VirtioPCIProxy.
- */
 #define TYPE_VIRTIO_SND_PCI "virtio-snd-pci"
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOSoundPCI, VIRTIO_SND_PCI)
 
@@ -71,7 +59,6 @@ static const VirtioPCIDeviceTypeInfo virtio_snd_pci_info = {
     .class_init    = virtio_snd_pci_class_init,
 };
 
-/* Create a Virtio Sound PCI device, so '-audio driver,model=virtio' works. */
 static int virtio_snd_pci_init(PCIBus *bus, const char *audiodev)
 {
     DeviceState *vdev = NULL;

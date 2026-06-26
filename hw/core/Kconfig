@@ -6,7 +6,6 @@ config PTIMER
 
 config DEVICE_TREE
     bool
-    # fail the build if libfdt not found
     depends on FDT
 
 config FITLOADER

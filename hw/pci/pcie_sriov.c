@@ -1,14 +1,3 @@
-/*
- * pcie_sriov.c:
- *
- * Implementation of SR/IOV emulation support.
- *
- * Copyright (c) 2015-2017 Knut Omang <knut.omang@oracle.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "hw/pci/pci_device.h"
@@ -56,26 +45,15 @@ bool pcie_sriov_pf_init(PCIDevice *dev, uint16_t offset,
     pci_set_word(cfg + PCI_SRIOV_VF_OFFSET, vf_offset);
     pci_set_word(cfg + PCI_SRIOV_VF_STRIDE, vf_stride);
 
-    /*
-     * Mandatory page sizes to support.
-     * Device implementations can call pcie_sriov_pf_add_sup_pgsize()
-     * to set more bits:
-     */
     pci_set_word(cfg + PCI_SRIOV_SUP_PGSIZE, SRIOV_SUP_PGSIZE_MINREQ);
 
-    /*
-     * Default is to use 4K pages, software can modify it
-     * to any of the supported bits
-     */
     pci_set_word(cfg + PCI_SRIOV_SYS_PGSIZE, 0x1);
 
-    /* Set up device ID and initial/total number of VFs available */
     pci_set_word(cfg + PCI_SRIOV_VF_DID, vf_dev_id);
     pci_set_word(cfg + PCI_SRIOV_INITIAL_VF, init_vfs);
     pci_set_word(cfg + PCI_SRIOV_TOTAL_VF, total_vfs);
     pci_set_word(cfg + PCI_SRIOV_NUM_VF, 0);
 
-    /* Write enable control bits */
     wmask = dev->wmask + offset;
     pci_set_word(wmask + PCI_SRIOV_CTRL,
                  PCI_SRIOV_CTRL_VFE | PCI_SRIOV_CTRL_MSE | PCI_SRIOV_CTRL_ARI);
@@ -98,7 +76,6 @@ bool pcie_sriov_pf_init(PCIDevice *dev, uint16_t offset,
             return false;
         }
 
-        /* set vid/did according to sr/iov spec - they are not used */
         pci_config_set_vendor_id(vf->config, 0xffff);
         pci_config_set_device_id(vf->config, 0xffff);
 
@@ -256,7 +233,6 @@ void pcie_sriov_pf_post_load(PCIDevice *dev)
 }
 
 
-/* Reset SR/IOV */
 void pcie_sriov_pf_reset(PCIDevice *dev)
 {
     uint16_t sriov_cap = dev->exp.sriov_cap;
@@ -271,10 +247,6 @@ void pcie_sriov_pf_reset(PCIDevice *dev)
     pci_set_word(dev->wmask + sriov_cap + PCI_SRIOV_CTRL,
                  PCI_SRIOV_CTRL_VFE | PCI_SRIOV_CTRL_MSE | PCI_SRIOV_CTRL_ARI);
 
-    /*
-     * Default is to use 4K pages, software can modify it
-     * to any of the supported bits
-     */
     pci_set_word(dev->config + sriov_cap + PCI_SRIOV_SYS_PGSIZE, 0x1);
 
     for (uint16_t i = 0; i < PCI_NUM_REGIONS; i++) {
@@ -283,7 +255,6 @@ void pcie_sriov_pf_reset(PCIDevice *dev)
     }
 }
 
-/* Add optional supported page sizes to the mask of supported page sizes */
 void pcie_sriov_pf_add_sup_pgsize(PCIDevice *dev, uint16_t opt_sup_pgsize)
 {
     uint8_t *cfg = dev->config + dev->exp.sriov_cap;
@@ -293,10 +264,6 @@ void pcie_sriov_pf_add_sup_pgsize(PCIDevice *dev, uint16_t opt_sup_pgsize)
 
     sup_pgsize |= opt_sup_pgsize;
 
-    /*
-     * Make sure the new bits are set, and that system page size
-     * also can be set to any of the new values according to spec:
-     */
     pci_set_word(cfg + PCI_SRIOV_SUP_PGSIZE, sup_pgsize);
     pci_set_word(wmask + PCI_SRIOV_SYS_PGSIZE, sup_pgsize);
 }

@@ -1,11 +1,3 @@
-/*
- * Common System Call Tracing Wrappers for *-user
- *
- * Copyright (c) 2019 Linaro
- * Written by Alex Bennée <alex.bennee@linaro.org>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef SYSCALL_TRACE_H
 #define SYSCALL_TRACE_H
@@ -15,11 +7,6 @@
 #include "qemu/plugin.h"
 #include "trace/trace-root.h"
 
-/*
- * These helpers just provide a common place for the various
- * subsystems that want to track syscalls to put their hooks in. We
- * could potentially unify the -strace code here as well.
- */
 
 static inline void record_syscall_start(CPUState *cpu, int num,
                                         abi_long arg1, abi_long arg2,

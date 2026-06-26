@@ -10,14 +10,8 @@
 #include "hw/pci/msi.h"
 #include "trace.h"
 
-/* TODO: model power only and disabled slot states. */
-/* TODO: handle SERR and wakeups */
-/* TODO: consider enabling 66MHz support */
 
-/* TODO: remove fully only on state DISABLED and LED off.
- * track state to properly record this. */
 
-/* SHPC Working Register Set */
 #define SHPC_BASE_OFFSET  0x00 /* 4 bytes */
 #define SHPC_SLOTS_33     0x04 /* 4 bytes. Also encodes PCI-X slots. */
 #define SHPC_SLOTS_66     0x08 /* 4 bytes. */
@@ -54,12 +48,9 @@
 #define SHPC_ARB_SERR_DIS 0x8
 #define SHPC_CMD_DETECTED 0x10000
 #define SHPC_ARB_DETECTED 0x20000
- /* 4 bytes * slot # (start from 0) */
 #define SHPC_SLOT_REG(s)         (0x24 + (s) * 4)
- /* 2 bytes */
 #define SHPC_SLOT_STATUS(s)       (0x0 + SHPC_SLOT_REG(s))
 
-/* Same slot state masks are used for command and status registers */
 #define SHPC_SLOT_STATE_MASK     0x03
 #define SHPC_SLOT_STATE_SHIFT \
     ctz32(SHPC_SLOT_STATE_MASK)
@@ -94,16 +85,13 @@
 #define SHPC_SLOT_STATUS_PRSNT_PCIX     0x3000
 
 
- /* 1 byte */
 #define SHPC_SLOT_EVENT_LATCH(s)        (0x2 + SHPC_SLOT_REG(s))
- /* 1 byte */
 #define SHPC_SLOT_EVENT_SERR_INT_DIS(d, s) (0x3 + SHPC_SLOT_REG(s))
 #define SHPC_SLOT_EVENT_PRESENCE        0x01
 #define SHPC_SLOT_EVENT_ISOLATED_FAULT  0x02
 #define SHPC_SLOT_EVENT_BUTTON          0x04
 #define SHPC_SLOT_EVENT_MRL             0x08
 #define SHPC_SLOT_EVENT_CONNECTED_FAULT 0x10
-/* Bits below are used for Serr/Int disable only */
 #define SHPC_SLOT_EVENT_MRL_SERR_DIS    0x20
 #define SHPC_SLOT_EVENT_CONNECTED_FAULT_SERR_DIS 0x40
 
@@ -111,13 +99,7 @@
 #define SHPC_MAX_SLOTS        31
 #define SHPC_SIZEOF(d)    SHPC_SLOT_REG((d)->shpc->nslots)
 
-/* SHPC Slot identifiers */
 
-/* Hotplug supported at 31 slots out of the total 32.  We reserve slot 0,
-   and give the rest of them physical *and* pci numbers starting from 1, so
-   they match logical numbers.  Note: this means that multiple slots must have
-   different chassis number values, to make chassis+physical slot unique.
-   TODO: make this configurable? */
 #define SHPC_IDX_TO_LOGICAL(slot) ((slot) + 1)
 #define SHPC_LOGICAL_TO_IDX(target) ((target) - 1)
 #define SHPC_IDX_TO_PCI(slot) ((slot) + 1)
@@ -177,7 +159,6 @@ static void shpc_interrupt_update(PCIDevice *d)
     uint32_t serr_int;
     uint32_t int_locator = 0;
 
-    /* Update interrupt locator register */
     for (slot = 0; slot < shpc->nslots; ++slot) {
         uint8_t event = shpc->config[SHPC_SLOT_EVENT_LATCH(slot)];
         uint8_t disable = shpc->config[SHPC_SLOT_EVENT_SERR_INT_DIS(d, slot)];
@@ -314,14 +295,12 @@ static void shpc_slot_command(PCIDevice *d, uint8_t target,
     if (power == SHPC_LED_NO) {
         power = old_power;
     } else {
-        /* TODO: send event to monitor */
         shpc_set_status(shpc, slot, power, SHPC_SLOT_PWR_LED_MASK);
     }
 
     if (attn == SHPC_LED_NO) {
         attn = old_attn;
     } else {
-        /* TODO: send event to monitor */
         shpc_set_status(shpc, slot, attn, SHPC_SLOT_ATTN_LED_MASK);
     }
 
@@ -372,7 +351,6 @@ static void shpc_command(PCIDevice *d)
     uint8_t state;
     int i;
 
-    /* Clear status from the previous command. */
     pci_word_test_and_clear_mask(shpc->config + SHPC_CMD_STATUS,
                                  SHPC_CMD_STATUS_BUSY |
                                  SHPC_CMD_STATUS_MRL_OPEN |
@@ -391,8 +369,6 @@ static void shpc_command(PCIDevice *d)
         shpc_set_sec_bus_speed(shpc, speed);
         break;
     case 0x48:
-        /* Power only all slots */
-        /* first verify no slots are enabled */
         for (i = 0; i < shpc->nslots; ++i) {
             state = shpc_get_status(shpc, i, SHPC_SLOT_STATE_MASK);
             if (state == SHPC_STATE_ENABLED) {
@@ -411,9 +387,6 @@ static void shpc_command(PCIDevice *d)
         }
         break;
     case 0x49:
-        /* Enable all slots */
-        /* TODO: Spec says this shall fail if some are already enabled.
-         * This doesn't make sense - why not? a spec bug? */
         for (i = 0; i < shpc->nslots; ++i) {
             state = shpc_get_status(shpc, i, SHPC_SLOT_STATE_MASK);
             if (state == SHPC_STATE_ENABLED) {
@@ -448,7 +421,6 @@ static void shpc_write(PCIDevice *d, unsigned addr, uint64_t val, int l)
     }
     l = MIN(l, SHPC_SIZEOF(d) - addr);
 
-    /* TODO: code duplicated from pci.c */
     for (i = 0; i < l; val >>= 8, ++i) {
         unsigned a = addr + i;
         uint8_t wmask = shpc->wmask[a];
@@ -474,7 +446,6 @@ static uint64_t shpc_read(PCIDevice *d, unsigned addr, int l)
     return val;
 }
 
-/* SHPC Bridge Capability */
 #define SHPC_CAP_LENGTH 0x08
 #define SHPC_CAP_DWORD_SELECT 0x2 /* 1 byte */
 #define SHPC_CAP_CxP 0x3 /* 1 byte: CSP, CIP */
@@ -487,7 +458,6 @@ static uint8_t shpc_cap_dword(PCIDevice *d)
     return pci_get_byte(d->config + d->shpc->cap + SHPC_CAP_DWORD_SELECT);
 }
 
-/* Update dword data capability register */
 static void shpc_cap_update_dword(PCIDevice *d)
 {
     unsigned data;
@@ -495,7 +465,6 @@ static void shpc_cap_update_dword(PCIDevice *d)
     pci_set_long(d->config  + d->shpc->cap + SHPC_CAP_DWORD_DATA, data);
 }
 
-/* Add SHPC capability to the config space for the device. */
 static int shpc_cap_add_config(PCIDevice *d, Error **errp)
 {
     uint8_t *config;
@@ -512,7 +481,6 @@ static int shpc_cap_add_config(PCIDevice *d, Error **errp)
     pci_set_byte(config + SHPC_CAP_CxP, 0);
     pci_set_long(config + SHPC_CAP_DWORD_DATA, 0);
     d->shpc->cap = config_offset;
-    /* Make dword select and data writable. */
     pci_set_byte(d->wmask + config_offset + SHPC_CAP_DWORD_SELECT, 0xff);
     pci_set_long(d->wmask + config_offset + SHPC_CAP_DWORD_DATA, 0xffffffff);
     return 0;
@@ -535,9 +503,6 @@ static const MemoryRegionOps shpc_mmio_ops = {
     .write = shpc_mmio_write,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .valid = {
-        /* SHPC ECN requires dword accesses, but the original 1.0 spec doesn't.
-         * It's easier to support all sizes than worry about it.
-         */
         .min_access_size = 1,
         .max_access_size = 4,
     },
@@ -571,9 +536,6 @@ void shpc_device_plug_cb(HotplugHandler *hotplug_dev, DeviceState *dev,
         return;
     }
 
-    /* Don't send event when device is enabled during qemu machine creation:
-     * it is present on boot, no hotplug event is necessary. We do send an
-     * event when the device is disabled later. */
     if (!dev->hotplugged) {
         shpc_set_status(shpc, slot, 0, SHPC_SLOT_STATUS_MRL_OPEN);
         shpc_set_status(shpc, slot, SHPC_SLOT_STATUS_PRSNT_7_5W,
@@ -581,8 +543,6 @@ void shpc_device_plug_cb(HotplugHandler *hotplug_dev, DeviceState *dev,
         return;
     }
 
-    /* This could be a cancellation of the previous removal.
-     * We check MRL state to figure out. */
     if (shpc_get_status(shpc, slot, SHPC_SLOT_STATUS_MRL_OPEN)) {
         shpc_set_status(shpc, slot, 0, SHPC_SLOT_STATUS_MRL_OPEN);
         shpc_set_status(shpc, slot, SHPC_SLOT_STATUS_PRSNT_7_5W,
@@ -592,7 +552,6 @@ void shpc_device_plug_cb(HotplugHandler *hotplug_dev, DeviceState *dev,
             SHPC_SLOT_EVENT_MRL |
             SHPC_SLOT_EVENT_PRESENCE;
     } else {
-        /* Press attention button to cancel removal */
         shpc->config[SHPC_SLOT_EVENT_LATCH(slot)] |=
             SHPC_SLOT_EVENT_BUTTON;
     }
@@ -643,7 +602,6 @@ void shpc_device_unplug_request_cb(HotplugHandler *hotplug_dev,
     shpc_interrupt_update(pci_hotplug_dev);
 }
 
-/* Initialize the SHPC structure in bridge's BAR. */
 int shpc_init(PCIDevice *d, PCIBus *sec_bus, MemoryRegion *bar,
               unsigned offset, Error **errp)
 {
@@ -661,7 +619,6 @@ int shpc_init(PCIDevice *d, PCIBus *sec_bus, MemoryRegion *bar,
     }
     if (nslots > SHPC_MAX_SLOTS ||
         SHPC_IDX_TO_PCI(nslots) > PCI_SLOT_MAX) {
-        /* TODO: report an error message that makes sense. */
         return -EINVAL;
     }
     shpc->nslots = nslots;
@@ -704,7 +661,6 @@ int shpc_init(PCIDevice *d, PCIBus *sec_bus, MemoryRegion *bar,
                      SHPC_SLOT_EVENT_CONNECTED_FAULT);
     }
 
-    /* TODO: init cmask */
     memory_region_init_io(&shpc->mmio, OBJECT(d), &shpc_mmio_ops,
                           d, "shpc-mmio", SHPC_SIZEOF(d));
     shpc_cap_update_dword(d);
@@ -726,7 +682,6 @@ void shpc_cleanup(PCIDevice *d, MemoryRegion *bar)
     SHPCDevice *shpc = d->shpc;
     d->cap_present &= ~QEMU_PCI_CAP_SHPC;
     memory_region_del_subregion(bar, &shpc->mmio);
-    /* TODO: cleanup config space changes? */
 }
 
 void shpc_free(PCIDevice *d)
@@ -755,7 +710,6 @@ void shpc_cap_write_config(PCIDevice *d, uint32_t addr, uint32_t val, int l)
                                   + SHPC_CAP_DWORD_DATA);
         shpc_write(d, shpc_cap_dword(d) * 4, dword_data, 4);
     }
-    /* Update cap dword data in case guest is going to read it. */
     shpc_cap_update_dword(d);
 }
 
@@ -776,7 +730,6 @@ static int shpc_load(QEMUFile *f, void *pv, size_t size,
     if (ret != SHPC_SIZEOF(d)) {
         return -EINVAL;
     }
-    /* Make sure we don't lose notifications. An extra interrupt is harmless. */
     d->shpc->msi_requested = 0;
     shpc_interrupt_update(d);
     return 0;

@@ -1,10 +1,3 @@
-/*
- * ARM generic timer definitions for Arm A-class CPU
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *
- * SPDX-License-Identifier: LGPL-2.1-or-later
- */
 
 #ifndef TARGET_ARM_GTIMER_H
 #define TARGET_ARM_GTIMER_H

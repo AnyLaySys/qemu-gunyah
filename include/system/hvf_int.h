@@ -1,12 +1,4 @@
-/*
- * QEMU Hypervisor.framework (HVF) support
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
-/* header to be included in HVF-specific code */
 
 #ifndef HVF_INT_H
 #define HVF_INT_H
@@ -19,7 +11,6 @@ typedef hv_vcpu_t hvf_vcpuid;
 typedef hv_vcpuid_t hvf_vcpuid;
 #endif
 
-/* hvf_slot flags */
 #define HVF_SLOT_LOG (1 << 0)
 
 typedef struct hvf_slot {

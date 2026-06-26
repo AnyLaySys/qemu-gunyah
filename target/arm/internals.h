@@ -1,26 +1,3 @@
-/*
- * QEMU ARM CPU -- internal functions and types
- *
- * Copyright (c) 2014 Linaro Ltd
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <http://www.gnu.org/licenses/gpl-2.0.html>
- *
- * This header defines functions, types, etc which need to be shared
- * between different source files within target/arm/ but which are
- * private to it and not required by the rest of QEMU.
- */
 
 #ifndef TARGET_ARM_INTERNALS_H
 #define TARGET_ARM_INTERNALS_H
@@ -31,7 +8,6 @@
 #include "syndrome.h"
 #include "cpu-features.h"
 
-/* register banks for CPU modes */
 #define BANK_USRSYS 0
 #define BANK_SVC    1
 #define BANK_ABT    2
@@ -48,9 +24,6 @@ static inline int arm_env_mmu_index(CPUARMState *env)
 
 static inline bool excp_is_internal(int excp)
 {
-    /* Return true if this exception number represents a QEMU-internal
-     * exception that will not be passed to the guest.
-     */
     return excp == EXCP_INTERRUPT
         || excp == EXCP_HLT
         || excp == EXCP_DEBUG
@@ -59,27 +32,14 @@ static inline bool excp_is_internal(int excp)
         || excp == EXCP_KERNEL_TRAP;
 }
 
-/*
- * Default frequency for the generic timer, in Hz.
- * ARMv8.6 and later CPUs architecturally must use a 1GHz timer; before
- * that it was an IMPDEF choice, and QEMU initially picked 62.5MHz,
- * which gives a 16ns tick period.
- *
- * We will use the back-compat value:
- *  - for QEMU CPU types added before we standardized on 1GHz
- *  - for versioned machine types with a version of 9.0 or earlier
- * In any case, the machine model may override via the cntfrq property.
- */
 #define GTIMER_DEFAULT_HZ 1000000000
 #define GTIMER_BACKCOMPAT_HZ 62500000
 
-/* Bit definitions for the v7M CONTROL register */
 FIELD(V7M_CONTROL, NPRIV, 0, 1)
 FIELD(V7M_CONTROL, SPSEL, 1, 1)
 FIELD(V7M_CONTROL, FPCA, 2, 1)
 FIELD(V7M_CONTROL, SFPA, 3, 1)
 
-/* Bit definitions for v7M exception return payload */
 FIELD(V7M_EXCRET, ES, 0, 1)
 FIELD(V7M_EXCRET, RES0, 1, 1)
 FIELD(V7M_EXCRET, SPSEL, 2, 1)
@@ -89,14 +49,9 @@ FIELD(V7M_EXCRET, DCRS, 5, 1)
 FIELD(V7M_EXCRET, S, 6, 1)
 FIELD(V7M_EXCRET, RES1, 7, 25) /* including the must-be-1 prefix */
 
-/* Minimum value which is a magic number for exception return */
 #define EXC_RETURN_MIN_MAGIC 0xff000000
-/* Minimum number which is a magic number for function or exception return
- * when using v8M security extension
- */
 #define FNC_RETURN_MIN_MAGIC 0xfefffffe
 
-/* Bit definitions for DBGWCRn and DBGWCRn_EL1 */
 FIELD(DBGWCR, E, 0, 1)
 FIELD(DBGWCR, PAC, 1, 2)
 FIELD(DBGWCR, LSC, 3, 2)
@@ -113,20 +68,17 @@ FIELD(DBGWCR, SSCE, 29, 1)
 #define VSTCR_SW VTCR_NSW
 #define VSTCR_SA VTCR_NSA
 
-/* Bit definitions for CPACR (AArch32 only) */
 FIELD(CPACR, CP10, 20, 2)
 FIELD(CPACR, CP11, 22, 2)
 FIELD(CPACR, TRCDIS, 28, 1)    /* matches CPACR_EL1.TTA */
 FIELD(CPACR, D32DIS, 30, 1)    /* up to v7; RAZ in v8 */
 FIELD(CPACR, ASEDIS, 31, 1)
 
-/* Bit definitions for CPACR_EL1 (AArch64 only) */
 FIELD(CPACR_EL1, ZEN, 16, 2)
 FIELD(CPACR_EL1, FPEN, 20, 2)
 FIELD(CPACR_EL1, SMEN, 24, 2)
 FIELD(CPACR_EL1, TTA, 28, 1)   /* matches CPACR.TRCDIS */
 
-/* Bit definitions for HCPTR (AArch32 only) */
 FIELD(HCPTR, TCP10, 10, 1)
 FIELD(HCPTR, TCP11, 11, 1)
 FIELD(HCPTR, TASE, 15, 1)
@@ -134,7 +86,6 @@ FIELD(HCPTR, TTA, 20, 1)
 FIELD(HCPTR, TAM, 30, 1)       /* matches CPTR_EL2.TAM */
 FIELD(HCPTR, TCPAC, 31, 1)     /* matches CPTR_EL2.TCPAC */
 
-/* Bit definitions for CPTR_EL2 (AArch64 only) */
 FIELD(CPTR_EL2, TZ, 8, 1)      /* !E2H */
 FIELD(CPTR_EL2, TFP, 10, 1)    /* !E2H, matches HCPTR.TCP10 */
 FIELD(CPTR_EL2, TSM, 12, 1)    /* !E2H */
@@ -145,7 +96,6 @@ FIELD(CPTR_EL2, TTA, 28, 1)
 FIELD(CPTR_EL2, TAM, 30, 1)    /* matches HCPTR.TAM */
 FIELD(CPTR_EL2, TCPAC, 31, 1)  /* matches HCPTR.TCPAC */
 
-/* Bit definitions for CPTR_EL3 (AArch64 only) */
 FIELD(CPTR_EL3, EZ, 8, 1)
 FIELD(CPTR_EL3, TFP, 10, 1)
 FIELD(CPTR_EL3, ESM, 12, 1)
@@ -175,7 +125,6 @@ FIELD(CPTR_EL3, TCPAC, 31, 1)
 #define MDCR_TPMCR    (1U << 5)
 #define MDCR_HPMN     (0x1fU)
 
-/* Not all of the MDCR_EL3 bits are present in the 32-bit SDCR */
 #define SDCR_VALID_MASK (MDCR_MTPME | MDCR_TDCC | MDCR_SCCD | \
                          MDCR_EPMAD | MDCR_EDAD | MDCR_TTRF | \
                          MDCR_STE | MDCR_SPME | MDCR_SPD)
@@ -233,12 +182,6 @@ FIELD(VTCR, SL2, 33, 1)
 #define HSTR_TTEE (1 << 16)
 #define HSTR_TJDBX (1 << 17)
 
-/*
- * Depending on the value of HCR_EL2.E2H, bits 0 and 1
- * have different bit definitions, and EL1PCTEN might be
- * bit 0 or bit 10. We use _E2H1 and _E2H0 suffixes to
- * disambiguate if necessary.
- */
 FIELD(CNTHCTL, EL0PCTEN_E2H1, 0, 1)
 FIELD(CNTHCTL, EL0VCTEN_E2H1, 1, 1)
 FIELD(CNTHCTL, EL1PCTEN_E2H0, 0, 1)
@@ -259,43 +202,16 @@ FIELD(CNTHCTL, EVNTIS, 17, 1)
 FIELD(CNTHCTL, CNTVMASK, 18, 1)
 FIELD(CNTHCTL, CNTPMASK, 19, 1)
 
-/* We use a few fake FSR values for internal purposes in M profile.
- * M profile cores don't have A/R format FSRs, but currently our
- * get_phys_addr() code assumes A/R profile and reports failures via
- * an A/R format FSR value. We then translate that into the proper
- * M profile exception and FSR status bit in arm_v7m_cpu_do_interrupt().
- * Mostly the FSR values we use for this are those defined for v7PMSA,
- * since we share some of that codepath. A few kinds of fault are
- * only for M profile and have no A/R equivalent, though, so we have
- * to pick a value from the reserved range (which we never otherwise
- * generate) to use for these.
- * These values will never be visible to the guest.
- */
 #define M_FAKE_FSR_NSC_EXEC 0xf /* NS executing in S&NSC memory */
 #define M_FAKE_FSR_SFAULT 0xe /* SecureFault INVTRAN, INVEP or AUVIOL */
 
-/**
- * raise_exception: Raise the specified exception.
- * Raise a guest exception with the specified value, syndrome register
- * and target exception level. This should be called from helper functions,
- * and never returns because we will longjump back up to the CPU main loop.
- */
 G_NORETURN void raise_exception(CPUARMState *env, uint32_t excp,
                                 uint32_t syndrome, uint32_t target_el);
 
-/*
- * Similarly, but also use unwinding to restore cpu state.
- */
 G_NORETURN void raise_exception_ra(CPUARMState *env, uint32_t excp,
                                       uint32_t syndrome, uint32_t target_el,
                                       uintptr_t ra);
 
-/*
- * For AArch64, map a given EL to an index in the banked_spsr array.
- * Note that this mapping and the AArch32 mapping defined in bank_number()
- * must agree such that the AArch64<->AArch32 SPSRs have the architecturally
- * mandated mapping between each other.
- */
 static inline unsigned int aarch64_banked_spsr_index(unsigned int el)
 {
     static const unsigned int map[4] = {
@@ -307,7 +223,6 @@ static inline unsigned int aarch64_banked_spsr_index(unsigned int el)
     return map[el];
 }
 
-/* Map CPU modes onto saved register banks.  */
 static inline int bank_number(int mode)
 {
     switch (mode) {
@@ -332,17 +247,6 @@ static inline int bank_number(int mode)
     g_assert_not_reached();
 }
 
-/**
- * r14_bank_number: Map CPU mode onto register bank for r14
- *
- * Given an AArch32 CPU mode, return the index into the saved register
- * banks to use for the R14 (LR) in that mode. This is the same as
- * bank_number(), except for the special case of Hyp mode, where
- * R14 is shared with USR and SYS, unlike its R13 and SPSR.
- * This should be used as the index into env->banked_r14[], and
- * bank_number() used for the index into env->banked_r13[] and
- * env->banked_spsr[].
- */
 static inline int r14_bank_number(int mode)
 {
     return (mode == ARM_CPU_MODE_HYP) ? BANK_USRSYS : bank_number(mode);
@@ -365,7 +269,6 @@ void arm_restore_state_to_opc(CPUState *cs,
 #ifdef CONFIG_TCG
 void arm_cpu_synchronize_from_tb(CPUState *cs, const TranslationBlock *tb);
 
-/* Our implementation of TCGCPUOps::cpu_exec_halt */
 bool arm_cpu_exec_halt(CPUState *cs);
 #endif /* CONFIG_TCG */
 
@@ -386,14 +289,8 @@ static inline FloatRoundMode arm_rmode_to_sf(ARMFPRounding rmode)
     return arm_rmode_to_sf_map[rmode];
 }
 
-/* Return the effective value of SCR_EL3.RW */
 static inline bool arm_scr_rw_eff(CPUARMState *env)
 {
-    /*
-     * SCR_EL3.RW has an effective value of 1 if:
-     *  - we are NS and EL2 is implemented but doesn't support AArch32
-     *  - we are S and EL2 is enabled (in which case it must be AArch64)
-     */
     ARMCPU *cpu = env_archcpu(env);
 
     if (env->cp15.scr_el3 & SCR_RW) {
@@ -407,21 +304,11 @@ static inline bool arm_scr_rw_eff(CPUARMState *env)
     }
 }
 
-/* Return true if the specified exception level is running in AArch64 state. */
 static inline bool arm_el_is_aa64(CPUARMState *env, int el)
 {
-    /*
-     * This isn't valid for EL0 (if we're in EL0, is_a64() is what you want,
-     * and if we're not in EL0 then the state of EL0 isn't well defined.)
-     */
     assert(el >= 1 && el <= 3);
     bool aa64 = arm_feature(env, ARM_FEATURE_AARCH64);
 
-    /*
-     * The highest exception level is always at the maximum supported
-     * register width, and then lower levels have a register width controlled
-     * by bits in the SCR or HCR registers.
-     */
     if (el == 3) {
         return aa64;
     }
@@ -441,10 +328,6 @@ static inline bool arm_el_is_aa64(CPUARMState *env, int el)
     return aa64;
 }
 
-/*
- * Return the current Exception Level (as per ARMv8; note that this differs
- * from the ARMv7 Privilege Level).
- */
 static inline int arm_current_el(CPUARMState *env)
 {
     if (arm_feature(env, ARM_FEATURE_M)) {
@@ -465,7 +348,6 @@ static inline int arm_current_el(CPUARMState *env)
         return 3;
     default:
         if (arm_is_secure(env) && !arm_el_is_aa64(env, 3)) {
-            /* If EL3 is 32-bit then all secure privileged modes run in EL3 */
             return 3;
         }
 
@@ -477,23 +359,10 @@ static inline bool arm_cpu_data_is_big_endian_a32(CPUARMState *env,
                                                   bool sctlr_b)
 {
 #ifdef CONFIG_USER_ONLY
-    /*
-     * In system mode, BE32 is modelled in line with the
-     * architecture (as word-invariant big-endianness), where loads
-     * and stores are done little endian but from addresses which
-     * are adjusted by XORing with the appropriate constant. So the
-     * endianness to use for the raw data access is not affected by
-     * SCTLR.B.
-     * In user mode, however, we model BE32 as byte-invariant
-     * big-endianness (because user-only code cannot tell the
-     * difference), and so we need to use a data access endianness
-     * that depends on SCTLR.B.
-     */
     if (sctlr_b) {
         return true;
     }
 #endif
-    /* In 32bit endianness is determined by looking at CPSR's E bit */
     return env->uncached_cpsr & CPSR_E;
 }
 
@@ -502,7 +371,6 @@ static inline bool arm_cpu_data_is_big_endian_a64(int el, uint64_t sctlr)
     return sctlr & (el ? SCTLR_EE : SCTLR_E0E);
 }
 
-/* Return true if the processor is in big-endian mode. */
 static inline bool arm_cpu_data_is_big_endian(CPUARMState *env)
 {
     if (!is_a64(env)) {
@@ -542,54 +410,22 @@ static inline void aarch64_restore_sp(CPUARMState *env, int el)
 static inline void update_spsel(CPUARMState *env, uint32_t imm)
 {
     unsigned int cur_el = arm_current_el(env);
-    /* Update PSTATE SPSel bit; this requires us to update the
-     * working stack pointer in xregs[31].
-     */
     if (!((imm ^ env->pstate) & PSTATE_SP)) {
         return;
     }
     aarch64_save_sp(env, cur_el);
     env->pstate = deposit32(env->pstate, 0, 1, imm);
 
-    /* We rely on illegal updates to SPsel from EL0 to get trapped
-     * at translation time.
-     */
     assert(cur_el >= 1 && cur_el <= 3);
     aarch64_restore_sp(env, cur_el);
 }
 
-/*
- * arm_pamax
- * @cpu: ARMCPU
- *
- * Returns the implementation defined bit-width of physical addresses.
- * The ARMv8 reference manuals refer to this as PAMax().
- */
 unsigned int arm_pamax(ARMCPU *cpu);
 
-/*
- * round_down_to_parange_index
- * @bit_size: uint8_t
- *
- * Rounds down the bit_size supplied to the first supported ARM physical
- * address range and returns the index for this. The index is intended to
- * be used to set ID_AA64MMFR0_EL1's PARANGE bits.
- */
 uint8_t round_down_to_parange_index(uint8_t bit_size);
 
-/*
- * round_down_to_parange_bit_size
- * @bit_size: uint8_t
- *
- * Rounds down the bit_size supplied to the first supported ARM physical
- * address range bit size and returns this.
- */
 uint8_t round_down_to_parange_bit_size(uint8_t bit_size);
 
-/* Return true if extended addresses are enabled.
- * This is always the case if our translation regime is 64 bit,
- * but depends on TTBCR.EAE for 32 bit.
- */
 static inline bool extended_addresses_enabled(CPUARMState *env)
 {
     uint64_t tcr = env->cp15.tcr_el[arm_is_secure(env) ? 3 : 1];
@@ -601,37 +437,17 @@ static inline bool extended_addresses_enabled(CPUARMState *env)
            (arm_feature(env, ARM_FEATURE_LPAE) && (tcr & TTBCR_EAE));
 }
 
-/* Update a QEMU watchpoint based on the information the guest has set in the
- * DBGWCR<n>_EL1 and DBGWVR<n>_EL1 registers.
- */
 void hw_watchpoint_update(ARMCPU *cpu, int n);
-/* Update the QEMU watchpoints for every guest watchpoint. This does a
- * complete delete-and-reinstate of the QEMU watchpoint list and so is
- * suitable for use after migration or on reset.
- */
 void hw_watchpoint_update_all(ARMCPU *cpu);
-/* Update a QEMU breakpoint based on the information the guest has set in the
- * DBGBCR<n>_EL1 and DBGBVR<n>_EL1 registers.
- */
 void hw_breakpoint_update(ARMCPU *cpu, int n);
-/* Update the QEMU breakpoints for every guest breakpoint. This does a
- * complete delete-and-reinstate of the QEMU breakpoint list and so is
- * suitable for use after migration or on reset.
- */
 void hw_breakpoint_update_all(ARMCPU *cpu);
 
-/* Callback function for checking if a breakpoint should trigger. */
 bool arm_debug_check_breakpoint(CPUState *cs);
 
-/* Callback function for checking if a watchpoint should trigger. */
 bool arm_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
 
-/* Adjust addresses (in BE32 mode) before testing against watchpoint
- * addresses.
- */
 vaddr arm_adjust_watchpoint_address(CPUState *cs, vaddr addr, int len);
 
-/* Callback function for when a watchpoint or breakpoint triggers. */
 void arm_debug_excp_handler(CPUState *cs);
 
 #if defined(CONFIG_USER_ONLY) || !defined(CONFIG_TCG)
@@ -644,27 +460,15 @@ static inline void arm_handle_psci_call(ARMCPU *cpu)
     g_assert_not_reached();
 }
 #else
-/* Return true if the r0/x0 value indicates that this SMC/HVC is a PSCI call. */
 bool arm_is_psci_call(ARMCPU *cpu, int excp_type);
-/* Actually handle a PSCI call */
 void arm_handle_psci_call(ARMCPU *cpu);
 #endif
 
-/**
- * arm_clear_exclusive: clear the exclusive monitor
- * @env: CPU env
- * Clear the CPU's exclusive monitor, like the guest CLREX instruction.
- */
 static inline void arm_clear_exclusive(CPUARMState *env)
 {
     env->exclusive_addr = -1;
 }
 
-/**
- * ARMFaultType: type of an ARM MMU fault
- * This corresponds to the v8A pseudocode's Fault enumeration,
- * with extensions for QEMU internal conditions.
- */
 typedef enum ARMFaultType {
     ARMFault_None,
     ARMFault_AccessFlag,
@@ -700,20 +504,6 @@ typedef enum ARMGPCF {
     GPCF_Fail,
 } ARMGPCF;
 
-/**
- * ARMMMUFaultInfo: Information describing an ARM MMU Fault
- * @type: Type of fault
- * @gpcf: Subtype of ARMFault_GPCFOn{Walk,Output}.
- * @level: Table walk level (for translation, access flag and permission faults)
- * @domain: Domain of the fault address (for non-LPAE CPUs only)
- * @s2addr: Address that caused a fault at stage 2
- * @paddr: physical address that caused a fault for gpc
- * @paddr_space: physical address space that caused a fault for gpc
- * @stage2: True if we faulted at stage 2
- * @s1ptw: True if we faulted at stage 2 while doing a stage 1 page-table walk
- * @s1ns: True if we faulted on a non-secure IPA while in secure state
- * @ea: True if we should set the EA (external abort type) bit in syndrome
- */
 typedef struct ARMMMUFaultInfo ARMMMUFaultInfo;
 struct ARMMMUFaultInfo {
     ARMFaultType type;
@@ -729,12 +519,6 @@ struct ARMMMUFaultInfo {
     bool ea;
 };
 
-/**
- * arm_fi_to_sfsc: Convert fault info struct to short-format FSC
- * Compare pseudocode EncodeSDFSC(), though unlike that function
- * we set up a whole FSR-format code including domain field and
- * putting the high bit of the FSC into bit 10.
- */
 static inline uint32_t arm_fi_to_sfsc(ARMMMUFaultInfo *fi)
 {
     uint32_t fsc;
@@ -801,9 +585,6 @@ static inline uint32_t arm_fi_to_sfsc(ARMMMUFaultInfo *fi)
         fsc = M_FAKE_FSR_SFAULT;
         break;
     default:
-        /* Other faults can't occur in a context that requires a
-         * short-format status code.
-         */
         g_assert_not_reached();
     }
 
@@ -811,11 +592,6 @@ static inline uint32_t arm_fi_to_sfsc(ARMMMUFaultInfo *fi)
     return fsc;
 }
 
-/**
- * arm_fi_to_lfsc: Convert fault info struct to long-format FSC
- * Compare pseudocode EncodeLDFSC(), though unlike that function
- * we fill in also the LPAE bit 9 of a DFSR format.
- */
 static inline uint32_t arm_fi_to_lfsc(ARMMMUFaultInfo *fi)
 {
     uint32_t fsc;
@@ -906,9 +682,6 @@ static inline uint32_t arm_fi_to_lfsc(ARMMMUFaultInfo *fi)
         fsc = 0b101000;
         break;
     default:
-        /* Other faults can't occur in a context that requires a
-         * long-format status code.
-         */
         g_assert_not_reached();
     }
 
@@ -918,11 +691,6 @@ static inline uint32_t arm_fi_to_lfsc(ARMMMUFaultInfo *fi)
 
 static inline bool arm_extabort_type(MemTxResult result)
 {
-    /* The EA bit in syndromes and fault status registers is an
-     * IMPDEF classification of external aborts. ARM implementations
-     * usually use this to indicate AXI bus Decode error (0) or
-     * Slave error (1); in QEMU we follow that.
-     */
     return result != MEMTX_DECODE_ERROR;
 }
 
@@ -954,31 +722,20 @@ static inline ARMMMUIdx core_to_arm_mmu_idx(CPUARMState *env, int mmu_idx)
 
 static inline ARMMMUIdx core_to_aa64_mmu_idx(int mmu_idx)
 {
-    /* AArch64 is always a-profile. */
     return mmu_idx | ARM_MMU_IDX_A;
 }
 
 int arm_mmu_idx_to_el(ARMMMUIdx mmu_idx);
 
-/* Return the MMU index for a v7M CPU in the specified security state */
 ARMMMUIdx arm_v7m_mmu_idx_for_secstate(CPUARMState *env, bool secstate);
 
-/*
- * Return true if the stage 1 translation regime is using LPAE
- * format page tables
- */
 bool arm_s1_regime_using_lpae_format(CPUARMState *env, ARMMMUIdx mmu_idx);
 
-/* Raise a data fault alignment exception for the specified virtual address */
 G_NORETURN void arm_cpu_do_unaligned_access(CPUState *cs, vaddr vaddr,
                                             MMUAccessType access_type,
                                             int mmu_idx, uintptr_t retaddr);
 
 #ifndef CONFIG_USER_ONLY
-/* arm_cpu_do_transaction_failed: handle a memory system error response
- * (eg "no device/memory present at address") by raising an external abort
- * exception
- */
 void arm_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
                                    vaddr addr, unsigned size,
                                    MMUAccessType access_type,
@@ -986,7 +743,6 @@ void arm_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
                                    MemTxResult response, uintptr_t retaddr);
 #endif
 
-/* Call any registered EL change hooks */
 static inline void arm_call_pre_el_change_hook(ARMCPU *cpu)
 {
     ARMELChangeHook *hook, *next;
@@ -1002,16 +758,6 @@ static inline void arm_call_el_change_hook(ARMCPU *cpu)
     }
 }
 
-/*
- * Return true if this address translation regime has two ranges.
- * Note that this will not return the correct answer for AArch32
- * Secure PL1&0 (i.e. mmu indexes E3, E30_0, E30_3_PAN), but it is
- * never called from a context where EL3 can be AArch32. (The
- * correct return value for ARMMMUIdx_E3 would be different for
- * that case, so we can't just make the function return the
- * correct value anyway; we would need an extra "bool e3_is_aarch32"
- * argument which all the current callsites would pass as 'false'.)
- */
 static inline bool regime_has_2_ranges(ARMMMUIdx mmu_idx)
 {
     switch (mmu_idx) {
@@ -1048,7 +794,6 @@ static inline bool regime_is_stage2(ARMMMUIdx mmu_idx)
     return mmu_idx == ARMMMUIdx_Stage2 || mmu_idx == ARMMMUIdx_Stage2_S;
 }
 
-/* Return the exception level which controls this address translation regime */
 static inline uint32_t regime_el(CPUARMState *env, ARMMMUIdx mmu_idx)
 {
     switch (mmu_idx) {
@@ -1100,37 +845,22 @@ static inline bool regime_is_user(CPUARMState *env, ARMMMUIdx mmu_idx)
     }
 }
 
-/* Return the SCTLR value which controls this address translation regime */
 static inline uint64_t regime_sctlr(CPUARMState *env, ARMMMUIdx mmu_idx)
 {
     return env->cp15.sctlr_el[regime_el(env, mmu_idx)];
 }
 
-/*
- * These are the fields in VTCR_EL2 which affect both the Secure stage 2
- * and the Non-Secure stage 2 translation regimes (and hence which are
- * not present in VSTCR_EL2).
- */
 #define VTCR_SHARED_FIELD_MASK \
     (R_VTCR_IRGN0_MASK | R_VTCR_ORGN0_MASK | R_VTCR_SH0_MASK | \
      R_VTCR_PS_MASK | R_VTCR_VS_MASK | R_VTCR_HA_MASK | R_VTCR_HD_MASK | \
      R_VTCR_DS_MASK)
 
-/* Return the value of the TCR controlling this translation regime */
 static inline uint64_t regime_tcr(CPUARMState *env, ARMMMUIdx mmu_idx)
 {
     if (mmu_idx == ARMMMUIdx_Stage2) {
         return env->cp15.vtcr_el2;
     }
     if (mmu_idx == ARMMMUIdx_Stage2_S) {
-        /*
-         * Secure stage 2 shares fields from VTCR_EL2. We merge those
-         * in with the VSTCR_EL2 value to synthesize a single VTCR_EL2 format
-         * value so the callers don't need to special case this.
-         *
-         * If a future architecture change defines bits in VSTCR_EL2 that
-         * overlap with these VTCR_EL2 fields we may need to revisit this.
-         */
         uint64_t v = env->cp15.vstcr_el2 & ~VTCR_SHARED_FIELD_MASK;
         v |= env->cp15.vtcr_el2 & VTCR_SHARED_FIELD_MASK;
         return v;
@@ -1138,7 +868,6 @@ static inline uint64_t regime_tcr(CPUARMState *env, ARMMMUIdx mmu_idx)
     return env->cp15.tcr_el[regime_el(env, mmu_idx)];
 }
 
-/* Return true if the translation regime is using LPAE format page tables */
 static inline bool regime_using_lpae_format(CPUARMState *env, ARMMMUIdx mmu_idx)
 {
     int el = regime_el(env, mmu_idx);
@@ -1156,11 +885,6 @@ static inline bool regime_using_lpae_format(CPUARMState *env, ARMMMUIdx mmu_idx)
     return false;
 }
 
-/**
- * arm_num_brps: Return number of implemented breakpoints.
- * Note that the ID register BRPS field is "number of bps - 1",
- * and we return the actual number of breakpoints.
- */
 static inline int arm_num_brps(ARMCPU *cpu)
 {
     if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
@@ -1170,11 +894,6 @@ static inline int arm_num_brps(ARMCPU *cpu)
     }
 }
 
-/**
- * arm_num_wrps: Return number of implemented watchpoints.
- * Note that the ID register WRPS field is "number of wps - 1",
- * and we return the actual number of watchpoints.
- */
 static inline int arm_num_wrps(ARMCPU *cpu)
 {
     if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
@@ -1184,11 +903,6 @@ static inline int arm_num_wrps(ARMCPU *cpu)
     }
 }
 
-/**
- * arm_num_ctx_cmps: Return number of implemented context comparators.
- * Note that the ID register CTX_CMPS field is "number of cmps - 1",
- * and we return the actual number of comparators.
- */
 static inline int arm_num_ctx_cmps(ARMCPU *cpu)
 {
     if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
@@ -1198,27 +912,12 @@ static inline int arm_num_ctx_cmps(ARMCPU *cpu)
     }
 }
 
-/**
- * v7m_using_psp: Return true if using process stack pointer
- * Return true if the CPU is currently using the process stack
- * pointer, or false if it is using the main stack pointer.
- */
 static inline bool v7m_using_psp(CPUARMState *env)
 {
-    /* Handler mode always uses the main stack; for thread mode
-     * the CONTROL.SPSEL bit determines the answer.
-     * Note that in v7M it is not possible to be in Handler mode with
-     * CONTROL.SPSEL non-zero, but in v8M it is, so we must check both.
-     */
     return !arm_v7m_is_handler_mode(env) &&
         env->v7m.control[env->v7m.secure] & R_V7M_CONTROL_SPSEL_MASK;
 }
 
-/**
- * v7m_sp_limit: Return SP limit for current CPU state
- * Return the SP limit value for the current CPU security state
- * and stack pointer.
- */
 static inline uint32_t v7m_sp_limit(CPUARMState *env)
 {
     if (v7m_using_psp(env)) {
@@ -1228,11 +927,6 @@ static inline uint32_t v7m_sp_limit(CPUARMState *env)
     }
 }
 
-/**
- * v7m_cpacr_pass:
- * Return true if the v7M CPACR permits access to the FPU for the specified
- * security state and privilege level.
- */
 static inline bool v7m_cpacr_pass(CPUARMState *env,
                                   bool is_secure, bool is_priv)
 {
@@ -1249,14 +943,6 @@ static inline bool v7m_cpacr_pass(CPUARMState *env,
     }
 }
 
-/**
- * aarch32_mode_name(): Return name of the AArch32 CPU mode
- * @psr: Program Status Register indicating CPU mode
- *
- * Returns, for debug logging purposes, a printable representation
- * of the AArch32 CPU mode ("svc", "usr", etc) as indicated by
- * the low bits of the specified PSR.
- */
 static inline const char *aarch32_mode_name(uint32_t psr)
 {
     static const char cpu_mode_names[16][4] = {
@@ -1267,73 +953,20 @@ static inline const char *aarch32_mode_name(uint32_t psr)
     return cpu_mode_names[psr & 0xf];
 }
 
-/**
- * arm_cpu_update_virq: Update CPU_INTERRUPT_VIRQ bit in cs->interrupt_request
- *
- * Update the CPU_INTERRUPT_VIRQ bit in cs->interrupt_request, following
- * a change to either the input VIRQ line from the GIC or the HCR_EL2.VI bit.
- * Must be called with the BQL held.
- */
 void arm_cpu_update_virq(ARMCPU *cpu);
 
-/**
- * arm_cpu_update_vfiq: Update CPU_INTERRUPT_VFIQ bit in cs->interrupt_request
- *
- * Update the CPU_INTERRUPT_VFIQ bit in cs->interrupt_request, following
- * a change to either the input VFIQ line from the GIC or the HCR_EL2.VF bit.
- * Must be called with the BQL held.
- */
 void arm_cpu_update_vfiq(ARMCPU *cpu);
 
-/**
- * arm_cpu_update_vinmi: Update CPU_INTERRUPT_VINMI bit in cs->interrupt_request
- *
- * Update the CPU_INTERRUPT_VINMI bit in cs->interrupt_request, following
- * a change to either the input VNMI line from the GIC or the HCRX_EL2.VINMI.
- * Must be called with the BQL held.
- */
 void arm_cpu_update_vinmi(ARMCPU *cpu);
 
-/**
- * arm_cpu_update_vfnmi: Update CPU_INTERRUPT_VFNMI bit in cs->interrupt_request
- *
- * Update the CPU_INTERRUPT_VFNMI bit in cs->interrupt_request, following
- * a change to the HCRX_EL2.VFNMI.
- * Must be called with the BQL held.
- */
 void arm_cpu_update_vfnmi(ARMCPU *cpu);
 
-/**
- * arm_cpu_update_vserr: Update CPU_INTERRUPT_VSERR bit
- *
- * Update the CPU_INTERRUPT_VSERR bit in cs->interrupt_request,
- * following a change to the HCR_EL2.VSE bit.
- */
 void arm_cpu_update_vserr(ARMCPU *cpu);
 
-/**
- * arm_mmu_idx_el:
- * @env: The cpu environment
- * @el: The EL to use.
- *
- * Return the full ARMMMUIdx for the translation regime for EL.
- */
 ARMMMUIdx arm_mmu_idx_el(CPUARMState *env, int el);
 
-/**
- * arm_mmu_idx:
- * @env: The cpu environment
- *
- * Return the full ARMMMUIdx for the current translation regime.
- */
 ARMMMUIdx arm_mmu_idx(CPUARMState *env);
 
-/**
- * arm_stage1_mmu_idx:
- * @env: The cpu environment
- *
- * Return the ARMMMUIdx for the stage1 traversal for the current regime.
- */
 #ifdef CONFIG_USER_ONLY
 static inline ARMMMUIdx stage_1_mmu_idx(ARMMMUIdx mmu_idx)
 {
@@ -1348,13 +981,6 @@ ARMMMUIdx stage_1_mmu_idx(ARMMMUIdx mmu_idx);
 ARMMMUIdx arm_stage1_mmu_idx(CPUARMState *env);
 #endif
 
-/**
- * arm_mmu_idx_is_stage1_of_2:
- * @mmu_idx: The ARMMMUIdx to test
- *
- * Return true if @mmu_idx is a NOTLB mmu_idx that is the
- * first stage of a two stage regime.
- */
 static inline bool arm_mmu_idx_is_stage1_of_2(ARMMMUIdx mmu_idx)
 {
     switch (mmu_idx) {
@@ -1430,21 +1056,13 @@ static inline uint32_t aarch64_pstate_valid_mask(const ARMISARegisters *id)
     return valid;
 }
 
-/* Granule size (i.e. page size) */
 typedef enum ARMGranuleSize {
-    /* Same order as TG0 encoding */
     Gran4K,
     Gran64K,
     Gran16K,
     GranInvalid,
 } ARMGranuleSize;
 
-/**
- * arm_granule_bits: Return address size of the granule in bits
- *
- * Return the address size of the granule in bits. This corresponds
- * to the pseudocode TGxGranuleBits().
- */
 static inline int arm_granule_bits(ARMGranuleSize gran)
 {
     switch (gran) {
@@ -1459,10 +1077,6 @@ static inline int arm_granule_bits(ARMGranuleSize gran)
     }
 }
 
-/*
- * Parameters of a given virtual address, as extracted from the
- * translation control register (TCR) for a given regime.
- */
 typedef struct ARMVAParameters {
     unsigned tsz    : 8;
     unsigned ps     : 3;
@@ -1478,15 +1092,6 @@ typedef struct ARMVAParameters {
     ARMGranuleSize gran : 2;
 } ARMVAParameters;
 
-/**
- * aa64_va_parameters: Return parameters for an AArch64 virtual address
- * @env: CPU
- * @va: virtual address to look up
- * @mmu_idx: determines translation regime to use
- * @data: true if this is a data access
- * @el1_is_aa32: true if we are asking about stage 2 when EL1 is AArch32
- *  (ignored if @mmu_idx is for a stage 1 regime; only affects tsz/tsz_oob)
- */
 ARMVAParameters aa64_va_parameters(CPUARMState *env, uint64_t va,
                                    ARMMMUIdx mmu_idx, bool data,
                                    bool el1_is_aa32);
@@ -1495,7 +1100,6 @@ int aa64_va_parameter_tbi(uint64_t tcr, ARMMMUIdx mmu_idx);
 int aa64_va_parameter_tbid(uint64_t tcr, ARMMMUIdx mmu_idx);
 int aa64_va_parameter_tcma(uint64_t tcr, ARMMMUIdx mmu_idx);
 
-/* Determine if allocation tags are available.  */
 static inline bool allocation_tag_access_enabled(CPUARMState *env, int el,
                                                  uint64_t sctlr)
 {
@@ -1516,7 +1120,6 @@ static inline bool allocation_tag_access_enabled(CPUARMState *env, int el,
 
 #ifndef CONFIG_USER_ONLY
 
-/* Security attributes for an address, as returned by v8m_security_lookup. */
 typedef struct V8M_SAttributes {
     bool subpage; /* true if these attrs don't cover the whole TARGET_PAGE */
     bool ns;
@@ -1531,66 +1134,22 @@ void v8m_security_lookup(CPUARMState *env, uint32_t address,
                          MMUAccessType access_type, ARMMMUIdx mmu_idx,
                          bool secure, V8M_SAttributes *sattrs);
 
-/* Cacheability and shareability attributes for a memory access */
 typedef struct ARMCacheAttrs {
-    /*
-     * If is_s2_format is true, attrs is the S2 descriptor bits [5:2]
-     * Otherwise, attrs is the same as the MAIR_EL1 8-bit format
-     */
     unsigned int attrs:8;
     unsigned int shareability:2; /* as in the SH field of the VMSAv8-64 PTEs */
     bool is_s2_format:1;
 } ARMCacheAttrs;
 
-/* Fields that are valid upon success. */
 typedef struct GetPhysAddrResult {
     CPUTLBEntryFull f;
     ARMCacheAttrs cacheattrs;
 } GetPhysAddrResult;
 
-/**
- * get_phys_addr: get the physical address for a virtual address
- * @env: CPUARMState
- * @address: virtual address to get physical address for
- * @access_type: 0 for read, 1 for write, 2 for execute
- * @memop: memory operation feeding this access, or 0 for none
- * @mmu_idx: MMU index indicating required translation regime
- * @result: set on translation success.
- * @fi: set to fault info if the translation fails
- *
- * Find the physical address corresponding to the given virtual address,
- * by doing a translation table walk on MMU based systems or using the
- * MPU state on MPU based systems.
- *
- * Returns false if the translation was successful. Otherwise, phys_ptr, attrs,
- * prot and page_size may not be filled in, and the populated fsr value provides
- * information on why the translation aborted, in the format of a
- * DFSR/IFSR fault register, with the following caveats:
- *  * we honour the short vs long DFSR format differences.
- *  * the WnR bit is never set (the caller must do this).
- *  * for PSMAv5 based systems we don't bother to return a full FSR format
- *    value.
- */
 bool get_phys_addr(CPUARMState *env, vaddr address,
                    MMUAccessType access_type, MemOp memop, ARMMMUIdx mmu_idx,
                    GetPhysAddrResult *result, ARMMMUFaultInfo *fi)
     __attribute__((nonnull));
 
-/**
- * get_phys_addr_with_space_nogpc: get the physical address for a virtual
- *                                 address
- * @env: CPUARMState
- * @address: virtual address to get physical address for
- * @access_type: 0 for read, 1 for write, 2 for execute
- * @memop: memory operation feeding this access, or 0 for none
- * @mmu_idx: MMU index indicating required translation regime
- * @space: security space for the access
- * @result: set on translation success.
- * @fi: set to fault info if the translation fails
- *
- * Similar to get_phys_addr, but use the given security space and don't perform
- * a Granule Protection Check on the resulting address.
- */
 bool get_phys_addr_with_space_nogpc(CPUARMState *env, vaddr address,
                                     MMUAccessType access_type, MemOp memop,
                                     ARMMMUIdx mmu_idx, ARMSecuritySpace space,
@@ -1607,22 +1166,12 @@ void arm_log_exception(CPUState *cs);
 
 #endif /* !CONFIG_USER_ONLY */
 
-/*
- * SVE predicates are 1/8 the size of SVE vectors, and cannot use
- * the same simd_desc() encoding due to restrictions on size.
- * Use these instead.
- */
 FIELD(PREDDESC, OPRSZ, 0, 6)
 FIELD(PREDDESC, ESZ, 6, 2)
 FIELD(PREDDESC, DATA, 8, 24)
 
-/*
- * The SVE simd_data field, for memory ops, contains either
- * rd (5 bits) or a shift count (2 bits).
- */
 #define SVE_MTEDESC_SHIFT 5
 
-/* Bits within a descriptor passed to the helper_mte_check* functions. */
 FIELD(MTEDESC, MIDX,  0, 4)
 FIELD(MTEDESC, TBI,   4, 2)
 FIELD(MTEDESC, TCMA,  6, 2)
@@ -1633,58 +1182,15 @@ FIELD(MTEDESC, SIZEM1, 12, SIMD_DATA_BITS - SVE_MTEDESC_SHIFT - 12)  /* size - 1
 bool mte_probe(CPUARMState *env, uint32_t desc, uint64_t ptr);
 uint64_t mte_check(CPUARMState *env, uint32_t desc, uint64_t ptr, uintptr_t ra);
 
-/**
- * mte_mops_probe: Check where the next MTE failure is for a FEAT_MOPS operation
- * @env: CPU env
- * @ptr: start address of memory region (dirty pointer)
- * @size: length of region (guaranteed not to cross a page boundary)
- * @desc: MTEDESC descriptor word (0 means no MTE checks)
- * Returns: the size of the region that can be copied without hitting
- *          an MTE tag failure
- *
- * Note that we assume that the caller has already checked the TBI
- * and TCMA bits with mte_checks_needed() and an MTE check is definitely
- * required.
- */
 uint64_t mte_mops_probe(CPUARMState *env, uint64_t ptr, uint64_t size,
                         uint32_t desc);
 
-/**
- * mte_mops_probe_rev: Check where the next MTE failure is for a FEAT_MOPS
- *                     operation going in the reverse direction
- * @env: CPU env
- * @ptr: *end* address of memory region (dirty pointer)
- * @size: length of region (guaranteed not to cross a page boundary)
- * @desc: MTEDESC descriptor word (0 means no MTE checks)
- * Returns: the size of the region that can be copied without hitting
- *          an MTE tag failure
- *
- * Note that we assume that the caller has already checked the TBI
- * and TCMA bits with mte_checks_needed() and an MTE check is definitely
- * required.
- */
 uint64_t mte_mops_probe_rev(CPUARMState *env, uint64_t ptr, uint64_t size,
                             uint32_t desc);
 
-/**
- * mte_check_fail: Record an MTE tag check failure
- * @env: CPU env
- * @desc: MTEDESC descriptor word
- * @dirty_ptr: Failing dirty address
- * @ra: TCG retaddr
- *
- * This may never return (if the MTE tag checks are configured to fault).
- */
 void mte_check_fail(CPUARMState *env, uint32_t desc,
                     uint64_t dirty_ptr, uintptr_t ra);
 
-/**
- * mte_mops_set_tags: Set MTE tags for a portion of a FEAT_MOPS operation
- * @env: CPU env
- * @dirty_ptr: Start address of memory region (dirty pointer)
- * @size: length of region (guaranteed not to cross page boundary)
- * @desc: MTEDESC descriptor word
- */
 void mte_mops_set_tags(CPUARMState *env, uint64_t dirty_ptr, uint64_t size,
                        uint32_t desc);
 
@@ -1698,34 +1204,21 @@ static inline uint64_t address_with_allocation_tag(uint64_t ptr, int rtag)
     return deposit64(ptr, 56, 4, rtag);
 }
 
-/* Return true if tbi bits mean that the access is checked.  */
 static inline bool tbi_check(uint32_t desc, int bit55)
 {
     return (desc >> (R_MTEDESC_TBI_SHIFT + bit55)) & 1;
 }
 
-/* Return true if tcma bits mean that the access is unchecked.  */
 static inline bool tcma_check(uint32_t desc, int bit55, int ptr_tag)
 {
-    /*
-     * We had extracted bit55 and ptr_tag for other reasons, so fold
-     * (ptr<59:55> == 00000 || ptr<59:55> == 11111) into a single test.
-     */
     bool match = ((ptr_tag + bit55) & 0xf) == 0;
     bool tcma = (desc >> (R_MTEDESC_TCMA_SHIFT + bit55)) & 1;
     return tcma && match;
 }
 
-/*
- * For TBI, ideally, we would do nothing.  Proper behaviour on fault is
- * for the tag to be present in the FAR_ELx register.  But for user-only
- * mode, we do not have a TLB with which to implement this, so we must
- * remove the top byte.
- */
 static inline uint64_t useronly_clean_ptr(uint64_t ptr)
 {
 #ifdef CONFIG_USER_ONLY
-    /* TBI0 is known to be enabled, while TBI1 is disabled. */
     ptr &= sextract64(ptr, 0, 56);
 #endif
     return ptr;
@@ -1742,18 +1235,14 @@ static inline uint64_t useronly_maybe_clean_ptr(uint32_t desc, uint64_t ptr)
     return ptr;
 }
 
-/* Values for M-profile PSR.ECI for MVE insns */
 enum MVEECIState {
     ECI_NONE = 0, /* No completed beats */
     ECI_A0 = 1, /* Completed: A0 */
     ECI_A0A1 = 2, /* Completed: A0, A1 */
-    /* 3 is reserved */
     ECI_A0A1A2 = 4, /* Completed: A0, A1, A2 */
     ECI_A0A1A2B0 = 5, /* Completed: A0, A1, A2, B0 */
-    /* All other values reserved */
 };
 
-/* Definitions for the PMU registers */
 #define PMCRN_MASK  0xf800
 #define PMCRN_SHIFT 11
 #define PMCRLP  0x80
@@ -1764,10 +1253,6 @@ enum MVEECIState {
 #define PMCRC   0x4
 #define PMCRP   0x2
 #define PMCRE   0x1
-/*
- * Mask of PMCR bits writable by guest (not including WO bits like C, P,
- * which can be written as 1 to trigger behaviour but which stay RAZ).
- */
 #define PMCR_WRITABLE_MASK (PMCRLP | PMCRLC | PMCRDP | PMCRX | PMCRD | PMCRE)
 
 #define PMXEVTYPER_P          0x80000000
@@ -1794,7 +1279,6 @@ static inline uint32_t pmu_num_counters(CPUARMState *env)
     return (cpu->isar.reset_pmcr_el0 & PMCRN_MASK) >> PMCRN_SHIFT;
 }
 
-/* Bits allowed to be set/cleared for PMCNTEN* and PMINTEN* */
 static inline uint64_t pmu_counter_mask(CPUARMState *env)
 {
   return (1ULL << 31) | ((1ULL << pmu_num_counters(env)) - 1);
@@ -1811,16 +1295,8 @@ void aarch64_add_sve_properties(Object *obj);
 void aarch64_add_sme_properties(Object *obj);
 #endif
 
-/* Read the CONTROL register as the MRS instruction would. */
 uint32_t arm_v7m_mrs_control(CPUARMState *env, uint32_t secure);
 
-/*
- * Return a pointer to the location where we currently store the
- * stack pointer for the requested security state and thread mode.
- * This pointer will become invalid if the CPU state is updated
- * such that the stack pointers are switched around (eg changing
- * the SPSEL control bit).
- */
 uint32_t *arm_v7m_get_sp_ptr(CPUARMState *env, bool secure,
                              bool threadmode, bool spsel);
 
@@ -1831,13 +1307,6 @@ int exception_target_el(CPUARMState *env);
 bool arm_singlestep_active(CPUARMState *env);
 bool arm_generate_debug_exceptions(CPUARMState *env);
 
-/**
- * pauth_ptr_mask:
- * @param: parameters defining the MMU setup
- *
- * Return a mask of the address bits that contain the authentication code,
- * given the MMU config defined by @param.
- */
 static inline uint64_t pauth_ptr_mask(ARMVAParameters param)
 {
     int bot_pac_bit = 64 - param.tsz;
@@ -1846,36 +1315,21 @@ static inline uint64_t pauth_ptr_mask(ARMVAParameters param)
     return MAKE_64BIT_MASK(bot_pac_bit, top_pac_bit - bot_pac_bit);
 }
 
-/* Add the cpreg definitions for debug related system registers */
 void define_debug_regs(ARMCPU *cpu);
 
-/* Add the cpreg definitions for TLBI instructions */
 void define_tlb_insn_regs(ARMCPU *cpu);
 
-/* Effective value of MDCR_EL2 */
 static inline uint64_t arm_mdcr_el2_eff(CPUARMState *env)
 {
     return arm_is_el2_enabled(env) ? env->cp15.mdcr_el2 : 0;
 }
 
-/* Powers of 2 for sve_vq_map et al. */
 #define SVE_VQ_POW2_MAP                                 \
     ((1 << (1 - 1)) | (1 << (2 - 1)) |                  \
      (1 << (4 - 1)) | (1 << (8 - 1)) | (1 << (16 - 1)))
 
-/*
- * Return true if it is possible to take a fine-grained-trap to EL2.
- */
 static inline bool arm_fgt_active(CPUARMState *env, int el)
 {
-    /*
-     * The Arm ARM only requires the "{E2H,TGE} != {1,1}" test for traps
-     * that can affect EL0, but it is harmless to do the test also for
-     * traps on registers that are only accessible at EL1 because if the test
-     * returns true then we can't be executing at EL1 anyway.
-     * FGT traps only happen when EL2 is enabled and EL1 is AArch64;
-     * traps from AArch32 only happen for the EL0 is AArch32 case.
-     */
     return cpu_isar_feature(aa64_fgt, env_archcpu(env)) &&
         el < 2 && arm_is_el2_enabled(env) &&
         arm_el_is_aa64(env, 1) &&
@@ -1885,39 +1339,18 @@ static inline bool arm_fgt_active(CPUARMState *env, int el)
 
 void assert_hflags_rebuild_correctly(CPUARMState *env);
 
-/*
- * Although the ARM implementation of hardware assisted debugging
- * allows for different breakpoints per-core, the current GDB
- * interface treats them as a global pool of registers (which seems to
- * be the case for x86, ppc and s390). As a result we store one copy
- * of registers which is used for all active cores.
- *
- * Write access is serialised by virtue of the GDB protocol which
- * updates things. Read access (i.e. when the values are copied to the
- * vCPU) is also gated by GDB's run control.
- *
- * This is not unreasonable as most of the time debugging kernels you
- * never know which core will eventually execute your function.
- */
 
 typedef struct {
     uint64_t bcr;
     uint64_t bvr;
 } HWBreakpoint;
 
-/*
- * The watchpoint registers can cover more area than the requested
- * watchpoint so we need to store the additional information
- * somewhere. We also need to supply a CPUWatchpoint to the GDB stub
- * when the watchpoint is hit.
- */
 typedef struct {
     uint64_t wcr;
     uint64_t wvr;
     CPUWatchpoint details;
 } HWWatchpoint;
 
-/* Maximum and current break/watch point counts */
 extern int max_hw_bps, max_hw_wps;
 extern GArray *hw_breakpoints, *hw_watchpoints;
 
@@ -1935,33 +1368,15 @@ CPUWatchpoint *find_hw_watchpoint(CPUState *cpu, target_ulong addr);
 int insert_hw_watchpoint(target_ulong addr, target_ulong len, int type);
 int delete_hw_watchpoint(target_ulong addr, target_ulong len, int type);
 
-/* Return the current value of the system counter in ticks */
 uint64_t gt_get_countervalue(CPUARMState *env);
-/*
- * Return the currently applicable offset between the system counter
- * and the counter for the specified timer, as used for direct register
- * accesses.
- */
 uint64_t gt_direct_access_timer_offset(CPUARMState *env, int timeridx);
 
-/*
- * Return mask of ARMMMUIdxBit values corresponding to an "invalidate
- * all EL1" scope; this covers stage 1 and stage 2.
- */
 int alle1_tlbmask(CPUARMState *env);
 
-/* Set the float_status behaviour to match the Arm defaults */
 void arm_set_default_fp_behaviours(float_status *s);
-/* Set the float_status behaviour to match Arm FPCR.AH=1 behaviour */
 void arm_set_ah_fp_behaviours(float_status *s);
-/* Read the float_status info and return the appropriate FPSR value */
 uint32_t vfp_get_fpsr_from_host(CPUARMState *env);
-/* Clear the exception status flags from all float_status fields */
 void vfp_clear_float_status_exc_flags(CPUARMState *env);
-/*
- * Update float_status fields to handle the bits of the FPCR
- * specified by mask changing to the values in val.
- */
 void vfp_set_fpcr_to_host(CPUARMState *env, uint32_t val, uint32_t mask);
 
 #endif

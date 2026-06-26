@@ -1,17 +1,3 @@
-/*
- * QMP commands related to UI
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 
@@ -115,17 +101,6 @@ bool qmp_add_client_dbus_display(int fd, bool has_skipauth, bool skipauth,
 
 #ifdef CONFIG_PIXMAN
 #ifdef CONFIG_PNG
-/**
- * png_save: Take a screenshot as PNG
- *
- * Saves screendump as a PNG file
- *
- * Returns true for success or false for error.
- *
- * @fd: File descriptor for PNG file.
- * @image: Image data in pixman format.
- * @errp: Pointer to an error.
- */
 static bool png_save(int fd, pixman_image_t *image, Error **errp)
 {
     int width = pixman_image_get_width(image);
@@ -226,7 +201,6 @@ static bool ppm_save(int fd, pixman_image_t *image, Error **errp)
     return true;
 }
 
-/* Safety: coroutine-only, concurrent-coroutine safe, main thread only */
 void coroutine_fn
 qmp_screendump(const char *filename, const char *device,
                bool has_head, int64_t head,
@@ -257,11 +231,6 @@ qmp_screendump(const char *filename, const char *device,
 
     qemu_console_co_wait_update(con);
 
-    /*
-     * All pending coroutines are woken up, while the BQL is held.  No
-     * further graphic update are possible until it is released.  Take
-     * an image ref before that.
-     */
     surface = qemu_console_surface(con);
     if (!surface) {
         error_setg(errp, "no surface");
@@ -276,18 +245,11 @@ qmp_screendump(const char *filename, const char *device,
         return;
     }
 
-    /*
-     * The image content could potentially be updated as the coroutine
-     * yields and releases the BQL. It could produce corrupted dump, but
-     * it should be otherwise safe.
-     */
     if (has_format && format == IMAGE_FORMAT_PNG) {
-        /* PNG format specified for screendump */
         if (!png_save(fd, image, errp)) {
             qemu_unlink(filename);
         }
     } else {
-        /* PPM format specified/default for screendump */
         if (!ppm_save(fd, image, errp)) {
             qemu_unlink(filename);
         }

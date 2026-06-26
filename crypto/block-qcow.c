@@ -1,28 +1,4 @@
-/*
- * QEMU Crypto block device encryption QCow/QCow2 AES-CBC format
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
-/*
- * Note that the block encryption implemented in this file is broken
- * by design. This exists only to allow data to be liberated from
- * existing qcow[2] images and should not be used in any new areas.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -132,7 +108,6 @@ qcrypto_block_qcow_create(QCryptoBlock *block,
                    optprefix ? optprefix : "");
         return -1;
     }
-    /* QCow2 has no special header, since everything is hardwired */
     return qcrypto_block_qcow_init(block, options->u.qcow.key_secret, errp);
 }
 

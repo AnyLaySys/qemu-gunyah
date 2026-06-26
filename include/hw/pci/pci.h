@@ -7,7 +7,6 @@
 
 extern bool pci_available;
 
-/* PCI bus */
 
 #define PCI_DEVFN(slot, func)   ((((slot) & 0x1f) << 3) | ((func) & 0x07))
 #define PCI_BUS_NUM(x)          (((x) >> 8) & 0xff)
@@ -24,41 +23,31 @@ extern bool pci_available;
             ((((uint32_t)(seg)) << 16) | \
             (PCI_BUILD_BDF(bus, PCI_DEVFN(dev, func))))
 
-/* Class, Vendor and Device IDs from Linux's pci_ids.h */
 #include "hw/pci/pci_ids.h"
 
-/* QEMU-specific Vendor and Device ID definitions */
 
-/* IBM (0x1014) */
 #define PCI_DEVICE_ID_IBM_440GX          0x027f
 #define PCI_DEVICE_ID_IBM_OPENPIC2       0xffff
 
-/* Hitachi (0x1054) */
 #define PCI_VENDOR_ID_HITACHI            0x1054
 #define PCI_DEVICE_ID_HITACHI_SH7751R    0x350e
 
-/* Apple (0x106b) */
 #define PCI_DEVICE_ID_APPLE_343S1201     0x0010
 #define PCI_DEVICE_ID_APPLE_UNI_N_I_PCI  0x001e
 #define PCI_DEVICE_ID_APPLE_UNI_N_PCI    0x001f
 #define PCI_DEVICE_ID_APPLE_UNI_N_KEYL   0x0022
 #define PCI_DEVICE_ID_APPLE_IPID_USB     0x003f
 
-/* Realtek (0x10ec) */
 #define PCI_DEVICE_ID_REALTEK_8029       0x8029
 
-/* Xilinx (0x10ee) */
 #define PCI_DEVICE_ID_XILINX_XC2VP30     0x0300
 
-/* Marvell (0x11ab) */
 #define PCI_DEVICE_ID_MARVELL_GT6412X    0x4620
 
-/* QEMU/Bochs VGA (0x1234) */
 #define PCI_VENDOR_ID_QEMU               0x1234
 #define PCI_DEVICE_ID_QEMU_VGA           0x1111
 #define PCI_DEVICE_ID_QEMU_IPMI          0x1112
 
-/* VMWare (0x15ad) */
 #define PCI_VENDOR_ID_VMWARE             0x15ad
 #define PCI_DEVICE_ID_VMWARE_SVGA2       0x0405
 #define PCI_DEVICE_ID_VMWARE_SVGA        0x0710
@@ -68,17 +57,14 @@ extern bool pci_available;
 #define PCI_DEVICE_ID_VMWARE_IDE         0x1729
 #define PCI_DEVICE_ID_VMWARE_VMXNET3     0x07B0
 
-/* Intel (0x8086) */
 #define PCI_DEVICE_ID_INTEL_82551IT      0x1209
 #define PCI_DEVICE_ID_INTEL_82557        0x1229
 #define PCI_DEVICE_ID_INTEL_82801IR      0x2922
 
-/* Red Hat / Qumranet (for QEMU) -- see pci-ids.txt */
 #define PCI_VENDOR_ID_REDHAT_QUMRANET    0x1af4
 #define PCI_SUBVENDOR_ID_REDHAT_QUMRANET 0x1af4
 #define PCI_SUBDEVICE_ID_QEMU            0x1100
 
-/* legacy virtio-pci devices */
 #define PCI_DEVICE_ID_VIRTIO_NET         0x1000
 #define PCI_DEVICE_ID_VIRTIO_BLOCK       0x1001
 #define PCI_DEVICE_ID_VIRTIO_BALLOON     0x1002
@@ -88,13 +74,6 @@ extern bool pci_available;
 #define PCI_DEVICE_ID_VIRTIO_9P          0x1009
 #define PCI_DEVICE_ID_VIRTIO_VSOCK       0x1012
 
-/*
- * modern virtio-pci devices get their id assigned automatically,
- * there is no need to add #defines here.  It gets calculated as
- *
- * PCI_DEVICE_ID = PCI_DEVICE_ID_VIRTIO_10_BASE +
- *                 virtio_bus_get_vdev_id(bus)
- */
 #define PCI_DEVICE_ID_VIRTIO_10_BASE     0x1040
 
 #define PCI_VENDOR_ID_REDHAT             0x1b36
@@ -170,40 +149,30 @@ enum {
 
 #include "hw/pci/pci_regs.h"
 
-/* PCI HEADER_TYPE */
 #define  PCI_HEADER_TYPE_MULTI_FUNCTION 0x80
 
-/* Size of the standard PCI config header */
 #define PCI_CONFIG_HEADER_SIZE 0x40
-/* Size of the standard PCI config space */
 #define PCI_CONFIG_SPACE_SIZE 0x100
-/* Size of the standard PCIe config space: 4KB */
 #define PCIE_CONFIG_SPACE_SIZE  0x1000
 
 #define PCI_NUM_PINS 4 /* A-D */
 
-/* Bits in cap_present field. */
 enum {
     QEMU_PCI_CAP_MSI = 0x1,
     QEMU_PCI_CAP_MSIX = 0x2,
     QEMU_PCI_CAP_EXPRESS = 0x4,
 
-    /* multifunction capable device */
 #define QEMU_PCI_CAP_MULTIFUNCTION_BITNR        3
     QEMU_PCI_CAP_MULTIFUNCTION = (1 << QEMU_PCI_CAP_MULTIFUNCTION_BITNR),
 
-    /* command register SERR bit enabled - unused since QEMU v5.0 */
 #define QEMU_PCI_CAP_SERR_BITNR 4
     QEMU_PCI_CAP_SERR = (1 << QEMU_PCI_CAP_SERR_BITNR),
-    /* Standard hot plug controller. */
 #define QEMU_PCI_SHPC_BITNR 5
     QEMU_PCI_CAP_SHPC = (1 << QEMU_PCI_SHPC_BITNR),
 #define QEMU_PCI_SLOTID_BITNR 6
     QEMU_PCI_CAP_SLOTID = (1 << QEMU_PCI_SLOTID_BITNR),
-    /* PCI Express capability - Power Controller Present */
 #define QEMU_PCIE_SLTCAP_PCP_BITNR 7
     QEMU_PCIE_SLTCAP_PCP = (1 << QEMU_PCIE_SLTCAP_PCP_BITNR),
-    /* Link active status in endpoint capability is always set */
 #define QEMU_PCIE_LNKSTA_DLLLA_BITNR 8
     QEMU_PCIE_LNKSTA_DLLLA = (1 << QEMU_PCIE_LNKSTA_DLLLA_BITNR),
 #define QEMU_PCIE_EXTCAP_INIT_BITNR 9
@@ -262,10 +231,6 @@ int pci_device_load(PCIDevice *s, QEMUFile *f);
 MemoryRegion *pci_address_space(PCIDevice *dev);
 MemoryRegion *pci_address_space_io(PCIDevice *dev);
 
-/*
- * Should not normally be used by devices. For use by sPAPR target
- * where QEMU emulates firmware.
- */
 int pci_bar(PCIDevice *d, int reg);
 
 typedef void (*pci_set_irq_fn)(void *opaque, int irq_num, int level);
@@ -302,7 +267,6 @@ void pci_bus_clear_slot_reserved_mask(PCIBus *bus, uint32_t mask);
 bool pci_bus_add_fw_cfg_extra_pci_roots(FWCfgState *fw_cfg,
                                         PCIBus *bus,
                                         Error **errp);
-/* 0 <= pin <= 3 0 = INTA, 1 = INTB, 2 = INTC, 3 = INTD */
 static inline int pci_swizzle(int slot, int pin)
 {
     return (slot + pin) % PCI_NUM_PINS;
@@ -355,7 +319,6 @@ void pci_for_each_bus_depth_first(PCIBus *bus, pci_bus_ret_fn begin,
                                   pci_bus_fn end, void *parent_state);
 PCIDevice *pci_get_function_0(PCIDevice *pci_dev);
 
-/* Use this wrapper when specific scan order is not required. */
 static inline
 void pci_for_each_bus(PCIBus *bus, pci_bus_fn fn, void *opaque)
 {
@@ -372,58 +335,10 @@ void pci_bus_get_w64_range(PCIBus *bus, Range *range);
 void pci_device_deassert_intx(PCIDevice *dev);
 
 
-/**
- * struct PCIIOMMUOps: callbacks structure for specific IOMMU handlers
- * of a PCIBus
- *
- * Allows to modify the behavior of some IOMMU operations of the PCI
- * framework for a set of devices on a PCI bus.
- */
 typedef struct PCIIOMMUOps {
-    /**
-     * @get_address_space: get the address space for a set of devices
-     * on a PCI bus.
-     *
-     * Mandatory callback which returns a pointer to an #AddressSpace
-     *
-     * @bus: the #PCIBus being accessed.
-     *
-     * @opaque: the data passed to pci_setup_iommu().
-     *
-     * @devfn: device and function number
-     */
     AddressSpace * (*get_address_space)(PCIBus *bus, void *opaque, int devfn);
-    /**
-     * @set_iommu_device: attach a HostIOMMUDevice to a vIOMMU
-     *
-     * Optional callback, if not implemented in vIOMMU, then vIOMMU can't
-     * retrieve host information from the associated HostIOMMUDevice.
-     *
-     * @bus: the #PCIBus of the PCI device.
-     *
-     * @opaque: the data passed to pci_setup_iommu().
-     *
-     * @devfn: device and function number of the PCI device.
-     *
-     * @dev: the #HostIOMMUDevice to attach.
-     *
-     * @errp: pass an Error out only when return false
-     *
-     * Returns: true if HostIOMMUDevice is attached or else false with errp set.
-     */
     bool (*set_iommu_device)(PCIBus *bus, void *opaque, int devfn,
                              HostIOMMUDevice *dev, Error **errp);
-    /**
-     * @unset_iommu_device: detach a HostIOMMUDevice from a vIOMMU
-     *
-     * Optional callback.
-     *
-     * @bus: the #PCIBus of the PCI device.
-     *
-     * @opaque: the data passed to pci_setup_iommu().
-     *
-     * @devfn: device and function number of the PCI device.
-     */
     void (*unset_iommu_device)(PCIBus *bus, void *opaque, int devfn);
 } PCIIOMMUOps;
 
@@ -432,15 +347,6 @@ bool pci_device_set_iommu_device(PCIDevice *dev, HostIOMMUDevice *hiod,
                                  Error **errp);
 void pci_device_unset_iommu_device(PCIDevice *dev);
 
-/**
- * pci_setup_iommu: Initialize specific IOMMU handlers for a PCIBus
- *
- * Let PCI host bridges define specific operations.
- *
- * @bus: the #PCIBus being updated.
- * @ops: the #PCIIOMMUOps
- * @opaque: passed to callbacks of the @ops structure.
- */
 void pci_setup_iommu(PCIBus *bus, const PCIIOMMUOps *ops, void *opaque);
 
 pcibus_t pci_bar_address(PCIDevice *d,
@@ -482,13 +388,6 @@ pci_get_long(const uint8_t *config)
     return ldl_le_p(config);
 }
 
-/*
- * PCI capabilities and/or their fields
- * are generally DWORD aligned only so
- * mechanism used by pci_set/get_quad()
- * must be tolerant to unaligned pointers
- *
- */
 static inline void
 pci_set_quad(uint8_t *config, uint64_t val)
 {
@@ -537,12 +436,6 @@ pci_config_set_interrupt_pin(uint8_t *pci_config, uint8_t val)
     pci_set_byte(&pci_config[PCI_INTERRUPT_PIN], val);
 }
 
-/*
- * helper functions to do bit mask operation on configuration space.
- * Just to set bit, use test-and-set and discard returned value.
- * Just to clear bit, use test-and-clear and discard returned value.
- * NOTE: They aren't atomic.
- */
 static inline uint8_t
 pci_byte_test_and_clear_mask(uint8_t *config, uint8_t mask)
 {
@@ -607,7 +500,6 @@ pci_quad_test_and_set_mask(uint8_t *config, uint64_t mask)
     return val & mask;
 }
 
-/* Access a register specified by a mask */
 static inline void
 pci_set_byte_by_mask(uint8_t *config, uint8_t mask, uint8_t reg)
 {

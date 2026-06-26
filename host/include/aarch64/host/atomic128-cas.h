@@ -1,17 +1,7 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Compare-and-swap for 128-bit atomic operations, AArch64 version.
- *
- * Copyright (C) 2018, 2023 Linaro, Ltd.
- *
- * See docs/devel/atomics.rst for discussion about the guarantees each
- * atomic primitive is meant to provide.
- */
 
 #ifndef AARCH64_ATOMIC128_CAS_H
 #define AARCH64_ATOMIC128_CAS_H
 
-/* Through gcc 10, aarch64 has no support for 128-bit atomics.  */
 #if defined(CONFIG_ATOMIC128) || defined(CONFIG_CMPXCHG128)
 #include "host/include/generic/host/atomic128-cas.h.inc"
 #else

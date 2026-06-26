@@ -1,8 +1,3 @@
-/*
- * Functions related to disassembly from the monitor
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "disas-internal.h"
@@ -11,10 +6,6 @@
 #include "hw/core/cpu.h"
 #include "monitor/monitor.h"
 
-/*
- * Get LENGTH bytes from info's buffer, at target address memaddr.
- * Transfer them to myaddr.
- */
 static int
 virtual_read_memory(bfd_vma memaddr, bfd_byte *myaddr, int length,
                     struct disassemble_info *info)
@@ -36,7 +27,6 @@ physical_read_memory(bfd_vma memaddr, bfd_byte *myaddr, int length,
     return res == MEMTX_OK ? 0 : EIO;
 }
 
-/* Disassembler for the monitor.  */
 void monitor_disas(Monitor *mon, CPUState *cpu, uint64_t pc,
                    int nb_insn, bool is_physical)
 {

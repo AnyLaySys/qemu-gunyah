@@ -1,33 +1,9 @@
-/*
- * QEMU ARM CPU -- syndrome functions and types
- *
- * Copyright (c) 2014 Linaro Ltd
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <http://www.gnu.org/licenses/gpl-2.0.html>
- *
- * This header defines functions, types, etc which need to be shared
- * between different source files within target/arm/ but which are
- * private to it and not required by the rest of QEMU.
- */
 
 #ifndef TARGET_ARM_SYNDROME_H
 #define TARGET_ARM_SYNDROME_H
 
 #include "qemu/bitops.h"
 
-/* Valid Syndrome Register EC field values */
 enum arm_exception_class {
     EC_UNCATEGORIZED          = 0x00,
     EC_WFX_TRAP               = 0x01,
@@ -89,7 +65,6 @@ typedef enum {
 #define ARM_EL_IL (1 << ARM_EL_IL_SHIFT)
 #define ARM_EL_ISV (1 << ARM_EL_ISV_SHIFT)
 
-/* In the Data Abort syndrome */
 #define ARM_EL_VNCR (1 << 13)
 
 static inline uint32_t syn_get_ec(uint32_t syn)
@@ -102,16 +77,6 @@ static inline uint32_t syn_set_ec(uint32_t syn, uint32_t ec)
     return deposit32(syn, ARM_EL_EC_SHIFT, ARM_EL_EC_LENGTH, ec);
 }
 
-/*
- * Utility functions for constructing various kinds of syndrome value.
- * Note that in general we follow the AArch64 syndrome values; in a
- * few cases the value in HSR for exceptions taken to AArch32 Hyp
- * mode differs slightly, and we fix this up when populating HSR in
- * arm_cpu_do_interrupt_aarch32_hyp().
- * The exception is FP/SIMD access traps -- these report extra information
- * when taking an exception to AArch32. For those we include the extra coproc
- * and TA fields, and mask them out when taking the exception to AArch64.
- */
 static inline uint32_t syn_uncategorized(void)
 {
     return (EC_UNCATEGORIZED << ARM_EL_EC_SHIFT) | ARM_EL_IL;
@@ -211,7 +176,6 @@ static inline uint32_t syn_cp15_rrt_trap(int cv, int cond, int opc1, int crm,
 static inline uint32_t syn_fp_access_trap(int cv, int cond, bool is_16bit,
                                           int coproc)
 {
-    /* AArch32 FP trap or any AArch64 FP/SIMD trap: TA == 0 */
     return (EC_ADVSIMDFPACCESSTRAP << ARM_EL_EC_SHIFT)
         | (is_16bit ? 0 : ARM_EL_IL)
         | (cv << 24) | (cond << 20) | coproc;
@@ -219,7 +183,6 @@ static inline uint32_t syn_fp_access_trap(int cv, int cond, bool is_16bit,
 
 static inline uint32_t syn_simd_access_trap(int cv, int cond, bool is_16bit)
 {
-    /* AArch32 SIMD trap: TA == 1 coproc == 0 */
     return (EC_ADVSIMDFPACCESSTRAP << ARM_EL_EC_SHIFT)
         | (is_16bit ? 0 : ARM_EL_IL)
         | (cv << 24) | (cond << 20) | (1 << 5);
@@ -230,10 +193,6 @@ static inline uint32_t syn_sve_access_trap(void)
     return (EC_SVEACCESSTRAP << ARM_EL_EC_SHIFT) | ARM_EL_IL;
 }
 
-/*
- * eret_op is bits [1:0] of the ERET instruction, so:
- * 0 for ERET, 2 for ERETAA, 3 for ERETAB.
- */
 static inline uint32_t syn_erettrap(int eret_op)
 {
     return (EC_ERETTRAP << ARM_EL_EC_SHIFT) | ARM_EL_IL | eret_op;
@@ -305,10 +264,6 @@ static inline uint32_t syn_data_abort_with_iss(int same_el,
            | (ea << 9) | (cm << 8) | (s1ptw << 7) | (wnr << 6) | fsc;
 }
 
-/*
- * Faults due to FEAT_NV2 VNCR_EL2-based accesses report as same-EL
- * Data Aborts with the VNCR bit set.
- */
 static inline uint32_t syn_data_abort_vncr(int ea, int wnr, int fsc)
 {
     return (EC_DATAABORT << ARM_EL_EC_SHIFT) | (1 << ARM_EL_EC_SHIFT)

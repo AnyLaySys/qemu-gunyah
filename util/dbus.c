@@ -1,24 +1,9 @@
-/*
- * Helpers for using D-Bus
- *
- * Copyright (C) 2019 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/dbus.h"
 #include "qemu/error-report.h"
 #include "qapi/error.h"
 
-/*
- * qemu_dbus_get_queued_owners() - return the list of queued unique names
- * @connection: A GDBusConnection
- * @name: a service name
- *
- * Return: a GStrv of unique names, or NULL on failure.
- */
 GStrv
 qemu_dbus_get_queued_owners(GDBusConnection *connection, const char *name,
                             Error **errp)

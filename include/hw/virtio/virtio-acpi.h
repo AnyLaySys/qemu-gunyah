@@ -1,7 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * ACPI support for virtio
- */
 
 #ifndef VIRTIO_ACPI_H
 #define VIRTIO_ACPI_H

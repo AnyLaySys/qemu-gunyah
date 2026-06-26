@@ -1,22 +1,3 @@
-/*
- * QEMU I/O channels driver websockets
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -27,7 +8,6 @@
 #include "qemu/iov.h"
 #include "qemu/module.h"
 
-/* Max amount to allow in rawinput/encoutput buffers */
 #define QIO_CHANNEL_WEBSOCK_MAX_BUFFER 8192
 
 #define QIO_CHANNEL_WEBSOCK_CLIENT_KEY_LEN 24
@@ -93,30 +73,19 @@
 #define QIO_CHANNEL_WEBSOCK_HTTP_PATH "/"
 #define QIO_CHANNEL_WEBSOCK_HTTP_VERSION "HTTP/1.1"
 
-/* The websockets packet header is variable length
- * depending on the size of the payload... */
 
-/* ...length when using 7-bit payload length */
 #define QIO_CHANNEL_WEBSOCK_HEADER_LEN_7_BIT 6
-/* ...length when using 16-bit payload length */
 #define QIO_CHANNEL_WEBSOCK_HEADER_LEN_16_BIT 8
-/* ...length when using 64-bit payload length */
 #define QIO_CHANNEL_WEBSOCK_HEADER_LEN_64_BIT 14
 
-/* Length of the optional data mask field in header */
 #define QIO_CHANNEL_WEBSOCK_HEADER_LEN_MASK 4
 
-/* Maximum length that can fit in 7-bit payload size */
 #define QIO_CHANNEL_WEBSOCK_PAYLOAD_LEN_THRESHOLD_7_BIT 126
-/* Maximum length that can fit in 16-bit payload size */
 #define QIO_CHANNEL_WEBSOCK_PAYLOAD_LEN_THRESHOLD_16_BIT 65536
 
-/* Magic 7-bit length to indicate use of 16-bit payload length */
 #define QIO_CHANNEL_WEBSOCK_PAYLOAD_LEN_MAGIC_16_BIT 126
-/* Magic 7-bit length to indicate use of 64-bit payload length */
 #define QIO_CHANNEL_WEBSOCK_PAYLOAD_LEN_MAGIC_64_BIT 127
 
-/* Bitmasks for accessing header fields */
 #define QIO_CHANNEL_WEBSOCK_HEADER_FIELD_FIN 0x80
 #define QIO_CHANNEL_WEBSOCK_HEADER_FIELD_OPCODE 0x0f
 #define QIO_CHANNEL_WEBSOCK_HEADER_FIELD_HAS_MASK 0x80
@@ -209,15 +178,6 @@ qio_channel_websock_extract_headers(QIOChannelWebsock *ioc,
     char *nl, *sep, *tmp;
     size_t nhdrs = 0;
 
-    /*
-     * First parse the HTTP protocol greeting of format:
-     *
-     *   $METHOD $PATH $VERSION
-     *
-     * e.g.
-     *
-     *   GET / HTTP/1.1
-     */
 
     nl = strstr(buffer, QIO_CHANNEL_WEBSOCK_HANDSHAKE_DELIM);
     if (!nl) {
@@ -263,15 +223,6 @@ qio_channel_websock_extract_headers(QIOChannelWebsock *ioc,
 
     buffer = nl + strlen(QIO_CHANNEL_WEBSOCK_HANDSHAKE_DELIM);
 
-    /*
-     * Now parse all the header fields of format
-     *
-     *   $NAME: $VALUE
-     *
-     * e.g.
-     *
-     *   Cache-control: no-cache
-     */
     do {
         QIOChannelWebsockHTTPHeader *hdr;
 
@@ -300,7 +251,6 @@ qio_channel_websock_extract_headers(QIOChannelWebsock *ioc,
         hdr->name = buffer;
         hdr->value = sep;
 
-        /* Canonicalize header name for easier identification later */
         for (tmp = hdr->name; *tmp; tmp++) {
             *tmp = g_ascii_tolower(*tmp);
         }
@@ -350,7 +300,6 @@ static void qio_channel_websock_handshake_send_res_ok(QIOChannelWebsock *ioc,
               QIO_CHANNEL_WEBSOCK_CLIENT_KEY_LEN +
               QIO_CHANNEL_WEBSOCK_GUID_LEN + 1);
 
-    /* hash and encode it */
     if (qcrypto_hash_base64(QCRYPTO_HASH_ALGO_SHA1,
                             combined_key,
                             QIO_CHANNEL_WEBSOCK_CLIENT_KEY_LEN +
@@ -486,8 +435,6 @@ static int qio_channel_websock_handshake_read(QIOChannelWebsock *ioc,
 {
     char *handshake_end;
     ssize_t ret;
-    /* Typical HTTP headers from novnc are 512 bytes, so limiting
-     * total header size to 4096 is easily enough. */
     size_t want = 4096 - ioc->encinput.offset;
     buffer_reserve(&ioc->encinput, want);
     ret = qio_channel_read(ioc->master,
@@ -578,11 +525,6 @@ static gboolean qio_channel_websock_handshake_io(QIOChannel *ioc,
 
     ret = qio_channel_websock_handshake_read(wioc, &err);
     if (ret < 0) {
-        /*
-         * We only take this path on a fatal I/O error reading from
-         * client connection, as most of the time we have an
-         * HTTP 4xx err response to send instead
-         */
         trace_qio_channel_websock_handshake_fail(ioc, error_get_pretty(err));
         qio_task_set_error(task, err);
         qio_task_complete(task);
@@ -590,7 +532,6 @@ static gboolean qio_channel_websock_handshake_io(QIOChannel *ioc,
     }
     if (ret == 0) {
         trace_qio_channel_websock_handshake_pending(ioc, G_IO_IN);
-        /* need more data still */
         return TRUE;
     }
 
@@ -698,7 +639,6 @@ static int qio_channel_websock_decode_header(QIOChannelWebsock *ioc,
         return -1;
     }
     if (ioc->encinput.offset < QIO_CHANNEL_WEBSOCK_HEADER_LEN_7_BIT) {
-        /* header not complete */
         return QIO_CHANNEL_ERR_BLOCK;
     }
 
@@ -707,7 +647,6 @@ static int qio_channel_websock_decode_header(QIOChannelWebsock *ioc,
     has_mask = header->b1 & QIO_CHANNEL_WEBSOCK_HEADER_FIELD_HAS_MASK;
     payload_len = header->b1 & QIO_CHANNEL_WEBSOCK_HEADER_FIELD_PAYLOAD_LEN;
 
-    /* Save or restore opcode. */
     if (opcode) {
         ioc->opcode = opcode;
     } else {
@@ -718,15 +657,9 @@ static int qio_channel_websock_decode_header(QIOChannelWebsock *ioc,
                                                     fin, opcode, (int)has_mask);
 
     if (opcode == QIO_CHANNEL_WEBSOCK_OPCODE_CLOSE) {
-        /* disconnect */
         return 0;
     }
 
-    /* Websocket frame sanity check:
-     * * Fragmentation is only supported for binary frames.
-     * * All frames sent by a client MUST be masked.
-     * * Only binary and ping/pong encoding is supported.
-     */
     if (!fin) {
         if (opcode != QIO_CHANNEL_WEBSOCK_OPCODE_BINARY_FRAME) {
             error_setg(errp, "only binary websocket frames may be fragmented");
@@ -777,7 +710,6 @@ static int qio_channel_websock_decode_header(QIOChannelWebsock *ioc,
         header_size = QIO_CHANNEL_WEBSOCK_HEADER_LEN_64_BIT;
         ioc->mask = header->u.s64.m64;
     } else {
-        /* header not complete */
         return QIO_CHANNEL_ERR_BLOCK;
     }
 
@@ -796,13 +728,7 @@ static int qio_channel_websock_decode_payload(QIOChannelWebsock *ioc,
     uint32_t *payload32;
 
     if (ioc->payload_remain) {
-        /* If we aren't at the end of the payload, then drop
-         * off the last bytes, so we're always multiple of 4
-         * for purpose of unmasking, except at end of payload
-         */
         if (ioc->encinput.offset < ioc->payload_remain) {
-            /* Wait for the entire payload before processing control frames
-             * because the payload will most likely be echoed back. */
             if (ioc->opcode & QIO_CHANNEL_WEBSOCK_CONTROL_OPCODE_MASK) {
                 return QIO_CHANNEL_ERR_BLOCK;
             }
@@ -816,13 +742,10 @@ static int qio_channel_websock_decode_payload(QIOChannelWebsock *ioc,
 
         ioc->payload_remain -= payload_len;
 
-        /* unmask frame */
-        /* process 1 frame (32 bit op) */
         payload32 = (uint32_t *)ioc->encinput.buffer;
         for (i = 0; i < payload_len / 4; i++) {
             payload32[i] ^= ioc->mask.u;
         }
-        /* process the remaining bytes (if any) */
         for (i *= 4; i < payload_len; i++) {
             ioc->encinput.buffer[i] ^= ioc->mask.c[i % 4];
         }
@@ -833,15 +756,12 @@ static int qio_channel_websock_decode_payload(QIOChannelWebsock *ioc,
 
     if (ioc->opcode == QIO_CHANNEL_WEBSOCK_OPCODE_BINARY_FRAME) {
         if (payload_len) {
-            /* binary frames are passed on */
             buffer_reserve(&ioc->rawinput, payload_len);
             buffer_append(&ioc->rawinput, ioc->encinput.buffer, payload_len);
         }
     } else if (ioc->opcode == QIO_CHANNEL_WEBSOCK_OPCODE_CLOSE) {
-        /* close frames are echoed back */
         error_setg(errp, "websocket closed by peer");
         if (payload_len) {
-            /* echo client status */
             struct iovec iov = { .iov_base = ioc->encinput.buffer,
                                  .iov_len = ioc->encinput.offset };
             qio_channel_websock_encode(ioc, QIO_CHANNEL_WEBSOCK_OPCODE_CLOSE,
@@ -849,14 +769,11 @@ static int qio_channel_websock_decode_payload(QIOChannelWebsock *ioc,
             qio_channel_websock_write_wire(ioc, NULL);
             qio_channel_shutdown(ioc->master, QIO_CHANNEL_SHUTDOWN_BOTH, NULL);
         } else {
-            /* send our own status */
             qio_channel_websock_write_close(
                 ioc, QIO_CHANNEL_WEBSOCK_STATUS_NORMAL, "peer requested close");
         }
         return -1;
     } else if (ioc->opcode == QIO_CHANNEL_WEBSOCK_OPCODE_PING) {
-        /* ping frames produce an immediate reply, as long as we've not still
-         * got a previous pong queued, in which case we drop the new pong */
         if (ioc->pong_remain == 0) {
             struct iovec iov = { .iov_base = ioc->encinput.buffer,
                                  .iov_len = ioc->encinput.offset };
@@ -1159,9 +1076,6 @@ static ssize_t qio_channel_websock_writev(QIOChannel *ioc,
                                    iov, niov, want);
     }
 
-    /* Even if want == 0, we'll try write_wire in case there's
-     * pending data we could usefully flush out
-     */
     ret = qio_channel_websock_write_wire(wioc, errp);
     if (ret < 0 &&
         ret != QIO_CHANNEL_ERR_BLOCK) {

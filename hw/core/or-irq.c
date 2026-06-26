@@ -1,26 +1,3 @@
-/*
- * QEMU IRQ/GPIO common code.
- *
- * Copyright (c) 2016 Alistair Francis <alistair@alistair23.me>.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "hw/irq.h"
@@ -70,13 +47,6 @@ static void or_irq_init(Object *obj)
     qdev_init_gpio_out(DEVICE(obj), &s->out_irq, 1);
 }
 
-/* The original version of this device had a fixed 16 entries in its
- * VMState array; devices with more inputs than this need to
- * migrate the extra lines via a subsection.
- * The subsection migrates as much of the levels[] array as is needed
- * (including repeating the first 16 elements), to avoid the awkwardness
- * of splitting it in two to meet the requirements of VMSTATE_VARRAY_UINT16.
- */
 #define OLD_MAX_OR_LINES 16
 #if MAX_OR_LINES < OLD_MAX_OR_LINES
 #error MAX_OR_LINES must be at least 16 for migration compatibility
@@ -128,7 +98,6 @@ static void or_irq_class_init(ObjectClass *klass, void *data)
     dc->realize = or_irq_realize;
     dc->vmsd = &vmstate_or_irq;
 
-    /* Reason: Needs to be wired up to work, e.g. see stm32f205_soc.c */
     dc->user_creatable = false;
 }
 

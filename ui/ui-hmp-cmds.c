@@ -1,17 +1,3 @@
-/*
- * HMP commands related to UI
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #ifdef CONFIG_SPICE
@@ -236,7 +222,6 @@ void hmp_sendkey(Monitor *mon, const QDict *qdict)
         separator = qemu_strchrnul(keys, '-');
         keyname_len = separator - keys;
 
-        /* Be compatible with old interface, convert user inputted "<" */
         if (keys[0] == '<' && keyname_len == 1) {
             keys = "less";
             keyname_len = 4;

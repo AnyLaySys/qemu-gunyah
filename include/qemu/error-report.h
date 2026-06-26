@@ -1,20 +1,8 @@
-/*
- * Error reporting
- *
- * Copyright (C) 2010 Red Hat Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef QEMU_ERROR_REPORT_H
 #define QEMU_ERROR_REPORT_H
 
 typedef struct Location {
-    /* all members are private to qemu-error.c */
     enum { LOC_NONE, LOC_CMDLINE, LOC_FILE } kind;
     int num;
     const void *ptr;
@@ -48,10 +36,6 @@ bool warn_report_once_cond(bool *printed, const char *fmt, ...)
 
 void error_init(const char *argv0);
 
-/*
- * Similar to error_report(), except it prints the message just once.
- * Return true when it prints, false otherwise.
- */
 #define error_report_once(fmt, ...)                     \
     ({                                                  \
         static bool print_once_;                        \
@@ -59,10 +43,6 @@ void error_init(const char *argv0);
                                fmt, ##__VA_ARGS__);     \
     })
 
-/*
- * Similar to warn_report(), except it prints the message just once.
- * Return true when it prints, false otherwise.
- */
 #define warn_report_once(fmt, ...)                      \
     ({                                                  \
         static bool print_once_;                        \

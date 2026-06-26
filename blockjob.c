@@ -1,27 +1,3 @@
-/*
- * QEMU System Emulator block driver
- *
- * Copyright (c) 2011 IBM Corp.
- * Copyright (c) 2012 Red Hat, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "block/aio-wait.h"
@@ -102,17 +78,12 @@ static bool child_job_drained_poll(BdrvChild *c)
     Job *job = &bjob->job;
     const BlockJobDriver *drv = block_job_driver(bjob);
 
-    /* An inactive or completed job doesn't have any pending requests. Jobs
-     * with !job->busy are either already paused or have a pause point after
-     * being reentered, so no job driver code will run before they pause. */
     WITH_JOB_LOCK_GUARD() {
         if (!job->busy || job_is_completed_locked(job)) {
             return false;
         }
     }
 
-    /* Otherwise, assume that it isn't fully stopped yet, but allow the job to
-     * override this assumption. */
     if (drv->drained_poll) {
         return drv->drained_poll(bjob);
     } else {
@@ -192,12 +163,6 @@ static const BdrvChildClass child_job = {
 void block_job_remove_all_bdrv(BlockJob *job)
 {
     GLOBAL_STATE_CODE();
-    /*
-     * bdrv_root_unref_child() may reach child_job_[can_]set_aio_ctx(),
-     * which will also traverse job->nodes, so consume the list one by
-     * one to make sure that such a concurrent access does not attempt
-     * to process an already freed BdrvChild.
-     */
     bdrv_graph_wrlock();
     while (job->nodes) {
         GSList *l = job->nodes;
@@ -248,7 +213,6 @@ int block_job_add_bdrv(BlockJob *job, const char *name, BlockDriverState *bs,
     return 0;
 }
 
-/* Called with job_mutex lock held. */
 static void block_job_on_idle_locked(Notifier *n, void *opaque)
 {
     aio_wait_kick();
@@ -264,7 +228,6 @@ const BlockJobDriver *block_job_driver(BlockJob *job)
     return container_of(job->job.driver, BlockJobDriver, job_driver);
 }
 
-/* Assumes the job_mutex is held */
 static bool job_timer_pending(Job *job)
 {
     return timer_pending(&job->sleep_timer);
@@ -300,7 +263,6 @@ bool block_job_set_speed_locked(BlockJob *job, int64_t speed, Error **errp)
         return true;
     }
 
-    /* kick only if a timer is pending */
     job_enter_cond_locked(&job->job, job_timer_pending);
 
     return true;
@@ -342,14 +304,6 @@ void block_job_ratelimit_sleep(BlockJob *job)
 {
     uint64_t delay_ns;
 
-    /*
-     * Sleep at least once. If the job is reentered early, keep waiting until
-     * we've waited for the full time that is necessary to keep the job at the
-     * right speed.
-     *
-     * Make sure to recalculate the delay after each (possibly interrupted)
-     * sleep because the speed can change while the job has yielded.
-     */
     do {
         delay_ns = ratelimit_calculate_delay(&job->limit, 0);
         job_sleep_ns(&job->job, delay_ns);
@@ -398,7 +352,6 @@ BlockJobInfo *block_job_query_locked(BlockJob *job, Error **errp)
     return info;
 }
 
-/* Called with job lock held */
 static void block_job_iostatus_set_err_locked(BlockJob *job, int error)
 {
     if (job->iostatus == BLOCK_DEVICE_IO_STATUS_OK) {
@@ -407,7 +360,6 @@ static void block_job_iostatus_set_err_locked(BlockJob *job, int error)
     }
 }
 
-/* Called with job_mutex lock held. */
 static void block_job_event_cancelled_locked(Notifier *n, void *opaque)
 {
     BlockJob *job = opaque;
@@ -427,7 +379,6 @@ static void block_job_event_cancelled_locked(Notifier *n, void *opaque)
                                         job->speed);
 }
 
-/* Called with job_mutex lock held. */
 static void block_job_event_completed_locked(Notifier *n, void *opaque)
 {
     BlockJob *job = opaque;
@@ -453,7 +404,6 @@ static void block_job_event_completed_locked(Notifier *n, void *opaque)
                                         msg);
 }
 
-/* Called with job_mutex lock held. */
 static void block_job_event_pending_locked(Notifier *n, void *opaque)
 {
     BlockJob *job = opaque;
@@ -466,7 +416,6 @@ static void block_job_event_pending_locked(Notifier *n, void *opaque)
                                       job->job.id);
 }
 
-/* Called with job_mutex lock held. */
 static void block_job_event_ready_locked(Notifier *n, void *opaque)
 {
     BlockJob *job = opaque;
@@ -609,10 +558,6 @@ BlockErrorAction block_job_error_action(BlockJob *job, BlockdevOnError on_err,
         WITH_JOB_LOCK_GUARD() {
             if (!job->job.user_paused) {
                 job_pause_locked(&job->job);
-                /*
-                 * make the pause user visible, which will be
-                 * resumed from QMP.
-                 */
                 job->job.user_paused = true;
             }
             block_job_iostatus_set_err_locked(job, error);

@@ -1,12 +1,3 @@
-/*
- * Parent class for vhost-vsock devices
- *
- * Copyright 2015-2020 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #ifndef QEMU_VHOST_VSOCK_COMMON_H
 #define QEMU_VHOST_VSOCK_COMMON_H
@@ -37,7 +28,6 @@ struct VHostVSockCommon {
 
     QEMUTimer *post_load_timer;
 
-    /* features */
     OnOffAuto seqpacket;
 };
 

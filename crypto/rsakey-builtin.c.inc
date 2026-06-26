@@ -1,23 +1,3 @@
-/*
- * QEMU Crypto akcipher algorithms
- *
- * Copyright (c) 2022 Bytedance
- * Author: lei he <helei.sig11@bytedance.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "der.h"
 #include "rsakey.h"
@@ -59,13 +39,6 @@ static int extract_seq_content(void *ctx, const uint8_t *value,
     return 0;
 }
 
-/**
- *
- *        RsaPubKey ::= SEQUENCE {
- *             n           INTEGER
- *             e           INTEGER
- *         }
- */
 static QCryptoAkCipherRSAKey *qcrypto_builtin_rsa_public_key_parse(
     const uint8_t *key, size_t keylen, Error **errp)
 {
@@ -99,20 +72,6 @@ error:
     return NULL;
 }
 
-/**
- *        RsaPrivKey ::= SEQUENCE {
- *             version     INTEGER
- *             n           INTEGER
- *             e           INTEGER
- *             d           INTEGER
- *             p           INTEGER
- *             q           INTEGER
- *             dp          INTEGER
- *             dq          INTEGER
- *             u           INTEGER
- *       otherPrimeInfos   OtherPrimeInfos OPTIONAL
- *         }
- */
 static QCryptoAkCipherRSAKey *qcrypto_builtin_rsa_private_key_parse(
     const uint8_t *key, size_t keylen, Error **errp)
 {
@@ -151,12 +110,6 @@ static QCryptoAkCipherRSAKey *qcrypto_builtin_rsa_private_key_parse(
         goto error;
     }
 
-    /**
-     * According to the standard, otherPrimeInfos must be present for version 1.
-     * There is no strict verification here, this is to be compatible with
-     * the unit test of the kernel. TODO: remove this until linux kernel's
-     * unit-test is fixed.
-     */
     if (version == 1 && seq_length != 0) {
         if (qcrypto_der_decode_seq(&seq, &seq_length, NULL, NULL, errp) < 0) {
             goto error;

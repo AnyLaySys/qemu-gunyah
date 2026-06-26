@@ -1,11 +1,3 @@
-/*
- * QObject
- *
- * Copyright (C) 2015 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1
- * or later.  See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qobject/qbool.h"
@@ -55,8 +47,6 @@ static bool (*qis_equal[QTYPE__MAX])(const QObject *, const QObject *) = {
 
 bool qobject_is_equal(const QObject *x, const QObject *y)
 {
-    /* We cannot test x == y because an object does not need to be
-     * equal to itself (e.g. NaN floats are not). */
 
     if (!x && !y) {
         return true;

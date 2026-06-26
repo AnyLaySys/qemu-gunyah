@@ -1,9 +1,3 @@
-/*
- * Get host pc for helper unwinding.
- *
- * Copyright (c) 2003 Fabrice Bellard
- * SPDX-License-Identifier: LGPL-2.1-or-later
- */
 
 #ifndef ACCEL_TCG_GETPC_H
 #define ACCEL_TCG_GETPC_H
@@ -12,7 +6,6 @@
 #error Can only include this header with TCG
 #endif
 
-/* GETPC is the true target of the return instruction that we'll execute.  */
 #ifdef CONFIG_TCG_INTERPRETER
 # ifdef __ANDROID__
 uintptr_t *android_tci_tb_ptr_ptr(void);

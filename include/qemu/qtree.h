@@ -1,43 +1,5 @@
-/*
- * GLIB - Library of useful routines for C programming
- * Copyright (C) 1995-1997  Peter Mattis, Spencer Kimball and Josh MacDonald
- *
- * SPDX-License-Identifier: LGPL-2.1-or-later
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
-/*
- * Modified by the GLib Team and others 1997-2000.  See the AUTHORS
- * file for a list of people on the GLib Team.  See the ChangeLog
- * files for a list of changes.  These files are distributed with
- * GLib at ftp://ftp.gtk.org/pub/gtk/.
- */
 
-/*
- * QTree is a partial import of Glib's GTree. The parts excluded correspond
- * to API calls either deprecated (e.g. g_tree_traverse) or recently added
- * (e.g. g_tree_search_node, added in 2.68); neither have callers in QEMU.
- *
- * The reason for this import is to allow us to control the memory allocator
- * used by the tree implementation. Until Glib 2.75.3, GTree uses Glib's
- * slice allocator, which causes problems when forking in user-mode;
- * see https://gitlab.com/qemu-project/qemu/-/issues/285 and glib's
- * "45b5a6c1e gslice: Remove slice allocator and use malloc() instead".
- *
- * TODO: remove QTree when QEMU's minimum Glib version is >= 2.75.3.
- */
 
 #ifndef QEMU_QTREE_H
 #define QEMU_QTREE_H
@@ -52,9 +14,6 @@ typedef struct _QTreeNode QTreeNode;
 typedef gboolean (*QTraverseNodeFunc)(QTreeNode *node,
                                       gpointer user_data);
 
-/*
- * Balanced binary trees
- */
 QTree *q_tree_new(GCompareFunc key_compare_func);
 QTree *q_tree_new_with_data(GCompareDataFunc key_compare_func,
                             gpointer key_compare_data);

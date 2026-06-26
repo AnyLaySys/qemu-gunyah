@@ -1,21 +1,3 @@
-/*
- * qdev GPIO helpers
- *
- *  Copyright (c) 2009 CodeSourcery
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/qdev-core.h"
@@ -28,7 +10,6 @@ static NamedGPIOList *qdev_get_named_gpio_list(DeviceState *dev,
     NamedGPIOList *ngl;
 
     QLIST_FOREACH(ngl, &dev->gpios, node) {
-        /* NULL is a valid and matchable name. */
         if (g_strcmp0(name, ngl->name) == 0) {
             return ngl;
         }
@@ -120,7 +101,6 @@ void qdev_connect_gpio_out_named(DeviceState *dev, const char *name, int n,
     char *propname = g_strdup_printf("%s[%d]",
                                      name ? name : "unnamed-gpio-out", n);
     if (input_pin && !OBJECT(input_pin)->parent) {
-        /* We need a name for object_property_set_link to work */
         object_property_add_child(machine_get_container("unattached"),
                                   "non-qdev-gpio[*]", OBJECT(input_pin));
     }
@@ -140,7 +120,6 @@ qemu_irq qdev_get_gpio_out_connector(DeviceState *dev, const char *name, int n)
     return ret;
 }
 
-/* disconnect a GPIO output, returning the disconnected input (if any) */
 
 static qemu_irq qdev_disconnect_gpio_out_named(DeviceState *dev,
                                                const char *name, int n)

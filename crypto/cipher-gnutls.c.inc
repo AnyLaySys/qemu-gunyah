@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto cipher gnutls algorithms
- *
- * Copyright (c) 2021 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "cipherpriv.h"
@@ -316,12 +297,6 @@ static QCryptoCipher *qcrypto_cipher_ctx_new(QCryptoCipherAlgo alg,
     else
         ctx->blocksize = 16;
 
-    /*
-     * Our API contract for requires iv to be optional
-     * but nettle gets unhappy when called by gnutls
-     * in this case, so we just force set a default
-     * all-zeros IV, to match behaviour of other backends.
-     */
     if (mode != QCRYPTO_CIPHER_MODE_ECB) {
         g_autofree unsigned char *iv = g_new0(unsigned char, ctx->blocksize);
         gnutls_cipher_set_iv(ctx->handle, iv, ctx->blocksize);

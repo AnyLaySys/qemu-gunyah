@@ -1,8 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
-/*
- * virtio ACPI Support
- *
- */
 
 #include "qemu/osdep.h"
 #include "hw/virtio/virtio-acpi.h"

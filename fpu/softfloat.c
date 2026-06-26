@@ -1,128 +1,15 @@
-/*
- * QEMU float support
- *
- * The code in this source file is derived from release 2a of the SoftFloat
- * IEC/IEEE Floating-point Arithmetic Package. Those parts of the code (and
- * some later contributions) are provided under that license, as detailed below.
- * It has subsequently been modified by contributors to the QEMU Project,
- * so some portions are provided under:
- *  the SoftFloat-2a license
- *  the BSD license
- *  GPL-v2-or-later
- *
- * Any future contributions to this file after December 1st 2014 will be
- * taken to be licensed under the Softfloat-2a license unless specifically
- * indicated otherwise.
- */
 
-/*
-===============================================================================
-This C source file is part of the SoftFloat IEC/IEEE Floating-point
-Arithmetic Package, Release 2a.
 
-Written by John R. Hauser.  This work was made possible in part by the
-International Computer Science Institute, located at Suite 600, 1947 Center
-Street, Berkeley, California 94704.  Funding was partially provided by the
-National Science Foundation under grant MIP-9311980.  The original version
-of this code was written as part of a project to build a fixed-point vector
-processor in collaboration with the University of California at Berkeley,
-overseen by Profs. Nelson Morgan and John Wawrzynek.  More information
-is available through the Web page `http://HTTP.CS.Berkeley.EDU/~jhauser/
-arithmetic/SoftFloat.html'.
 
-THIS SOFTWARE IS DISTRIBUTED AS IS, FOR FREE.  Although reasonable effort
-has been made to avoid it, THIS SOFTWARE MAY CONTAIN FAULTS THAT WILL AT
-TIMES RESULT IN INCORRECT BEHAVIOR.  USE OF THIS SOFTWARE IS RESTRICTED TO
-PERSONS AND ORGANIZATIONS WHO CAN AND WILL TAKE FULL RESPONSIBILITY FOR ANY
-AND ALL LOSSES, COSTS, OR OTHER PROBLEMS ARISING FROM ITS USE.
-
-Derivative works are acceptable, even for commercial purposes, so long as
-(1) they include prominent notice that the work is derivative, and (2) they
-include prominent notice akin to these four paragraphs for those parts of
-this code that are retained.
-
-===============================================================================
-*/
-
-/* BSD licensing:
- * Copyright (c) 2006, Fabrice Bellard
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors
- * may be used to endorse or promote products derived from this software without
- * specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- * THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-/* Portions of this work are licensed under the terms of the GNU GPL,
- * version 2 or later. See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include <math.h>
 #include "qemu/bitops.h"
 #include "fpu/softfloat.h"
 
-/* We only need stdlib for abort() */
 
-/*----------------------------------------------------------------------------
-| Primitive arithmetic functions, including multi-word arithmetic, and
-| division and square root approximations.  (Can be specialized to target if
-| desired.)
-*----------------------------------------------------------------------------*/
 #include "fpu/softfloat-macros.h"
 
-/*
- * Hardfloat
- *
- * Fast emulation of guest FP instructions is challenging for two reasons.
- * First, FP instruction semantics are similar but not identical, particularly
- * when handling NaNs. Second, emulating at reasonable speed the guest FP
- * exception flags is not trivial: reading the host's flags register with a
- * feclearexcept & fetestexcept pair is slow [slightly slower than soft-fp],
- * and trapping on every FP exception is not fast nor pleasant to work with.
- *
- * We address these challenges by leveraging the host FPU for a subset of the
- * operations. To do this we expand on the idea presented in this paper:
- *
- * Guo, Yu-Chuan, et al. "Translating the ARM Neon and VFP instructions in a
- * binary translator." Software: Practice and Experience 46.12 (2016):1591-1615.
- *
- * The idea is thus to leverage the host FPU to (1) compute FP operations
- * and (2) identify whether FP exceptions occurred while avoiding
- * expensive exception flag register accesses.
- *
- * An important optimization shown in the paper is that given that exception
- * flags are rarely cleared by the guest, we can avoid recomputing some flags.
- * This is particularly useful for the inexact flag, which is very frequently
- * raised in floating-point workloads.
- *
- * We optimize the code further by deferring to soft-fp whenever FP exception
- * detection might get hairy. Two examples: (1) when at least one operand is
- * denormal/inf/NaN; (2) when operands are not guaranteed to lead to a 0 result
- * and the result is < the minimum normal.
- */
 #define GEN_INPUT_FLUSH__NOCHECK(name, soft_t)                          \
     static inline void name(soft_t *a, float_status *s)                 \
     {                                                                   \
@@ -179,11 +66,6 @@ GEN_INPUT_FLUSH3(float32_input_flush3, float32)
 GEN_INPUT_FLUSH3(float64_input_flush3, float64)
 #undef GEN_INPUT_FLUSH3
 
-/*
- * Choose whether to use fpclassify or float32/64_* primitives in the generated
- * hardfloat functions. Each combination of number of inputs and float size
- * gets its own value.
- */
 #if defined(__x86_64__)
 # define QEMU_HARDFLOAT_1F32_USE_FP 0
 # define QEMU_HARDFLOAT_1F64_USE_FP 1
@@ -200,23 +82,12 @@ GEN_INPUT_FLUSH3(float64_input_flush3, float64)
 # define QEMU_HARDFLOAT_3F64_USE_FP 0
 #endif
 
-/*
- * QEMU_HARDFLOAT_USE_ISINF chooses whether to use isinf() over
- * float{32,64}_is_infinity when !USE_FP.
- * On x86_64/aarch64, using the former over the latter can yield a ~6% speedup.
- * On power64 however, using isinf() reduces fp-bench performance by up to 50%.
- */
 #if defined(__x86_64__) || defined(__aarch64__)
 # define QEMU_HARDFLOAT_USE_ISINF   1
 #else
 # define QEMU_HARDFLOAT_USE_ISINF   0
 #endif
 
-/*
- * Some targets clear the FP flags before most FP operations. This prevents
- * the use of hardfloat, since hardfloat relies on the inexact flag being
- * already set.
- */
 # if defined(__FAST_MATH__)
 #  warning disabling hardfloat due to -ffast-math: hardfloat requires an exact \
     IEEE implementation
@@ -236,17 +107,6 @@ static inline bool can_use_fpu(const float_status *s)
                   s->float_rounding_mode == float_round_nearest_even);
 }
 
-/*
- * Hardfloat generation functions. Each operation can have two flavors:
- * either using softfloat primitives (e.g. float32_is_zero_or_normal) for
- * most condition checks, or native ones (e.g. fpclassify).
- *
- * The flavor is chosen by the callers. Instead of using macros, we rely on the
- * compiler to propagate constants and inline everything into the callers.
- *
- * We only generate functions for operations with two inputs, since only
- * these are common enough to justify consolidating them into common code.
- */
 
 typedef union {
     float32 s;
@@ -266,14 +126,9 @@ typedef float64 (*soft_f64_op2_fn)(float64 a, float64 b, float_status *s);
 typedef float   (*hard_f32_op2_fn)(float a, float b);
 typedef double  (*hard_f64_op2_fn)(double a, double b);
 
-/* 2-input is-zero-or-normal */
 static inline bool f32_is_zon2(union_float32 a, union_float32 b)
 {
     if (QEMU_HARDFLOAT_2F32_USE_FP) {
-        /*
-         * Not using a temp variable for consecutive fpclassify calls ends up
-         * generating faster code.
-         */
         return (fpclassify(a.h) == FP_NORMAL || fpclassify(a.h) == FP_ZERO) &&
                (fpclassify(b.h) == FP_NORMAL || fpclassify(b.h) == FP_ZERO);
     }
@@ -291,7 +146,6 @@ static inline bool f64_is_zon2(union_float64 a, union_float64 b)
            float64_is_zero_or_normal(b.s);
 }
 
-/* 3-input is-zero-or-normal */
 static inline
 bool f32_is_zon3(union_float32 a, union_float32 b, union_float32 c)
 {
@@ -396,13 +250,6 @@ float64_gen2(float64 xa, float64 xb, float_status *s,
     return soft(ua.s, ub.s, s);
 }
 
-/*
- * Classify a floating point number. Everything above float_class_qnan
- * is a NaN so cls >= float_class_qnan is any NaN.
- *
- * Note that we canonicalize denormals, so most code should treat
- * class_normal and class_denormal identically.
- */
 
 typedef enum __attribute__ ((__packed__)) {
     float_class_unclassified,
@@ -429,22 +276,13 @@ enum {
     float_cmask_anynorm = float_cmask_normal | float_cmask_denormal,
 };
 
-/* Flags for parts_minmax. */
 enum {
-    /* Set for minimum; clear for maximum. */
     minmax_ismin = 1,
-    /* Set for the IEEE 754-2008 minNum() and maxNum() operations. */
     minmax_isnum = 2,
-    /* Set for the IEEE 754-2008 minNumMag() and minNumMag() operations. */
     minmax_ismag = 4,
-    /*
-     * Set for the IEEE 754-2019 minimumNumber() and maximumNumber()
-     * operations.
-     */
     minmax_isnumber = 8,
 };
 
-/* Simple helpers for checking if, or what kind of, NaN we have */
 static inline __attribute__((unused)) bool is_nan(FloatClass c)
 {
     return unlikely(c >= float_class_qnan);
@@ -460,10 +298,6 @@ static inline __attribute__((unused)) bool is_qnan(FloatClass c)
     return c == float_class_qnan;
 }
 
-/*
- * Return true if the float_cmask has only normals in it
- * (including input denormals that were canonicalized)
- */
 static inline bool cmask_is_only_normals(int cmask)
 {
     return !(cmask & ~float_cmask_anynorm);
@@ -474,27 +308,13 @@ static inline bool is_anynorm(FloatClass c)
     return float_cmask(c) & float_cmask_anynorm;
 }
 
-/*
- * Structure holding all of the decomposed parts of a float.
- * The exponent is unbiased and the fraction is normalized.
- *
- * The fraction words are stored in big-endian word ordering,
- * so that truncation from a larger format to a smaller format
- * can be done simply by ignoring subsequent elements.
- */
 
 typedef struct {
     FloatClass cls;
     bool sign;
     int32_t exp;
     union {
-        /* Routines that know the structure may reference the singular name. */
         uint64_t frac;
-        /*
-         * Routines expanded with multiple structures reference "hi" and "lo"
-         * depending on the operation.  In FloatParts64, "hi" and "lo" are
-         * both the same word and aliased here.
-         */
         uint64_t frac_hi;
         uint64_t frac_lo;
     };
@@ -518,23 +338,9 @@ typedef struct {
     uint64_t frac_lo;
 } FloatParts256;
 
-/* These apply to the most significant word of each FloatPartsN. */
 #define DECOMPOSED_BINARY_POINT    63
 #define DECOMPOSED_IMPLICIT_BIT    (1ull << DECOMPOSED_BINARY_POINT)
 
-/* Structure holding all of the relevant parameters for a format.
- *   exp_size: the size of the exponent field
- *   exp_bias: the offset applied to the exponent field
- *   exp_max: the maximum normalised exponent
- *   frac_size: the size of the fraction field
- *   frac_shift: shift to normalise the fraction with DECOMPOSED_BINARY_POINT
- * The following are computed based the size of fraction
- *   round_mask: bits below lsb which must be rounded
- * The following optional modifiers are available:
- *   arm_althp: handle ARM Alternative Half Precision
- *   has_explicit_bit: has an explicit integer bit; this affects whether
- *   the float_status floatx80_behaviour handling applies
- */
 typedef struct {
     int exp_size;
     int exp_bias;
@@ -547,7 +353,6 @@ typedef struct {
     uint64_t round_mask;
 } FloatFmt;
 
-/* Expand fields based on the size of exponent and fraction */
 #define FLOAT_PARAMS_(E)                                \
     .exp_size       = E,                                \
     .exp_bias       = ((1 << E) - 1) >> 1,              \
@@ -600,7 +405,6 @@ static const FloatFmt floatx80_params[3] = {
     },
 };
 
-/* Unpack a float to parts, but do not canonicalize.  */
 static void unpack_raw64(FloatParts64 *r, const FloatFmt *fmt, uint64_t raw)
 {
     const int f_size = fmt->frac_size;
@@ -658,7 +462,6 @@ static void QEMU_FLATTEN float128_unpack_raw(FloatParts128 *p, float128 f)
     };
 }
 
-/* Pack a float from parts, but do not canonicalize.  */
 static uint64_t pack_raw64(const FloatParts64 *p, const FloatFmt *fmt)
 {
     const int f_size = fmt->frac_size;
@@ -703,14 +506,6 @@ static float128 QEMU_FLATTEN float128_pack_raw(const FloatParts128 *p)
     return make_float128(hi, p->frac_lo);
 }
 
-/*----------------------------------------------------------------------------
-| Functions and definitions to determine:  (1) whether tininess for underflow
-| is detected before or after rounding by default, (2) what (if anything)
-| happens when exceptions are raised, (3) how signaling NaNs are distinguished
-| from quiet NaNs, (4) the default generated quiet NaNs, and (5) how NaNs
-| are propagated from function inputs to output.  These details are target-
-| specific.
-*----------------------------------------------------------------------------*/
 #include "softfloat-specialize.c.inc"
 
 #define PARTS_GENERIC_64_128(NAME, P) \
@@ -930,9 +725,6 @@ static void parts128_log2(FloatParts128 *a, float_status *s, const FloatFmt *f);
 #define parts_log2(A, S, F) \
     PARTS_GENERIC_64_128(log2, A)(A, S, F)
 
-/*
- * Helper functions for softfloat-parts.c.inc, per-size operations.
- */
 
 #define FRAC_GENERIC_64_128(NAME, P) \
     _Generic((P), FloatParts64 *: frac64_##NAME, \
@@ -1031,17 +823,6 @@ static bool frac64_div(FloatParts64 *a, FloatParts64 *b)
     uint64_t n1, n0, r, q;
     bool ret;
 
-    /*
-     * We want a 2*N / N-bit division to produce exactly an N-bit
-     * result, so that we do not lose any precision and so that we
-     * do not have to renormalize afterward.  If A.frac < B.frac,
-     * then division would produce an (N-1)-bit result; shift A left
-     * by one to produce the an N-bit result, and return true to
-     * decrement the exponent to match.
-     *
-     * The udiv_qrnnd algorithm that we're using requires normalization,
-     * i.e. the msb of the denominator must be set, which is already true.
-     */
     ret = a->frac < b->frac;
     if (ret) {
         n0 = a->frac;
@@ -1052,7 +833,6 @@ static bool frac64_div(FloatParts64 *a, FloatParts64 *b)
     }
     q = udiv_qrnnd(&r, n0, n1, b->frac);
 
-    /* Set lsb if there is a remainder, to set inexact. */
     a->frac = q | (r != 0);
 
     return ret;
@@ -1073,14 +853,8 @@ static bool frac128_div(FloatParts128 *a, FloatParts128 *b)
         a0 = a0 >> 1;
     }
 
-    /* Use 128/64 -> 64 division as estimate for 192/128 -> 128 division. */
     q0 = estimateDiv128To64(a0, a1, b0);
 
-    /*
-     * Estimate is high because B1 was not included (unless B1 == 0).
-     * Reduce quotient and increase remainder until remainder is non-negative.
-     * This loop will execute 0 to 2 times.
-     */
     mul128By64To192(b0, b1, q0, &t0, &t1, &t2);
     sub192(a0, a1, 0, t0, t1, t2, &r0, &r1, &r2);
     while (r0 != 0) {
@@ -1088,7 +862,6 @@ static bool frac128_div(FloatParts128 *a, FloatParts128 *b)
         add192(r0, r1, r2, 0, b0, b1, &r0, &r1, &r2);
     }
 
-    /* Repeat using the remainder, producing a second word of quotient. */
     q1 = estimateDiv128To64(r1, r2, b0);
     mul128By64To192(b0, b1, q1, &t1, &t2, &t3);
     sub192(r1, r2, 0, t1, t2, t3, &r1, &r2, &r3);
@@ -1097,7 +870,6 @@ static bool frac128_div(FloatParts128 *a, FloatParts128 *b)
         add192(r1, r2, r3, 0, b0, b1, &r1, &r2, &r3);
     }
 
-    /* Any remainder indicates inexact; set sticky bit. */
     q1 |= (r2 | r3) != 0;
 
     a->frac_hi = q0;
@@ -1482,7 +1254,6 @@ static void frac128_shrjam(FloatParts128 *a, int c)
     if (unlikely(c == 0)) {
         return;
     } else if (likely(c < 64)) {
-        /* nothing */
     } else if (likely(c < 128)) {
         sticky = a1;
         a1 = a0;
@@ -1515,7 +1286,6 @@ static void frac256_shrjam(FloatParts256 *a, int c)
     if (unlikely(c == 0)) {
         return;
     } else if (likely(c < 64)) {
-        /* nothing */
     } else if (likely(c < 256)) {
         if (unlikely(c & 128)) {
             sticky |= a2 | a3;
@@ -1604,11 +1374,6 @@ static void frac128_widen(FloatParts256 *r, FloatParts128 *a)
 
 #define frac_widen(A, B)  FRAC_GENERIC_64_128(widen, B)(A, B)
 
-/*
- * Reciprocal sqrt table.  1 bit of exponent, 6-bits of mantessa.
- * From https://git.musl-libc.org/cgit/musl/tree/src/math/sqrt_data.c
- * and thus MIT licenced.
- */
 static const uint16_t rsqrt_tab[128] = {
     0xb451, 0xb2f0, 0xb196, 0xb044, 0xaef9, 0xadb6, 0xac79, 0xab43,
     0xaa14, 0xa8eb, 0xa7c8, 0xa6aa, 0xa592, 0xa480, 0xa373, 0xa26b,
@@ -1658,9 +1423,6 @@ static const uint16_t rsqrt_tab[128] = {
 #undef  FloatPartsN
 #undef  FloatPartsW
 
-/*
- * Pack/unpack routines with a specific FloatFmt.
- */
 
 static void float16a_unpack_canonical(FloatParts64 *p, float16 f,
                                       float_status *s, const FloatFmt *params)
@@ -1736,19 +1498,10 @@ static float64 float64r32_round_pack_canonical(FloatParts64 *p,
 {
     parts_uncanon(p, s, &float32_params);
 
-    /*
-     * In parts_uncanon, we placed the fraction for float32 at the lsb.
-     * We need to adjust the fraction higher so that the least N bits are
-     * zero, and the fraction is adjacent to the float64 implicit bit.
-     */
     switch (p->cls) {
     case float_class_normal:
     case float_class_denormal:
         if (unlikely(p->exp == 0)) {
-            /*
-             * The result is denormal for float32, but can be represented
-             * in normalized form for float64.  Adjust, per canonicalize.
-             */
             int shift = frac_normalize(p);
             p->exp = (float32_params.frac_shift -
                       float32_params.exp_bias - shift + 1 +
@@ -1790,11 +1543,9 @@ static float128 float128_round_pack_canonical(FloatParts128 *p,
     return float128_pack_raw(p);
 }
 
-/* Returns false if the encoding is invalid. */
 static bool floatx80_unpack_canonical(FloatParts128 *p, floatx80 f,
                                       float_status *s)
 {
-    /* Ensure rounding precision is set before beginning. */
     switch (s->floatx80_rounding_precision) {
     case floatx80_precision_x:
     case floatx80_precision_d:
@@ -1814,7 +1565,6 @@ static bool floatx80_unpack_canonical(FloatParts128 *p, floatx80 f,
     if (likely(p->exp != floatx80_params[floatx80_precision_x].exp_max)) {
         parts_canonicalize(p, s, &floatx80_params[floatx80_precision_x]);
     } else {
-        /* The explicit integer bit is ignored, after invalid checks. */
         p->frac_hi &= MAKE_64BIT_MASK(0, 63);
         p->cls = (p->frac_hi == 0 ? float_class_inf
                   : parts_is_snan_frac(p->frac_hi, s)
@@ -1850,10 +1600,8 @@ static floatx80 floatx80_round_pack_canonical(FloatParts128 *p,
         if (exp != fmt->exp_max) {
             break;
         }
-        /* rounded to inf -- fall through to set frac correctly */
 
     case float_class_inf:
-        /* x86 and m68k differ in the setting of the integer bit. */
         frac = s->floatx80_behaviour & floatx80_default_inf_int_bit_is_zero ?
             0 : (1ULL << 63);
         exp = fmt->exp_max;
@@ -1866,7 +1614,6 @@ static floatx80 floatx80_round_pack_canonical(FloatParts128 *p,
 
     case float_class_snan:
     case float_class_qnan:
-        /* NaNs have the integer bit set. */
         frac = p->frac_hi | (1ull << 63);
         exp = fmt->exp_max;
         break;
@@ -1878,9 +1625,6 @@ static floatx80 floatx80_round_pack_canonical(FloatParts128 *p,
     return packFloatx80(p->sign, exp, frac);
 }
 
-/*
- * Addition and subtraction
- */
 
 static float16 QEMU_FLATTEN
 float16_addsub(float16 a, float16 b, float_status *status, bool subtract)
@@ -2113,9 +1857,6 @@ floatx80 floatx80_sub(floatx80 a, floatx80 b, float_status *status)
     return floatx80_addsub(a, b, status, true);
 }
 
-/*
- * Multiplication
- */
 
 float16 QEMU_FLATTEN float16_mul(float16 a, float16 b, float_status *status)
 {
@@ -2225,9 +1966,6 @@ floatx80_mul(floatx80 a, floatx80 b, float_status *status)
     return floatx80_round_pack_canonical(pr, status);
 }
 
-/*
- * Fused multiply-add
- */
 
 float16 QEMU_FLATTEN
 float16_muladd_scalbn(float16 a, float16 b, float16 c,
@@ -2304,10 +2042,6 @@ float32_muladd(float32 xa, float32 xb, float32 xc, int flags, float_status *s)
         goto soft;
     }
 
-    /*
-     * When (a || b) == 0, there's no need to check for under/over flow,
-     * since we know the addend is (normal || 0) and the product is 0.
-     */
     if (float32_is_zero(ua.s) || float32_is_zero(ub.s)) {
         union_float32 up;
         bool prod_sign;
@@ -2372,10 +2106,6 @@ float64_muladd(float64 xa, float64 xb, float64 xc, int flags, float_status *s)
         goto soft;
     }
 
-    /*
-     * When (a || b) == 0, there's no need to check for under/over flow,
-     * since we know the addend is (normal || 0) and the product is 0.
-     */
     if (float64_is_zero(ua.s) || float64_is_zero(ub.s)) {
         union_float64 up;
         bool prod_sign;
@@ -2457,9 +2187,6 @@ float128 QEMU_FLATTEN float128_muladd(float128 a, float128 b, float128 c,
     return float128_round_pack_canonical(pr, status);
 }
 
-/*
- * Division
- */
 
 float16 float16_div(float16 a, float16 b, float_status *status)
 {
@@ -2602,9 +2329,6 @@ floatx80 floatx80_div(floatx80 a, floatx80 b, float_status *status)
     return floatx80_round_pack_canonical(pr, status);
 }
 
-/*
- * Remainder
- */
 
 float32 float32_rem(float32 a, float32 b, float_status *status)
 {
@@ -2639,15 +2363,6 @@ float128 float128_rem(float128 a, float128 b, float_status *status)
     return float128_round_pack_canonical(pr, status);
 }
 
-/*
- * Returns the remainder of the extended double-precision floating-point value
- * `a' with respect to the corresponding value `b'.
- * If 'mod' is false, the operation is performed according to the IEC/IEEE
- * Standard for Binary Floating-Point Arithmetic.  If 'mod' is true, return
- * the remainder based on truncating the quotient toward zero instead and
- * *quotient is set to the low 64 bits of the absolute value of the integer
- * quotient.
- */
 floatx80 floatx80_modrem(floatx80 a, floatx80 b, bool mod,
                          uint64_t *quotient, float_status *status)
 {
@@ -2675,37 +2390,18 @@ floatx80 floatx80_mod(floatx80 a, floatx80 b, float_status *status)
     return floatx80_modrem(a, b, true, &quotient, status);
 }
 
-/*
- * Float to Float conversions
- *
- * Returns the result of converting one float format to another. The
- * conversion is performed according to the IEC/IEEE Standard for
- * Binary Floating-Point Arithmetic.
- *
- * Usually this only needs to take care of raising invalid exceptions
- * and handling the conversion on NaNs.
- */
 
 static void parts_float_to_ahp(FloatParts64 *a, float_status *s)
 {
     switch (a->cls) {
     case float_class_snan:
         float_raise(float_flag_invalid_snan, s);
-        /* fall through */
     case float_class_qnan:
-        /*
-         * There is no NaN in the destination format.  Raise Invalid
-         * and return a zero with the sign of the input NaN.
-         */
         float_raise(float_flag_invalid, s);
         a->cls = float_class_zero;
         break;
 
     case float_class_inf:
-        /*
-         * There is no Inf in the destination format.  Raise Invalid
-         * and return the maximum normal with the correct sign.
-         */
         float_raise(float_flag_invalid, s);
         a->cls = float_class_normal;
         a->exp = float16_params_ahp.exp_max;
@@ -2758,13 +2454,11 @@ static void parts_float_to_float_narrow(FloatParts64 *a, FloatParts128 *b,
     switch (a->cls) {
     case float_class_denormal:
         float_raise(float_flag_input_denormal_used, s);
-        /* fall through */
     case float_class_normal:
         frac_truncjam(a, b);
         break;
     case float_class_snan:
     case float_class_qnan:
-        /* Discard the low bits of the NaN. */
         a->frac = b->frac_hi;
         parts_return_nan(a, s);
         break;
@@ -2838,7 +2532,6 @@ soft_float32_to_float64(float32 a, float_status *s)
 float64 float32_to_float64(float32 a, float_status *s)
 {
     if (likely(float32_is_normal(a))) {
-        /* Widening conversion can never produce inexact results.  */
         union_float32 uf;
         union_float64 ud;
         uf.s = a;
@@ -3019,9 +2712,6 @@ floatx80 float128_to_floatx80(float128 a, float_status *s)
     return floatx80_round_pack_canonical(&p, s);
 }
 
-/*
- * Round to integral value
- */
 
 float16 float16_round_to_int(float16 a, float_status *s)
 {
@@ -3081,9 +2771,6 @@ floatx80 floatx80_round_to_int(floatx80 a, float_status *status)
     return floatx80_round_pack_canonical(&p, status);
 }
 
-/*
- * Floating-point to signed integer conversions
- */
 
 int8_t float16_to_int8_scalbn(float16 a, FloatRoundMode rmode, int scale,
                               float_status *s)
@@ -3241,7 +2928,6 @@ static Int128 float128_to_int128_scalbn(float128 a, FloatRoundMode rmode,
     switch (p.cls) {
     case float_class_snan:
         flags |= float_flag_invalid_snan;
-        /* fall through */
     case float_class_qnan:
         flags |= float_flag_invalid;
         r = UINT128_MAX;
@@ -3509,9 +3195,6 @@ int64_t float64_to_int64_modulo(float64 a, FloatRoundMode rmode,
     return parts_float_to_sint_modulo(&p, rmode, 63, s);
 }
 
-/*
- * Floating-point to unsigned integer conversions
- */
 
 uint8_t float16_to_uint8_scalbn(float16 a, FloatRoundMode rmode, int scale,
                                 float_status *s)
@@ -3669,7 +3352,6 @@ static Int128 float128_to_uint128_scalbn(float128 a, FloatRoundMode rmode,
     switch (p.cls) {
     case float_class_snan:
         flags |= float_flag_invalid_snan;
-        /* fall through */
     case float_class_qnan:
         flags |= float_flag_invalid;
         r = UINT128_MAX;
@@ -3878,9 +3560,6 @@ uint64_t bfloat16_to_uint64_round_to_zero(bfloat16 a, float_status *s)
     return bfloat16_to_uint64_scalbn(a, float_round_to_zero, 0, s);
 }
 
-/*
- * Signed integer to floating-point conversions
- */
 
 float16 int64_to_float16_scalbn(int64_t a, int scale, float_status *status)
 {
@@ -3924,7 +3603,6 @@ float32 int64_to_float32_scalbn(int64_t a, int scale, float_status *status)
 {
     FloatParts64 p;
 
-    /* Without scaling, there are no overflow concerns. */
     if (likely(scale == 0) && can_use_fpu(status)) {
         union_float32 ur;
         ur.h = a;
@@ -3964,7 +3642,6 @@ float64 int64_to_float64_scalbn(int64_t a, int scale, float_status *status)
 {
     FloatParts64 p;
 
-    /* Without scaling, there are no overflow concerns. */
     if (likely(scale == 0) && can_use_fpu(status)) {
         union_float64 ur;
         ur.h = a;
@@ -4098,9 +3775,6 @@ floatx80 int32_to_floatx80(int32_t a, float_status *status)
     return int64_to_floatx80(a, status);
 }
 
-/*
- * Unsigned Integer to floating-point conversions
- */
 
 float16 uint64_to_float16_scalbn(uint64_t a, int scale, float_status *status)
 {
@@ -4144,7 +3818,6 @@ float32 uint64_to_float32_scalbn(uint64_t a, int scale, float_status *status)
 {
     FloatParts64 p;
 
-    /* Without scaling, there are no overflow concerns. */
     if (likely(scale == 0) && can_use_fpu(status)) {
         union_float32 ur;
         ur.h = a;
@@ -4184,7 +3857,6 @@ float64 uint64_to_float64_scalbn(uint64_t a, int scale, float_status *status)
 {
     FloatParts64 p;
 
-    /* Without scaling, there are no overflow concerns. */
     if (likely(scale == 0) && can_use_fpu(status)) {
         union_float64 ur;
         ur.h = a;
@@ -4296,9 +3968,6 @@ float128 uint128_to_float128(Int128 a, float_status *status)
     return float128_round_pack_canonical(&p, status);
 }
 
-/*
- * Minimum and maximum
- */
 
 static float16 float16_minmax(float16 a, float16 b, float_status *s, int flags)
 {
@@ -4380,9 +4049,6 @@ MINMAX_2(float128)
 #undef MINMAX_1
 #undef MINMAX_2
 
-/*
- * Floating point compare
- */
 
 static FloatRelation QEMU_FLATTEN
 float16_do_compare(float16 a, float16 b, float_status *s, bool is_quiet)
@@ -4427,7 +4093,6 @@ float32_hs_compare(float32 xa, float32 xb, float_status *s, bool is_quiet)
     }
 
     if (unlikely(float32_is_denormal(ua.s) || float32_is_denormal(ub.s))) {
-        /* We may need to set the input_denormal_used flag */
         goto soft;
     }
 
@@ -4440,10 +4105,6 @@ float32_hs_compare(float32 xa, float32 xb, float_status *s, bool is_quiet)
     if (likely(isless(ua.h, ub.h))) {
         return float_relation_less;
     }
-    /*
-     * The only condition remaining is unordered.
-     * Fall through to set flags.
-     */
  soft:
     return float32_do_compare(ua.s, ub.s, s, is_quiet);
 }
@@ -4481,7 +4142,6 @@ float64_hs_compare(float64 xa, float64 xb, float_status *s, bool is_quiet)
     }
 
     if (unlikely(float64_is_denormal(ua.s) || float64_is_denormal(ub.s))) {
-        /* We may need to set the input_denormal_used flag */
         goto soft;
     }
 
@@ -4494,10 +4154,6 @@ float64_hs_compare(float64 xa, float64 xb, float_status *s, bool is_quiet)
     if (likely(isless(ua.h, ub.h))) {
         return float_relation_less;
     }
-    /*
-     * The only condition remaining is unordered.
-     * Fall through to set flags.
-     */
  soft:
     return float64_do_compare(ua.s, ub.s, s, is_quiet);
 }
@@ -4574,9 +4230,6 @@ FloatRelation floatx80_compare_quiet(floatx80 a, floatx80 b, float_status *s)
     return floatx80_do_compare(a, b, s, true);
 }
 
-/*
- * Scale by 2**N
- */
 
 float16 float16_scalbn(float16 a, int n, float_status *status)
 {
@@ -4634,9 +4287,6 @@ floatx80 floatx80_scalbn(floatx80 a, int n, float_status *status)
     return floatx80_round_pack_canonical(&p, status);
 }
 
-/*
- * Square Root
- */
 
 float16 QEMU_FLATTEN float16_sqrt(float16 a, float_status *status)
 {
@@ -4759,9 +4409,6 @@ floatx80 floatx80_sqrt(floatx80 a, float_status *s)
     return floatx80_round_pack_canonical(&p, s);
 }
 
-/*
- * log2
- */
 float32 float32_log2(float32 a, float_status *status)
 {
     FloatParts64 p;
@@ -4780,9 +4427,6 @@ float64 float64_log2(float64 a, float_status *status)
     return float64_round_pack_canonical(&p, status);
 }
 
-/*----------------------------------------------------------------------------
-| The pattern for a default generated NaN.
-*----------------------------------------------------------------------------*/
 
 float16 float16_default_nan(float_status *status)
 {
@@ -4829,9 +4473,6 @@ bfloat16 bfloat16_default_nan(float_status *status)
     return bfloat16_pack_raw(&p);
 }
 
-/*----------------------------------------------------------------------------
-| Returns a quiet NaN from a signalling NaN for the floating point value `a'.
-*----------------------------------------------------------------------------*/
 
 float16 float16_silence_nan(float16 a, float_status *status)
 {
@@ -4888,10 +4529,6 @@ float128 float128_silence_nan(float128 a, float_status *status)
     return float128_pack_raw(&p);
 }
 
-/*----------------------------------------------------------------------------
-| If `a' is denormal and we are in flush-to-zero mode then set the
-| input-denormal exception and return zero. Otherwise just return the value.
-*----------------------------------------------------------------------------*/
 
 static bool parts_squash_denormal(FloatParts64 p, float_status *status)
 {
@@ -4955,12 +4592,6 @@ bfloat16 bfloat16_squash_input_denormal(bfloat16 a, float_status *status)
     return a;
 }
 
-/*----------------------------------------------------------------------------
-| Normalizes the subnormal extended double-precision floating-point value
-| represented by the denormalized significand `aSig'.  The normalized exponent
-| and significand are stored at the locations pointed to by `zExpPtr' and
-| `zSigPtr', respectively.
-*----------------------------------------------------------------------------*/
 
 void normalizeFloatx80Subnormal(uint64_t aSig, int32_t *zExpPtr,
                                 uint64_t *zSigPtr)
@@ -4972,11 +4603,6 @@ void normalizeFloatx80Subnormal(uint64_t aSig, int32_t *zExpPtr,
     *zExpPtr = 1 - shiftCount;
 }
 
-/*----------------------------------------------------------------------------
-| Takes two extended double-precision floating-point values `a' and `b', one
-| of which is a NaN, and returns the appropriate NaN result.  If either `a' or
-| `b' is a signaling NaN, the invalid exception is raised.
-*----------------------------------------------------------------------------*/
 
 floatx80 propagateFloatx80NaN(floatx80 a, floatx80 b, float_status *status)
 {
@@ -4991,29 +4617,6 @@ floatx80 propagateFloatx80NaN(floatx80 a, floatx80 b, float_status *status)
     return floatx80_round_pack_canonical(pr, status);
 }
 
-/*----------------------------------------------------------------------------
-| Takes an abstract floating-point value having sign `zSign', exponent `zExp',
-| and extended significand formed by the concatenation of `zSig0' and `zSig1',
-| and returns the proper extended double-precision floating-point value
-| corresponding to the abstract input.  Ordinarily, the abstract value is
-| rounded and packed into the extended double-precision format, with the
-| inexact exception raised if the abstract input cannot be represented
-| exactly.  However, if the abstract value is too large, the overflow and
-| inexact exceptions are raised and an infinity or maximal finite value is
-| returned.  If the abstract value is too small, the input value is rounded to
-| a subnormal number, and the underflow and inexact exceptions are raised if
-| the abstract input cannot be represented exactly as a subnormal extended
-| double-precision floating-point number.
-|     If `roundingPrecision' is floatx80_precision_s or floatx80_precision_d,
-| the result is rounded to the same number of bits as single or double
-| precision, respectively.  Otherwise, the result is rounded to the full
-| precision of the extended double-precision format.
-|     The input significand must be normalized or smaller.  If the input
-| significand is not normalized, `zExp' must be 0; in that case, the result
-| returned is a subnormal number, and it must not require rounding.  The
-| handling of underflow and overflow follows the IEC/IEEE Standard for Binary
-| Floating-Point Arithmetic.
-*----------------------------------------------------------------------------*/
 
 floatx80 roundAndPackFloatx80(FloatX80RoundPrec roundingPrecision, bool zSign,
                               int32_t zExp, uint64_t zSig0, uint64_t zSig1,
@@ -5203,14 +4806,6 @@ floatx80 roundAndPackFloatx80(FloatX80RoundPrec roundingPrecision, bool zSign,
 
 }
 
-/*----------------------------------------------------------------------------
-| Takes an abstract floating-point value having sign `zSign', exponent
-| `zExp', and significand formed by the concatenation of `zSig0' and `zSig1',
-| and returns the proper extended double-precision floating-point value
-| corresponding to the abstract input.  This routine is just like
-| `roundAndPackFloatx80' except that the input significand does not have to be
-| normalized.
-*----------------------------------------------------------------------------*/
 
 floatx80 normalizeRoundAndPackFloatx80(FloatX80RoundPrec roundingPrecision,
                                        bool zSign, int32_t zExp,
@@ -5232,23 +4827,6 @@ floatx80 normalizeRoundAndPackFloatx80(FloatX80RoundPrec roundingPrecision,
 
 }
 
-/*----------------------------------------------------------------------------
-| Returns the binary exponential of the single-precision floating-point value
-| `a'. The operation is performed according to the IEC/IEEE Standard for
-| Binary Floating-Point Arithmetic.
-|
-| Uses the following identities:
-|
-| 1. -------------------------------------------------------------------------
-|      x    x*ln(2)
-|     2  = e
-|
-| 2. -------------------------------------------------------------------------
-|                      2     3     4     5           n
-|      x        x     x     x     x     x           x
-|     e  = 1 + --- + --- + --- + --- + --- + ... + --- + ...
-|               1!    2!    3!    4!    5!          n!
-*----------------------------------------------------------------------------*/
 
 static const float64 float32_exp2_coefficients[15] =
 {
@@ -5309,13 +4887,6 @@ float32 float32_exp2(float32 a, float_status *status)
     return float32_round_pack_canonical(&rp, status);
 }
 
-/*----------------------------------------------------------------------------
-| Rounds the extended double-precision floating-point value `a'
-| to the precision provided by floatx80_rounding_precision and returns the
-| result as an extended double-precision floating-point value.
-| The operation is performed according to the IEC/IEEE Standard for Binary
-| Floating-Point Arithmetic.
-*----------------------------------------------------------------------------*/
 
 floatx80 floatx80_round(floatx80 a, float_status *status)
 {
@@ -5334,11 +4905,6 @@ static void __attribute__((constructor)) softfloat_init(void)
     if (QEMU_NO_HARDFLOAT) {
         return;
     }
-    /*
-     * Test that the host's FMA is not obviously broken. For example,
-     * glibc < 2.23 can perform an incorrect FMA on certain hosts; see
-     *   https://sourceware.org/bugzilla/show_bug.cgi?id=13304
-     */
     ua.s = 0x0020000000000001ULL;
     ub.s = 0x3ca0000000000000ULL;
     uc.s = 0x0020000000000000ULL;

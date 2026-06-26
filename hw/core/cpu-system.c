@@ -1,22 +1,3 @@
-/*
- * QEMU CPU model (system specific)
- *
- * Copyright (c) 2012-2014 SUSE LINUX Products GmbH
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <http://www.gnu.org/licenses/gpl-2.0.html>
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -65,11 +46,9 @@ hwaddr cpu_get_phys_page_attrs_debug(CPUState *cpu, vaddr addr,
         paddr = cpu->cc->sysemu_ops->get_phys_page_attrs_debug(cpu, addr,
                                                                attrs);
     } else {
-        /* Fallback for CPUs which don't implement the _attrs_ hook */
         *attrs = MEMTXATTRS_UNSPECIFIED;
         paddr = cpu->cc->sysemu_ops->get_phys_page_debug(cpu, addr);
     }
-    /* Indicate that this is a debug access. */
     attrs->debug = 1;
     return paddr;
 }
@@ -111,11 +90,6 @@ GuestPanicInformation *cpu_get_crash_info(CPUState *cpu)
 }
 
 static const Property cpu_system_props[] = {
-    /*
-     * Create a memory property for system CPU object, so users can
-     * wire up its memory.  The default if no link is set up is to use
-     * the system address space.
-     */
     DEFINE_PROP_LINK("memory", CPUState, memory, TYPE_MEMORY_REGION,
                      MemoryRegion *),
 };
@@ -136,10 +110,6 @@ void cpu_class_init_props(DeviceClass *dc)
 {
     ObjectClass *oc = OBJECT_CLASS(dc);
 
-    /*
-     * We can't use DEFINE_PROP_BOOL in the Property array for this
-     * property, because we want this to be settable after realize.
-     */
     object_class_property_add_bool(oc, "start-powered-off",
                                    cpu_get_start_powered_off,
                                    cpu_set_start_powered_off);
@@ -149,7 +119,6 @@ void cpu_class_init_props(DeviceClass *dc)
 
 void cpu_exec_class_post_init(CPUClass *cc)
 {
-    /* Check mandatory SysemuCPUOps handlers */
     g_assert(cc->sysemu_ops->has_work);
 }
 
@@ -164,20 +133,10 @@ static int cpu_common_post_load(void *opaque, int version_id)
     if (tcg_enabled()) {
         CPUState *cpu = opaque;
 
-        /*
-         * 0x01 was CPU_INTERRUPT_EXIT. This line can be removed when the
-         * version_id is increased.
-         */
         cpu->interrupt_request &= ~0x01;
 
         tlb_flush(cpu);
 
-        /*
-         * loadvm has just updated the content of RAM, bypassing the
-         * usual mechanisms that ensure we flush TBs for writes to
-         * memory we've translated code from. So we must flush all TBs,
-         * which will now be stale.
-         */
         tb_flush(cpu);
     }
 

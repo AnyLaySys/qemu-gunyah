@@ -1,26 +1,3 @@
-/*
- * QEMU monitor file descriptor passing
- *
- * Copyright (c) 2003-2004 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "monitor-internal.h"
@@ -31,7 +8,6 @@
 #include "qemu/cutils.h"
 #include "system/runstate.h"
 
-/* file descriptors passed via SCM_RIGHTS */
 typedef struct mon_fd_t mon_fd_t;
 struct mon_fd_t {
     char *name;
@@ -39,7 +15,6 @@ struct mon_fd_t {
     QLIST_ENTRY(mon_fd_t) next;
 };
 
-/* file descriptor associated with a file descriptor set */
 typedef struct MonFdsetFd MonFdsetFd;
 struct MonFdsetFd {
     int fd;
@@ -47,7 +22,6 @@ struct MonFdsetFd {
     QLIST_ENTRY(MonFdsetFd) next;
 };
 
-/* file descriptor set containing fds passed via SCM_RIGHTS */
 typedef struct MonFdset MonFdset;
 struct MonFdset {
     int64_t id;
@@ -56,7 +30,6 @@ struct MonFdset {
     QLIST_ENTRY(MonFdset) next;
 };
 
-/* Protects mon_fdsets */
 static QemuMutex mon_fdsets_lock;
 static QLIST_HEAD(, MonFdset) mon_fdsets;
 
@@ -71,7 +44,6 @@ static bool monitor_add_fd(Monitor *mon, int fd, const char *fdname, Error **err
         return false;
     }
 
-    /* See close() call below. */
     qemu_mutex_lock(&mon->mon_lock);
     QLIST_FOREACH(monfd, &mon->fds, next) {
         int tmp_fd;
@@ -83,7 +55,6 @@ static bool monitor_add_fd(Monitor *mon, int fd, const char *fdname, Error **err
         tmp_fd = monfd->fd;
         monfd->fd = fd;
         qemu_mutex_unlock(&mon->mon_lock);
-        /* Make sure close() is outside critical section */
         close(tmp_fd);
         return true;
     }
@@ -130,7 +101,6 @@ void qmp_closefd(const char *fdname, Error **errp)
         g_free(monfd->name);
         g_free(monfd);
         qemu_mutex_unlock(&cur_mon->mon_lock);
-        /* Make sure close() is outside critical section */
         close(tmp_fd);
         return;
     }
@@ -154,7 +124,6 @@ int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
         fd = monfd->fd;
         assert(fd >= 0);
 
-        /* caller takes ownership of fd */
         QLIST_REMOVE(monfd, next);
         g_free(monfd->name);
         g_free(monfd);
@@ -174,11 +143,6 @@ static void monitor_fdset_free(MonFdset *mon_fdset)
 
 static void monitor_fdset_free_if_empty(MonFdset *mon_fdset)
 {
-    /*
-     * Only remove an empty fdset. The fds are owned by the user and
-     * should have been removed with qmp_remove_fd(). The dup_fds are
-     * owned by QEMU and should have been removed with qemu_close().
-     */
     if (QLIST_EMPTY(&mon_fdset->fds) && QLIST_EMPTY(&mon_fdset->dup_fds)) {
         monitor_fdset_free(mon_fdset);
     }
@@ -341,7 +305,6 @@ AddfdInfo *monitor_fdset_add_fd(int fd, bool has_fdset_id, int64_t fdset_id,
     QEMU_LOCK_GUARD(&mon_fdsets_lock);
     if (has_fdset_id) {
         QLIST_FOREACH(mon_fdset, &mon_fdsets, next) {
-            /* Break if match found or match impossible due to ordering by ID */
             if (fdset_id <= mon_fdset->id) {
                 if (fdset_id < mon_fdset->id) {
                     mon_fdset = NULL;
@@ -361,7 +324,6 @@ AddfdInfo *monitor_fdset_add_fd(int fd, bool has_fdset_id, int64_t fdset_id,
                            "a non-negative value");
                 return NULL;
             }
-            /* Use specified fdset ID */
             QLIST_FOREACH(mon_fdset, &mon_fdsets, next) {
                 mon_fdset_cur = mon_fdset;
                 if (fdset_id < mon_fdset_cur->id) {
@@ -369,7 +331,6 @@ AddfdInfo *monitor_fdset_add_fd(int fd, bool has_fdset_id, int64_t fdset_id,
                 }
             }
         } else {
-            /* Use first available fdset ID */
             QLIST_FOREACH(mon_fdset, &mon_fdsets, next) {
                 mon_fdset_cur = mon_fdset;
                 if (fdset_id_prev == mon_fdset_cur->id - 1) {
@@ -387,7 +348,6 @@ AddfdInfo *monitor_fdset_add_fd(int fd, bool has_fdset_id, int64_t fdset_id,
             mon_fdset->id = fdset_id_prev + 1;
         }
 
-        /* The fdset list is ordered by fdset ID */
         if (!mon_fdset_cur) {
             QLIST_INSERT_HEAD(&mon_fdsets, mon_fdset, next);
         } else if (mon_fdset->id < mon_fdset_cur->id) {

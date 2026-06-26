@@ -1,45 +1,3 @@
-/*
- * SPDX-License-Identifier: MIT
- *
- * Tiny subset of PIXMAN API commonly used by QEMU.
- *
- * Copyright 1987, 1988, 1989, 1998  The Open Group
- * Copyright 1987, 1988, 1989 Digital Equipment Corporation
- * Copyright 1999, 2004, 2008 Keith Packard
- * Copyright 2000 SuSE, Inc.
- * Copyright 2000 Keith Packard, member of The XFree86 Project, Inc.
- * Copyright 2004, 2005, 2007, 2008, 2009, 2010 Red Hat, Inc.
- * Copyright 2004 Nicholas Miell
- * Copyright 2005 Lars Knoll & Zack Rusin, Trolltech
- * Copyright 2005 Trolltech AS
- * Copyright 2007 Luca Barbato
- * Copyright 2008 Aaron Plattner, NVIDIA Corporation
- * Copyright 2008 Rodrigo Kumpera
- * Copyright 2008 André Tupinambá
- * Copyright 2008 Mozilla Corporation
- * Copyright 2008 Frederic Plourde
- * Copyright 2009, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2009, 2010 Nokia Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 
 #ifndef PIXMAN_MINIMAL_H
 #define PIXMAN_MINIMAL_H
@@ -72,7 +30,6 @@
                                  PIXMAN_FORMAT_B(f))
 
 typedef enum {
-    /* 32bpp formats */
     PIXMAN_a8r8g8b8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_ARGB, 8, 8, 8, 8),
     PIXMAN_x8r8g8b8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_ARGB, 0, 8, 8, 8),
     PIXMAN_a8b8g8r8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_ABGR, 8, 8, 8, 8),
@@ -81,10 +38,8 @@ typedef enum {
     PIXMAN_b8g8r8x8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_BGRA, 0, 8, 8, 8),
     PIXMAN_r8g8b8a8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_RGBA, 8, 8, 8, 8),
     PIXMAN_r8g8b8x8 =    PIXMAN_FORMAT(32, PIXMAN_TYPE_RGBA, 0, 8, 8, 8),
-    /* 24bpp formats */
     PIXMAN_r8g8b8 =      PIXMAN_FORMAT(24, PIXMAN_TYPE_ARGB, 0, 8, 8, 8),
     PIXMAN_b8g8r8 =      PIXMAN_FORMAT(24, PIXMAN_TYPE_ABGR, 0, 8, 8, 8),
-    /* 16bpp formats */
     PIXMAN_r5g6b5 =      PIXMAN_FORMAT(16, PIXMAN_TYPE_ARGB, 0, 5, 6, 5),
     PIXMAN_a1r5g5b5 =    PIXMAN_FORMAT(16, PIXMAN_TYPE_ARGB, 1, 5, 5, 5),
     PIXMAN_x1r5g5b5 =    PIXMAN_FORMAT(16, PIXMAN_TYPE_ARGB, 0, 5, 5, 5),
@@ -122,10 +77,6 @@ static inline uint32_t *create_bits(pixman_format_code_t format,
     size_t buf_size = 0;
     int bpp = PIXMAN_FORMAT_BPP(format);
 
-    /*
-     * Calculate the following while checking for overflow truncation:
-     * stride = ((width * bpp + 0x1f) >> 5) * sizeof(uint32_t);
-     */
 
     if (unlikely(__builtin_mul_overflow(width, bpp, &stride))) {
         return NULL;

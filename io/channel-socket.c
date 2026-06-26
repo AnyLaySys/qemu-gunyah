@@ -1,21 +1,3 @@
-/*
- * QEMU I/O channels sockets driver
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -168,7 +150,6 @@ int qio_channel_socket_connect_sync(QIOChannelSocket *ioc,
     int ret, v = 1;
     ret = setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v));
     if (ret == 0) {
-        /* Zero copy available on host */
         qio_channel_set_feature(QIO_CHANNEL(ioc),
                                 QIO_CHANNEL_FEATURE_WRITE_ZERO_COPY);
     }
@@ -207,8 +188,6 @@ void qio_channel_socket_connect_async(QIOChannelSocket *ioc,
 
     addrCopy = QAPI_CLONE(SocketAddress, addr);
 
-    /* socket_connect() does a non-blocking connect(), but it
-     * still blocks in DNS lookups, so we must use a thread */
     trace_qio_channel_socket_connect_async(ioc, addr);
     qio_task_run_in_thread(task,
                            qio_channel_socket_connect_worker,
@@ -285,7 +264,6 @@ void qio_channel_socket_listen_async(QIOChannelSocket *ioc,
     data->addr = QAPI_CLONE(SocketAddress, addr);
     data->num = num;
 
-    /* socket_listen() blocks in DNS lookups, so we must use a thread */
     trace_qio_channel_socket_listen_async(ioc, addr, num);
     qio_task_run_in_thread(task,
                            qio_channel_socket_listen_worker,
@@ -340,7 +318,6 @@ static void qio_channel_socket_dgram_worker(QIOTask *task,
     struct QIOChannelSocketDGramWorkerData *data = opaque;
     Error *err = NULL;
 
-    /* socket_dgram() blocks in DNS lookups, so we must use a thread */
     qio_channel_socket_dgram_sync(ioc, data->localAddr,
                                   data->remoteAddr, &err);
 
@@ -486,7 +463,6 @@ static void qio_channel_socket_copy_fds(struct msghdr *msg,
                 continue;
             }
 
-            /* O_NONBLOCK is preserved across SCM_RIGHTS so reset it */
             qemu_socket_set_block(fd);
 
 #ifndef MSG_CMSG_CLOEXEC
@@ -594,10 +570,6 @@ static ssize_t qio_channel_socket_writev(QIOChannel *ioc,
 #ifdef QEMU_MSG_ZEROCOPY
         sflags = MSG_ZEROCOPY;
 #else
-        /*
-         * We expect QIOChannel class entry point to have
-         * blocked this code path already
-         */
         g_assert_not_reached();
 #endif
     }
@@ -751,7 +723,6 @@ static int qio_channel_socket_flush(QIOChannel *ioc,
         if (received < 0) {
             switch (errno) {
             case EAGAIN:
-                /* Nothing on errqueue, wait until something is available */
                 qio_channel_wait(ioc, G_IO_ERR);
                 continue;
             case EINTR:
@@ -788,10 +759,8 @@ static int qio_channel_socket_flush(QIOChannel *ioc,
             return -1;
         }
 
-        /* No errors, count successfully finished sendmsg()*/
         sioc->zero_copy_sent += serr->ee_data - serr->ee_info + 1;
 
-        /* If any sendmsg() succeeded using zero copy, return 0 at the end */
         if (serr->ee_code != SO_EE_CODE_ZEROCOPY_COPIED) {
             ret = 0;
         }

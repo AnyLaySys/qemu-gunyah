@@ -1,25 +1,3 @@
-/*
- * ARM GICv3 support - internal interfaces
- *
- * Copyright (c) 2012 Linaro Limited
- * Copyright (c) 2015 Huawei.
- * Copyright (c) 2015 Samsung Electronics Co., Ltd.
- * Written by Peter Maydell
- * Reworked for GICv3 by Shlomo Pongratz and Pavel Fedin
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef QEMU_ARM_GICV3_INTERNAL_H
 #define QEMU_ARM_GICV3_INTERNAL_H
@@ -27,7 +5,6 @@
 #include "hw/registerfields.h"
 #include "hw/intc/arm_gicv3_common.h"
 
-/* Distributor registers, as offsets from the distributor base address */
 #define GICD_CTLR            0x0000
 #define GICD_TYPER           0x0004
 #define GICD_IIDR            0x0008
@@ -57,12 +34,10 @@
 #define GICD_IROUTER         0x6000
 #define GICD_IDREGS          0xFFD0
 
-/* GICD_CTLR fields  */
 #define GICD_CTLR_EN_GRP0           (1U << 0)
 #define GICD_CTLR_EN_GRP1NS         (1U << 1) /* GICv3 5.3.20 */
 #define GICD_CTLR_EN_GRP1S          (1U << 2)
 #define GICD_CTLR_EN_GRP1_ALL       (GICD_CTLR_EN_GRP1NS | GICD_CTLR_EN_GRP1S)
-/* Bit 4 is ARE if the system doesn't support TrustZone, ARE_S otherwise */
 #define GICD_CTLR_ARE               (1U << 4)
 #define GICD_CTLR_ARE_S             (1U << 4)
 #define GICD_CTLR_ARE_NS            (1U << 5)
@@ -73,18 +48,11 @@
 #define GICD_TYPER_NMI_SHIFT           9
 #define GICD_TYPER_LPIS_SHIFT          17
 
-/* 16 bits EventId */
 #define GICD_TYPER_IDBITS            0xf
 
-/*
- * Redistributor frame offsets from RD_base
- */
 #define GICR_SGI_OFFSET 0x10000
 #define GICR_VLPI_OFFSET 0x20000
 
-/*
- * Redistributor registers, offsets from RD_base
- */
 #define GICR_CTLR             0x0000
 #define GICR_IIDR             0x0004
 #define GICR_TYPER            0x0008
@@ -99,7 +67,6 @@
 #define GICR_SYNCR            0x00C0
 #define GICR_IDREGS           0xFFD0
 
-/* SGI and PPI Redistributor registers, offsets from RD_base */
 #define GICR_IGROUPR0         (GICR_SGI_OFFSET + 0x0080)
 #define GICR_ISENABLER0       (GICR_SGI_OFFSET + 0x0100)
 #define GICR_ICENABLER0       (GICR_SGI_OFFSET + 0x0180)
@@ -114,7 +81,6 @@
 #define GICR_NSACR            (GICR_SGI_OFFSET + 0x0E00)
 #define GICR_INMIR0           (GICR_SGI_OFFSET + 0x0F80)
 
-/* VLPI redistributor registers, offsets from VLPI_base */
 #define GICR_VPROPBASER       (GICR_VLPI_OFFSET + 0x70)
 #define GICR_VPENDBASER       (GICR_VLPI_OFFSET + 0x78)
 
@@ -152,7 +118,6 @@ FIELD(GICR_PENDBASER, PTZ, 62, 1)
 
 #define GICR_PROPBASER_IDBITS_THRESHOLD          0xd
 
-/* These are the GICv4 VPROPBASER and VPENDBASER layouts; v4.1 is different */
 FIELD(GICR_VPROPBASER, IDBITS, 0, 5)
 FIELD(GICR_VPROPBASER, INNERCACHE, 7, 3)
 FIELD(GICR_VPROPBASER, SHAREABILITY, 10, 2)
@@ -241,7 +206,6 @@ FIELD(GICR_VPENDBASER, VALID, 63, 1)
 #define ICH_LR_EL2_PINTID_SHIFT 32
 #define ICH_LR_EL2_PINTID_LENGTH 10
 #define ICH_LR_EL2_PINTID_MASK (0x3ffULL << ICH_LR_EL2_PINTID_SHIFT)
-/* Note that EOI shares with the top bit of the pINTID field */
 #define ICH_LR_EL2_EOI (1ULL << 41)
 #define ICH_LR_EL2_PRIORITY_SHIFT 48
 #define ICH_LR_EL2_PRIORITY_LENGTH 8
@@ -252,7 +216,6 @@ FIELD(GICR_VPENDBASER, VALID, 63, 1)
 #define ICH_LR_EL2_STATE_SHIFT 62
 #define ICH_LR_EL2_STATE_LENGTH 2
 #define ICH_LR_EL2_STATE_MASK (3ULL << ICH_LR_EL2_STATE_SHIFT)
-/* values for the state field: */
 #define ICH_LR_EL2_STATE_INVALID 0
 #define ICH_LR_EL2_STATE_PENDING 1
 #define ICH_LR_EL2_STATE_ACTIVE 2
@@ -281,7 +244,6 @@ FIELD(GICR_VPENDBASER, VALID, 63, 1)
 #define ICV_AP1R_EL1_NMI (1ULL << 63)
 #define ICV_RPR_EL1_NMI (1ULL << 63)
 
-/* ITS Registers */
 
 FIELD(GITS_BASER, SIZE, 0, 8)
 FIELD(GITS_BASER, PAGESIZE, 8, 2)
@@ -350,7 +312,6 @@ FIELD(GITS_TYPER, VMOVP, 37, 1)
 
 #define CMD_MASK                  0xff
 
-/* ITS Commands */
 #define GITS_CMD_MOVI             0x01
 #define GITS_CMD_INT              0x03
 #define GITS_CMD_CLEAR            0x04
@@ -371,7 +332,6 @@ FIELD(GITS_TYPER, VMOVP, 37, 1)
 #define GITS_CMD_VMAPI            0x2B
 #define GITS_CMD_VINVALL          0x2D
 
-/* MAPC command fields */
 #define ICID_LENGTH                  16
 #define ICID_MASK                 ((1U << ICID_LENGTH) - 1)
 FIELD(MAPC, RDBASE, 16, 32)
@@ -379,16 +339,13 @@ FIELD(MAPC, RDBASE, 16, 32)
 #define RDBASE_PROCNUM_LENGTH        16
 #define RDBASE_PROCNUM_MASK       ((1ULL << RDBASE_PROCNUM_LENGTH) - 1)
 
-/* MAPD command fields */
 #define ITTADDR_LENGTH               44
 #define ITTADDR_SHIFT                 8
 #define ITTADDR_MASK             MAKE_64BIT_MASK(ITTADDR_SHIFT, ITTADDR_LENGTH)
 #define SIZE_MASK                 0x1f
 
-/* MAPI command fields */
 #define EVENTID_MASK              ((1ULL << 32) - 1)
 
-/* MAPTI command fields */
 #define pINTID_SHIFT                 32
 #define pINTID_MASK               MAKE_64BIT_MASK(32, 32)
 
@@ -400,27 +357,22 @@ FIELD(MAPC, RDBASE, 16, 32)
 #define L2_TABLE_VALID_MASK       CMD_FIELD_VALID_MASK
 #define TABLE_ENTRY_VALID_MASK    (1ULL << 0)
 
-/* MOVALL command fields */
 FIELD(MOVALL_2, RDBASE1, 16, 36)
 FIELD(MOVALL_3, RDBASE2, 16, 36)
 
-/* MOVI command fields */
 FIELD(MOVI_0, DEVICEID, 32, 32)
 FIELD(MOVI_1, EVENTID, 0, 32)
 FIELD(MOVI_2, ICID, 0, 16)
 
-/* INV command fields */
 FIELD(INV_0, DEVICEID, 32, 32)
 FIELD(INV_1, EVENTID, 0, 32)
 
-/* VMAPI, VMAPTI command fields */
 FIELD(VMAPTI_0, DEVICEID, 32, 32)
 FIELD(VMAPTI_1, EVENTID, 0, 32)
 FIELD(VMAPTI_1, VPEID, 32, 16)
 FIELD(VMAPTI_2, VINTID, 0, 32) /* VMAPTI only */
 FIELD(VMAPTI_2, DOORBELL, 32, 32)
 
-/* VMAPP command fields */
 FIELD(VMAPP_0, ALLOC, 8, 1) /* GICv4.1 only */
 FIELD(VMAPP_0, PTZ, 9, 1) /* GICv4.1 only */
 FIELD(VMAPP_0, VCONFADDR, 16, 36) /* GICv4.1 only */
@@ -431,7 +383,6 @@ FIELD(VMAPP_2, V, 63, 1)
 FIELD(VMAPP_3, VPTSIZE, 0, 8) /* For GICv4.0, bits [7:6] are RES0 */
 FIELD(VMAPP_3, VPTADDR, 16, 36)
 
-/* VMOVP command fields */
 FIELD(VMOVP_0, SEQNUM, 32, 16) /* not used for GITS_TYPER.VMOVP == 1 */
 FIELD(VMOVP_1, ITSLIST, 0, 16) /* not used for GITS_TYPER.VMOVP == 1 */
 FIELD(VMOVP_1, VPEID, 32, 16)
@@ -439,29 +390,14 @@ FIELD(VMOVP_2, RDBASE, 16, 36)
 FIELD(VMOVP_2, DB, 63, 1) /* GICv4.1 only */
 FIELD(VMOVP_3, DEFAULT_DOORBELL, 0, 32) /* GICv4.1 only */
 
-/* VMOVI command fields */
 FIELD(VMOVI_0, DEVICEID, 32, 32)
 FIELD(VMOVI_1, EVENTID, 0, 32)
 FIELD(VMOVI_1, VPEID, 32, 16)
 FIELD(VMOVI_2, D, 0, 1)
 FIELD(VMOVI_2, DOORBELL, 32, 32)
 
-/* VINVALL command fields */
 FIELD(VINVALL_1, VPEID, 32, 16)
 
-/*
- * 12 bytes Interrupt translation Table Entry size
- * as per Table 5.3 in GICv3 spec
- * ITE Lower 8 Bytes
- *   Bits:    | 63 ... 48 | 47 ... 32 | 31 ... 26 | 25 ... 2 |   1     |  0    |
- *   Values:  | vPEID     | ICID      | unused    |  IntNum  | IntType | Valid |
- * ITE Higher 4 Bytes
- *   Bits:    | 31 ... 25 | 24 ... 0 |
- *   Values:  | unused    | Doorbell |
- * (When Doorbell is unused, as it always is for INTYPE_PHYSICAL,
- * the value of that field in memory cannot be relied upon -- older
- * versions of QEMU did not correctly write to that memory.)
- */
 #define ITS_ITT_ENTRY_SIZE            0xC
 
 FIELD(ITE_L, VALID, 0, 1)
@@ -471,44 +407,25 @@ FIELD(ITE_L, ICID, 32, 16)
 FIELD(ITE_L, VPEID, 48, 16)
 FIELD(ITE_H, DOORBELL, 0, 24)
 
-/* Possible values for ITE_L INTTYPE */
 #define ITE_INTTYPE_VIRTUAL 0
 #define ITE_INTTYPE_PHYSICAL 1
 
-/* 16 bits EventId */
 #define ITS_IDBITS                   GICD_TYPER_IDBITS
 
-/* 16 bits DeviceId */
 #define ITS_DEVBITS                   0xF
 
-/* 16 bits CollectionId */
 #define ITS_CIDBITS                  0xF
 
-/*
- * 8 bytes Device Table Entry size
- * Valid = 1 bit,ITTAddr = 44 bits,Size = 5 bits
- */
 #define GITS_DTE_SIZE                 (0x8ULL)
 
 FIELD(DTE, VALID, 0, 1)
 FIELD(DTE, SIZE, 1, 5)
 FIELD(DTE, ITTADDR, 6, 44)
 
-/*
- * 8 bytes Collection Table Entry size
- * Valid = 1 bit, RDBase = 16 bits
- */
 #define GITS_CTE_SIZE                 (0x8ULL)
 FIELD(CTE, VALID, 0, 1)
 FIELD(CTE, RDBASE, 1, RDBASE_PROCNUM_LENGTH)
 
-/*
- * 8 bytes VPE table entry size:
- * Valid = 1 bit, VPTsize = 5 bits, VPTaddr = 36 bits, RDbase = 16 bits
- *
- * Field sizes for Valid and size are mandated; field sizes for RDbase
- * and VPT_addr are IMPDEF.
- */
 #define GITS_VPE_SIZE 0x8ULL
 
 FIELD(VTE, VALID, 0, 1)
@@ -516,28 +433,14 @@ FIELD(VTE, VPTSIZE, 1, 5)
 FIELD(VTE, VPTADDR, 6, 36)
 FIELD(VTE, RDBASE, 42, RDBASE_PROCNUM_LENGTH)
 
-/* Special interrupt IDs */
 #define INTID_SECURE 1020
 #define INTID_NONSECURE 1021
 #define INTID_NMI 1022
 #define INTID_SPURIOUS 1023
 
-/* Functions internal to the emulated GICv3 */
 
-/**
- * gicv3_redist_size:
- * @s: GICv3State
- *
- * Return the size of the redistributor register frame in bytes
- * (which depends on what GIC version this is)
- */
 static inline int gicv3_redist_size(GICv3State *s)
 {
-    /*
-     * Redistributor size is controlled by the redistributor GICR_TYPER.VLPIS.
-     * It's the same for every redistributor in the GIC, so arbitrarily
-     * use the register field in the first one.
-     */
     if (s->cpu[0].gicr_typer & GICR_TYPER_VLPIS) {
         return GICV4_REDIST_SIZE;
     } else {
@@ -545,58 +448,17 @@ static inline int gicv3_redist_size(GICv3State *s)
     }
 }
 
-/**
- * gicv3_intid_is_special:
- * @intid: interrupt ID
- *
- * Return true if @intid is a special interrupt ID (1020 to
- * 1023 inclusive). This corresponds to the GIC spec pseudocode
- * IsSpecial() function.
- */
 static inline bool gicv3_intid_is_special(int intid)
 {
     return intid >= INTID_SECURE && intid <= INTID_SPURIOUS;
 }
 
-/**
- * gicv3_redist_update:
- * @cs: GICv3CPUState for this redistributor
- *
- * Recalculate the highest priority pending interrupt after a
- * change to redistributor state, and inform the CPU accordingly.
- */
 void gicv3_redist_update(GICv3CPUState *cs);
 
-/**
- * gicv3_update:
- * @s: GICv3State
- * @start: first interrupt whose state changed
- * @len: length of the range of interrupts whose state changed
- *
- * Recalculate the highest priority pending interrupts after a
- * change to the distributor state affecting @len interrupts
- * starting at @start, and inform the CPUs accordingly.
- */
 void gicv3_update(GICv3State *s, int start, int len);
 
-/**
- * gicv3_full_update_noirqset:
- * @s: GICv3State
- *
- * Recalculate the cached information about highest priority
- * pending interrupts, but don't inform the CPUs. This should be
- * called after an incoming migration has loaded new state.
- */
 void gicv3_full_update_noirqset(GICv3State *s);
 
-/**
- * gicv3_full_update:
- * @s: GICv3State
- *
- * Recalculate the highest priority pending interrupts after
- * a change that could affect the status of all interrupts,
- * and inform the CPUs accordingly.
- */
 void gicv3_full_update(GICv3State *s);
 MemTxResult gicv3_dist_read(void *opaque, hwaddr offset, uint64_t *data,
                             unsigned size, MemTxAttrs attrs);
@@ -609,165 +471,40 @@ MemTxResult gicv3_redist_write(void *opaque, hwaddr offset, uint64_t data,
 void gicv3_dist_set_irq(GICv3State *s, int irq, int level);
 void gicv3_redist_set_irq(GICv3CPUState *cs, int irq, int level);
 void gicv3_redist_process_lpi(GICv3CPUState *cs, int irq, int level);
-/**
- * gicv3_redist_process_vlpi:
- * @cs: GICv3CPUState
- * @irq: (virtual) interrupt number
- * @vptaddr: (guest) address of VLPI table
- * @doorbell: doorbell (physical) interrupt number (1023 for "no doorbell")
- * @level: level to set @irq to
- *
- * Process a virtual LPI being directly injected by the ITS. This function
- * will update the VLPI table specified by @vptaddr and @vptsize. If the
- * vCPU corresponding to that VLPI table is currently running on
- * the CPU associated with this redistributor, directly inject the VLPI
- * @irq. If the vCPU is not running on this CPU, raise the doorbell
- * interrupt instead.
- */
 void gicv3_redist_process_vlpi(GICv3CPUState *cs, int irq, uint64_t vptaddr,
                                int doorbell, int level);
-/**
- * gicv3_redist_vlpi_pending:
- * @cs: GICv3CPUState
- * @irq: (virtual) interrupt number
- * @level: level to set @irq to
- *
- * Set/clear the pending status of a virtual LPI in the vLPI table
- * that this redistributor is currently using. (The difference between
- * this and gicv3_redist_process_vlpi() is that this is called from
- * the cpuif and does not need to do the not-running-on-this-vcpu checks.)
- */
 void gicv3_redist_vlpi_pending(GICv3CPUState *cs, int irq, int level);
 
 void gicv3_redist_lpi_pending(GICv3CPUState *cs, int irq, int level);
-/**
- * gicv3_redist_update_lpi:
- * @cs: GICv3CPUState
- *
- * Scan the LPI pending table and recalculate the highest priority
- * pending LPI and also the overall highest priority pending interrupt.
- */
 void gicv3_redist_update_lpi(GICv3CPUState *cs);
-/**
- * gicv3_redist_update_lpi_only:
- * @cs: GICv3CPUState
- *
- * Scan the LPI pending table and recalculate cs->hpplpi only,
- * without calling gicv3_redist_update() to recalculate the overall
- * highest priority pending interrupt. This should be called after
- * an incoming migration has loaded new state.
- */
 void gicv3_redist_update_lpi_only(GICv3CPUState *cs);
-/**
- * gicv3_redist_inv_lpi:
- * @cs: GICv3CPUState
- * @irq: LPI to invalidate cached information for
- *
- * Forget or update any cached information associated with this LPI.
- */
 void gicv3_redist_inv_lpi(GICv3CPUState *cs, int irq);
-/**
- * gicv3_redist_inv_vlpi:
- * @cs: GICv3CPUState
- * @irq: vLPI to invalidate cached information for
- * @vptaddr: (guest) address of vLPI table
- *
- * Forget or update any cached information associated with this vLPI.
- */
 void gicv3_redist_inv_vlpi(GICv3CPUState *cs, int irq, uint64_t vptaddr);
-/**
- * gicv3_redist_mov_lpi:
- * @src: source redistributor
- * @dest: destination redistributor
- * @irq: LPI to update
- *
- * Move the pending state of the specified LPI from @src to @dest,
- * as required by the ITS MOVI command.
- */
 void gicv3_redist_mov_lpi(GICv3CPUState *src, GICv3CPUState *dest, int irq);
-/**
- * gicv3_redist_movall_lpis:
- * @src: source redistributor
- * @dest: destination redistributor
- *
- * Scan the LPI pending table for @src, and for each pending LPI there
- * mark it as not-pending for @src and pending for @dest, as required
- * by the ITS MOVALL command.
- */
 void gicv3_redist_movall_lpis(GICv3CPUState *src, GICv3CPUState *dest);
-/**
- * gicv3_redist_mov_vlpi:
- * @src: source redistributor
- * @src_vptaddr: (guest) address of source VLPI table
- * @dest: destination redistributor
- * @dest_vptaddr: (guest) address of destination VLPI table
- * @irq: VLPI to update
- * @doorbell: doorbell for destination (1023 for "no doorbell")
- *
- * Move the pending state of the specified VLPI from @src to @dest,
- * as required by the ITS VMOVI command.
- */
 void gicv3_redist_mov_vlpi(GICv3CPUState *src, uint64_t src_vptaddr,
                            GICv3CPUState *dest, uint64_t dest_vptaddr,
                            int irq, int doorbell);
-/**
- * gicv3_redist_vinvall:
- * @cs: GICv3CPUState
- * @vptaddr: address of VLPI pending table
- *
- * On redistributor @cs, invalidate all cached information associated
- * with the vCPU defined by @vptaddr.
- */
 void gicv3_redist_vinvall(GICv3CPUState *cs, uint64_t vptaddr);
 
 void gicv3_redist_send_sgi(GICv3CPUState *cs, int grp, int irq, bool ns);
 void gicv3_init_cpuif(GICv3State *s);
 
-/**
- * gicv3_cpuif_update:
- * @cs: GICv3CPUState for the CPU to update
- *
- * Recalculate whether to assert the IRQ or FIQ lines after a change
- * to the current highest priority pending interrupt, the CPU's
- * current running priority or the CPU's current exception level or
- * security state.
- */
 void gicv3_cpuif_update(GICv3CPUState *cs);
 
-/*
- * gicv3_cpuif_virt_irq_fiq_update:
- * @cs: GICv3CPUState for the CPU to update
- *
- * Recalculate whether to assert the virtual IRQ or FIQ lines after
- * a change to the current highest priority pending virtual interrupt.
- * Note that this does not recalculate and change the maintenance
- * interrupt status (for that, see gicv3_cpuif_virt_update()).
- */
 void gicv3_cpuif_virt_irq_fiq_update(GICv3CPUState *cs);
 
 static inline uint32_t gicv3_iidr(void)
 {
-    /* Return the Implementer Identification Register value
-     * for the emulated GICv3, as reported in GICD_IIDR and GICR_IIDR.
-     *
-     * We claim to be an ARM r0p0 with a zero ProductID.
-     * This is the same as an r0p0 GIC-500.
-     */
     return 0x43b;
 }
 
-/* CoreSight PIDR0 values for ARM GICv3 implementations */
 #define GICV3_PIDR0_DIST 0x92
 #define GICV3_PIDR0_REDIST 0x93
 #define GICV3_PIDR0_ITS 0x94
 
 static inline uint32_t gicv3_idreg(GICv3State *s, int regoffset, uint8_t pidr0)
 {
-    /* Return the value of the CoreSight ID register at the specified
-     * offset from the first ID register (as found in the distributor
-     * and redistributor register banks).
-     * These values indicate an ARM implementation of a GICv3 or v4.
-     */
     static const uint8_t gicd_ids[] = {
         0x44, 0x00, 0x00, 0x00, 0x92, 0xB4, 0x0B, 0x00, 0x0D, 0xF0, 0x05, 0xB1
     };
@@ -780,18 +517,11 @@ static inline uint32_t gicv3_idreg(GICv3State *s, int regoffset, uint8_t pidr0)
     }
     id = gicd_ids[regoffset];
     if (regoffset == 6) {
-        /* PIDR2 bits [7:4] are the GIC architecture revision */
         id |= s->revision << 4;
     }
     return id;
 }
 
-/**
- * gicv3_irq_group:
- *
- * Return the group which this interrupt is configured as (GICV3_G0,
- * GICV3_G1 or GICV3_G1NS).
- */
 static inline int gicv3_irq_group(GICv3State *s, GICv3CPUState *cs, int irq)
 {
     bool grpbit, grpmodbit;
@@ -812,22 +542,11 @@ static inline int gicv3_irq_group(GICv3State *s, GICv3CPUState *cs, int irq)
     return grpmodbit ? GICV3_G1 : GICV3_G0;
 }
 
-/**
- * gicv3_redist_affid:
- *
- * Return the 32-bit affinity ID of the CPU connected to this redistributor
- */
 static inline uint32_t gicv3_redist_affid(GICv3CPUState *cs)
 {
     return cs->gicr_typer >> 32;
 }
 
-/**
- * gicv3_cache_target_cpustate:
- *
- * Update the cached CPU state corresponding to the target for this interrupt
- * (which is kept in s->gicd_irouter_target[]).
- */
 static inline void gicv3_cache_target_cpustate(GICv3State *s, int irq)
 {
     GICv3CPUState *cs = NULL;
@@ -845,12 +564,6 @@ static inline void gicv3_cache_target_cpustate(GICv3State *s, int irq)
     s->gicd_irouter_target[irq] = cs;
 }
 
-/**
- * gicv3_cache_all_target_cpustates:
- *
- * Populate the entire cache of CPU state pointers for interrupt targets
- * (eg after inbound migration or CPU reset)
- */
 static inline void gicv3_cache_all_target_cpustates(GICv3State *s)
 {
     int irq;

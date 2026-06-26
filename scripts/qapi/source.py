@@ -1,32 +1,15 @@
-#
-# QAPI frontend source file info
-#
-# Copyright (c) 2019 Red Hat Inc.
-#
-# Authors:
-#  Markus Armbruster <armbru@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 import copy
 from typing import List, Optional, TypeVar
 
 
 class QAPISchemaPragma:
-    # Replace with @dataclass in Python 3.7+
-    # pylint: disable=too-few-public-methods
 
     def __init__(self) -> None:
-        # Are documentation comments required?
         self.doc_required = False
-        # Commands whose names may use '_'
         self.command_name_exceptions: List[str] = []
-        # Commands allowed to return a non-dictionary
         self.command_returns_exceptions: List[str] = []
-        # Types, commands, and events with undocumented members
         self.documentation_exceptions: List[str] = []
-        # Types whose member names may violate case conventions
         self.member_name_exceptions: List[str] = []
 
 

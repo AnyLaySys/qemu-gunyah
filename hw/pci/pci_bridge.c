@@ -1,33 +1,3 @@
-/*
- * QEMU PCI bus manager
- *
- * Copyright (c) 2004 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to dea
-
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM
-
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-/*
- * split out from pci.c
- * Copyright (c) 2010 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/units.h"
@@ -40,7 +10,6 @@
 #include "hw/acpi/pci.h"
 #include "hw/qdev-properties.h"
 
-/* PCI bridge subsystem vendor ID helper functions */
 #define PCI_SSVID_SIZEOF        8
 #define PCI_SSVID_SVID          4
 #define PCI_SSVID_SSID          6
@@ -62,13 +31,11 @@ int pci_bridge_ssvid_init(PCIDevice *dev, uint8_t offset,
     return pos;
 }
 
-/* Accessor function to get parent bridge device from pci bus. */
 PCIDevice *pci_bridge_get_device(PCIBus *bus)
 {
     return bus->parent_dev;
 }
 
-/* Accessor function to get secondary bus from pci-to-pci bridge device */
 PCIBus *pci_bridge_get_sec_bus(PCIBridge *br)
 {
     return &br->sec_bus;
@@ -106,7 +73,6 @@ static pcibus_t pci_config_get_pref_base(const PCIDevice *d,
     return val;
 }
 
-/* accessor function to get bridge filtering base address */
 pcibus_t pci_bridge_get_base(const PCIDevice *bridge, uint8_t type)
 {
     pcibus_t base;
@@ -125,7 +91,6 @@ pcibus_t pci_bridge_get_base(const PCIDevice *bridge, uint8_t type)
     return base;
 }
 
-/* accessor function to get bridge filtering limit */
 pcibus_t pci_bridge_get_limit(const PCIDevice *bridge, uint8_t type)
 {
     pcibus_t limit;
@@ -154,8 +119,6 @@ static void pci_bridge_init_alias(PCIBridge *bridge, MemoryRegion *alias,
     PCIDevice *bridge_dev = PCI_DEVICE(bridge);
     pcibus_t base = pci_bridge_get_base(bridge_dev, type);
     pcibus_t limit = pci_bridge_get_limit(bridge_dev, type);
-    /* TODO: this doesn't handle base = 0 limit = 2^64 - 1 correctly.
-     * Apparently no way to do this with existing memory APIs. */
     pcibus_t size = enabled && limit >= base ? limit + 1 - base : 0;
 
     memory_region_init_alias(alias, OBJECT(bridge), name, space, base, size);
@@ -239,8 +202,6 @@ void pci_bridge_update_mappings(PCIBridge *br)
 {
     PCIBridgeWindows *w = &br->windows;
 
-    /* Make updates atomic to: handle the case of one VCPU updating the bridge
-     * while another accesses an unaffected region. */
     memory_region_transaction_begin();
     pci_bridge_region_del(br, w);
     pci_bridge_region_cleanup(br, w);
@@ -248,7 +209,6 @@ void pci_bridge_update_mappings(PCIBridge *br)
     memory_region_transaction_commit();
 }
 
-/* default write_config function for PCI-to-PCI bridge */
 void pci_bridge_write_config(PCIDevice *d,
                              uint32_t address, uint32_t val, int len)
 {
@@ -260,21 +220,16 @@ void pci_bridge_write_config(PCIDevice *d,
 
     if (ranges_overlap(address, len, PCI_COMMAND, 2) ||
 
-        /* io base/limit */
         ranges_overlap(address, len, PCI_IO_BASE, 2) ||
 
-        /* memory base/limit, prefetchable base/limit and
-           io base/limit upper 16 */
         ranges_overlap(address, len, PCI_MEMORY_BASE, 20) ||
 
-        /* vga enable */
         ranges_overlap(address, len, PCI_BRIDGE_CONTROL, 2)) {
         pci_bridge_update_mappings(s);
     }
 
     newctl = pci_get_word(d->config + PCI_BRIDGE_CONTROL);
     if (~oldctl & newctl & PCI_BRIDGE_CTL_BUS_RESET) {
-        /* Trigger hot reset on 0->1 transition. */
         bus_cold_reset(BUS(&s->sec_bus));
     }
 }
@@ -299,7 +254,6 @@ void pci_bridge_disable_base_limit(PCIDevice *dev)
     pci_set_long(conf + PCI_PREF_LIMIT_UPPER32, 0);
 }
 
-/* reset bridge specific configuration registers */
 void pci_bridge_reset(DeviceState *qdev)
 {
     PCIDevice *dev = PCI_DEVICE(qdev);
@@ -310,16 +264,6 @@ void pci_bridge_reset(DeviceState *qdev)
     conf[PCI_SUBORDINATE_BUS] = 0;
     conf[PCI_SEC_LATENCY_TIMER] = 0;
 
-    /*
-     * the default values for base/limit registers aren't specified
-     * in the PCI-to-PCI-bridge spec. So we don't touch them here.
-     * Each implementation can override it.
-     * typical implementation does
-     * zero base/limit registers or
-     * disable forwarding: pci_bridge_disable_base_limit()
-     * If disable forwarding is wanted, call pci_bridge_disable_base_limit()
-     * after this function.
-     */
     pci_byte_test_and_clear_mask(conf + PCI_IO_BASE,
                                  PCI_IO_RANGE_MASK & 0xff);
     pci_byte_test_and_clear_mask(conf + PCI_IO_LIMIT,
@@ -338,7 +282,6 @@ void pci_bridge_reset(DeviceState *qdev)
     pci_set_word(conf + PCI_BRIDGE_CONTROL, 0);
 }
 
-/* default qdev initialization function for PCI-to-PCI bridge */
 void pci_bridge_initfn(PCIDevice *dev, const char *typename)
 {
     PCIBus *parent = pci_get_bus(dev);
@@ -348,14 +291,6 @@ void pci_bridge_initfn(PCIDevice *dev, const char *typename)
     pci_word_test_and_set_mask(dev->config + PCI_STATUS,
                                PCI_STATUS_66MHZ | PCI_STATUS_FAST_BACK);
 
-    /*
-     * TODO: We implement VGA Enable in the Bridge Control Register
-     * therefore per the PCI to PCI bridge spec we must also implement
-     * VGA Palette Snooping.  When done, set this bit writable:
-     *
-     * pci_word_test_and_set_mask(dev->wmask + PCI_COMMAND,
-     *                            PCI_COMMAND_VGA_PALETTE);
-     */
 
     pci_config_set_class(dev->config, PCI_CLASS_BRIDGE_PCI);
     dev->config[PCI_HEADER_TYPE] =
@@ -364,12 +299,6 @@ void pci_bridge_initfn(PCIDevice *dev, const char *typename)
     pci_set_word(dev->config + PCI_SEC_STATUS,
                  PCI_STATUS_66MHZ | PCI_STATUS_FAST_BACK);
 
-    /*
-     * If we don't specify the name, the bus will be addressed as <id>.0, where
-     * id is the device id.
-     * Since PCI Bridge devices have a single bus each, we don't need the index:
-     * let users address the bus using the device name.
-     */
     if (!br->bus_name && dev->qdev.id && *dev->qdev.id) {
             br->bus_name = dev->qdev.id;
     }
@@ -390,13 +319,11 @@ void pci_bridge_initfn(PCIDevice *dev, const char *typename)
     QLIST_INIT(&sec_bus->child);
     QLIST_INSERT_HEAD(&parent->child, sec_bus, sibling);
 
-    /* For express secondary buses, secondary latency timer is RO 0 */
     if (pci_bus_is_express(sec_bus) && !br->pcie_writeable_slt_bug) {
         dev->wmask[PCI_SEC_LATENCY_TIMER] = 0;
     }
 }
 
-/* default qdev clean up function for PCI-to-PCI bridge */
 void pci_bridge_exitfn(PCIDevice *pci_dev)
 {
     PCIBridge *s = PCI_BRIDGE(pci_dev);
@@ -406,14 +333,8 @@ void pci_bridge_exitfn(PCIDevice *pci_dev)
     address_space_destroy(&s->as_io);
     pci_bridge_region_del(s, &s->windows);
     pci_bridge_region_cleanup(s, &s->windows);
-    /* object_unparent() is called automatically during device deletion */
 }
 
-/*
- * before qdev initialization(qdev_init()), this function sets bus_name and
- * map_irq callback which are necessary for pci_bridge_initfn() to
- * initialize bus.
- */
 void pci_bridge_map_irq(PCIBridge *br, const char* bus_name,
                         pci_map_irq_fn map_irq)
 {

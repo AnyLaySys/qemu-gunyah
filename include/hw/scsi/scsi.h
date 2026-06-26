@@ -35,11 +35,6 @@ struct SCSIRequest {
     SCSICommand       cmd;
     NotifierList      cancel_notifiers;
 
-    /* Note:
-     * - fields before sense are initialized by scsi_req_alloc;
-     * - sense[] is uninitialized;
-     * - fields after sense are memset to 0 by scsi_req_alloc.
-     * */
 
     uint8_t           sense[SCSI_SENSE_BUF_SIZE];
     uint32_t          sense_len;
@@ -50,7 +45,6 @@ struct SCSIRequest {
     BlockAIOCB        *aiocb;
     QEMUSGList        *sg;
 
-    /* Protected by SCSIDevice->requests_lock */
     QTAILQ_ENTRY(SCSIRequest) next;
 };
 
@@ -106,11 +100,9 @@ extern const VMStateDescription vmstate_scsi_device;
     .offset     = vmstate_offset_value(_state, _field, SCSIDevice),  \
 }
 
-/* cdrom.c */
 int cdrom_read_toc(int nb_sectors, uint8_t *buf, int msf, int start_track);
 int cdrom_read_toc_raw(int nb_sectors, uint8_t *buf, int msf, int session_num);
 
-/* scsi-bus.c */
 struct SCSIReqOps {
     size_t size;
     void (*init_req)(SCSIRequest *req);
@@ -140,13 +132,6 @@ struct SCSIBusInfo {
     void *(*load_request)(QEMUFile *f, SCSIRequest *req);
     void (*free_request)(SCSIBus *bus, void *priv);
 
-    /*
-     * Temporarily stop submitting new requests between drained_begin() and
-     * drained_end(). Called from the main loop thread with the BQL held.
-     *
-     * Implement these callbacks if request processing is triggered by a file
-     * descriptor like an EventNotifier. Otherwise set them to NULL.
-     */
     void (*drained_begin)(SCSIBus *bus);
     void (*drained_end)(SCSIBus *bus);
 };
@@ -164,29 +149,9 @@ struct SCSIBus {
     int drain_count; /* protected by BQL */
 };
 
-/**
- * scsi_bus_init_named: Initialize a SCSI bus with the specified name
- * @bus: SCSIBus object to initialize
- * @bus_size: size of @bus object
- * @host: Device which owns the bus (generally the SCSI controller)
- * @info: structure defining callbacks etc for the controller
- * @bus_name: Name to use for this bus
- *
- * This in-place initializes @bus as a new SCSI bus with a name
- * provided by the caller. It is the caller's responsibility to make
- * sure that name does not clash with the name of any other bus in the
- * system. Unless you need the new bus to have a specific name, you
- * should use scsi_bus_init() instead.
- */
 void scsi_bus_init_named(SCSIBus *bus, size_t bus_size, DeviceState *host,
                          const SCSIBusInfo *info, const char *bus_name);
 
-/**
- * scsi_bus_init: Initialize a SCSI bus
- *
- * This in-place-initializes @bus as a new SCSI bus and gives it
- * an automatically generated unique name.
- */
 static inline void scsi_bus_init(SCSIBus *bus, size_t bus_size,
                                  DeviceState *host, const SCSIBusInfo *info)
 {
@@ -241,10 +206,8 @@ int scsi_SG_IO_FROM_DEV(BlockBackend *blk, uint8_t *cmd, uint8_t cmd_size,
 SCSIDevice *scsi_device_find(SCSIBus *bus, int channel, int target, int lun);
 SCSIDevice *scsi_device_get(SCSIBus *bus, int channel, int target, int lun);
 
-/* scsi-generic.c. */
 extern const SCSIReqOps scsi_generic_req_ops;
 
-/* scsi-disk.c */
 #define SCSI_DISK_QUIRK_MODE_PAGE_APPLE_VENDOR             0
 #define SCSI_DISK_QUIRK_MODE_SENSE_ROM_USE_DBD             1
 #define SCSI_DISK_QUIRK_MODE_PAGE_VENDOR_SPECIFIC_APPLE    2

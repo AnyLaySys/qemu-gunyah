@@ -1,19 +1,3 @@
-/*
- * QEMU RX packets abstractions
- *
- * Copyright (c) 2012 Ravello Systems LTD (http://ravellosystems.com)
- *
- * Developed by Daynix Computing LTD (http://www.daynix.com)
- *
- * Authors:
- * Dmitry Fleytman <dmitry@daynix.com>
- * Tamir Shomer <tamirs@daynix.com>
- * Yan Vugenfirer <yan@daynix.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/crc32c.h"
@@ -36,7 +20,6 @@ struct NetRxPkt {
     size_t ehdr_buf_len;
     eth_pkt_types_e packet_type;
 
-    /* Analysis results */
     bool hasip4;
     bool hasip6;
 
@@ -591,7 +574,6 @@ bool net_rx_pkt_validate_l4_csum(struct NetRxPkt *pkt, bool *csum_valid)
             trace_net_rx_pkt_l4_csum_validate_udp_with_no_checksum();
             return false;
         }
-        /* fall through */
     case ETH_L4_HDR_PROTO_TCP:
         csum = _net_rx_pkt_calc_l4_csum(pkt);
         *csum_valid = ((csum == 0) || (csum == 0xFFFF));
@@ -643,15 +625,12 @@ bool net_rx_pkt_fix_l4_csum(struct NetRxPkt *pkt)
             return false;
     }
 
-    /* Set zero to checksum word */
     iov_from_buf(pkt->vec, pkt->vec_len,
                  pkt->l4hdr_off + l4_cso,
                  &csum, sizeof(csum));
 
-    /* Calculate L4 checksum */
     csum = cpu_to_be16(_net_rx_pkt_calc_l4_csum(pkt));
 
-    /* Set calculated checksum to checksum word */
     iov_from_buf(pkt->vec, pkt->vec_len,
                  pkt->l4hdr_off + l4_cso,
                  &csum, sizeof(csum));

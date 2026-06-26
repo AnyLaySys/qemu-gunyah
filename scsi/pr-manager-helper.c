@@ -1,13 +1,3 @@
-/*
- * Persistent reservation manager that talks to qemu-pr-helper
- *
- * Copyright (c) 2017 Red Hat, Inc.
- *
- * Author: Paolo Bonzini <pbonzini@redhat.com>
- *
- * This code is licensed under the LGPL v2.1 or later.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -30,7 +20,6 @@
 OBJECT_DECLARE_SIMPLE_TYPE(PRManagerHelper, PR_MANAGER_HELPER)
 
 struct PRManagerHelper {
-    /* <private> */
     PRManager parent;
 
     char *path;
@@ -48,7 +37,6 @@ static void pr_manager_send_status_changed_event(PRManagerHelper *pr_mgr)
     }
 }
 
-/* Called with lock held.  */
 static int pr_manager_helper_read(PRManagerHelper *pr_mgr,
                                   void *buf, int sz, Error **errp)
 {
@@ -64,7 +52,6 @@ static int pr_manager_helper_read(PRManagerHelper *pr_mgr,
     return 0;
 }
 
-/* Called with lock held.  */
 static int pr_manager_helper_write(PRManagerHelper *pr_mgr,
                                    int fd,
                                    const void *buf, int sz, Error **errp)
@@ -95,7 +82,6 @@ static int pr_manager_helper_write(PRManagerHelper *pr_mgr,
     return 0;
 }
 
-/* Called with lock held.  */
 static int pr_manager_helper_initialize(PRManagerHelper *pr_mgr,
                                         Error **errp)
 {
@@ -125,9 +111,6 @@ static int pr_manager_helper_initialize(PRManagerHelper *pr_mgr,
     qio_channel_set_delay(QIO_CHANNEL(sioc), false);
     pr_mgr->ioc = QIO_CHANNEL(sioc);
 
-    /* A simple feature negotiation protocol, even though there is
-     * no optional feature right now.
-     */
     r = pr_manager_helper_read(pr_mgr, &flags, sizeof(flags), errp);
     if (r < 0) {
         goto out_close;
@@ -179,7 +162,6 @@ static int pr_manager_helper_run(PRManager *p,
 
     qemu_mutex_lock(&pr_mgr->lock);
 
-    /* Try to reconnect while sending the CDB.  */
     for (attempts = 0; attempts < PR_MAX_RECONNECT_ATTEMPTS; attempts++) {
         if (!pr_mgr->ioc) {
             ret = pr_manager_helper_initialize(pr_mgr, NULL);
@@ -200,10 +182,6 @@ static int pr_manager_helper_run(PRManager *p,
         goto out;
     }
 
-    /* After sending the CDB, any communications failure causes the
-     * command to fail.  The failure is transient, retrying the command
-     * will invoke pr_manager_helper_initialize again.
-     */
     if (expected_dir == SG_DXFER_TO_DEV) {
         io_hdr->resid = io_hdr->dxfer_len - len;
         ret = pr_manager_helper_write(pr_mgr, -1, io_hdr->dxferp, len, NULL);

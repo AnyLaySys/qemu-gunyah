@@ -1,18 +1,3 @@
-/*
- * tpm.h - TPM ACPI definitions
- *
- * Copyright (C) 2014 IBM Corporation
- *
- * Authors:
- *  Stefan Berger <stefanb@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- * Implementation of the TIS interface according to specs found at
- * http://www.trustedcomputinggroup.org
- *
- */
 #ifndef HW_ACPI_TPM_H
 #define HW_ACPI_TPM_H
 
@@ -31,7 +16,6 @@
 #define TPM_TIS_NUM_LOCALITIES      5     /* per spec */
 #define TPM_TIS_LOCALITY_SHIFT      12
 
-/* tis registers */
 #define TPM_TIS_REG_ACCESS                0x00
 #define TPM_TIS_REG_INT_ENABLE            0x08
 #define TPM_TIS_REG_INT_VECTOR            0x0c
@@ -45,7 +29,6 @@
 #define TPM_TIS_REG_DID_VID               0xf00
 #define TPM_TIS_REG_RID                   0xf04
 
-/* vendor-specific registers */
 #define TPM_TIS_REG_DEBUG                 0xf90
 
 #define TPM_TIS_STS_TPM_FAMILY_MASK         (0x3 << 26)/* TPM 2.0 */
@@ -120,7 +103,6 @@
     (TPM_TIS_IFACE_ID_INTERFACE_TIS1_3 | \
      (~0u << 4)/* all of it is don't care */)
 
-/* if backend was a TPM 2.0: */
 #define TPM_TIS_IFACE_ID_SUPPORTED_FLAGS2_0 \
     (TPM_TIS_IFACE_ID_INTERFACE_FIFO | \
      TPM_TIS_IFACE_ID_INTERFACE_VER_FIFO | \
@@ -193,16 +175,12 @@ REG32(CRB_DATA_BUFFER, 0x80)
 #define TPM2_START_METHOD_MMIO      6
 #define TPM2_START_METHOD_CRB       7
 
-/*
- * Physical Presence Interface
- */
 #define TPM_PPI_ADDR_SIZE           0x400
 #define TPM_PPI_ADDR_BASE           0xFED45000
 
 #define TPM_PPI_VERSION_NONE        0
 #define TPM_PPI_VERSION_1_30        1
 
-/* whether function is blocked by BIOS settings; bits 0, 1, 2 */
 #define TPM_PPI_FUNC_NOT_IMPLEMENTED     (0 << 0)
 #define TPM_PPI_FUNC_BIOS_ONLY           (1 << 0)
 #define TPM_PPI_FUNC_BLOCKED             (2 << 0)
@@ -210,7 +188,6 @@ REG32(CRB_DATA_BUFFER, 0x80)
 #define TPM_PPI_FUNC_ALLOWED_USR_NOT_REQ (4 << 0)
 #define TPM_PPI_FUNC_MASK                (7 << 0)
 
-/* TPM TIS I2C registers */
 #define TPM_I2C_REG_LOC_SEL              0x00
 #define TPM_I2C_REG_ACCESS               0x04
 #define TPM_I2C_REG_INT_ENABLE           0x08
@@ -225,7 +202,6 @@ REG32(CRB_DATA_BUFFER, 0x80)
 #define TPM_I2C_REG_RID                  0x4c
 #define TPM_I2C_REG_UNKNOWN              0xff
 
-/* I2C specific interface capabilities */
 #define TPM_I2C_CAP_INTERFACE_TYPE     (0x2 << 0)       /* FIFO interface */
 #define TPM_I2C_CAP_INTERFACE_VER      (0x0 << 4)       /* TCG I2C intf 1.0 */
 #define TPM_I2C_CAP_TPM2_FAMILY        (0x1 << 7)       /* TPM 2.0 family. */
@@ -234,20 +210,11 @@ REG32(CRB_DATA_BUFFER, 0x80)
 #define TPM_I2C_CAP_LOCALITY_CAP       (0x1 << 25)      /* 0-5 locality */
 #define TPM_I2C_CAP_BUS_SPEED          (3   << 21)      /* std and fast mode */
 
-/*
- * TPM_I2C_STS masks for read/writing bits from/to TIS
- * TPM_STS mask for read bits 31:26 must be zero
- */
 #define TPM_I2C_STS_READ_MASK          0x00ffffdd
 #define TPM_I2C_STS_WRITE_MASK         0x03000062
 
-/* Checksum enabled. */
 #define TPM_DATA_CSUM_ENABLED     0x1
 
-/*
- * TPM_I2C_INT_ENABLE mask. Linux kernel does not support
- * interrupts hence setting it to 0.
- */
 #define TPM_I2C_INT_ENABLE_MASK   0x0
 
 void tpm_build_ppi_acpi(TPMIf *tpm, Aml *dev);

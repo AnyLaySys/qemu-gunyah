@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Generate .stp file (DTrace with SystemTAP only).
@@ -16,8 +15,6 @@ from tracetool import out
 from tracetool.backend.dtrace import binary, probeprefix
 
 
-# Technically 'self' is not used by systemtap yet, but
-# they recommended we keep it in the reserved list anyway
 RESERVED_WORDS = (
     'break', 'catch', 'continue', 'delete', 'else', 'for',
     'foreach', 'function', 'global', 'if', 'in', 'limit',
@@ -27,7 +24,6 @@ RESERVED_WORDS = (
 
 
 def stap_escape(identifier):
-    # Append underscore to reserved keywords
     if identifier in RESERVED_WORDS:
         return identifier + '_'
     return identifier
@@ -41,7 +37,6 @@ def generate(events, backend, group):
         '')
 
     for e in events:
-        # Define prototype for probe arguments
         out('probe %(probeprefix)s.%(name)s = process("%(binary)s").mark("%(name)s")',
             '{',
             probeprefix=probeprefix(),

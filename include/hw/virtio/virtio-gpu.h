@@ -1,15 +1,3 @@
-/*
- * Virtio GPU Device
- *
- * Copyright Red Hat, Inc. 2013-2014
- *
- * Authors:
- *     Dave Airlie <airlied@redhat.com>
- *     Gerd Hoffmann <kraxel@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef HW_VIRTIO_GPU_H
 #define HW_VIRTIO_GPU_H
@@ -219,7 +207,6 @@ struct VirtIOGPUClass {
         }                                                               \
     } while (0)
 
-/* virtio-gpu-base.c */
 bool virtio_gpu_base_device_realize(DeviceState *qdev,
                                     VirtIOHandleOutput ctrl_cb,
                                     VirtIOHandleOutput cursor_cb,
@@ -231,7 +218,6 @@ void virtio_gpu_base_fill_display_info(VirtIOGPUBase *g,
 
 void virtio_gpu_base_generate_edid(VirtIOGPUBase *g, int scanout,
                                    struct virtio_gpu_resp_edid *edid);
-/* virtio-gpu.c */
 struct virtio_gpu_simple_resource *
 virtio_gpu_find_resource(VirtIOGPU *g, uint32_t resource_id);
 
@@ -263,22 +249,10 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
                                    struct virtio_gpu_scanout *s,
                                    uint32_t resource_id);
 
-/**
- * virtio_gpu_scanout_blob_to_fb() - fill out fb based on scanout data
- * fb: the frame-buffer descriptor to fill out
- * ss: the scanout blob data
- * blob_size: size of scanout blob data
- *
- * This will check we have enough space for the frame taking into
- * account that stride.
- *
- * Returns true on success, otherwise logs guest error and returns false
- */
 bool virtio_gpu_scanout_blob_to_fb(struct virtio_gpu_framebuffer *fb,
                                    struct virtio_gpu_set_scanout_blob *ss,
                                    uint64_t blob_size);
 
-/* virtio-gpu-udmabuf.c */
 bool virtio_gpu_have_udmabuf(void);
 void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res);
 void virtio_gpu_fini_udmabuf(struct virtio_gpu_simple_resource *res);

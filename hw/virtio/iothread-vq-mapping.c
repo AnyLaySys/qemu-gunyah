@@ -1,10 +1,3 @@
-/*
- * IOThread Virtqueue Mapping
- *
- * Copyright Red Hat, Inc
- *
- * SPDX-License-Identifier: GPL-2.0-only
- */
 
 #include "qemu/osdep.h"
 #include "system/iothread.h"
@@ -94,19 +87,16 @@ bool iothread_vq_mapping_apply(
         IOThread *iothread = iothread_by_id(node->value->iothread);
         AioContext *ctx = iothread_get_aio_context(iothread);
 
-        /* Released in virtio_blk_vq_aio_context_cleanup() */
         object_ref(OBJECT(iothread));
 
         if (node->value->vqs) {
             uint16List *vq;
 
-            /* Explicit vq:IOThread assignment */
             for (vq = node->value->vqs; vq; vq = vq->next) {
                 assert(vq->value < num_queues);
                 vq_aio_context[vq->value] = ctx;
             }
         } else {
-            /* Round-robin vq:IOThread assignment */
             for (unsigned i = cur_iothread; i < num_queues;
                  i += num_iothreads) {
                 vq_aio_context[i] = ctx;

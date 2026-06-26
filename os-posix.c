@@ -1,27 +1,3 @@
-/*
- * os-posix.c
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2010 Red Hat, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include <sys/resource.h>
@@ -73,8 +49,6 @@ void os_set_proc_name(const char *s)
     if (!s)
         return;
     pstrcpy(name, sizeof(name), s);
-    /* Could rewrite argv[0] too, but that's a bit more complicated.
-       This simple way is enough for `top'. */
     if (prctl(PR_SET_NAME, name)) {
         error_report("unable to change process name: %s", strerror(errno));
         exit(1);
@@ -86,21 +60,10 @@ void os_set_proc_name(const char *s)
 }
 
 
-/*
- * Must set all three of these at once.
- * Legal combinations are              unset   by name   by uid
- */
 static struct passwd *user_pwd;    /*   NULL   non-NULL   NULL   */
 static uid_t user_uid = (uid_t)-1; /*   -1      -1        >=0    */
 static gid_t user_gid = (gid_t)-1; /*   -1      -1        >=0    */
 
-/*
- * Prepare to change user ID. user_id can be one of 3 forms:
- *   - a username, in which case user ID will be changed to its uid,
- *     with primary and supplementary groups set up too;
- *   - a numeric uid, in which case only the uid will be set;
- *   - a pair of numeric uid:gid.
- */
 bool os_set_runas(const char *user_id)
 {
     unsigned long lv;
@@ -230,8 +193,6 @@ void os_daemonize(void)
                 len = read(fds[0], &status, 1);
             } while (len < 0 && errno == EINTR);
 
-            /* only exit successfully if our child actually wrote
-             * a one-byte zero to our pipe, upon successful init */
             exit(len == 1 && status == 0 ? 0 : 1);
 
         } else if (pid < 0) {
@@ -306,7 +267,6 @@ void os_setup_post(void)
 
         dup2(fd, 0);
         dup2(fd, 1);
-        /* In case -D is given do not redirect stderr to /dev/null */
         if (!qemu_log_enabled()) {
             dup2(fd, 2);
         }

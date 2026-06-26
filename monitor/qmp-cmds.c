@@ -1,17 +1,3 @@
-/*
- * QEMU Management Protocol commands
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/sockets.h"
@@ -141,12 +127,6 @@ out:
 
 static void __attribute__((__constructor__)) monitor_init_qmp_commands(void)
 {
-    /*
-     * Two command lists:
-     * - qmp_commands contains all QMP commands
-     * - qmp_cap_negotiation_commands contains just
-     *   "qmp_capabilities", to enforce capability negotiation
-     */
 
     qmp_init_marshal(&qmp_commands);
 

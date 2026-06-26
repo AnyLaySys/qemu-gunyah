@@ -334,8 +334,6 @@ class QAPISchemaGenCommandVisitor(QAPISchemaModularCVisitor):
 #include "trace/trace-%(nm)s_trace_events.h"
 ''',
                                  nm=c_name(commands, protect=False)))
-            # We use c_name(commands, protect=False) to turn '-' into '_', to
-            # match .underscorify() in trace/meson.build
 
         self._genh.add(mcgen('''
 #include "%(types)s.h"
@@ -386,11 +384,6 @@ void %(c_prefix)sqmp_init_marshal(QmpCommandList *cmds)
                       coroutine: bool) -> None:
         if not gen:
             return
-        # FIXME: If T is a user-defined type, the user is responsible
-        # for making this work, i.e. to make T's condition the
-        # conjunction of the T-returning commands' conditions.  If T
-        # is a built-in type, this isn't possible: the
-        # qmp_marshal_output_T() will be generated unconditionally.
         if ret_type and ret_type not in self._visited_ret_types[self._genc]:
             self._visited_ret_types[self._genc].add(ret_type)
             with ifcontext(ret_type.ifcond,

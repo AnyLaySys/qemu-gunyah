@@ -1,14 +1,3 @@
-/*
- * QEMU Object Model
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "hw/qdev-core.h"
@@ -26,8 +15,6 @@
 #include "qobject/qjson.h"
 #include "trace.h"
 
-/* TODO: replace QObject with a simpler visitor to avoid a dependency
- * of the QOM core on QObject?  */
 #include "qom/qom-qobject.h"
 #include "qobject/qbool.h"
 #include "qobject/qlist.h"
@@ -144,11 +131,6 @@ static bool type_name_is_valid(const char *name)
 
     g_assert(slen > 1);
 
-    /*
-     * Ideally, the name should start with a letter - however, we've got
-     * too many names starting with a digit already, so allow digits here,
-     * too (except '0' which is not used yet)
-     */
     if (!g_ascii_isalnum(name[0]) || name[0] == '0') {
         return false;
     }
@@ -283,7 +265,6 @@ static bool type_is_ancestor(TypeImpl *type, TypeImpl *target_type)
 {
     assert(target_type);
 
-    /* Check if target_type is a direct ancestor of type */
     while (type) {
         if (type == target_type) {
             return true;
@@ -344,9 +325,6 @@ static void type_initialize(TypeImpl *ti)
     ti->class_size = type_class_get_size(ti);
     ti->instance_size = type_object_get_size(ti);
     ti->instance_align = type_object_get_align(ti);
-    /* Any type with zero instance_size is implicitly abstract.
-     * This means interface types are all abstract.
-     */
     if (ti->instance_size == 0) {
         ti->abstract = true;
     }
@@ -463,11 +441,6 @@ bool object_apply_global_props(Object *obj, const GPtrArray *props,
         if (!object_property_parse(obj, p->property, p->value, &err)) {
             error_prepend(&err, "can't apply global %s.%s=%s: ",
                           p->driver, p->property, p->value);
-            /*
-             * If errp != NULL, propagate error and return.
-             * If errp == NULL, report a warning, but keep going
-             * with the remaining globals.
-             */
             if (errp) {
                 error_propagate(errp, err);
                 return false;
@@ -480,21 +453,8 @@ bool object_apply_global_props(Object *obj, const GPtrArray *props,
     return true;
 }
 
-/*
- * Global property defaults
- * Slot 0: accelerator's global property defaults
- * Slot 1: machine's global property defaults
- * Slot 2: global properties from legacy command line option
- * Each is a GPtrArray of of GlobalProperty.
- * Applied in order, later entries override earlier ones.
- */
 static GPtrArray *object_compat_props[3];
 
-/*
- * Retrieve @GPtrArray for global property defined with options
- * other than "-global".  These are generally used for syntactic
- * sugar and legacy command line options.
- */
 void object_register_sugar_prop(const char *driver, const char *prop,
                                 const char *value, bool optional)
 {
@@ -510,20 +470,12 @@ void object_register_sugar_prop(const char *driver, const char *prop,
     g_ptr_array_add(object_compat_props[2], g);
 }
 
-/*
- * Set machine's global property defaults to @compat_props.
- * May be called at most once.
- */
 void object_set_machine_compat_props(GPtrArray *compat_props)
 {
     assert(!object_compat_props[1]);
     object_compat_props[1] = compat_props;
 }
 
-/*
- * Set accelerator's global property defaults to @compat_props.
- * May be called at most once.
- */
 void object_set_accelerator_compat_props(GPtrArray *compat_props)
 {
     assert(!object_compat_props[0]);
@@ -625,14 +577,6 @@ bool object_initialize_child_with_propsv(Object *parentobj,
     ok = true;
 
 out:
-    /*
-     * We want @obj's reference to be 1 on success, 0 on failure.
-     * On success, it's 2: one taken by object_initialize(), and one
-     * by object_property_add_child().
-     * On failure in object_initialize() or earlier, it's 1.
-     * On failure afterwards, it's also 1: object_unparent() releases
-     * the reference taken by object_property_add_child().
-     */
     object_unref(obj);
     return ok;
 }
@@ -735,7 +679,6 @@ static void object_finalize(void *data)
     }
 }
 
-/* Find the minimum alignment guaranteed by the system malloc. */
 #if __STDC_VERSION__ >= 201112L
 typedef max_align_t qemu_max_align_t;
 #else
@@ -759,10 +702,6 @@ static Object *object_new_with_type(Type type)
     size = type->instance_size;
     align = type->instance_align;
 
-    /*
-     * Do not use qemu_memalign unless required.  Depending on the
-     * implementation, extra alignment implies extra overhead.
-     */
     if (likely(align <= __alignof__(qemu_max_align_t))) {
         obj = g_malloc(size);
         obj_free = g_free;
@@ -951,7 +890,6 @@ ObjectClass *object_class_dynamic_cast(ObjectClass *class,
         return NULL;
     }
 
-    /* A simple fast path that can trigger a lot for leaf classes.  */
     type = class->type;
     if (type->name == typename) {
         return class;
@@ -959,7 +897,6 @@ ObjectClass *object_class_dynamic_cast(ObjectClass *class,
 
     target_type = type_get_by_name_noload(typename);
     if (!target_type) {
-        /* target class type unknown, so fail the cast */
         return NULL;
     }
 
@@ -977,7 +914,6 @@ ObjectClass *object_class_dynamic_cast(ObjectClass *class,
             }
          }
 
-        /* The match was ambiguous, don't allow a cast */
         if (found > 1) {
             ret = NULL;
         }
@@ -1213,7 +1149,6 @@ Object *object_ref(void *objptr)
         return NULL;
     }
     ref = qatomic_fetch_inc(&obj->ref);
-    /* Assert waaay before the integer overflows */
     g_assert(ref < INT_MAX);
     return obj;
 }
@@ -1226,7 +1161,6 @@ void object_unref(void *objptr)
     }
     g_assert(obj->ref > 0);
 
-    /* parent always holds a reference to its children */
     if (qatomic_fetch_dec(&obj->ref) == 1) {
         object_finalize(obj);
     }
@@ -1739,10 +1673,6 @@ static Object *object_root_initialize(void)
     Object *root = object_new(TYPE_CONTAINER);
     int i;
 
-    /*
-     * Create all QEMU system containers.  "machine" and its sub-containers
-     * are only created when machine initializes (qemu_create_machine()).
-     */
     for (i = 0; i < ARRAY_SIZE(root_containers); i++) {
         object_property_add_new_container(root, root_containers[i]);
     }
@@ -1850,7 +1780,6 @@ object_property_add_child(Object *obj, const char *name,
 void object_property_allow_set_link(const Object *obj, const char *name,
                                     Object *val, Error **errp)
 {
-    /* Allow the link to be set, always */
 }
 
 typedef struct {
@@ -1893,15 +1822,6 @@ static void object_get_link_property(Object *obj, Visitor *v,
     }
 }
 
-/*
- * object_resolve_link:
- *
- * Lookup an object and ensure its type matches the link property type.  This
- * is similar to object_resolve_path() except type verification against the
- * link property is performed.
- *
- * Returns: The matched object or NULL on path lookup failures.
- */
 static Object *object_resolve_link(Object *obj, const char *name,
                                    const char *path, Error **errp)
 {
@@ -1910,7 +1830,6 @@ static Object *object_resolve_link(Object *obj, const char *name,
     bool ambiguous = false;
     Object *target;
 
-    /* Go from link<FOO> to FOO.  */
     type = object_property_get_type(obj, name, NULL);
     target_type = g_strndup(&type[5], strlen(type) - 6);
     target = object_resolve_path_type(path, target_type, &ambiguous);
@@ -2095,7 +2014,6 @@ const char *object_get_canonical_path_component(const Object *obj)
         }
     }
 
-    /* obj had a parent but was not a child, should never happen */
     g_assert_not_reached();
 }
 
@@ -2112,9 +2030,6 @@ char *object_get_canonical_path(const Object *obj)
         const char *component = object_get_canonical_path_component(obj);
 
         if (!component) {
-            /* A canonical path must be complete, so discard what was
-             * collected so far.
-             */
             g_free(path);
             return NULL;
         }

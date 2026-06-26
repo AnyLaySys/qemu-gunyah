@@ -1,22 +1,3 @@
-/*
- * pcie_port.c
- *
- * Copyright (c) 2010 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/pci/pcie_port.h"
@@ -26,15 +7,9 @@
 
 void pcie_port_init_reg(PCIDevice *d)
 {
-    /* Unlike pci bridge,
-       66MHz and fast back to back don't apply to pci express port. */
     pci_set_word(d->config + PCI_STATUS, 0);
     pci_set_word(d->config + PCI_SEC_STATUS, 0);
 
-    /*
-     * Unlike conventional pci bridge, for some bits the spec states:
-     * Does not apply to PCI Express and must be hardwired to 0.
-     */
     pci_word_test_and_clear_mask(d->wmask + PCI_BRIDGE_CONTROL,
                                  PCI_BRIDGE_CTL_MASTER_ABORT |
                                  PCI_BRIDGE_CTL_FAST_BACK |
@@ -44,9 +19,6 @@ void pcie_port_init_reg(PCIDevice *d)
                                  PCI_BRIDGE_CTL_DISCARD_SERR);
 }
 
-/**************************************************************************
- * (chassis number, pcie physical slot number) -> pcie slot conversion
- */
 struct PCIEChassis {
     uint8_t     number;
 
@@ -150,7 +122,6 @@ PCIDevice *pcie_find_port_by_pn(PCIBus *bus, uint8_t pn)
     return NULL;
 }
 
-/* Find first port in devfn number order */
 PCIDevice *pcie_find_port_first(PCIBus *bus)
 {
     int devfn;

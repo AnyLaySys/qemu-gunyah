@@ -1,21 +1,3 @@
-/*
- * QEMU Generic PCI Express Bridge Emulation
- *
- * Copyright (C) 2015 Alexander Graf <agraf@suse.de>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>
- */
 
 #ifndef HW_GPEX_H
 #define HW_GPEX_H
@@ -33,9 +15,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(GPEXHost, GPEX_HOST)
 OBJECT_DECLARE_SIMPLE_TYPE(GPEXRootState, GPEX_ROOT_DEVICE)
 
 struct GPEXRootState {
-    /*< private >*/
     PCIDevice parent_obj;
-    /*< public >*/
 };
 
 struct GPEXConfig {
@@ -49,9 +29,7 @@ struct GPEXConfig {
 
 typedef struct GPEXIrq GPEXIrq;
 struct GPEXHost {
-    /*< private >*/
     PCIExpressHost parent_obj;
-    /*< public >*/
 
     GPEXRootState gpex_root;
 

@@ -1,7 +1,3 @@
-/*
- * Common routines for disassembly.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "disas/disas.h"
@@ -10,34 +6,25 @@
 #include "disas-internal.h"
 
 
-/* Filled in by elfload.c.  Simplistic, but will do for now. */
 struct syminfo *syminfos = NULL;
 
-/*
- * Print an error message.  We can assume that this is in response to
- * an error return from {host,target}_read_memory.
- */
 static void perror_memory(int status, bfd_vma memaddr,
                           struct disassemble_info *info)
 {
     if (status != EIO) {
-        /* Can't happen.  */
         info->fprintf_func(info->stream, "Unknown error %d\n", status);
     } else {
-        /* Address between memaddr and memaddr + len was out of bounds.  */
         info->fprintf_func(info->stream,
                            "Address 0x%" PRIx64 " is out of bounds.\n",
                            memaddr);
     }
 }
 
-/* Print address in hex. */
 static void print_address(bfd_vma addr, struct disassemble_info *info)
 {
     info->fprintf_func(info->stream, "0x%" PRIx64, addr);
 }
 
-/* Stub prevents some fruitless earching in optabs disassemblers. */
 static int symbol_at_address(bfd_vma addr, struct disassemble_info *info)
 {
     return 1;
@@ -70,7 +57,6 @@ void disas_initialize_debug_target(CPUDebug *s, CPUState *cpu)
 
 int disas_gstring_printf(FILE *stream, const char *fmt, ...)
 {
-    /* We abuse the FILE parameter to pass a GString. */
     GString *s = (GString *)stream;
     int initial_len = s->len;
     va_list va;
@@ -82,7 +68,6 @@ int disas_gstring_printf(FILE *stream, const char *fmt, ...)
     return s->len - initial_len;
 }
 
-/* Look up symbol for debugging purpose.  Returns "" if unknown. */
 const char *lookup_symbol(uint64_t orig_addr)
 {
     const char *symbol = "";

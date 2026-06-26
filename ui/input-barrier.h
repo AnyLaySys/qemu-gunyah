@@ -1,14 +1,7 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef UI_INPUT_BARRIER_H
 #define UI_INPUT_BARRIER_H
 
-/* Barrier protocol */
 #define BARRIER_VERSION_MAJOR 1
 #define BARRIER_VERSION_MINOR 6
 
@@ -40,7 +33,6 @@ enum barrierCmd {
     barrierCmdEBusy,
     barrierCmdEUnknown,
     barrierCmdEBad,
-    /* connection sequence */
     barrierCmdHello,
     barrierCmdHelloBack,
 };

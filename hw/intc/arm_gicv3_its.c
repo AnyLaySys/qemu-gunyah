@@ -1,15 +1,3 @@
-/*
- * ITS emulation for a GICv3-based system
- *
- * Copyright Linaro.org 2021
- *
- * Authors:
- *  Shashi Mallela <shashi.mallela@linaro.org>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or (at your
- * option) any later version.  See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -21,7 +9,6 @@
 #include "qapi/error.h"
 
 typedef struct GICv3ITSClass GICv3ITSClass;
-/* This is reusing the GICv3ITSState typedef from ARM_GICV3_ITS_COMMON */
 DECLARE_OBJ_CHECKERS(GICv3ITSState, GICv3ITSClass,
                      ARM_GICV3_ITS, TYPE_ARM_GICV3_ITS)
 
@@ -30,10 +17,6 @@ struct GICv3ITSClass {
     ResettablePhases parent_phases;
 };
 
-/*
- * This is an internal enum used to distinguish between LPI triggered
- * via command queue and LPI triggered via gits_translater write.
- */
 typedef enum ItsCmdType {
     NONE = 0, /* internal indication for GITS_TRANSLATER write */
     CLEAR = 1,
@@ -68,26 +51,12 @@ typedef struct VTEntry {
     uint64_t vptaddr;
 } VTEntry;
 
-/*
- * The ITS spec permits a range of CONSTRAINED UNPREDICTABLE options
- * if a command parameter is not correct. These include both "stall
- * processing of the command queue" and "ignore this command, and
- * keep processing the queue". In our implementation we choose that
- * memory transaction errors reading the command packet provoke a
- * stall, but errors in parameters cause us to ignore the command
- * and continue processing.
- * The process_* functions which handle individual ITS commands all
- * return an ItsCmdResult which tells process_cmdq() whether it should
- * stall, keep going because of an error, or keep going because the
- * command was a success.
- */
 typedef enum ItsCmdResult {
     CMD_STALL = 0,
     CMD_CONTINUE = 1,
     CMD_CONTINUE_OK = 2,
 } ItsCmdResult;
 
-/* True if the ITS supports the GICv4 virtual LPI feature */
 static bool its_feature_virtual(GICv3ITSState *s)
 {
     return s->typer & R_GITS_TYPER_VIRTUAL_MASK;
@@ -101,7 +70,6 @@ static inline bool intid_in_lpi_range(uint32_t id)
 
 static inline bool valid_doorbell(uint32_t id)
 {
-    /* Doorbell fields may be an LPI, or 1023 to mean "no doorbell" */
     return id == INTID_SPURIOUS || intid_in_lpi_range(id);
 }
 
@@ -129,19 +97,6 @@ static uint64_t baser_base_addr(uint64_t value, uint32_t page_sz)
 static uint64_t table_entry_addr(GICv3ITSState *s, TableDesc *td,
                                  uint32_t idx, MemTxResult *res)
 {
-    /*
-     * Given a TableDesc describing one of the ITS in-guest-memory
-     * tables and an index into it, return the guest address
-     * corresponding to that table entry.
-     * If there was a memory error reading the L1 table of an
-     * indirect table, *res is set accordingly, and we return -1.
-     * If the L1 table entry is marked not valid, we return -1 with
-     * *res set to MEMTX_OK.
-     *
-     * The specification defines the format of level 1 entries of a
-     * 2-level table, but the format of level 2 entries and the format
-     * of flat-mapped tables is IMPDEF.
-     */
     AddressSpace *as = &s->gicv3->dma_as;
     uint32_t l2idx;
     uint64_t l2;
@@ -150,11 +105,9 @@ static uint64_t table_entry_addr(GICv3ITSState *s, TableDesc *td,
     *res = MEMTX_OK;
 
     if (!td->indirect) {
-        /* Single level table */
         return td->base_addr + idx * td->entry_sz;
     }
 
-    /* Two level table */
     l2idx = idx / (td->page_sz / L1TABLE_ENTRY_SIZE);
 
     l2 = address_space_ldq_le(as,
@@ -171,12 +124,6 @@ static uint64_t table_entry_addr(GICv3ITSState *s, TableDesc *td,
     return (l2 & ((1ULL << 51) - 1)) + (idx % num_l2_entries) * td->entry_sz;
 }
 
-/*
- * Read the Collection Table entry at index @icid. On success (including
- * successfully determining that there is no valid CTE for this index),
- * we return MEMTX_OK and populate the CTEntry struct @cte accordingly.
- * If there is an error reading memory then we return the error code.
- */
 static MemTxResult get_cte(GICv3ITSState *s, uint16_t icid, CTEntry *cte)
 {
     AddressSpace *as = &s->gicv3->dma_as;
@@ -185,7 +132,6 @@ static MemTxResult get_cte(GICv3ITSState *s, uint16_t icid, CTEntry *cte)
     uint64_t cteval;
 
     if (entry_addr == -1) {
-        /* No L2 table entry, i.e. no valid CTE, or a memory error */
         cte->valid = false;
         goto out;
     }
@@ -205,11 +151,6 @@ out:
     return res;
 }
 
-/*
- * Update the Interrupt Table entry at index @evinted in the table specified
- * by the dte @dte. Returns true on success, false if there was a memory
- * access error.
- */
 static bool update_ite(GICv3ITSState *s, uint32_t eventid, const DTEntry *dte,
                        const ITEntry *ite)
 {
@@ -240,12 +181,6 @@ static bool update_ite(GICv3ITSState *s, uint32_t eventid, const DTEntry *dte,
     return res == MEMTX_OK;
 }
 
-/*
- * Read the Interrupt Table entry at index @eventid from the table specified
- * by the DTE @dte. On success, we return MEMTX_OK and populate the ITEntry
- * struct @ite accordingly. If there is an error reading memory then we return
- * the error code.
- */
 static MemTxResult get_ite(GICv3ITSState *s, uint32_t eventid,
                            const DTEntry *dte, ITEntry *ite)
 {
@@ -279,12 +214,6 @@ static MemTxResult get_ite(GICv3ITSState *s, uint32_t eventid,
     return MEMTX_OK;
 }
 
-/*
- * Read the Device Table entry at index @devid. On success (including
- * successfully determining that there is no valid DTE for this index),
- * we return MEMTX_OK and populate the DTEntry struct accordingly.
- * If there is an error reading memory then we return the error code.
- */
 static MemTxResult get_dte(GICv3ITSState *s, uint32_t devid, DTEntry *dte)
 {
     MemTxResult res = MEMTX_OK;
@@ -293,7 +222,6 @@ static MemTxResult get_dte(GICv3ITSState *s, uint32_t devid, DTEntry *dte)
     uint64_t dteval;
 
     if (entry_addr == -1) {
-        /* No L2 table entry, i.e. no valid DTE, or a memory error */
         dte->valid = false;
         goto out;
     }
@@ -303,7 +231,6 @@ static MemTxResult get_dte(GICv3ITSState *s, uint32_t devid, DTEntry *dte)
     }
     dte->valid = FIELD_EX64(dteval, DTE, VALID);
     dte->size = FIELD_EX64(dteval, DTE, SIZE);
-    /* DTE word field stores bits [51:8] of the ITT address */
     dte->ittaddr = FIELD_EX64(dteval, DTE, ITTADDR) << ITTADDR_SHIFT;
 out:
     if (res != MEMTX_OK) {
@@ -314,12 +241,6 @@ out:
     return res;
 }
 
-/*
- * Read the vPE Table entry at index @vpeid. On success (including
- * successfully determining that there is no valid entry for this index),
- * we return MEMTX_OK and populate the VTEntry struct accordingly.
- * If there is an error reading memory then we return the error code.
- */
 static MemTxResult get_vte(GICv3ITSState *s, uint32_t vpeid, VTEntry *vte)
 {
     MemTxResult res = MEMTX_OK;
@@ -328,7 +249,6 @@ static MemTxResult get_vte(GICv3ITSState *s, uint32_t vpeid, VTEntry *vte)
     uint64_t vteval;
 
     if (entry_addr == -1) {
-        /* No L2 table entry, i.e. no valid VTE, or a memory error */
         vte->valid = false;
         trace_gicv3_its_vte_read_fault(vpeid);
         return MEMTX_OK;
@@ -347,16 +267,6 @@ static MemTxResult get_vte(GICv3ITSState *s, uint32_t vpeid, VTEntry *vte)
     return res;
 }
 
-/*
- * Given a (DeviceID, EventID), look up the corresponding ITE, including
- * checking for the various invalid-value cases. If we find a valid ITE,
- * fill in @ite and @dte and return CMD_CONTINUE_OK. Otherwise return
- * CMD_STALL or CMD_CONTINUE as appropriate (and the contents of @ite
- * should not be relied on).
- *
- * The string @who is purely for the LOG_GUEST_ERROR messages,
- * and should indicate the name of the calling function or similar.
- */
 static ItsCmdResult lookup_ite(GICv3ITSState *s, const char *who,
                                uint32_t devid, uint32_t eventid, ITEntry *ite,
                                DTEntry *dte)
@@ -401,15 +311,6 @@ static ItsCmdResult lookup_ite(GICv3ITSState *s, const char *who,
     return CMD_CONTINUE_OK;
 }
 
-/*
- * Given an ICID, look up the corresponding CTE, including checking for various
- * invalid-value cases. If we find a valid CTE, fill in @cte and return
- * CMD_CONTINUE_OK; otherwise return CMD_STALL or CMD_CONTINUE (and the
- * contents of @cte should not be relied on).
- *
- * The string @who is purely for the LOG_GUEST_ERROR messages,
- * and should indicate the name of the calling function or similar.
- */
 static ItsCmdResult lookup_cte(GICv3ITSState *s, const char *who,
                                uint32_t icid, CTEntry *cte)
 {
@@ -430,15 +331,6 @@ static ItsCmdResult lookup_cte(GICv3ITSState *s, const char *who,
     return CMD_CONTINUE_OK;
 }
 
-/*
- * Given a VPEID, look up the corresponding VTE, including checking
- * for various invalid-value cases. if we find a valid VTE, fill in @vte
- * and return CMD_CONTINUE_OK; otherwise return CMD_STALL or CMD_CONTINUE
- * (and the contents of @vte should not be relied on).
- *
- * The string @who is purely for the LOG_GUEST_ERROR messages,
- * and should indicate the name of the calling function or similar.
- */
 static ItsCmdResult lookup_vte(GICv3ITSState *s, const char *who,
                                uint32_t vpeid, VTEntry *vte)
 {
@@ -494,23 +386,11 @@ static ItsCmdResult process_its_cmd_virt(GICv3ITSState *s, const ITEntry *ite,
         return CMD_CONTINUE;
     }
 
-    /*
-     * For QEMU the actual pending of the vLPI is handled in the
-     * redistributor code
-     */
     gicv3_redist_process_vlpi(&s->gicv3->cpu[vte.rdbase], ite->intid,
                               vte.vptaddr << 16, ite->doorbell, irqlevel);
     return CMD_CONTINUE_OK;
 }
 
-/*
- * This function handles the processing of following commands based on
- * the ItsCmdType parameter passed:-
- * 1. triggering of lpi interrupt translation via ITS INT command
- * 2. triggering of lpi interrupt translation via gits_translater register
- * 3. handling of ITS CLEAR command
- * 4. handling of ITS DISCARD command
- */
 static ItsCmdResult do_process_its_cmd(GICv3ITSState *s, uint32_t devid,
                                        uint32_t eventid, ItsCmdType cmd)
 {
@@ -532,7 +412,6 @@ static ItsCmdResult do_process_its_cmd(GICv3ITSState *s, uint32_t devid,
         break;
     case ITE_INTTYPE_VIRTUAL:
         if (!its_feature_virtual(s)) {
-            /* Can't happen unless guest is illegally writing to table memory */
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: invalid type %d in ITE (table corrupted?)\n",
                           __func__, ite.inttype);
@@ -546,7 +425,6 @@ static ItsCmdResult do_process_its_cmd(GICv3ITSState *s, uint32_t devid,
 
     if (cmdres == CMD_CONTINUE_OK && cmd == DISCARD) {
         ITEntry i = {};
-        /* remove mapping from interrupt translation table */
         i.valid = false;
         return update_ite(s, eventid, &dte, &i) ? CMD_CONTINUE_OK : CMD_STALL;
     }
@@ -636,7 +514,6 @@ static ItsCmdResult process_mapti(GICv3ITSState *s, const uint64_t *cmdpkt,
         return CMD_CONTINUE;
     }
 
-    /* add ite entry to interrupt translation table */
     ite.valid = true;
     ite.inttype = ITE_INTTYPE_PHYSICAL;
     ite.intid = pIntid;
@@ -715,7 +592,6 @@ static ItsCmdResult process_vmapti(GICv3ITSState *s, const uint64_t *cmdpkt,
                       __func__, vpeid, s->vpet.num_entries);
         return CMD_CONTINUE;
     }
-    /* add ite entry to interrupt translation table */
     ite.valid = true;
     ite.inttype = ITE_INTTYPE_VIRTUAL;
     ite.intid = vintid;
@@ -725,10 +601,6 @@ static ItsCmdResult process_vmapti(GICv3ITSState *s, const uint64_t *cmdpkt,
     return update_ite(s, eventid, &dte, &ite) ? CMD_CONTINUE_OK : CMD_STALL;
 }
 
-/*
- * Update the Collection Table entry for @icid to @cte. Returns true
- * on success, false if there was a memory access error.
- */
 static bool update_cte(GICv3ITSState *s, uint16_t icid, const CTEntry *cte)
 {
     AddressSpace *as = &s->gicv3->dma_as;
@@ -739,18 +611,15 @@ static bool update_cte(GICv3ITSState *s, uint16_t icid, const CTEntry *cte)
     trace_gicv3_its_cte_write(icid, cte->valid, cte->rdbase);
 
     if (cte->valid) {
-        /* add mapping entry to collection table */
         cteval = FIELD_DP64(cteval, CTE, VALID, 1);
         cteval = FIELD_DP64(cteval, CTE, RDBASE, cte->rdbase);
     }
 
     entry_addr = table_entry_addr(s, &s->ct, icid, &res);
     if (res != MEMTX_OK) {
-        /* memory access error: stall */
         return false;
     }
     if (entry_addr == -1) {
-        /* No L2 table for this index: discard write and continue */
         return true;
     }
 
@@ -786,10 +655,6 @@ static ItsCmdResult process_mapc(GICv3ITSState *s, const uint64_t *cmdpkt)
     return update_cte(s, icid, &cte) ? CMD_CONTINUE_OK : CMD_STALL;
 }
 
-/*
- * Update the Device Table entry for @devid to @dte. Returns true
- * on success, false if there was a memory access error.
- */
 static bool update_dte(GICv3ITSState *s, uint32_t devid, const DTEntry *dte)
 {
     AddressSpace *as = &s->gicv3->dma_as;
@@ -800,7 +665,6 @@ static bool update_dte(GICv3ITSState *s, uint32_t devid, const DTEntry *dte)
     trace_gicv3_its_dte_write(devid, dte->valid, dte->size, dte->ittaddr);
 
     if (dte->valid) {
-        /* add mapping entry to device table */
         dteval = FIELD_DP64(dteval, DTE, VALID, 1);
         dteval = FIELD_DP64(dteval, DTE, SIZE, dte->size);
         dteval = FIELD_DP64(dteval, DTE, ITTADDR, dte->ittaddr);
@@ -808,11 +672,9 @@ static bool update_dte(GICv3ITSState *s, uint32_t devid, const DTEntry *dte)
 
     entry_addr = table_entry_addr(s, &s->dt, devid, &res);
     if (res != MEMTX_OK) {
-        /* memory access error: stall */
         return false;
     }
     if (entry_addr == -1) {
-        /* No L2 table for this index: discard write and continue */
         return true;
     }
     address_space_stq_le(as, entry_addr, dteval, MEMTXATTRS_UNSPECIFIED, &res);
@@ -872,11 +734,9 @@ static ItsCmdResult process_movall(GICv3ITSState *s, const uint64_t *cmdpkt)
     }
 
     if (rd1 == rd2) {
-        /* Move to same target must succeed as a no-op */
         return CMD_CONTINUE_OK;
     }
 
-    /* Move all pending LPIs from redistributor 1 to redistributor 2 */
     gicv3_redist_movall_lpis(&s->gicv3->cpu[rd1], &s->gicv3->cpu[rd2]);
 
     return CMD_CONTINUE_OK;
@@ -919,21 +779,15 @@ static ItsCmdResult process_movi(GICv3ITSState *s, const uint64_t *cmdpkt)
     }
 
     if (old_cte.rdbase != new_cte.rdbase) {
-        /* Move the LPI from the old redistributor to the new one */
         gicv3_redist_mov_lpi(&s->gicv3->cpu[old_cte.rdbase],
                              &s->gicv3->cpu[new_cte.rdbase],
                              old_ite.intid);
     }
 
-    /* Update the ICID field in the interrupt translation table entry */
     old_ite.icid = new_icid;
     return update_ite(s, eventid, &dte, &old_ite) ? CMD_CONTINUE_OK : CMD_STALL;
 }
 
-/*
- * Update the vPE Table entry at index @vpeid with the entry @vte.
- * Returns true on success, false if there was a memory access error.
- */
 static bool update_vte(GICv3ITSState *s, uint32_t vpeid, const VTEntry *vte)
 {
     AddressSpace *as = &s->gicv3->dma_as;
@@ -956,7 +810,6 @@ static bool update_vte(GICv3ITSState *s, uint32_t vpeid, const VTEntry *vte)
         return false;
     }
     if (entry_addr == -1) {
-        /* No L2 table for this index: discard write and continue */
         return true;
     }
     address_space_stq_le(as, entry_addr, vteval, MEMTXATTRS_UNSPECIFIED, &res);
@@ -981,12 +834,6 @@ static ItsCmdResult process_vmapp(GICv3ITSState *s, const uint64_t *cmdpkt)
     trace_gicv3_its_cmd_vmapp(vpeid, vte.rdbase, vte.valid,
                               vte.vptaddr, vte.vptsize);
 
-    /*
-     * For GICv4.0 the VPT_size field is only 5 bits, whereas we
-     * define our field macros to include the full GICv4.1 8 bits.
-     * The range check on VPT_size will catch the cases where
-     * the guest set the RES0-in-GICv4.0 bits [7:6].
-     */
     if (vte.vptsize > FIELD_EX64(s->typer, GITS_TYPER, IDBITS)) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: invalid VPT_size 0x%x\n", __func__, vte.vptsize);
@@ -1012,22 +859,11 @@ static ItsCmdResult process_vmapp(GICv3ITSState *s, const uint64_t *cmdpkt)
 typedef struct VmovpCallbackData {
     uint64_t rdbase;
     uint32_t vpeid;
-    /*
-     * Overall command result. If more than one callback finds an
-     * error, STALL beats CONTINUE.
-     */
     ItsCmdResult result;
 } VmovpCallbackData;
 
 static void vmovp_callback(gpointer data, gpointer opaque)
 {
-    /*
-     * This function is called to update the VPEID field in a VPE
-     * table entry for this ITS. This might be because of a VMOVP
-     * command executed on any ITS that is connected to the same GIC
-     * as this ITS.  We need to read the VPE table entry for the VPEID
-     * and update its RDBASE field.
-     */
     GICv3ITSState *s = data;
     VmovpCallbackData *cbdata = opaque;
     VTEntry vte = {};
@@ -1070,12 +906,6 @@ static ItsCmdResult process_vmovp(GICv3ITSState *s, const uint64_t *cmdpkt)
         return CMD_CONTINUE;
     }
 
-    /*
-     * Our ITS implementation reports GITS_TYPER.VMOVP == 1, which means
-     * that when the VMOVP command is executed on an ITS to change the
-     * VPEID field in a VPE table entry the change must be propagated
-     * to all the ITSes connected to the same GIC.
-     */
     cbdata.result = CMD_CONTINUE_OK;
     gicv3_foreach_its(s->gicv3, vmovp_callback, &cbdata);
     return cbdata.result;
@@ -1142,11 +972,6 @@ static ItsCmdResult process_vmovi(GICv3ITSState *s, const uint64_t *cmdpkt)
         ite.doorbell = doorbell;
     }
 
-    /*
-     * Move the LPI from the old redistributor to the new one. We don't
-     * need to do anything if the guest somehow specified the
-     * same pending table for source and destination.
-     */
     if (old_vte.vptaddr != new_vte.vptaddr) {
         gicv3_redist_mov_vlpi(&s->gicv3->cpu[old_vte.rdbase],
                               old_vte.vptaddr << 16,
@@ -1156,7 +981,6 @@ static ItsCmdResult process_vmovi(GICv3ITSState *s, const uint64_t *cmdpkt)
                               ite.doorbell);
     }
 
-    /* Update the ITE to the new VPEID and possibly doorbell values */
     return update_ite(s, eventid, &dte, &ite) ? CMD_CONTINUE_OK : CMD_STALL;
 }
 
@@ -1212,7 +1036,6 @@ static ItsCmdResult process_inv(GICv3ITSState *s, const uint64_t *cmdpkt)
         break;
     case ITE_INTTYPE_VIRTUAL:
         if (!its_feature_virtual(s)) {
-            /* Can't happen unless guest is illegally writing to table memory */
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: invalid type %d in ITE (table corrupted?)\n",
                           __func__, ite.inttype);
@@ -1239,10 +1062,6 @@ static ItsCmdResult process_inv(GICv3ITSState *s, const uint64_t *cmdpkt)
     return CMD_CONTINUE_OK;
 }
 
-/*
- * Current implementation blocks until all
- * commands are processed
- */
 static void process_cmdq(GICv3ITSState *s)
 {
     uint32_t wr_offset = 0;
@@ -1312,19 +1131,9 @@ static void process_cmdq(GICv3ITSState *s)
             result = process_its_cmd(s, cmdpkt, CLEAR);
             break;
         case GITS_CMD_SYNC:
-            /*
-             * Current implementation makes a blocking synchronous call
-             * for every command issued earlier, hence the internal state
-             * is already consistent by the time SYNC command is executed.
-             * Hence no further processing is required for SYNC command.
-             */
             trace_gicv3_its_cmd_sync();
             break;
         case GITS_CMD_VSYNC:
-            /*
-             * VSYNC also is a nop, because our implementation is always
-             * in sync.
-             */
             if (!its_feature_virtual(s)) {
                 result = CMD_CONTINUE;
                 break;
@@ -1350,14 +1159,6 @@ static void process_cmdq(GICv3ITSState *s)
             result = process_inv(s, cmdpkt);
             break;
         case GITS_CMD_INVALL:
-            /*
-             * Current implementation doesn't cache any ITS tables,
-             * but the calculated lpi priority information. We only
-             * need to trigger lpi priority re-calculation to be in
-             * sync with LPI config table or pending table changes.
-             * INVALL operates on a collection specified by ICID so
-             * it only affects physical LPIs.
-             */
             trace_gicv3_its_cmd_invall();
             for (i = 0; i < s->gicv3->num_cpu; i++) {
                 gicv3_redist_update_lpi(&s->gicv3->cpu[i]);
@@ -1392,12 +1193,10 @@ static void process_cmdq(GICv3ITSState *s)
             break;
         }
         if (result != CMD_STALL) {
-            /* CMD_CONTINUE or CMD_CONTINUE_OK */
             rd_offset++;
             rd_offset %= s->cq.num_entries;
             s->creadr = FIELD_DP64(s->creadr, GITS_CREADR, OFFSET, rd_offset);
         } else {
-            /* CMD_STALL */
             s->creadr = FIELD_DP64(s->creadr, GITS_CREADR, STALLED, 1);
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: 0x%x cmd processing failed, stalling\n",
@@ -1407,11 +1206,6 @@ static void process_cmdq(GICv3ITSState *s)
     }
 }
 
-/*
- * This function extracts the ITS Device and Collection table specific
- * parameters (like base_addr, size etc) from GITS_BASER register.
- * It is called during ITS enable and also during post_load migration
- */
 static void extract_table_params(GICv3ITSState *s)
 {
     uint16_t num_pages = 0;
@@ -1464,44 +1258,18 @@ static void extract_table_params(GICv3ITSState *s)
             if (FIELD_EX64(s->typer, GITS_TYPER, CIL)) {
                 idbits = FIELD_EX64(s->typer, GITS_TYPER, CIDBITS) + 1;
             } else {
-                /* 16-bit CollectionId supported when CIL == 0 */
                 idbits = 16;
             }
             break;
         case GITS_BASER_TYPE_VPE:
             td = &s->vpet;
-            /*
-             * For QEMU vPEIDs are always 16 bits. (GICv4.1 allows an
-             * implementation to implement fewer bits and report this
-             * via GICD_TYPER2.)
-             */
             idbits = 16;
             break;
         default:
-            /*
-             * GITS_BASER<n>.TYPE is read-only, so GITS_BASER_RO_MASK
-             * ensures we will only see type values corresponding to
-             * the values set up in gicv3_its_reset().
-             */
             g_assert_not_reached();
         }
 
         memset(td, 0, sizeof(*td));
-        /*
-         * If GITS_BASER<n>.Valid is 0 for any <n> then we will not process
-         * interrupts. (GITS_TYPER.HCC is 0 for this implementation, so we
-         * do not have a special case where the GITS_BASER<n>.Valid bit is 0
-         * for the register corresponding to the Collection table but we
-         * still have to process interrupts using non-memory-backed
-         * Collection table entries.)
-         * The specification makes it UNPREDICTABLE to enable the ITS without
-         * marking each BASER<n> as valid. We choose to handle these as if
-         * the table was zero-sized, so commands using the table will fail
-         * and interrupts requested via GITS_TRANSLATER writes will be ignored.
-         * This happens automatically by leaving the num_entries field at
-         * zero, which will be caught by the bounds checks we have before
-         * every table lookup anyway.
-         */
         if (!FIELD_EX64(value, GITS_BASER, VALID)) {
             continue;
         }
@@ -1541,10 +1309,6 @@ static MemTxResult gicv3_its_translation_read(void *opaque, hwaddr offset,
                                               uint64_t *data, unsigned size,
                                               MemTxAttrs attrs)
 {
-    /*
-     * GITS_TRANSLATER is write-only, and all other addresses
-     * in the interrupt translation space frame are RES0.
-     */
     *data = 0;
     return MEMTX_OK;
 }
@@ -1593,20 +1357,12 @@ static bool its_writel(GICv3ITSState *s, hwaddr offset,
         }
         break;
     case GITS_CBASER:
-        /*
-         * IMPDEF choice:- GITS_CBASER register becomes RO if ITS is
-         *                 already enabled
-         */
         if (!(s->ctlr & R_GITS_CTLR_ENABLED_MASK)) {
             s->cbaser = deposit64(s->cbaser, 0, 32, value);
             s->creadr = 0;
         }
         break;
     case GITS_CBASER + 4:
-        /*
-         * IMPDEF choice:- GITS_CBASER register becomes RO if ITS is
-         *                 already enabled
-         */
         if (!(s->ctlr & R_GITS_CTLR_ENABLED_MASK)) {
             s->cbaser = deposit64(s->cbaser, 32, 32, value);
             s->creadr = 0;
@@ -1627,7 +1383,6 @@ static bool its_writel(GICv3ITSState *s, hwaddr offset,
             s->creadr = deposit64(s->creadr, 0, 32,
                                   (value & ~R_GITS_CREADR_STALLED_MASK));
         } else {
-            /* RO register, ignore the write */
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: invalid guest write to RO register at offset "
                           HWADDR_FMT_plx "\n", __func__, offset);
@@ -1637,22 +1392,16 @@ static bool its_writel(GICv3ITSState *s, hwaddr offset,
         if (s->gicv3->gicd_ctlr & GICD_CTLR_DS) {
             s->creadr = deposit64(s->creadr, 32, 32, value);
         } else {
-            /* RO register, ignore the write */
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: invalid guest write to RO register at offset "
                           HWADDR_FMT_plx "\n", __func__, offset);
         }
         break;
     case GITS_BASER ... GITS_BASER + 0x3f:
-        /*
-         * IMPDEF choice:- GITS_BASERn register becomes RO if ITS is
-         *                 already enabled
-         */
         if (!(s->ctlr & R_GITS_CTLR_ENABLED_MASK)) {
             index = (offset - GITS_BASER) / 8;
 
             if (s->baser[index] == 0) {
-                /* Unimplemented GITS_BASERn: RAZ/WI */
                 break;
             }
             if (offset & 7) {
@@ -1669,7 +1418,6 @@ static bool its_writel(GICv3ITSState *s, hwaddr offset,
         break;
     case GITS_IIDR:
     case GITS_IDREGS ... GITS_IDREGS + 0x2f:
-        /* RO registers, ignore the write */
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: invalid guest write to RO register at offset "
                       HWADDR_FMT_plx "\n", __func__, offset);
@@ -1695,7 +1443,6 @@ static bool its_readl(GICv3ITSState *s, hwaddr offset,
         *data = gicv3_iidr();
         break;
     case GITS_IDREGS ... GITS_IDREGS + 0x2f:
-        /* ID registers */
         *data = gicv3_idreg(s->gicv3, offset - GITS_IDREGS, GICV3_PIDR0_ITS);
         break;
     case GITS_TYPER:
@@ -1745,14 +1492,9 @@ static bool its_writell(GICv3ITSState *s, hwaddr offset,
 
     switch (offset) {
     case GITS_BASER ... GITS_BASER + 0x3f:
-        /*
-         * IMPDEF choice:- GITS_BASERn register becomes RO if ITS is
-         *                 already enabled
-         */
         if (!(s->ctlr & R_GITS_CTLR_ENABLED_MASK)) {
             index = (offset - GITS_BASER) / 8;
             if (s->baser[index] == 0) {
-                /* Unimplemented GITS_BASERn: RAZ/WI */
                 break;
             }
             s->baser[index] &= GITS_BASER_RO_MASK;
@@ -1760,10 +1502,6 @@ static bool its_writell(GICv3ITSState *s, hwaddr offset,
         }
         break;
     case GITS_CBASER:
-        /*
-         * IMPDEF choice:- GITS_CBASER register becomes RO if ITS is
-         *                 already enabled
-         */
         if (!(s->ctlr & R_GITS_CTLR_ENABLED_MASK)) {
             s->cbaser = value;
             s->creadr = 0;
@@ -1779,14 +1517,12 @@ static bool its_writell(GICv3ITSState *s, hwaddr offset,
         if (s->gicv3->gicd_ctlr & GICD_CTLR_DS) {
             s->creadr = value & ~R_GITS_CREADR_STALLED_MASK;
         } else {
-            /* RO register, ignore the write */
             qemu_log_mask(LOG_GUEST_ERROR,
                           "%s: invalid guest write to RO register at offset "
                           HWADDR_FMT_plx "\n", __func__, offset);
         }
         break;
     case GITS_TYPER:
-        /* RO registers, ignore the write */
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: invalid guest write to RO register at offset "
                       HWADDR_FMT_plx "\n", __func__, offset);
@@ -1851,12 +1587,6 @@ static MemTxResult gicv3_its_read(void *opaque, hwaddr offset, uint64_t *data,
                       "%s: invalid guest read at offset " HWADDR_FMT_plx
                       " size %u\n", __func__, offset, size);
         trace_gicv3_its_badread(offset, size);
-        /*
-         * The spec requires that reserved registers are RAZ/WI;
-         * so use false returns from leaf functions as a way to
-         * trigger the guest-error logging but don't return it to
-         * the caller, or we'll cause a spurious guest data abort.
-         */
         *data = 0;
     } else {
         trace_gicv3_its_read(offset, *data, size);
@@ -1887,12 +1617,6 @@ static MemTxResult gicv3_its_write(void *opaque, hwaddr offset, uint64_t data,
                       "%s: invalid guest write at offset " HWADDR_FMT_plx
                       " size %u\n", __func__, offset, size);
         trace_gicv3_its_badwrite(offset, data, size);
-        /*
-         * The spec requires that reserved registers are RAZ/WI;
-         * so use false returns from leaf functions as a way to
-         * trigger the guest-error logging but don't return it to
-         * the caller, or we'll cause a spurious guest data abort.
-         */
     } else {
         trace_gicv3_its_write(offset, data, size);
     }
@@ -1935,7 +1659,6 @@ static void gicv3_arm_its_realize(DeviceState *dev, Error **errp)
 
     gicv3_its_init_mmio(s, &gicv3_its_control_ops, &gicv3_its_translation_ops);
 
-    /* set the ITS default features supported */
     s->typer = FIELD_DP64(s->typer, GITS_TYPER, PHYSICAL, 1);
     s->typer = FIELD_DP64(s->typer, GITS_TYPER, ITT_ENTRY_SIZE,
                           ITS_ITT_ENTRY_SIZE - 1);
@@ -1944,7 +1667,6 @@ static void gicv3_arm_its_realize(DeviceState *dev, Error **errp)
     s->typer = FIELD_DP64(s->typer, GITS_TYPER, CIL, 1);
     s->typer = FIELD_DP64(s->typer, GITS_TYPER, CIDBITS, ITS_CIDBITS);
     if (s->gicv3->revision >= 4) {
-        /* Our VMOVP handles cross-ITS synchronization itself */
         s->typer = FIELD_DP64(s->typer, GITS_TYPER, VMOVP, 1);
         s->typer = FIELD_DP64(s->typer, GITS_TYPER, VIRTUAL, 1);
     }
@@ -1959,17 +1681,8 @@ static void gicv3_its_reset_hold(Object *obj, ResetType type)
         c->parent_phases.hold(obj, type);
     }
 
-    /* Quiescent bit reset to 1 */
     s->ctlr = FIELD_DP32(s->ctlr, GITS_CTLR, QUIESCENT, 1);
 
-    /*
-     * setting GITS_BASER0.Type = 0b001 (Device)
-     *         GITS_BASER1.Type = 0b100 (Collection Table)
-     *         GITS_BASER2.Type = 0b010 (vPE) for GICv4 and later
-     *         GITS_BASER<n>.Type,where n = 3 to 7 are 0b00 (Unimplemented)
-     *         GITS_BASER<0,1>.Page_Size = 64KB
-     * and default translation table entry size to 16 bytes
-     */
     s->baser[0] = FIELD_DP64(s->baser[0], GITS_BASER, TYPE,
                              GITS_BASER_TYPE_DEVICE);
     s->baser[0] = FIELD_DP64(s->baser[0], GITS_BASER, PAGESIZE,

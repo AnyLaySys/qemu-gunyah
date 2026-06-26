@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2014-2016 Broadcom Corporation
- * Copyright (c) 2017 Red Hat, Inc.
- * Written by Prem Mallappa, Eric Auger
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * Author: Prem Mallappa <pmallapp@broadcom.com>
- *
- */
 
 #include "qemu/osdep.h"
 #include "trace/trace-hw_arm.h"
@@ -29,14 +12,12 @@
 #include "hw/arm/smmu-common.h"
 #include "smmu-internal.h"
 
-/* IOTLB Management */
 
 static guint smmu_iotlb_key_hash(gconstpointer v)
 {
     SMMUIOTLBKey *key = (SMMUIOTLBKey *)v;
     uint32_t a, b, c;
 
-    /* Jenkins hash */
     a = b = c = JHASH_INITVAL + sizeof(*key);
     a += key->asid + key->vmid + key->level + key->tg;
     b += extract64(key->iova, 0, 32);
@@ -93,28 +74,12 @@ static SMMUTLBEntry *smmu_iotlb_lookup_all_levels(SMMUState *bs,
     return entry;
 }
 
-/**
- * smmu_iotlb_lookup - Look up for a TLB entry.
- * @bs: SMMU state which includes the TLB instance
- * @cfg: Configuration of the translation
- * @tt: Translation table info (granule and tsz)
- * @iova: IOVA address to lookup
- *
- * returns a valid entry on success, otherwise NULL.
- * In case of nested translation, tt can be updated to include
- * the granule of the found entry as it might different from
- * the IOVA granule.
- */
 SMMUTLBEntry *smmu_iotlb_lookup(SMMUState *bs, SMMUTransCfg *cfg,
                                 SMMUTransTableInfo *tt, hwaddr iova)
 {
     SMMUTLBEntry *entry = NULL;
 
     entry = smmu_iotlb_lookup_all_levels(bs, cfg, tt, iova);
-    /*
-     * For nested translation also try the s2 granule, as the TLB will insert
-     * it if the size of s2 tlb entry was smaller.
-     */
     if (!entry && (cfg->stage == SMMU_NESTED) &&
         (cfg->s2cfg.granule_sz != tt->granule_sz)) {
         tt->granule_sz = cfg->s2cfg.granule_sz;
@@ -215,7 +180,6 @@ static gboolean smmu_hash_remove_by_vmid_ipa(gpointer key, gpointer value,
     SMMUIOTLBKey iotlb_key = *(SMMUIOTLBKey *)key;
 
     if (SMMU_IOTLB_ASID(iotlb_key) >= 0) {
-        /* This is a stage-1 address. */
         return false;
     }
     if (info->vmid != SMMU_IOTLB_VMID(iotlb_key)) {
@@ -249,7 +213,6 @@ void smmu_configs_inv_sid_range(SMMUState *s, SMMUSIDRange sid_range)
 void smmu_iotlb_inv_iova(SMMUState *s, int asid, int vmid, dma_addr_t iova,
                          uint8_t tg, uint64_t num_pages, uint8_t ttl)
 {
-    /* if tg is not set we use 4KB range invalidation */
     uint8_t granule = tg ? tg * 2 + 10 : 12;
 
     if (ttl && (num_pages == 1) && (asid >= 0)) {
@@ -258,10 +221,6 @@ void smmu_iotlb_inv_iova(SMMUState *s, int asid, int vmid, dma_addr_t iova,
         if (g_hash_table_remove(s->iotlb, &key)) {
             return;
         }
-        /*
-         * if the entry is not found, let's see if it does not
-         * belong to a larger IOTLB entry
-         */
     }
 
     SMMUIOTLBPageInvInfo info = {
@@ -274,10 +233,6 @@ void smmu_iotlb_inv_iova(SMMUState *s, int asid, int vmid, dma_addr_t iova,
                                 &info);
 }
 
-/*
- * Similar to smmu_iotlb_inv_iova(), but for Stage-2, ASID is always -1,
- * in Stage-1 invalidation ASID = -1, means don't care.
- */
 void smmu_iotlb_inv_ipa(SMMUState *s, int vmid, dma_addr_t ipa, uint8_t tg,
                         uint64_t num_pages, uint8_t ttl)
 {
@@ -325,19 +280,13 @@ inline void smmu_iotlb_inv_vmid_s1(SMMUState *s, int vmid)
     g_hash_table_foreach_remove(s->iotlb, smmu_hash_remove_by_vmid_s1, &vmid);
 }
 
-/* VMSAv8-64 Translation */
 
-/**
- * get_pte - Get the content of a page table entry located at
- * @base_addr[@index]
- */
 static int get_pte(dma_addr_t baseaddr, uint32_t index, uint64_t *pte,
                    SMMUPTWEventInfo *info)
 {
     int ret;
     dma_addr_t addr = baseaddr + index * sizeof(*pte);
 
-    /* TODO: guarantee 64-bit single-copy atomicity */
     ret = ldq_le_dma(&address_space_memory, addr, pte, MEMTXATTRS_UNSPECIFIED);
 
     if (ret != MEMTX_OK) {
@@ -349,32 +298,17 @@ static int get_pte(dma_addr_t baseaddr, uint32_t index, uint64_t *pte,
     return 0;
 }
 
-/* VMSAv8-64 Translation Table Format Descriptor Decoding */
 
-/**
- * get_page_pte_address - returns the L3 descriptor output address,
- * ie. the page frame
- * ARM ARM spec: Figure D4-17 VMSAv8-64 level 3 descriptor format
- */
 static inline hwaddr get_page_pte_address(uint64_t pte, int granule_sz)
 {
     return PTE_ADDRESS(pte, granule_sz);
 }
 
-/**
- * get_table_pte_address - return table descriptor output address,
- * ie. address of next level table
- * ARM ARM Figure D4-16 VMSAv8-64 level0, level1, and level 2 descriptor formats
- */
 static inline hwaddr get_table_pte_address(uint64_t pte, int granule_sz)
 {
     return PTE_ADDRESS(pte, granule_sz);
 }
 
-/**
- * get_block_pte_address - return block descriptor output address and block size
- * ARM ARM Figure D4-16 VMSAv8-64 level0, level1, and level 2 descriptor formats
- */
 static inline hwaddr get_block_pte_address(uint64_t pte, int level,
                                            int granule_sz, uint64_t *bsz)
 {
@@ -391,24 +325,18 @@ SMMUTransTableInfo *select_tt(SMMUTransCfg *cfg, dma_addr_t iova)
 
     if (cfg->tt[0].tsz &&
         !extract64(iova, 64 - cfg->tt[0].tsz, cfg->tt[0].tsz - tbi_byte)) {
-        /* there is a ttbr0 region and we are in it (high bits all zero) */
         return &cfg->tt[0];
     } else if (cfg->tt[1].tsz &&
         sextract64(iova, 64 - cfg->tt[1].tsz, cfg->tt[1].tsz - tbi_byte) == -1) {
-        /* there is a ttbr1 region and we are in it (high bits all one) */
         return &cfg->tt[1];
     } else if (!cfg->tt[0].tsz) {
-        /* ttbr0 region is "everything not in the ttbr1 region" */
         return &cfg->tt[0];
     } else if (!cfg->tt[1].tsz) {
-        /* ttbr1 region is "everything not in the ttbr0 region" */
         return &cfg->tt[1];
     }
-    /* in the gap between the two regions, this is a Translation fault */
     return NULL;
 }
 
-/* Translate stage-1 table address using stage-2 page table. */
 static inline int translate_table_addr_ipa(SMMUState *bs,
                                            dma_addr_t *table_addr,
                                            SMMUTransCfg *cfg,
@@ -418,10 +346,6 @@ static inline int translate_table_addr_ipa(SMMUState *bs,
     SMMUTLBEntry *cached_entry;
     int asid;
 
-    /*
-     * The translation table walks performed from TTB0 or TTB1 are always
-     * performed in IPA space if stage 2 translations are enabled.
-     */
     asid = cfg->asid;
     cfg->stage = SMMU_STAGE_2;
     cfg->asid = -1;
@@ -440,20 +364,6 @@ static inline int translate_table_addr_ipa(SMMUState *bs,
     return -EINVAL;
 }
 
-/**
- * smmu_ptw_64_s1 - VMSAv8-64 Walk of the page tables for a given IOVA
- * @bs: smmu state which includes TLB instance
- * @cfg: translation config
- * @iova: iova to translate
- * @perm: access type
- * @tlbe: SMMUTLBEntry (out)
- * @info: handle to an error info
- *
- * Return 0 on success, < 0 on error. In case of error, @info is filled
- * and tlbe->perm is set to IOMMU_NONE.
- * Upon success, @tlbe is filled with translated_addr and entry
- * permission rights.
- */
 static int smmu_ptw_64_s1(SMMUState *bs, SMMUTransCfg *cfg,
                           dma_addr_t iova, IOMMUAccessFlags perm,
                           SMMUTLBEntry *tlbe, SMMUPTWEventInfo *info)
@@ -526,11 +436,6 @@ static int smmu_ptw_64_s1(SMMUState *bs, SMMUTransCfg *cfg,
                                      block_size >> 20);
         }
 
-        /*
-         * QEMU does not currently implement HTTU, so if AFFD and PTE.AF
-         * are 0 we take an Access flag fault. (5.4. Context Descriptor)
-         * An Access flag fault takes priority over a Permission fault.
-         */
         if (!PTE_AF(pte) && !cfg->affd) {
             info->type = SMMU_PTW_ERR_ACCESS;
             goto error;
@@ -542,11 +447,6 @@ static int smmu_ptw_64_s1(SMMUState *bs, SMMUTransCfg *cfg,
             goto error;
         }
 
-        /*
-         * The address output from the translation causes a stage 1 Address
-         * Size fault if it exceeds the range of the effective IPA size for
-         * the given CD.
-         */
         if (gpa >= (1ULL << cfg->oas)) {
             info->type = SMMU_PTW_ERR_ADDR_SIZE;
             goto error;
@@ -569,45 +469,22 @@ error:
     return -EINVAL;
 }
 
-/**
- * smmu_ptw_64_s2 - VMSAv8-64 Walk of the page tables for a given ipa
- * for stage-2.
- * @cfg: translation config
- * @ipa: ipa to translate
- * @perm: access type
- * @tlbe: SMMUTLBEntry (out)
- * @info: handle to an error info
- *
- * Return 0 on success, < 0 on error. In case of error, @info is filled
- * and tlbe->perm is set to IOMMU_NONE.
- * Upon success, @tlbe is filled with translated_addr and entry
- * permission rights.
- */
 static int smmu_ptw_64_s2(SMMUTransCfg *cfg,
                           dma_addr_t ipa, IOMMUAccessFlags perm,
                           SMMUTLBEntry *tlbe, SMMUPTWEventInfo *info)
 {
     const SMMUStage stage = SMMU_STAGE_2;
     int granule_sz = cfg->s2cfg.granule_sz;
-    /* ARM DDI0487I.a: Table D8-7. */
     int inputsize = 64 - cfg->s2cfg.tsz;
     int level = get_start_level(cfg->s2cfg.sl0, granule_sz);
     int stride = VMSA_STRIDE(granule_sz);
     int idx = pgd_concat_idx(level, granule_sz, ipa);
-    /*
-     * Get the ttb from concatenated structure.
-     * The offset is the idx * size of each ttb(number of ptes * (sizeof(pte))
-     */
     uint64_t baseaddr = extract64(cfg->s2cfg.vttb, 0, cfg->s2cfg.eff_ps) +
                                   (1 << stride) * idx * sizeof(uint64_t);
     dma_addr_t indexmask = VMSA_IDXMSK(inputsize, stride, level);
 
     baseaddr &= ~indexmask;
 
-    /*
-     * On input, a stage 2 Translation fault occurs if the IPA is outside the
-     * range configured by the relevant S2T0SZ field of the STE.
-     */
     if (ipa >= (1ULL << inputsize)) {
         info->type = SMMU_PTW_ERR_TRANSLATION;
         goto error_ipa;
@@ -650,10 +527,6 @@ static int smmu_ptw_64_s2(SMMUTransCfg *cfg,
                                      block_size >> 20);
         }
 
-        /*
-         * If S2AFFD and PTE.AF are 0 => fault. (5.2. Stream Table Entry)
-         * An Access fault takes priority over a Permission fault.
-         */
         if (!PTE_AF(pte) && !cfg->s2cfg.affd) {
             info->type = SMMU_PTW_ERR_ACCESS;
             goto error_ipa;
@@ -665,10 +538,6 @@ static int smmu_ptw_64_s2(SMMUTransCfg *cfg,
             goto error_ipa;
         }
 
-        /*
-         * The address output from the translation causes a stage 2 Address
-         * Size fault if it exceeds the effective PA output range.
-         */
         if (gpa >= (1ULL << cfg->s2cfg.eff_ps)) {
             info->type = SMMU_PTW_ERR_ADDR_SIZE;
             goto error_ipa;
@@ -693,10 +562,6 @@ error:
     return -EINVAL;
 }
 
-/*
- * combine S1 and S2 TLB entries into a single entry.
- * As a result the S1 entry is overridden with combined data.
- */
 static void combine_tlb(SMMUTLBEntry *tlbe, SMMUTLBEntry *tlbe_s2,
                         dma_addr_t iova, SMMUTransCfg *cfg)
 {
@@ -710,23 +575,10 @@ static void combine_tlb(SMMUTLBEntry *tlbe, SMMUTLBEntry *tlbe_s2,
                                     tlbe->entry.translated_addr);
 
     tlbe->entry.iova = iova & ~tlbe->entry.addr_mask;
-    /* parent_perm has s2 perm while perm keeps s1 perm. */
     tlbe->parent_perm = tlbe_s2->entry.perm;
     return;
 }
 
-/**
- * smmu_ptw - Walk the page tables for an IOVA, according to @cfg
- *
- * @bs: smmu state which includes TLB instance
- * @cfg: translation configuration
- * @iova: iova to translate
- * @perm: tentative access type
- * @tlbe: returned entry
- * @info: ptw event handle
- *
- * return 0 on success
- */
 int smmu_ptw(SMMUState *bs, SMMUTransCfg *cfg, dma_addr_t iova,
              IOMMUAccessFlags perm, SMMUTLBEntry *tlbe, SMMUPTWEventInfo *info)
 {
@@ -737,12 +589,6 @@ int smmu_ptw(SMMUState *bs, SMMUTransCfg *cfg, dma_addr_t iova,
     if (cfg->stage == SMMU_STAGE_1) {
         return smmu_ptw_64_s1(bs, cfg, iova, perm, tlbe, info);
     } else if (cfg->stage == SMMU_STAGE_2) {
-        /*
-         * If bypassing stage 1(or unimplemented), the input address is passed
-         * directly to stage 2 as IPA. If the input address of a transaction
-         * exceeds the size of the IAS, a stage 1 Address Size fault occurs.
-         * For AA64, IAS = OAS according to (IHI 0070.E.a) "3.4 Address sizes"
-         */
         if (iova >= (1ULL << cfg->oas)) {
             info->type = SMMU_PTW_ERR_ADDR_SIZE;
             info->stage = SMMU_STAGE_1;
@@ -753,7 +599,6 @@ int smmu_ptw(SMMUState *bs, SMMUTransCfg *cfg, dma_addr_t iova,
         return smmu_ptw_64_s2(cfg, iova, perm, tlbe, info);
     }
 
-    /* SMMU_NESTED. */
     ret = smmu_ptw_64_s1(bs, cfg, iova, perm, tlbe, info);
     if (ret) {
         return ret;
@@ -776,18 +621,12 @@ SMMUTLBEntry *smmu_translate(SMMUState *bs, SMMUTransCfg *cfg, dma_addr_t addr,
     SMMUTransTableInfo *tt;
     int status;
 
-    /*
-     * Combined attributes used for TLB lookup, holds the attributes for
-     * the input stage.
-     */
     SMMUTransTableInfo tt_combined;
 
     if (cfg->stage == SMMU_STAGE_2) {
-        /* Stage2. */
         tt_combined.granule_sz = cfg->s2cfg.granule_sz;
         tt_combined.tsz = cfg->s2cfg.tsz;
     } else {
-        /* Select stage1 translation table. */
         tt = select_tt(cfg, addr);
         if (!tt) {
             info->type = SMMU_PTW_ERR_TRANSLATION;
@@ -821,12 +660,6 @@ SMMUTLBEntry *smmu_translate(SMMUState *bs, SMMUTransCfg *cfg, dma_addr_t addr,
     return cached_entry;
 }
 
-/**
- * The bus number is used for lookup when SID based invalidation occurs.
- * In that case we lazily populate the SMMUPciBus array from the bus hash
- * table. At the time the SMMUPciBus is created (smmu_find_add_as), the bus
- * numbers may not be always initialized yet.
- */
 SMMUPciBus *smmu_find_smmu_pcibus(SMMUState *s, uint8_t bus_num)
 {
     SMMUPciBus *smmu_pci_bus = s->smmu_pcibus_by_bus_num[bus_num];
@@ -901,7 +734,6 @@ SMMUDevice *smmu_find_sdev(SMMUState *s, uint32_t sid)
     return NULL;
 }
 
-/* Unmap all notifiers attached to @mr */
 static void smmu_inv_notifiers_mr(IOMMUMemoryRegion *mr)
 {
     IOMMUNotifier *n;
@@ -912,7 +744,6 @@ static void smmu_inv_notifiers_mr(IOMMUMemoryRegion *mr)
     }
 }
 
-/* Unmap all notifiers of all mr's */
 void smmu_inv_notifiers_all(SMMUState *s)
 {
     SMMUDevice *sdev;
@@ -945,11 +776,6 @@ static void smmu_base_realize(DeviceState *dev, Error **errp)
     }
 }
 
-/*
- * Make sure the IOMMU is reset in 'exit' phase after
- * all outstanding DMA requests have been quiesced during
- * the 'enter' or 'hold' reset phases
- */
 static void smmu_base_reset_exit(Object *obj, ResetType type)
 {
     SMMUState *s = ARM_SMMU(obj);

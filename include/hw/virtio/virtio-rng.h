@@ -1,13 +1,3 @@
-/*
- * Virtio RNG Support
- *
- * Copyright Red Hat, Inc. 2012
- * Copyright Amit Shah <amit.shah@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #ifndef QEMU_VIRTIO_RNG_H
 #define QEMU_VIRTIO_RNG_H
@@ -31,16 +21,12 @@ struct VirtIORNGConf {
 struct VirtIORNG {
     VirtIODevice parent_obj;
 
-    /* Only one vq - guest puts buffer(s) on it when it needs entropy */
     VirtQueue *vq;
 
     VirtIORNGConf conf;
 
     RngBackend *rng;
 
-    /* We purposefully don't migrate this state.  The quota will reset on the
-     * destination as a result.  Rate limiting is host state, not guest state.
-     */
     QEMUTimer *rate_limit_timer;
     int64_t quota_remaining;
     bool activate_timer;

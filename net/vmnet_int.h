@@ -1,12 +1,3 @@
-/*
- * vmnet_int.h
- *
- * Copyright(c) 2022 Vladislav Yaroshchuk <vladislav.yaroshchuk@jetbrains.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 #ifndef VMNET_INT_H
 #define VMNET_INT_H
 
@@ -16,17 +7,6 @@
 #include <vmnet/vmnet.h>
 #include <dispatch/dispatch.h>
 
-/**
- *  From vmnet.framework documentation
- *
- *  Each read/write call allows up to 200 packets to be
- *  read or written for a maximum of 256KB.
- *
- *  Each packet written should be a complete
- *  ethernet frame.
- *
- *  https://developer.apple.com/documentation/vmnet
- */
 #define VMNET_PACKETS_LIMIT 200
 
 typedef struct VmnetState {

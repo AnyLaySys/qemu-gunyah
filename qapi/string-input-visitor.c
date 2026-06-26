@@ -1,14 +1,3 @@
-/*
- * String parsing visitor
- *
- * Copyright Red Hat, Inc. 2012-2016
- *
- * Author: Paolo Bonzini <pbonzini@redhat.com>
- *         David Hildenbrand <david@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -20,19 +9,13 @@
 #include "qemu/cutils.h"
 
 typedef enum ListMode {
-    /* no list parsing active / no list expected */
     LM_NONE,
-    /* we have an unparsed string remaining */
     LM_UNPARSED,
-    /* we have an unfinished int64 range */
     LM_INT64_RANGE,
-    /* we have an unfinished uint64 range */
     LM_UINT64_RANGE,
-    /* we have parsed the string completely and no range is remaining */
     LM_END,
 } ListMode;
 
-/* protect against DOS attacks, limit the amount of elements per range */
 #define RANGE_MAX_ELEMENTS 65536
 
 typedef union RangeElement {
@@ -44,14 +27,12 @@ struct StringInputVisitor
 {
     Visitor visitor;
 
-    /* List parsing state */
     ListMode lm;
     RangeElement rangeNext;
     RangeElement rangeEnd;
     const char *unparsed_string;
     void *list;
 
-    /* The original string to parse */
     const char *string;
 };
 
@@ -93,7 +74,6 @@ static GenericList *next_list(Visitor *v, GenericList *tail, size_t size)
     case LM_INT64_RANGE:
     case LM_UINT64_RANGE:
     case LM_UNPARSED:
-        /* we have an unparsed string or something left in a range */
         break;
     default:
         abort();
@@ -136,7 +116,6 @@ static int try_parse_int64_list_entry(StringInputVisitor *siv, int64_t *obj)
     const char *endptr;
     int64_t start, end;
 
-    /* parse a simple int64 or range */
     if (qemu_strtoi64(siv->unparsed_string, &endptr, 0, &start)) {
         return -EINVAL;
     }
@@ -150,7 +129,6 @@ static int try_parse_int64_list_entry(StringInputVisitor *siv, int64_t *obj)
         siv->unparsed_string = endptr + 1;
         break;
     case '-':
-        /* parse the end of the range */
         if (qemu_strtoi64(endptr + 1, &endptr, 0, &end)) {
             return -EINVAL;
         }
@@ -172,7 +150,6 @@ static int try_parse_int64_list_entry(StringInputVisitor *siv, int64_t *obj)
         return -EINVAL;
     }
 
-    /* we have a proper range (with maybe only one element) */
     siv->lm = LM_INT64_RANGE;
     siv->rangeNext.i64 = start;
     siv->rangeEnd.i64 = end;
@@ -187,7 +164,6 @@ static bool parse_type_int64(Visitor *v, const char *name, int64_t *obj,
 
     switch (siv->lm) {
     case LM_NONE:
-        /* just parse a simple int64, bail out if not completely consumed */
         if (qemu_strtoi64(siv->string, NULL, 0, &val)) {
             error_setg(errp, QERR_INVALID_PARAMETER_VALUE,
                        name ? name : "null", "int64");
@@ -202,14 +178,11 @@ static bool parse_type_int64(Visitor *v, const char *name, int64_t *obj,
             return false;
         }
         assert(siv->lm == LM_INT64_RANGE);
-        /* fall through */
     case LM_INT64_RANGE:
-        /* return the next element in the range */
         assert(siv->rangeNext.i64 <= siv->rangeEnd.i64);
         *obj = siv->rangeNext.i64++;
 
         if (siv->rangeNext.i64 > siv->rangeEnd.i64 || *obj == INT64_MAX) {
-            /* end of range, check if there is more to parse */
             siv->lm = siv->unparsed_string[0] ? LM_UNPARSED : LM_END;
         }
         return true;
@@ -226,7 +199,6 @@ static int try_parse_uint64_list_entry(StringInputVisitor *siv, uint64_t *obj)
     const char *endptr;
     uint64_t start, end;
 
-    /* parse a simple uint64 or range */
     if (qemu_strtou64(siv->unparsed_string, &endptr, 0, &start)) {
         return -EINVAL;
     }
@@ -240,7 +212,6 @@ static int try_parse_uint64_list_entry(StringInputVisitor *siv, uint64_t *obj)
         siv->unparsed_string = endptr + 1;
         break;
     case '-':
-        /* parse the end of the range */
         if (qemu_strtou64(endptr + 1, &endptr, 0, &end)) {
             return -EINVAL;
         }
@@ -262,7 +233,6 @@ static int try_parse_uint64_list_entry(StringInputVisitor *siv, uint64_t *obj)
         return -EINVAL;
     }
 
-    /* we have a proper range (with maybe only one element) */
     siv->lm = LM_UINT64_RANGE;
     siv->rangeNext.u64 = start;
     siv->rangeEnd.u64 = end;
@@ -277,7 +247,6 @@ static bool parse_type_uint64(Visitor *v, const char *name, uint64_t *obj,
 
     switch (siv->lm) {
     case LM_NONE:
-        /* just parse a simple uint64, bail out if not completely consumed */
         if (qemu_strtou64(siv->string, NULL, 0, &val)) {
             error_setg(errp, QERR_INVALID_PARAMETER_VALUE, name ? name : "null",
                        "uint64");
@@ -292,14 +261,11 @@ static bool parse_type_uint64(Visitor *v, const char *name, uint64_t *obj,
             return false;
         }
         assert(siv->lm == LM_UINT64_RANGE);
-        /* fall through */
     case LM_UINT64_RANGE:
-        /* return the next element in the range */
         assert(siv->rangeNext.u64 <= siv->rangeEnd.u64);
         *obj = siv->rangeNext.u64++;
 
         if (siv->rangeNext.u64 > siv->rangeEnd.u64 || *obj == UINT64_MAX) {
-            /* end of range, check if there is more to parse */
             siv->lm = siv->unparsed_string[0] ? LM_UNPARSED : LM_END;
         }
         return true;

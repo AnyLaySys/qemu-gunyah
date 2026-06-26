@@ -1,11 +1,3 @@
-/*
- * Interface for configuring and controlling the state of tracing events.
- *
- * Copyright (C) 2011-2016 Lluís Vilanova <vilanova@ac.upc.edu>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef TRACE__CONTROL_INTERNAL_H
 #define TRACE__CONTROL_INTERNAL_H
@@ -37,7 +29,6 @@ static inline bool trace_event_get_state_static(TraceEvent *ev)
     return ev->sstate;
 }
 
-/* it's on fast path, avoid consistency checks (asserts) */
 #define trace_event_get_state_dynamic_by_id(id) \
     (unlikely(trace_events_enabled_count) && _ ## id ## _DSTATE)
 

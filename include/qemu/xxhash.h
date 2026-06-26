@@ -1,35 +1,3 @@
-/*
- * xxHash - Fast Hash algorithm
- * Copyright (C) 2012-2016, Yann Collet
- *
- * BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * + Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- * + Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You can contact the author at :
- * - xxHash source repository : https://github.com/Cyan4973/xxHash
- */
 
 #ifndef QEMU_XXHASH_H
 #define QEMU_XXHASH_H
@@ -44,10 +12,6 @@
 
 #define QEMU_XXHASH_SEED 1
 
-/*
- * xxhash32, customized for input variables that are not guaranteed to be
- * contiguous in memory.
- */
 static inline uint32_t qemu_xxhash8(uint64_t ab, uint64_t cd, uint64_t ef,
                                     uint32_t g, uint32_t h)
 {
@@ -130,48 +94,6 @@ static inline uint32_t qemu_xxhash7(uint64_t ab, uint64_t cd, uint64_t ef,
     return qemu_xxhash8(ab, cd, ef, g, 0);
 }
 
-/*
- * Component parts of the XXH64 algorithm from
- * https://github.com/Cyan4973/xxHash/blob/v0.8.0/xxhash.h
- *
- * The complete algorithm looks like
- *
- *  i = 0;
- *  if (len >= 32) {
- *      v1 = seed + XXH_PRIME64_1 + XXH_PRIME64_2;
- *      v2 = seed + XXH_PRIME64_2;
- *      v3 = seed + 0;
- *      v4 = seed - XXH_PRIME64_1;
- *      do {
- *          v1 = XXH64_round(v1, get64bits(input + i));
- *          v2 = XXH64_round(v2, get64bits(input + i + 8));
- *          v3 = XXH64_round(v3, get64bits(input + i + 16));
- *          v4 = XXH64_round(v4, get64bits(input + i + 24));
- *      } while ((i += 32) <= len);
- *      h64 = XXH64_mergerounds(v1, v2, v3, v4);
- *  } else {
- *      h64 = seed + XXH_PRIME64_5;
- *  }
- *  h64 += len;
- *
- *  for (; i + 8 <= len; i += 8) {
- *      h64 ^= XXH64_round(0, get64bits(input + i));
- *      h64 = rol64(h64, 27) * XXH_PRIME64_1 + XXH_PRIME64_4;
- *  }
- *  for (; i + 4 <= len; i += 4) {
- *      h64 ^= get32bits(input + i) * PRIME64_1;
- *      h64 = rol64(h64, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;
- *  }
- *  for (; i < len; i += 1) {
- *      h64 ^= get8bits(input + i) * XXH_PRIME64_5;
- *      h64 = rol64(h64, 11) * XXH_PRIME64_1;
- *  }
- *
- *  return XXH64_avalanche(h64)
- *
- * Exposing the pieces instead allows for simplified usage when
- * the length is a known constant and the inputs are in registers.
- */
 #define XXH_PRIME64_1   0x9E3779B185EBCA87ULL
 #define XXH_PRIME64_2   0xC2B2AE3D27D4EB4FULL
 #define XXH_PRIME64_3   0x165667B19E3779F9ULL

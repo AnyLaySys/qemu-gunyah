@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 
@@ -73,8 +50,6 @@ static GHashTable *nic_model_help;
 static int nb_nics;
 static NICInfo nd_table[MAX_NICS];
 
-/***********************************************************/
-/* network device redirectors */
 
 int convert_host_port(struct sockaddr_in *saddr, const char *host,
                       const char *port, Error **errp)
@@ -220,11 +195,6 @@ void qemu_macaddr_default_if_unset(MACAddr *macaddr)
     qemu_macaddr_set_used(macaddr);
 }
 
-/**
- * Generate a name for net client
- *
- * Only net clients created with the legacy -net option and NICs need this.
- */
 static char *assign_name(NetClientState *nc1, const char *model)
 {
     NetClientState *nc;
@@ -406,21 +376,11 @@ void qemu_del_net_client(NetClientState *nc)
 
     assert(nc->info->type != NET_CLIENT_DRIVER_NIC);
 
-    /* If the NetClientState belongs to a multiqueue backend, we will change all
-     * other NetClientStates also.
-     */
     queues = qemu_find_net_clients_except(nc->name, ncs,
                                           NET_CLIENT_DRIVER_NIC,
                                           MAX_QUEUE_NUM);
     assert(queues != 0);
 
-    /*
-     * If there is a peer NIC, transfer ownership to it.  Delete the client
-     * from net_client list but do not cleanup nor free.  This way NIC can
-     * still access to members of the backend.
-     *
-     * The cleanup and free will be done when the NIC is free.
-     */
     if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_NIC) {
         NICState *nic = qemu_get_nic(nc->peer);
         if (nic->peer_deleted) {
@@ -454,15 +414,10 @@ void qemu_del_nic(NICState *nic)
 
     for (i = 0; i < queues; i++) {
         NetClientState *nc = qemu_get_subqueue(nic, i);
-        /*
-         * If this is a peer NIC and peer has already been deleted, clean it up
-         * and free it now.
-         */
         if (nic->peer_deleted) {
             qemu_cleanup_net_client(nc->peer, false);
             qemu_free_net_client(nc->peer);
         } else if (nc->peer) {
-            /* if there are RX packets pending, complete them */
             qemu_purge_queued_packets(nc->peer);
         }
     }
@@ -625,12 +580,8 @@ void qemu_flush_or_purge_queued_packets(NetClientState *nc, bool purge)
     nc->receive_disabled = 0;
 
     if (qemu_net_queue_flush(nc->incoming_queue)) {
-        /* We emptied the queue successfully, signal to the IO thread to repoll
-         * the file descriptor (for tap, for example).
-         */
         qemu_notify_event();
     } else if (purge) {
-        /* Unable to empty the queue, purge remaining packets */
         qemu_net_queue_purge(nc->incoming_queue, nc->peer);
     }
 }
@@ -857,12 +808,6 @@ GPtrArray *qemu_get_nic_models(const char *device_type)
         if (test_bit(DEVICE_CATEGORY_NETWORK, dc->categories) &&
             dc->user_creatable) {
             const char *name = object_class_get_name(list->data);
-            /*
-             * Some network-class devices are not NICs. Look for the "netdev"
-             * property, too. Unfortunately, some devices like virtio-net only
-             * create this property during instance_init, so we have to create
-             * a temporary instance here to be able to check it.
-             */
             Object *obj = object_new_with_class(OBJECT_CLASS(dc));
             if (object_property_find(obj, "netdev")) {
                 g_ptr_array_add(nic_models, (gpointer)name);
@@ -1001,12 +946,10 @@ static void add_nic_model_help(const char *model, const char *alias)
 
     if (g_hash_table_lookup_extended(nic_model_help, model, NULL,
                                      (gpointer *)&alias_list)) {
-        /* Already exists, no alias to add: return */
         if (!alias) {
             return;
         }
         if (alias_list) {
-            /* Check if this alias is already in the list. Add if not. */
             if (!g_ptr_array_find_with_equal_func(alias_list, alias,
                                                   g_str_equal, NULL)) {
                 g_ptr_array_add(alias_list, g_strdup(alias));
@@ -1014,7 +957,6 @@ static void add_nic_model_help(const char *model, const char *alias)
             return;
         }
     }
-    /* Either this model wasn't in the list already, or a first alias added */
     if (alias) {
         alias_list = g_ptr_array_new();
         g_ptr_array_set_free_func(alias_list, g_free);
@@ -1051,10 +993,6 @@ NICInfo *qemu_find_nic_info(const char *typename, bool match_default,
 static bool is_nic_model_help_option(const char *model)
 {
     if (model && is_help_option(model)) {
-        /*
-         * Trigger the help output by instantiating the hash table which
-         * will gather tha available models as they get registered.
-         */
         if (!nic_model_help) {
             nic_model_help = g_hash_table_new_full(g_str_hash, g_str_equal,
                                                    g_free, NULL);
@@ -1064,7 +1002,6 @@ static bool is_nic_model_help_option(const char *model)
     return false;
 }
 
-/* "I have created a device. Please configure it if you can" */
 bool qemu_configure_nic_device(DeviceState *dev, bool match_default,
                                const char *alias)
 {
@@ -1078,7 +1015,6 @@ bool qemu_configure_nic_device(DeviceState *dev, bool match_default,
     return false;
 }
 
-/* "Please create a device, if you have a configuration for it" */
 DeviceState *qemu_create_nic_device(const char *typename, bool match_default,
                                     const char *alias)
 {
@@ -1113,7 +1049,6 @@ void qemu_create_nic_bus_devices(BusState *bus, const char *parent_type,
         }
     }
 
-    /* Drop the NULL terminator which would make g_str_equal() unhappy */
     nic_models->len--;
 
     for (i = 0; i < nb_nics; i++) {
@@ -1128,14 +1063,12 @@ void qemu_create_nic_bus_devices(BusState *bus, const char *parent_type,
             continue;
         }
 
-        /* Each bus type is allowed *one* substitution */
         if (g_str_equal(model, alias)) {
             model = alias_target;
         }
 
         if (!g_ptr_array_find_with_equal_func(nic_models, model,
                                               g_str_equal, NULL)) {
-            /* This NIC does not live on this bus. */
             continue;
         }
 
@@ -1188,7 +1121,6 @@ static int net_client_init1(const Netdev *netdev, bool is_netdev, Error **errp)
     }
 
     if (net_client_init_fun[netdev->type](netdev, netdev->id, peer, errp) < 0) {
-        /* FIXME drop when all init functions store an Error */
         if (errp && !*errp) {
             error_setg(errp, "Device '%s' could not be initialized",
                        NetClientDriver_str(netdev->type));
@@ -1227,7 +1159,6 @@ static int net_client_init(QemuOpts *opts, bool is_netdev, Error **errp)
     int ret = -1;
     Visitor *v = opts_visitor_new(opts);
 
-    /* Parse convenience option format ipv6-net=fec0::0[/64] */
     const char *ip6_net = qemu_opt_get(opts, "ipv6-net");
 
     if (ip6_net) {
@@ -1243,7 +1174,6 @@ static int net_client_init(QemuOpts *opts, bool is_netdev, Error **errp)
 
         prefix_addr = substrings[0];
 
-        /* Handle user-specified prefix length. */
         if (substrings[1] &&
             qemu_strtoul(substrings[1], NULL, 10, &prefix_len))
         {
@@ -1258,7 +1188,6 @@ static int net_client_init(QemuOpts *opts, bool is_netdev, Error **errp)
         qemu_opt_unset(opts, "ipv6-net");
     }
 
-    /* Create an ID for -net if the user did not specify one */
     if (!is_netdev && !qemu_opts_id(opts)) {
         qemu_opts_set_id(opts, id_generate(ID_NET));
     }
@@ -1309,11 +1238,6 @@ void qmp_netdev_del(const char *id, Error **errp)
 
     qemu_del_net_client(nc);
 
-    /*
-     * Wart: we need to delete the QemuOpts associated with netdevs
-     * created via CLI or HMP, to avoid bogus "Duplicate ID" errors in
-     * HMP netdev_add.
-     */
     opts = qemu_opts_find(qemu_find_opts("netdev"), id);
     if (opts) {
         qemu_opts_del(opts);
@@ -1340,7 +1264,6 @@ RxFilterInfoList *qmp_query_rx_filter(const char *name, Error **errp)
             continue;
         }
 
-        /* only query rx-filter information of NIC */
         if (nc->info->type != NET_CLIENT_DRIVER_NIC) {
             if (name) {
                 error_setg(errp, "net client(%s) isn't a NIC", name);
@@ -1350,9 +1273,6 @@ RxFilterInfoList *qmp_query_rx_filter(const char *name, Error **errp)
             continue;
         }
 
-        /* only query information on queue 0 since the info is per nic,
-         * not per queue
-         */
         if (nc->queue_index != 0)
             continue;
 
@@ -1404,14 +1324,6 @@ void qmp_set_link(const char *name, bool up, Error **errp)
     }
 
     if (nc->peer) {
-        /* Change peer link only if the peer is NIC and then notify peer.
-         * If the peer is a HUBPORT or a backend, we do not change the
-         * link status.
-         *
-         * This behavior is compatible with qemu hubs where there could be
-         * multiple clients that can still communicate with each other in
-         * disconnected mode. For now maintain this compatibility.
-         */
         if (nc->peer->info->type == NET_CLIENT_DRIVER_NIC) {
             for (i = 0; i < queues; i++) {
                 ncs[i]->peer->link_down = !up;
@@ -1431,14 +1343,10 @@ static void net_vm_change_state_handler(void *opaque, bool running,
 
     QTAILQ_FOREACH_SAFE(nc, &net_clients, next, tmp) {
         if (running) {
-            /* Flush queued packets and wake up backends. */
             if (nc->peer && qemu_can_send_packet(nc)) {
                 qemu_flush_queued_packets(nc->peer);
             }
         } else {
-            /* Complete all queued packets, to guarantee we don't modify
-             * state later when VM is not running.
-             */
             qemu_flush_or_purge_queued_packets(nc, true);
         }
     }
@@ -1448,27 +1356,6 @@ void net_cleanup(void)
 {
     NetClientState *nc, **p = &QTAILQ_FIRST(&net_clients);
 
-    /*
-     * Walk the net_clients list and remove the netdevs but *not* any
-     * NET_CLIENT_DRIVER_NIC entries. The latter are owned by the device
-     * model which created them, and in some cases (e.g. xen-net-device)
-     * the device itself may do cleanup at exit and will be upset if we
-     * just delete its NIC from underneath it.
-     *
-     * Since qemu_del_net_client() may delete multiple entries, using
-     * QTAILQ_FOREACH_SAFE() is not safe here. The only safe pointer
-     * to keep as a bookmark is a NET_CLIENT_DRIVER_NIC entry, so keep
-     * 'p' pointing to either the head of the list, or the 'next' field
-     * of the latest NET_CLIENT_DRIVER_NIC, and operate on *p as we walk
-     * the list.
-     *
-     * However, the NIC may have peers that trust to be clean beyond this
-     * point.  For example, if they have been removed with device_del.
-     *
-     * The 'nc' variable isn't part of the list traversal; it's purely
-     * for convenience as too much '(*p)->' has a tendency to make the
-     * readers' eyes bleed.
-     */
     while (*p) {
         nc = *p;
         if (nc->info->type == NET_CLIENT_DRIVER_NIC) {
@@ -1483,7 +1370,6 @@ void net_cleanup(void)
                 }
             }
 
-            /* Skip NET_CLIENT_DRIVER_NIC entries */
             p = &QTAILQ_NEXT(nc, next);
         } else {
             qemu_del_net_client(nc);
@@ -1512,10 +1398,6 @@ void net_check_clients(void)
         }
     }
 
-    /* Check that all NICs requested via -net nic actually got created.
-     * NICs created via -device don't need to be checked here because
-     * they are always instantiated.
-     */
     for (i = 0; i < MAX_NICS; i++) {
         NICInfo *nd = &nd_table[i];
         if (nd->used && !nd->instantiated) {
@@ -1549,7 +1431,6 @@ static int net_init_netdev(void *dummy, QemuOpts *opts, Error **errp)
     return net_client_init(opts, true, errp);
 }
 
-/* For the convenience "--nic" parameter */
 static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
 {
     char *mac, *nd_id;
@@ -1595,14 +1476,12 @@ static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
         return 0;
     }
 
-    /* Create an ID if the user did not specify one */
     nd_id = g_strdup(qemu_opts_id(opts));
     if (!nd_id) {
         nd_id = id_generate(ID_NET);
         qemu_opts_set_id(opts, nd_id);
     }
 
-    /* Handle MAC address */
     mac = qemu_opt_get_del(opts, "mac");
     if (mac) {
         ret = net_parse_macaddr(ni->macaddr.a, mac);
@@ -1664,11 +1543,6 @@ void net_init_clients(void)
                       &error_fatal);
 }
 
-/*
- * Does this -netdev argument use modern rather than traditional syntax?
- * Modern syntax is to be parsed with netdev_parse_modern().
- * Traditional syntax is to be parsed with net_client_parse().
- */
 bool netdev_is_modern(const char *optstr)
 {
     QemuOpts *opts;
@@ -1682,7 +1556,6 @@ bool netdev_is_modern(const char *optstr)
     };
 
     if (optstr[0] == '{') {
-        /* This is JSON, which means it's modern syntax */
         return true;
     }
 
@@ -1697,12 +1570,6 @@ bool netdev_is_modern(const char *optstr)
     return is_modern;
 }
 
-/*
- * netdev_parse_modern() uses modern, more expressive syntax than
- * net_client_parse(), but supports only the -netdev option.
- * netdev_parse_modern() appends to @nd_queue, whereas net_client_parse()
- * appends to @qemu_netdev_opts.
- */
 void netdev_parse_modern(const char *optstr)
 {
     Visitor *v;
@@ -1724,8 +1591,6 @@ void net_client_parse(QemuOptsList *opts_list, const char *optstr)
     }
 }
 
-/* From FreeBSD */
-/* XXX: optimize */
 uint32_t net_crc32(const uint8_t *p, int len)
 {
     uint32_t crc;
@@ -1775,10 +1640,6 @@ QemuOptsList qemu_netdev_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_netdev_opts.head),
     .desc = {
-        /*
-         * no elements => accept any params
-         * validation will happen later
-         */
         { /* end of list */ }
     },
 };
@@ -1788,10 +1649,6 @@ QemuOptsList qemu_nic_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_nic_opts.head),
     .desc = {
-        /*
-         * no elements => accept any params
-         * validation will happen later
-         */
         { /* end of list */ }
     },
 };
@@ -1801,10 +1658,6 @@ QemuOptsList qemu_net_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_net_opts.head),
     .desc = {
-        /*
-         * no elements => accept any params
-         * validation will happen later
-         */
         { /* end of list */ }
     },
 };
@@ -1822,21 +1675,11 @@ void net_socket_rs_init(SocketReadState *rs,
     rs->finalize = finalize;
 }
 
-/*
- * Returns
- * 0: success
- * -1: error occurs
- */
 int net_fill_rstate(SocketReadState *rs, const uint8_t *buf, int size)
 {
     unsigned int l;
 
     while (size > 0) {
-        /* Reassemble a packet from the network.
-         * 0 = getting length.
-         * 1 = getting vnet header length.
-         * 2 = getting data.
-         */
         switch (rs->state) {
         case 0:
             l = 4 - rs->index;
@@ -1848,7 +1691,6 @@ int net_fill_rstate(SocketReadState *rs, const uint8_t *buf, int size)
             size -= l;
             rs->index += l;
             if (rs->index == 4) {
-                /* got length */
                 rs->packet_len = ntohl(*(uint32_t *)rs->buf);
                 rs->index = 0;
                 if (rs->vnet_hdr) {
@@ -1869,7 +1711,6 @@ int net_fill_rstate(SocketReadState *rs, const uint8_t *buf, int size)
             size -= l;
             rs->index += l;
             if (rs->index == 4) {
-                /* got vnet header length */
                 rs->vnet_hdr_len = ntohl(*(uint32_t *)rs->buf);
                 rs->index = 0;
                 rs->state = 2;

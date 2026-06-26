@@ -1,19 +1,3 @@
-/*
- *  IP checksumming functions.
- *  (c) 2008 Gerd Hoffmann <kraxel@redhat.com>
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; under version 2 of the License.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef QEMU_NET_CHECKSUM_H
 #define QEMU_NET_CHECKSUM_H
@@ -50,15 +34,6 @@ net_raw_checksum(uint8_t *data, int length)
     return net_checksum_finish(net_checksum_add(length, data));
 }
 
-/**
- * net_checksum_add_iov: scatter-gather vector checksumming
- *
- * @iov: input scatter-gather array
- * @iov_cnt: number of array elements
- * @iov_off: starting iov offset for checksumming
- * @size: length of data to be checksummed
- * @csum_offset: offset of the checksum chunk
- */
 uint32_t net_checksum_add_iov(const struct iovec *iov,
                               const unsigned int iov_cnt,
                               uint32_t iov_off, uint32_t size,

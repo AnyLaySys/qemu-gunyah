@@ -1,27 +1,4 @@
-/*
- * sigaltstack coroutine initialization code
- *
- * Copyright (C) 2006  Anthony Liguori <anthony@codemonkey.ws>
- * Copyright (C) 2011  Kevin Wolf <kwolf@redhat.com>
- * Copyright (C) 2012  Alex Barcelo <abarcelo@ac.upc.edu>
-** This file is partly based on pth_mctx.c, from the GNU Portable Threads
-**  Copyright (c) 1999-2006 Ralf S. Engelschall <rse@engelschall.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
-/* XXX Is there a nicer way to disable glibc's stack check for longjmp? */
 #undef _FORTIFY_SOURCE
 #define _FORTIFY_SOURCE 0
 
@@ -40,17 +17,11 @@ typedef struct {
     sigjmp_buf env;
 } CoroutineSigAltStack;
 
-/**
- * Per-thread coroutine bookkeeping
- */
 typedef struct {
-    /** Currently executing coroutine */
     Coroutine *current;
 
-    /** The default coroutine */
     CoroutineSigAltStack leader;
 
-    /** Information for the signal handler (trampoline) */
     sigjmp_buf tr_reenter;
     volatile sig_atomic_t tr_called;
     void *tr_handler;
@@ -88,14 +59,8 @@ static void __attribute__((constructor)) coroutine_init(void)
     }
 }
 
-/* "boot" function
- * This is what starts the coroutine, is called from the trampoline
- * (from the signal handler when it is not signal handling, read ahead
- * for more information).
- */
 static void coroutine_bootstrap(CoroutineSigAltStack *self, Coroutine *co)
 {
-    /* Initialize longjmp environment and switch back the caller */
     if (!sigsetjmp(self->env, 0)) {
         siglongjmp(*(sigjmp_buf *)co->entry_arg, 1);
     }
@@ -106,42 +71,21 @@ static void coroutine_bootstrap(CoroutineSigAltStack *self, Coroutine *co)
     }
 }
 
-/*
- * This is used as the signal handler. This is called with the brand new stack
- * (thanks to sigaltstack). We have to return, given that this is a signal
- * handler and the sigmask and some other things are changed.
- */
 static void coroutine_trampoline(int signal)
 {
     CoroutineSigAltStack *self;
     Coroutine *co;
     CoroutineThreadState *coTS;
 
-    /* Get the thread specific information */
     coTS = coroutine_get_thread_state();
     self = coTS->tr_handler;
     coTS->tr_called = 1;
     co = &self->base;
 
-    /*
-     * Here we have to do a bit of a ping pong between the caller, given that
-     * this is a signal handler and we have to do a return "soon". Then the
-     * caller can reestablish everything and do a siglongjmp here again.
-     */
     if (!sigsetjmp(coTS->tr_reenter, 0)) {
         return;
     }
 
-    /*
-     * Ok, the caller has siglongjmp'ed back to us, so now prepare
-     * us for the real machine state switching. We have to jump
-     * into another function here to get a new stack context for
-     * the auto variables (which have to be auto-variables
-     * because the start of the thread happens later). Else with
-     * PIC (i.e. Position Independent Code which is used when PTH
-     * is built as a shared library) most platforms would
-     * horrible core dump as experience showed.
-     */
     coroutine_bootstrap(self, co);
 }
 
@@ -158,14 +102,6 @@ Coroutine *qemu_coroutine_new(void)
     sigjmp_buf old_env;
     static pthread_mutex_t sigusr2_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-    /* The way to manipulate stack is with the sigaltstack function. We
-     * prepare a stack, with it delivering a signal to ourselves and then
-     * put sigsetjmp/siglongjmp where needed.
-     * This has been done keeping coroutine-ucontext as a model and with the
-     * pth ideas (GNU Portable Threads). See coroutine-ucontext for the basics
-     * of the coroutines and see pth_mctx.c (from the pth project) for the
-     * sigaltstack way of manipulating stacks.
-     */
 
     co = g_malloc0(sizeof(*co));
     co->stack_size = COROUTINE_STACK_SIZE;
@@ -175,11 +111,6 @@ Coroutine *qemu_coroutine_new(void)
     coTS = coroutine_get_thread_state();
     coTS->tr_handler = co;
 
-    /*
-     * Preserve the SIGUSR2 signal state, block SIGUSR2,
-     * and establish our signal handler. The signal will
-     * later transfer control onto the signal stack.
-     */
     sigemptyset(&sigs);
     sigaddset(&sigs, SIGUSR2);
     pthread_sigmask(SIG_BLOCK, &sigs, &osigs);
@@ -187,18 +118,11 @@ Coroutine *qemu_coroutine_new(void)
     sigfillset(&sa.sa_mask);
     sa.sa_flags = SA_ONSTACK;
 
-    /*
-     * sigaction() is a process-global operation.  We must not run
-     * this code in multiple threads at once.
-     */
     pthread_mutex_lock(&sigusr2_mutex);
     if (sigaction(SIGUSR2, &sa, &osa) != 0) {
         abort();
     }
 
-    /*
-     * Set the new stack.
-     */
     ss.ss_sp = co->stack;
     ss.ss_size = co->stack_size;
     ss.ss_flags = 0;
@@ -206,13 +130,6 @@ Coroutine *qemu_coroutine_new(void)
         abort();
     }
 
-    /*
-     * Now transfer control onto the signal stack and set it up.
-     * It will return immediately via "return" after the sigsetjmp()
-     * was performed. Be careful here with race conditions.  The
-     * signal can be delivered the first time sigsuspend() is
-     * called.
-     */
     coTS->tr_called = 0;
     pthread_kill(pthread_self(), SIGUSR2);
     sigfillset(&sigs);
@@ -221,11 +138,6 @@ Coroutine *qemu_coroutine_new(void)
         sigsuspend(&sigs);
     }
 
-    /*
-     * Inform the system that we are back off the signal stack by
-     * removing the alternative signal stack. Be careful here: It
-     * first has to be disabled, before it can be removed.
-     */
     sigaltstack(NULL, &ss);
     ss.ss_flags = SS_DISABLE;
     if (sigaltstack(&ss, NULL) < 0) {
@@ -236,28 +148,15 @@ Coroutine *qemu_coroutine_new(void)
         sigaltstack(&oss, NULL);
     }
 
-    /*
-     * Restore the old SIGUSR2 signal handler and mask
-     */
     sigaction(SIGUSR2, &osa, NULL);
     pthread_mutex_unlock(&sigusr2_mutex);
 
     pthread_sigmask(SIG_SETMASK, &osigs, NULL);
 
-    /*
-     * Now enter the trampoline again, but this time not as a signal
-     * handler. Instead we jump into it directly. The functionally
-     * redundant ping-pong pointer arithmetic is necessary to avoid
-     * type-conversion warnings related to the `volatile' qualifier and
-     * the fact that `jmp_buf' usually is an array type.
-     */
     if (!sigsetjmp(old_env, 0)) {
         siglongjmp(coTS->tr_reenter, 1);
     }
 
-    /*
-     * Ok, we returned again, so now we're finished
-     */
 
     return &co->base;
 }

@@ -1,12 +1,3 @@
-/*
- * vhost-backend
- *
- * Copyright (c) 2013 Virtual Open Systems Sarl.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #ifndef VHOST_BACKEND_H
 #define VHOST_BACKEND_H
@@ -27,14 +18,11 @@ typedef enum VhostSetConfigType {
 } VhostSetConfigType;
 
 typedef enum VhostDeviceStateDirection {
-    /* Transfer state from back-end (device) to front-end */
     VHOST_TRANSFER_STATE_DIRECTION_SAVE = 0,
-    /* Transfer state from front-end to back-end (device) */
     VHOST_TRANSFER_STATE_DIRECTION_LOAD = 1,
 } VhostDeviceStateDirection;
 
 typedef enum VhostDeviceStatePhase {
-    /* The device (and all its vrings) is stopped */
     VHOST_TRANSFER_STATE_PHASE_STOPPED = 0,
 } VhostDeviceStatePhase;
 

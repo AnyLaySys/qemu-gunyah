@@ -1,16 +1,3 @@
-/*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2 or later, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef HW_PL011_H
 #define HW_PL011_H
@@ -22,10 +9,8 @@
 #define TYPE_PL011 "pl011"
 OBJECT_DECLARE_SIMPLE_TYPE(PL011State, PL011)
 
-/* This shares the same struct (and cast macro) as the base pl011 device */
 #define TYPE_PL011_LUMINARY "pl011_luminary"
 
-/* Depth of UART FIFO in bytes, when FIFO mode is enabled (else depth == 1) */
 #define PL011_FIFO_DEPTH 16
 
 struct PL011State {
@@ -52,10 +37,6 @@ struct PL011State {
     Clock *clk;
     bool migrate_clk;
     const unsigned char *id;
-    /*
-     * Since some users embed this struct directly, we must
-     * ensure that the C struct is at least as big as the Rust one.
-     */
     uint8_t padding_for_rust[16];
 };
 

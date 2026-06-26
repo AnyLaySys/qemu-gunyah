@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifndef BLOCK_UFS_H
 #define BLOCK_UFS_H
@@ -243,13 +242,6 @@ typedef struct QEMU_PACKED UfsMcqCqIntReg {
 REG32(CQIS, offsetof(UfsMcqCqIntReg, is))
     FIELD(CQIS, TEPS, 0, 1)
 
-/*
- * Provide MCQ Operation & Runtime Registers as a contiguous addressed
- * registers for the simplicity.
- * DAO(Doorbell Address Offset) and  ISAO(Interrupt Status Register Address
- * Offset) registers should be properly configured with the following
- * structure.
- */
 #define UFS_MCQ_OPR_START   0x1000
 typedef struct QEMU_PACKED UfsMcqOpReg {
     UfsMcqSqReg sq;
@@ -478,7 +470,6 @@ typedef struct Attributes {
 #define UFS_TRANSACTION_SPECIFIC_FIELD_SIZE 20
 #define UFS_MAX_QUERY_DATA_SIZE 256
 
-/* Command response result code */
 typedef enum CommandRespCode {
     UFS_COMMAND_RESULT_SUCCESS = 0x00,
     UFS_COMMAND_RESULT_FAIL = 0x01,
@@ -503,10 +494,6 @@ typedef struct QEMU_PACKED UtpUpiuHeader {
     uint16_t data_segment_length;
 } UtpUpiuHeader;
 
-/*
- * The code below is copied from the linux kernel
- * ("include/uapi/scsi/scsi_bsg_ufs.h") and modified to fit the qemu style.
- */
 
 typedef struct QEMU_PACKED UtpUpiuQuery {
     uint8_t opcode;
@@ -517,29 +504,16 @@ typedef struct QEMU_PACKED UtpUpiuQuery {
     uint16_t length;
     uint32_t value;
     uint32_t reserved[2];
-    /* EHS length should be 0. We don't have to worry about EHS area. */
     uint8_t data[UFS_MAX_QUERY_DATA_SIZE];
 } UtpUpiuQuery;
 
 #define UFS_CDB_SIZE 16
 
-/*
- * struct UtpUpiuCmd - Command UPIU structure
- * @data_transfer_len: Data Transfer Length DW-3
- * @cdb: Command Descriptor Block CDB DW-4 to DW-7
- */
 typedef struct QEMU_PACKED UtpUpiuCmd {
     uint32_t exp_data_transfer_len;
     uint8_t cdb[UFS_CDB_SIZE];
 } UtpUpiuCmd;
 
-/*
- * struct UtpUpiuReq - general upiu request structure
- * @header:UPIU header structure DW-0 to DW-2
- * @sc: fields structure for scsi command DW-3 to DW-7
- * @qr: fields structure for query request DW-3 to DW-7
- * @uc: use utp_upiu_query to host the 4 dwords of uic command
- */
 typedef struct QEMU_PACKED UtpUpiuReq {
     UtpUpiuHeader header;
     union {
@@ -548,10 +522,6 @@ typedef struct QEMU_PACKED UtpUpiuReq {
     };
 } UtpUpiuReq;
 
-/*
- * The code below is copied from the linux kernel ("include/ufs/ufshci.h") and
- * modified to fit the qemu style.
- */
 
 enum {
     UFS_PWR_OK = 0x0,
@@ -562,7 +532,6 @@ enum {
     UFS_PWR_FATAL_ERROR = 0x05,
 };
 
-/* UIC Commands */
 enum uic_cmd_dme {
     UFS_UIC_CMD_DME_GET = 0x01,
     UFS_UIC_CMD_DME_SET = 0x02,
@@ -579,7 +548,6 @@ enum uic_cmd_dme {
     UFS_UIC_CMD_DME_TEST_MODE = 0x1A,
 };
 
-/* UIC Config result code / Generic error code */
 enum {
     UFS_UIC_CMD_RESULT_SUCCESS = 0x00,
     UFS_UIC_CMD_RESULT_INVALID_ATTR = 0x01,
@@ -597,18 +565,13 @@ enum {
 
 #define UFS_MASK_UIC_COMMAND_RESULT 0xFF
 
-/*
- * Request Descriptor Definitions
- */
 
-/* Transfer request command type */
 enum {
     UFS_UTP_CMD_TYPE_SCSI = 0x0,
     UFS_UTP_CMD_TYPE_UFS = 0x1,
     UFS_UTP_CMD_TYPE_DEV_MANAGE = 0x2,
 };
 
-/* To accommodate UFS2.0 required Command type */
 enum {
     UFS_UTP_CMD_TYPE_UFS_STORAGE = 0x1,
 };
@@ -621,14 +584,12 @@ enum {
     UFS_UTP_REQ_DESC_CRYPTO_ENABLE_CMD = 0x00800000,
 };
 
-/* UTP Transfer Request Data Direction (DD) */
 enum {
     UFS_UTP_NO_DATA_TRANSFER = 0x00000000,
     UFS_UTP_HOST_TO_DEVICE = 0x02000000,
     UFS_UTP_DEVICE_TO_HOST = 0x04000000,
 };
 
-/* Overall command status values */
 enum UtpOcsCodes {
     UFS_OCS_SUCCESS = 0x0,
     UFS_OCS_INVALID_CMD_TABLE_ATTR = 0x1,
@@ -648,29 +609,12 @@ enum {
     UFS_MASK_OCS = 0x0F,
 };
 
-/*
- * struct UfshcdSgEntry - UFSHCI PRD Entry
- * @addr: Physical address; DW-0 and DW-1.
- * @reserved: Reserved for future use DW-2
- * @size: size of physical segment DW-3
- */
 typedef struct QEMU_PACKED UfshcdSgEntry {
     uint64_t addr;
     uint32_t reserved;
     uint32_t size;
-    /*
-     * followed by variant-specific fields if
-     * CONFIG_SCSI_UFS_VARIABLE_SG_ENTRY_SIZE has been defined.
-     */
 } UfshcdSgEntry;
 
-/*
- * struct RequestDescHeader - Descriptor Header common to both UTRD and UTMRD
- * @dword0: Descriptor Header DW0
- * @dword1: Descriptor Header DW1
- * @dword2: Descriptor Header DW2
- * @dword3: Descriptor Header DW3
- */
 typedef struct QEMU_PACKED RequestDescHeader {
     uint32_t dword_0;
     uint32_t dword_1;
@@ -678,41 +622,22 @@ typedef struct QEMU_PACKED RequestDescHeader {
     uint32_t dword_3;
 } RequestDescHeader;
 
-/*
- * struct UtpTransferReqDesc - UTP Transfer Request Descriptor (UTRD)
- * @header: UTRD header DW-0 to DW-3
- * @command_desc_base_addr_lo: UCD base address low DW-4
- * @command_desc_base_addr_hi: UCD base address high DW-5
- * @response_upiu_length: response UPIU length DW-6
- * @response_upiu_offset: response UPIU offset DW-6
- * @prd_table_length: Physical region descriptor length DW-7
- * @prd_table_offset: Physical region descriptor offset DW-7
- */
 typedef struct QEMU_PACKED UtpTransferReqDesc {
-    /* DW 0-3 */
     RequestDescHeader header;
 
-    /* DW 4-5*/
     uint32_t command_desc_base_addr_lo;
     uint32_t command_desc_base_addr_hi;
 
-    /* DW 6 */
     uint16_t response_upiu_length;
     uint16_t response_upiu_offset;
 
-    /* DW 7 */
     uint16_t prd_table_length;
     uint16_t prd_table_offset;
 } UtpTransferReqDesc;
 
-/*
- * UTMRD structure.
- */
 typedef struct QEMU_PACKED UtpTaskReqDesc {
-    /* DW 0-3 */
     RequestDescHeader header;
 
-    /* DW 4-11 - Task request UPIU structure */
     struct {
         UtpUpiuHeader req_header;
         uint32_t input_param1;
@@ -721,7 +646,6 @@ typedef struct QEMU_PACKED UtpTaskReqDesc {
         uint32_t reserved1[2];
     } upiu_req;
 
-    /* DW 12-19 - Task Management Response UPIU structure */
     struct {
         UtpUpiuHeader rsp_header;
         uint32_t output_param1;
@@ -730,10 +654,6 @@ typedef struct QEMU_PACKED UtpTaskReqDesc {
     } upiu_rsp;
 } UtpTaskReqDesc;
 
-/*
- * The code below is copied from the linux kernel ("include/ufs/ufs.h") and
- * modified to fit the qemu style.
- */
 
 #define UFS_GENERAL_UPIU_REQUEST_SIZE (sizeof(UtpUpiuReq))
 #define UFS_QUERY_DESC_MAX_SIZE 255
@@ -742,40 +662,17 @@ typedef struct QEMU_PACKED UtpTaskReqDesc {
 #define UFS_QUERY_OSF_SIZE (GENERAL_UPIU_REQUEST_SIZE - (sizeof(UtpUpiuHeader)))
 #define UFS_SENSE_SIZE 18
 
-/*
- * UFS device may have standard LUs and LUN id could be from 0x00 to
- * 0x7F. Standard LUs use "Peripheral Device Addressing Format".
- * UFS device may also have the Well Known LUs (also referred as W-LU)
- * which again could be from 0x00 to 0x7F. For W-LUs, device only use
- * the "Extended Addressing Format" which means the W-LUNs would be
- * from 0xc100 (SCSI_W_LUN_BASE) onwards.
- * This means max. LUN number reported from UFS device could be 0xC17F.
- */
 #define UFS_UPIU_MAX_UNIT_NUM_ID 0x7F
 #define UFS_UPIU_WLUN_ID (1 << 7)
 
-/* WriteBooster buffer is available only for the logical unit from 0 to 7 */
 #define UFS_UPIU_MAX_WB_LUN_ID 8
 
-/*
- * WriteBooster buffer lifetime has a limit set by vendor.
- * If it is over the limit, WriteBooster feature will be disabled.
- */
 #define UFS_WB_EXCEED_LIFETIME 0x0B
 
-/*
- * The range of valid value of Active ICC attritbute
- * is from 0x00 to 0x0F.
- */
 #define UFS_QUERY_ATTR_ACTIVE_ICC_MAXVALUE 0x0F
 
-/*
- * In UFS Spec, the Extra Header Segment (EHS) starts from byte 32 in UPIU
- * request/response packet
- */
 #define UFS_EHS_OFFSET_IN_RESPONSE 32
 
-/* Well known logical unit id in LUN field of UPIU */
 enum {
     UFS_UPIU_REPORT_LUNS_WLUN = 0x81,
     UFS_UPIU_UFS_DEVICE_WLUN = 0xD0,
@@ -783,11 +680,7 @@ enum {
     UFS_UPIU_RPMB_WLUN = 0xC4,
 };
 
-/*
- * UFS Protocol Information Unit related definitions
- */
 
-/* Task management functions */
 enum {
     UFS_ABORT_TASK = 0x01,
     UFS_ABORT_TASK_SET = 0x02,
@@ -797,7 +690,6 @@ enum {
     UFS_QUERY_TASK_SET = 0x81,
 };
 
-/* UTP UPIU Transaction Codes Initiator to Target */
 enum {
     UFS_UPIU_TRANSACTION_NOP_OUT = 0x00,
     UFS_UPIU_TRANSACTION_COMMAND = 0x01,
@@ -806,7 +698,6 @@ enum {
     UFS_UPIU_TRANSACTION_QUERY_REQ = 0x16,
 };
 
-/* UTP UPIU Transaction Codes Target to Initiator */
 enum {
     UFS_UPIU_TRANSACTION_NOP_IN = 0x20,
     UFS_UPIU_TRANSACTION_RESPONSE = 0x21,
@@ -817,14 +708,12 @@ enum {
     UFS_UPIU_TRANSACTION_REJECT_UPIU = 0x3F,
 };
 
-/* UPIU Read/Write flags */
 enum {
     UFS_UPIU_CMD_FLAGS_NONE = 0x00,
     UFS_UPIU_CMD_FLAGS_WRITE = 0x20,
     UFS_UPIU_CMD_FLAGS_READ = 0x40,
 };
 
-/* UPIU Task Attributes */
 enum {
     UFS_UPIU_TASK_ATTR_SIMPLE = 0x00,
     UFS_UPIU_TASK_ATTR_ORDERED = 0x01,
@@ -832,13 +721,11 @@ enum {
     UFS_UPIU_TASK_ATTR_ACA = 0x03,
 };
 
-/* UPIU Query request function */
 enum {
     UFS_UPIU_QUERY_FUNC_STANDARD_READ_REQUEST = 0x01,
     UFS_UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST = 0x81,
 };
 
-/* Flag idn for Query Requests*/
 enum flag_idn {
     UFS_QUERY_FLAG_IDN_FDEVICEINIT = 0x01,
     UFS_QUERY_FLAG_IDN_PERMANENT_WPE = 0x02,
@@ -859,7 +746,6 @@ enum flag_idn {
     UFS_QUERY_FLAG_IDN_COUNT,
 };
 
-/* Attribute idn for Query requests */
 enum attr_idn {
     UFS_QUERY_ATTR_IDN_BOOT_LU_EN = 0x00,
     UFS_QUERY_ATTR_IDN_MAX_HPB_SINGLE_CMD = 0x01,
@@ -899,7 +785,6 @@ enum attr_idn {
     UFS_QUERY_ATTR_IDN_COUNT,
 };
 
-/* Descriptor idn for Query requests */
 enum desc_idn {
     UFS_QUERY_DESC_IDN_DEVICE = 0x0,
     UFS_QUERY_DESC_IDN_CONFIGURATION = 0x1,
@@ -919,7 +804,6 @@ enum desc_header_offset {
     UFS_QUERY_DESC_DESC_TYPE_OFFSET = 0x01,
 };
 
-/* Unit descriptor parameters offsets in bytes*/
 enum unit_desc_param {
     UFS_UNIT_DESC_PARAM_LEN = 0x0,
     UFS_UNIT_DESC_PARAM_TYPE = 0x1,
@@ -944,7 +828,6 @@ enum unit_desc_param {
     UFS_UNIT_DESC_PARAM_WB_BUF_ALLOC_UNITS = 0x29,
 };
 
-/* RPMB Unit descriptor parameters offsets in bytes*/
 enum rpmb_unit_desc_param {
     UFS_RPMB_UNIT_DESC_PARAM_LEN = 0x0,
     UFS_RPMB_UNIT_DESC_PARAM_TYPE = 0x1,
@@ -966,7 +849,6 @@ enum rpmb_unit_desc_param {
     UFS_RPMB_UNIT_DESC_PARAM_PHY_MEM_RSRC_CNT = 0x18,
 };
 
-/* Device descriptor parameters offsets in bytes*/
 enum device_desc_param {
     UFS_DEVICE_DESC_PARAM_LEN = 0x0,
     UFS_DEVICE_DESC_PARAM_TYPE = 0x1,
@@ -1011,7 +893,6 @@ enum device_desc_param {
     UFS_DEVICE_DESC_PARAM_WB_SHARED_ALLOC_UNITS = 0x55,
 };
 
-/* Interconnect descriptor parameters offsets in bytes*/
 enum interconnect_desc_param {
     UFS_INTERCONNECT_DESC_PARAM_LEN = 0x0,
     UFS_INTERCONNECT_DESC_PARAM_TYPE = 0x1,
@@ -1019,7 +900,6 @@ enum interconnect_desc_param {
     UFS_INTERCONNECT_DESC_PARAM_MPHY_VER = 0x4,
 };
 
-/* Geometry descriptor parameters offsets in bytes*/
 enum geometry_desc_param {
     UFS_GEOMETRY_DESC_PARAM_LEN = 0x0,
     UFS_GEOMETRY_DESC_PARAM_TYPE = 0x1,
@@ -1064,7 +944,6 @@ enum geometry_desc_param {
     UFS_GEOMETRY_DESC_PARAM_WB_SUP_WB_TYPE = 0x56,
 };
 
-/* Health descriptor parameters offsets in bytes*/
 enum health_desc_param {
     UFS_HEALTH_DESC_PARAM_LEN = 0x0,
     UFS_HEALTH_DESC_PARAM_TYPE = 0x1,
@@ -1078,31 +957,22 @@ enum {
     UFS_DEV_LOW_TEMP_NOTIF = BIT(5),
 };
 
-/* WriteBooster buffer mode */
 enum {
     UFS_WB_BUF_MODE_LU_DEDICATED = 0x0,
     UFS_WB_BUF_MODE_SHARED = 0x1,
 };
 
-/*
- * Logical Unit Write Protect
- * 00h: LU not write protected
- * 01h: LU write protected when fPowerOnWPEn =1
- * 02h: LU permanently write protected when fPermanentWPEn =1
- */
 enum ufs_lu_wp_type {
     UFS_LU_NO_WP = 0x00,
     UFS_LU_POWER_ON_WP = 0x01,
     UFS_LU_PERM_WP = 0x02,
 };
 
-/* Exception event mask values */
 enum {
     MASK_EE_TOO_HIGH_TEMP = BIT(3),
     MASK_EE_TOO_LOW_TEMP = BIT(4),
 };
 
-/* UTP QUERY Transaction Specific Fields OpCode */
 enum query_opcode {
     UFS_UPIU_QUERY_OPCODE_NOP = 0x0,
     UFS_UPIU_QUERY_OPCODE_READ_DESC = 0x1,
@@ -1115,7 +985,6 @@ enum query_opcode {
     UFS_UPIU_QUERY_OPCODE_TOGGLE_FLAG = 0x8,
 };
 
-/* Query response result code */
 typedef enum QueryRespCode {
     UFS_QUERY_RESULT_SUCCESS = 0x00,
     UFS_QUERY_RESULT_NOT_READABLE = 0xF6,
@@ -1130,14 +999,12 @@ typedef enum QueryRespCode {
     UFS_QUERY_RESULT_GENERAL_FAILURE = 0xFF,
 } QueryRespCode;
 
-/* UTP Transfer Request Command Type (CT) */
 enum {
     UFS_UPIU_COMMAND_SET_TYPE_SCSI = 0x0,
     UFS_UPIU_COMMAND_SET_TYPE_UFS = 0x1,
     UFS_UPIU_COMMAND_SET_TYPE_QUERY = 0x2,
 };
 
-/* Task management service response */
 enum {
     UFS_UPIU_TASK_MANAGEMENT_FUNC_COMPL = 0x00,
     UFS_UPIU_TASK_MANAGEMENT_FUNC_NOT_SUPPORTED = 0x04,
@@ -1146,7 +1013,6 @@ enum {
     UFS_UPIU_INCORRECT_LOGICAL_UNIT_NO = 0x09,
 };
 
-/* UFS device power modes */
 enum ufs_dev_pwr_mode {
     UFS_ACTIVE_PWR_MODE = 1,
     UFS_SLEEP_PWR_MODE = 2,
@@ -1154,13 +1020,6 @@ enum ufs_dev_pwr_mode {
     UFS_DEEPSLEEP_PWR_MODE = 4,
 };
 
-/*
- * struct UtpCmdRsp - Response UPIU structure
- * @residual_transfer_count: Residual transfer count DW-3
- * @reserved: Reserved double words DW-4 to DW-7
- * @sense_data_len: Sense data length DW-8 U16
- * @sense_data: Sense data field DW-8 to DW-12
- */
 typedef struct QEMU_PACKED UtpCmdRsp {
     uint32_t residual_transfer_count;
     uint32_t reserved[4];
@@ -1168,12 +1027,6 @@ typedef struct QEMU_PACKED UtpCmdRsp {
     uint8_t sense_data[UFS_SENSE_SIZE];
 } UtpCmdRsp;
 
-/*
- * struct UtpUpiuRsp - general upiu response structure
- * @header: UPIU header structure DW-0 to DW-2
- * @sr: fields structure for scsi command DW-3 to DW-12
- * @qr: fields structure for query request DW-3 to DW-7
- */
 typedef struct QEMU_PACKED UtpUpiuRsp {
     UtpUpiuHeader header;
     union {
@@ -1182,9 +1035,6 @@ typedef struct QEMU_PACKED UtpUpiuRsp {
     };
 } UtpUpiuRsp;
 
-/*
- * MCQ Completion Queue Entry
- */
 typedef UtpTransferReqDesc UfsSqEntry;
 typedef struct QEMU_PACKED UfsCqEntry {
     uint64_t utp_addr;

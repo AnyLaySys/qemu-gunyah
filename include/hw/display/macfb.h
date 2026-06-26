@@ -1,14 +1,3 @@
-/*
- * QEMU Motorola 680x0 Macintosh Video Card Emulation
- *                 Copyright (c) 2012-2018 Laurent Vivier
- *
- * some parts from QEMU G364 framebuffer Emulator.
- *                 Copyright (c) 2007-2011 Herve Poussineau
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #ifndef MACFB_H
 #define MACFB_H

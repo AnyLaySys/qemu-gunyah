@@ -1,14 +1,3 @@
-/*
- * qdev property parsing
- * (parts specific for qemu-system-*)
- *
- * This file is based on code from hw/qdev-properties.c from
- * commit 074a86fccd185616469dfcdc0e157f438aebba18,
- * Copyright (c) Gerd Hoffmann <kraxel@redhat.com> and other contributors.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "hw/qdev-properties.h"
@@ -52,7 +41,6 @@ static bool check_prop_still_unset(Object *obj, const char *name,
         error_setg(errp, "-global %s.%s=... conflicts with %s=%s",
                    prop->driver, prop->property, name, new_val);
     } else {
-        /* Error message is vague, but a better one would be hard */
         error_setg(errp, "%s=%s conflicts, and override is not implemented",
                    name, new_val);
     }
@@ -86,7 +74,6 @@ bool qdev_prop_sanitize_s390x_loadparm(uint8_t *loadparm, const char *str,
     return true;
 }
 
-/* --- drive --- */
 
 static void get_drive(Object *obj, Visitor *v, const char *name, void *opaque,
                       Error **errp)
@@ -135,7 +122,6 @@ static void set_drive_helper(Object *obj, Visitor *v, const char *name,
     }
 
     if (*ptr) {
-        /* BlockBackend already exists. So, we want to change attached node */
         blk = *ptr;
         ctx = blk_get_aio_context(blk);
         bs = bdrv_lookup_bs(NULL, str, errp);
@@ -162,13 +148,6 @@ static void set_drive_helper(Object *obj, Visitor *v, const char *name,
     if (!blk) {
         bs = bdrv_lookup_bs(NULL, str, NULL);
         if (bs) {
-            /*
-             * If the device supports iothreads, it will make sure to move the
-             * block node to the right AioContext if necessary (or fail if this
-             * isn't possible because of other users). Devices that are not
-             * aware of iothreads require their BlockBackends to be in the main
-             * AioContext.
-             */
             ctx = bdrv_get_aio_context(bs);
             blk = blk_new(iothread ? ctx : qemu_get_aio_context(),
                           0, BLK_PERM_ALL);
@@ -204,7 +183,6 @@ static void set_drive_helper(Object *obj, Visitor *v, const char *name,
 
 fail:
     if (blk_created) {
-        /* If we need to keep a reference, blk_attach_dev() took it */
         blk_unref(blk);
     }
 
@@ -253,7 +231,6 @@ const PropertyInfo qdev_prop_drive_iothread = {
     .release = release_drive,
 };
 
-/* --- character device --- */
 
 static void get_chr(Object *obj, Visitor *v, const char *name, void *opaque,
                     Error **errp)
@@ -279,10 +256,6 @@ static void set_chr(Object *obj, Visitor *v, const char *name, void *opaque,
         return;
     }
 
-    /*
-     * TODO Should this really be an error?  If no, the old value
-     * needs to be released before we store the new one.
-     */
     if (!check_prop_still_unset(obj, name, be->chr, str, false, errp)) {
         return;
     }
@@ -320,13 +293,7 @@ const PropertyInfo qdev_prop_chr = {
     .release = release_chr,
 };
 
-/* --- mac address --- */
 
-/*
- * accepted syntax versions:
- *   01:02:03:04:05:06
- *   01-02-03-04-05-06
- */
 static void get_mac(Object *obj, Visitor *v, const char *name, void *opaque,
                     Error **errp)
 {
@@ -403,7 +370,6 @@ void qdev_prop_set_macaddr(DeviceState *dev, const char *name,
     object_property_set_str(OBJECT(dev), name, str, &error_abort);
 }
 
-/* --- netdev device --- */
 static void get_netdev(Object *obj, Visitor *v, const char *name,
                        void *opaque, Error **errp)
 {
@@ -449,10 +415,6 @@ static void set_netdev(Object *obj, Visitor *v, const char *name,
             goto out;
         }
 
-        /*
-         * TODO Should this really be an error?  If no, the old value
-         * needs to be released before we store the new one.
-         */
         if (!check_prop_still_unset(obj, name, ncs[i], str, false, errp)) {
             goto out;
         }
@@ -482,7 +444,6 @@ const PropertyInfo qdev_prop_netdev = {
 };
 
 
-/* --- audiodev --- */
 static void get_audiodev(Object *obj, Visitor *v, const char* name,
                          void *opaque, Error **errp)
 {
@@ -515,7 +476,6 @@ static void set_audiodev(Object *obj, Visitor *v, const char* name,
 const PropertyInfo qdev_prop_audiodev = {
     .type = "str",
     .description = "ID of an audiodev to use as a backend",
-    /* release done on shutdown */
     .get = get_audiodev,
     .set = set_audiodev,
 };
@@ -573,7 +533,6 @@ void qdev_set_nic_properties(DeviceState *dev, NICInfo *nd)
     nd->instantiated = 1;
 }
 
-/* --- lost tick policy --- */
 
 static void qdev_propinfo_set_losttickpolicy(Object *obj, Visitor *v,
                                              const char *name, void *opaque,
@@ -611,7 +570,6 @@ const PropertyInfo qdev_prop_losttickpolicy = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- blocksize --- */
 
 static void set_blocksize(Object *obj, Visitor *v, const char *name,
                           void *opaque, Error **errp)
@@ -638,7 +596,6 @@ const PropertyInfo qdev_prop_blocksize = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- Block device error handling policy --- */
 
 QEMU_BUILD_BUG_ON(sizeof(BlockdevOnError) != sizeof(int));
 
@@ -651,7 +608,6 @@ const PropertyInfo qdev_prop_blockdev_on_error = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- BIOS CHS translation */
 
 QEMU_BUILD_BUG_ON(sizeof(BiosAtaTranslation) != sizeof(int));
 
@@ -665,7 +621,6 @@ const PropertyInfo qdev_prop_bios_chs_trans = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- FDC default drive types */
 
 const PropertyInfo qdev_prop_fdc_drive_type = {
     .type = "FloppyDriveType",
@@ -676,7 +631,6 @@ const PropertyInfo qdev_prop_fdc_drive_type = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- GranuleMode --- */
 
 QEMU_BUILD_BUG_ON(sizeof(GranuleMode) != sizeof(int));
 
@@ -689,14 +643,7 @@ const PropertyInfo qdev_prop_granule_mode = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- Reserved Region --- */
 
-/*
- * Accepted syntax:
- *   <low address>:<high address>:<type>
- *   where low/high addresses are uint64_t in hexadecimal
- *   and type is a non-negative decimal integer
- */
 static void get_reserved_region(Object *obj, Visitor *v, const char *name,
                                 void *opaque, Error **errp)
 {
@@ -770,11 +717,7 @@ const PropertyInfo qdev_prop_reserved_region = {
     .set   = set_reserved_region,
 };
 
-/* --- pci address --- */
 
-/*
- * bus-local address, i.e. "$slot" or "$slot.$fn"
- */
 static void set_pci_devfn(Object *obj, Visitor *v, const char *name,
                           void *opaque, Error **errp)
 {
@@ -853,7 +796,6 @@ const PropertyInfo qdev_prop_pci_devfn = {
     .set_default_value = qdev_propinfo_set_default_value_int,
 };
 
-/* --- pci host address --- */
 
 static void get_pci_host_devaddr(Object *obj, Visitor *v, const char *name,
                                  void *opaque, Error **errp)
@@ -864,10 +806,6 @@ static void get_pci_host_devaddr(Object *obj, Visitor *v, const char *name,
     char *p = buffer;
     int rc = 0;
 
-    /*
-     * Catch "invalid" device reference from vfio-pci and allow the
-     * default buffer representing the non-existent device to be used.
-     */
     if (~addr->domain || ~addr->bus || ~addr->slot || ~addr->function) {
         rc = snprintf(buffer, sizeof(buffer), "%04x:%02x:%02x.%0d",
                       addr->domain, addr->bus, addr->slot, addr->function);
@@ -877,10 +815,6 @@ static void get_pci_host_devaddr(Object *obj, Visitor *v, const char *name,
     visit_type_str(v, name, &p, errp);
 }
 
-/*
- * Parse [<domain>:]<bus>:<slot>.<func>
- *   if <domain> is not supplied, it's assumed to be 0.
- */
 static void set_pci_host_devaddr(Object *obj, Visitor *v, const char *name,
                                  void *opaque, Error **errp)
 {
@@ -958,7 +892,6 @@ const PropertyInfo qdev_prop_pci_host_devaddr = {
     .set = set_pci_host_devaddr,
 };
 
-/* --- OffAutoPCIBAR off/auto/bar0/bar1/bar2/bar3/bar4/bar5 --- */
 
 const PropertyInfo qdev_prop_off_auto_pcibar = {
     .type = "OffAutoPCIBAR",
@@ -969,7 +902,6 @@ const PropertyInfo qdev_prop_off_auto_pcibar = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- PCIELinkSpeed 2_5/5/8/16/32/64 -- */
 
 static void get_prop_pcielinkspeed(Object *obj, Visitor *v, const char *name,
                                    void *opaque, Error **errp)
@@ -998,7 +930,6 @@ static void get_prop_pcielinkspeed(Object *obj, Visitor *v, const char *name,
         speed = PCIE_LINK_SPEED_64;
         break;
     default:
-        /* Unreachable */
         abort();
     }
 
@@ -1037,7 +968,6 @@ static void set_prop_pcielinkspeed(Object *obj, Visitor *v, const char *name,
         *p = QEMU_PCI_EXP_LNK_64GT;
         break;
     default:
-        /* Unreachable */
         abort();
     }
 }
@@ -1051,7 +981,6 @@ const PropertyInfo qdev_prop_pcie_link_speed = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- PCIELinkWidth 1/2/4/8/12/16/32 -- */
 
 static void get_prop_pcielinkwidth(Object *obj, Visitor *v, const char *name,
                                    void *opaque, Error **errp)
@@ -1083,7 +1012,6 @@ static void get_prop_pcielinkwidth(Object *obj, Visitor *v, const char *name,
         width = PCIE_LINK_WIDTH_32;
         break;
     default:
-        /* Unreachable */
         abort();
     }
 
@@ -1125,7 +1053,6 @@ static void set_prop_pcielinkwidth(Object *obj, Visitor *v, const char *name,
         *p = QEMU_PCI_EXP_LNK_X32;
         break;
     default:
-        /* Unreachable */
         abort();
     }
 }
@@ -1139,7 +1066,6 @@ const PropertyInfo qdev_prop_pcie_link_width = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- UUID --- */
 
 static void get_uuid(Object *obj, Visitor *v, const char *name, void *opaque,
                      Error **errp)
@@ -1189,7 +1115,6 @@ const PropertyInfo qdev_prop_uuid = {
     .set_default_value = set_default_uuid_auto,
 };
 
-/* --- s390 cpu entitlement policy --- */
 
 QEMU_BUILD_BUG_ON(sizeof(S390CpuEntitlement) != sizeof(int));
 
@@ -1202,7 +1127,6 @@ const PropertyInfo qdev_prop_cpus390entitlement = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- IOThreadVirtQueueMappingList --- */
 
 static void get_iothread_vq_mapping_list(Object *obj, Visitor *v,
         const char *name, void *opaque, Error **errp)
@@ -1247,7 +1171,6 @@ const PropertyInfo qdev_prop_iothread_vq_mapping_list = {
     .release = release_iothread_vq_mapping_list,
 };
 
-/* --- Endian modes */
 
 const PropertyInfo qdev_prop_endian_mode = {
     .type = "EndianMode",

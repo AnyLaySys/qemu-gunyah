@@ -1,4 +1,3 @@
-/* Declarations for use by board files for creating devices.  */
 
 #ifndef HW_BOARDS_H
 #define HW_BOARDS_H
@@ -14,9 +13,6 @@
 
 #define TYPE_MACHINE_SUFFIX "-machine"
 
-/* Machine class name that needs to be used for class-name-based machine
- * type lookup to work.
- */
 #define MACHINE_TYPE_NAME(machinename) (machinename TYPE_MACHINE_SUFFIX)
 
 #define TYPE_MACHINE "machine"
@@ -25,10 +21,6 @@ OBJECT_DECLARE_TYPE(MachineState, MachineClass, MACHINE)
 
 extern MachineState *current_machine;
 
-/**
- * machine_class_default_cpu_type: Return the machine default CPU type.
- * @mc: Machine class
- */
 const char *machine_class_default_cpu_type(MachineClass *mc);
 
 void machine_add_audiodev_property(MachineClass *mc);
@@ -56,76 +48,15 @@ void machine_set_cache_topo_level(MachineState *ms, CacheLevelAndType cache,
 bool machine_check_smp_cache(const MachineState *ms, Error **errp);
 void machine_memory_devices_init(MachineState *ms, hwaddr base, uint64_t size);
 
-/**
- * machine_class_allow_dynamic_sysbus_dev: Add type to list of valid devices
- * @mc: Machine class
- * @type: type to allow (should be a subtype of TYPE_SYS_BUS_DEVICE)
- *
- * Add the QOM type @type to the list of devices of which are subtypes
- * of TYPE_SYS_BUS_DEVICE but which are still permitted to be dynamically
- * created (eg by the user on the command line with -device).
- * By default if the user tries to create any devices on the command line
- * that are subtypes of TYPE_SYS_BUS_DEVICE they will get an error message;
- * for the special cases which are permitted for this machine model, the
- * machine model class init code must call this function to add them
- * to the list of specifically permitted devices.
- */
 void machine_class_allow_dynamic_sysbus_dev(MachineClass *mc, const char *type);
 
-/**
- * device_type_is_dynamic_sysbus: Check if type is an allowed sysbus device
- * type for the machine class.
- * @mc: Machine class
- * @type: type to check (should be a subtype of TYPE_SYS_BUS_DEVICE)
- *
- * Returns: true if @type is a type in the machine's list of
- * dynamically pluggable sysbus devices; otherwise false.
- *
- * Check if the QOM type @type is in the list of allowed sysbus device
- * types (see machine_class_allowed_dynamic_sysbus_dev()).
- * Note that if @type has a parent type in the list, it is allowed too.
- */
 bool device_type_is_dynamic_sysbus(MachineClass *mc, const char *type);
 
-/**
- * device_is_dynamic_sysbus: test whether device is a dynamic sysbus device
- * @mc: Machine class
- * @dev: device to check
- *
- * Returns: true if @dev is a sysbus device on the machine's list
- * of dynamically pluggable sysbus devices; otherwise false.
- *
- * This function checks whether @dev is a valid dynamic sysbus device,
- * by first confirming that it is a sysbus device and then checking it
- * against the list of permitted dynamic sysbus devices which has been
- * set up by the machine using machine_class_allow_dynamic_sysbus_dev().
- *
- * It is valid to call this with something that is not a subclass of
- * TYPE_SYS_BUS_DEVICE; the function will return false in this case.
- * This allows hotplug callback functions to be written as:
- *     if (device_is_dynamic_sysbus(mc, dev)) {
- *         handle dynamic sysbus case;
- *     } else if (some other kind of hotplug) {
- *         handle that;
- *     }
- */
 bool device_is_dynamic_sysbus(MachineClass *mc, DeviceState *dev);
 
-/*
- * Checks that backend isn't used, preps it for exclusive usage and
- * returns migratable MemoryRegion provided by backend.
- */
 MemoryRegion *machine_consume_memdev(MachineState *machine,
                                      HostMemoryBackend *backend);
 
-/**
- * CPUArchId:
- * @arch_id - architecture-dependent CPU ID of present or possible CPU
- * @cpu - pointer to corresponding CPU object if it's present on NULL otherwise
- * @type - QOM class name of possible @cpu object
- * @props - CPU object properties, initialized by board
- * #vcpus_count - number of threads provided by @cpu object
- */
 typedef struct CPUArchId {
     uint64_t arch_id;
     int64_t vcpus_count;
@@ -134,31 +65,11 @@ typedef struct CPUArchId {
     const char *type;
 } CPUArchId;
 
-/**
- * CPUArchIdList:
- * @len - number of @CPUArchId items in @cpus array
- * @cpus - array of present or possible CPUs for current machine configuration
- */
 typedef struct {
     int len;
     CPUArchId cpus[];
 } CPUArchIdList;
 
-/**
- * SMPCompatProps:
- * @prefer_sockets - whether sockets are preferred over cores in smp parsing
- * @dies_supported - whether dies are supported by the machine
- * @clusters_supported - whether clusters are supported by the machine
- * @has_clusters - whether clusters are explicitly specified in the user
- *                 provided SMP configuration
- * @books_supported - whether books are supported by the machine
- * @drawers_supported - whether drawers are supported by the machine
- * @modules_supported - whether modules are supported by the machine
- * @cache_supported - whether cache (l1d, l1i, l2 and l3) configuration are
- *                    supported by the machine
- * @has_caches - whether cache properties are explicitly specified in the
- *               user provided smp-cache configuration
- */
 typedef struct {
     bool prefer_sockets;
     bool dies_supported;
@@ -171,99 +82,8 @@ typedef struct {
     bool has_caches;
 } SMPCompatProps;
 
-/**
- * MachineClass:
- * @deprecation_reason: If set, the machine is marked as deprecated. The
- *    string should provide some clear information about what to use instead.
- * @max_cpus: maximum number of CPUs supported. Default: 1
- * @min_cpus: minimum number of CPUs supported. Default: 1
- * @default_cpus: number of CPUs instantiated if none are specified. Default: 1
- * @is_default:
- *    If true QEMU will use this machine by default if no '-M' option is given.
- * @get_hotplug_handler: this function is called during bus-less
- *    device hotplug. If defined it returns pointer to an instance
- *    of HotplugHandler object, which handles hotplug operation
- *    for a given @dev. It may return NULL if @dev doesn't require
- *    any actions to be performed by hotplug handler.
- * @cpu_index_to_instance_props:
- *    used to provide @cpu_index to socket/core/thread number mapping, allowing
- *    legacy code to perform mapping from cpu_index to topology properties
- *    Returns: tuple of socket/core/thread ids given cpu_index belongs to.
- *    used to provide @cpu_index to socket number mapping, allowing
- *    a machine to group CPU threads belonging to the same socket/package
- *    Returns: socket number given cpu_index belongs to.
- * @hw_version:
- *    Value of QEMU_VERSION when the machine was added to QEMU.
- *    Set only by old machines because they need to keep
- *    compatibility on code that exposed QEMU_VERSION to guests in
- *    the past (and now use qemu_hw_version()).
- * @possible_cpu_arch_ids:
- *    Returns an array of @CPUArchId architecture-dependent CPU IDs
- *    which includes CPU IDs for present and possible to hotplug CPUs.
- *    Caller is responsible for freeing returned list.
- * @get_default_cpu_node_id:
- *    returns default board specific node_id value for CPU slot specified by
- *    index @idx in @ms->possible_cpus[]
- * @has_hotpluggable_cpus:
- *    If true, board supports CPUs creation with -device/device_add.
- * @default_cpu_type:
- *    specifies default CPU_TYPE, which will be used for parsing target
- *    specific features and for creating CPUs if CPU name wasn't provided
- *    explicitly at CLI
- * @minimum_page_bits:
- *    If non-zero, the board promises never to create a CPU with a page size
- *    smaller than this, so QEMU can use a more efficient larger page
- *    size than the target architecture's minimum. (Attempting to create
- *    such a CPU will fail.) Note that changing this is a migration
- *    compatibility break for the machine.
- * @ignore_memory_transaction_failures:
- *    If this is flag is true then the CPU will ignore memory transaction
- *    failures which should cause the CPU to take an exception due to an
- *    access to an unassigned physical address; the transaction will instead
- *    return zero (for a read) or be ignored (for a write). This should be
- *    set only by legacy board models which rely on the old RAZ/WI behaviour
- *    for handling devices that QEMU does not yet model. New board models
- *    should instead use "unimplemented-device" for all memory ranges where
- *    the guest will attempt to probe for a device that QEMU doesn't
- *    implement and a stub device is required.
- * @kvm_type:
- *    Return the type of KVM corresponding to the kvm-type string option or
- *    computed based on other criteria such as the host kernel capabilities.
- *    kvm-type may be NULL if it is not needed.
- * @hvf_get_physical_address_range:
- *    Returns the physical address range in bits to use for the HVF virtual
- *    machine based on the current boards memory map. This may be NULL if it
- *    is not needed.
- * @numa_mem_supported:
- *    true if '--numa node.mem' option is supported and false otherwise
- * @hotplug_allowed:
- *    If the hook is provided, then it'll be called for each device
- *    hotplug to check whether the device hotplug is allowed.  Return
- *    true to grant allowance or false to reject the hotplug.  When
- *    false is returned, an error must be set to show the reason of
- *    the rejection.  If the hook is not provided, all hotplug will be
- *    allowed.
- * @default_ram_id:
- *    Specifies initial RAM MemoryRegion name to be used for default backend
- *    creation if user explicitly hasn't specified backend with "memory-backend"
- *    property.
- *    It also will be used as a way to option into "-m" option support.
- *    If it's not set by board, '-m' will be ignored and generic code will
- *    not create default RAM MemoryRegion.
- * @fixup_ram_size:
- *    Amends user provided ram size (with -m option) using machine
- *    specific algorithm. To be used by old machine types for compat
- *    purposes only.
- *    Applies only to default memory backend, i.e., explicit memory backend
- *    wasn't used.
- * @smbios_memory_device_size:
- *    Default size of memory device,
- *    SMBIOS 3.1.0 "7.18 Memory Device (Type 17)"
- */
 struct MachineClass {
-    /*< private >*/
     ObjectClass parent_class;
-    /*< public >*/
 
     const char *family; /* NULL iff @name identifies a standalone machtype */
     char *name;
@@ -332,21 +152,6 @@ struct MachineClass {
                                   Error **errp);
 };
 
-/**
- * DeviceMemoryState:
- * @base: address in guest physical address space where the memory
- * address space for memory devices starts
- * @mr: memory region container for memory devices
- * @as: address space for memory devices
- * @listener: memory listener used to track used memslots in the address space
- * @dimm_size: the sum of plugged DIMMs' sizes
- * @used_region_size: the part of @mr already used by memory devices
- * @required_memslots: the number of memslots required by memory devices
- * @used_memslots: the number of memslots currently used by memory devices
- * @memslot_auto_decision_active: whether any plugged memory device
- *                                automatically decided to use more than
- *                                one memslot
- */
 typedef struct DeviceMemoryState {
     hwaddr base;
     MemoryRegion mr;
@@ -359,19 +164,6 @@ typedef struct DeviceMemoryState {
     unsigned int memslot_auto_decision_active;
 } DeviceMemoryState;
 
-/**
- * CpuTopology:
- * @cpus: the number of present logical processors on the machine
- * @drawers: the number of drawers on the machine
- * @books: the number of books in one drawer
- * @sockets: the number of sockets in one book
- * @dies: the number of dies in one socket
- * @clusters: the number of clusters in one die
- * @modules: the number of modules in one cluster
- * @cores: the number of cores in one cluster
- * @threads: the number of threads in one core
- * @max_cpus: the maximum number of logical processors on the machine
- */
 typedef struct CpuTopology {
     unsigned int cpus;
     unsigned int drawers;
@@ -389,14 +181,9 @@ typedef struct SmpCache {
     SmpCacheProperties props[CACHE_LEVEL_AND_TYPE__MAX];
 } SmpCache;
 
-/**
- * MachineState:
- */
 struct MachineState {
-    /*< private >*/
     Object parent_obj;
 
-    /*< public >*/
 
     void *fdt;
     char *dtb;
@@ -414,19 +201,9 @@ struct MachineState {
     ConfidentialGuestSupport *cgs;
     HostMemoryBackend *memdev;
     bool aux_ram_share;
-    /*
-     * convenience alias to ram_memdev_id backend memory region
-     * or to numa container memory region
-     */
     MemoryRegion *ram;
     DeviceMemoryState *device_memory;
 
-    /*
-     * Included in MachineState for simplicity, but not supported
-     * unless machine_add_audiodev_property is called.  Boards
-     * that have embedded audio devices can call it from the
-     * machine init function and forward the property to the device.
-     */
     char *audiodev;
 
     ram_addr_t ram_size;
@@ -446,98 +223,9 @@ struct MachineState {
     struct NumaState *numa_state;
 };
 
-/*
- * The macros which follow are intended to facilitate the
- * definition of versioned machine types, using a somewhat
- * similar pattern across targets.
- *
- * For example, a macro that can be used to define versioned
- * 'virt' machine types would look like:
- *
- *  #define DEFINE_VIRT_MACHINE_IMPL(latest, ...) \
- *      static void MACHINE_VER_SYM(class_init, virt, __VA_ARGS__)( \
- *          ObjectClass *oc, \
- *          void *data) \
- *      { \
- *          MachineClass *mc = MACHINE_CLASS(oc); \
- *          MACHINE_VER_SYM(options, virt, __VA_ARGS__)(mc); \
- *          mc->desc = "QEMU " MACHINE_VER_STR(__VA_ARGS__) " Virtual Machine"; \
- *          MACHINE_VER_DEPRECATION(__VA_ARGS__); \
- *          if (latest) { \
- *              mc->alias = "virt"; \
- *          } \
- *      } \
- *      static const TypeInfo MACHINE_VER_SYM(info, virt, __VA_ARGS__) = { \
- *          .name = MACHINE_VER_TYPE_NAME("virt", __VA_ARGS__), \
- *          .parent = TYPE_VIRT_MACHINE, \
- *          .class_init = MACHINE_VER_SYM(class_init, virt, __VA_ARGS__), \
- *      }; \
- *      static void MACHINE_VER_SYM(register, virt, __VA_ARGS__)(void) \
- *      { \
- *          MACHINE_VER_DELETION(__VA_ARGS__); \
- *          type_register_static(&MACHINE_VER_SYM(info, virt, __VA_ARGS__)); \
- *      } \
- *      type_init(MACHINE_VER_SYM(register, virt, __VA_ARGS__));
- *
- * Following this, one (or more) helpers can be added for
- * whichever scenarios need to be catered for with a machine:
- *
- *  // Normal 2 digit, marked as latest e.g. 'virt-9.0'
- *  #define DEFINE_VIRT_MACHINE_LATEST(major, minor) \
- *      DEFINE_VIRT_MACHINE_IMPL(true, major, minor)
- *
- *  // Normal 2 digit e.g. 'virt-9.0'
- *  #define DEFINE_VIRT_MACHINE(major, minor) \
- *      DEFINE_VIRT_MACHINE_IMPL(false, major, minor)
- *
- *  // Bugfix 3 digit e.g. 'virt-9.0.1'
- *  #define DEFINE_VIRT_MACHINE_BUGFIX(major, minor, micro) \
- *      DEFINE_VIRT_MACHINE_IMPL(false, major, minor, micro)
- *
- *  // Tagged 2 digit e.g. 'virt-9.0-extra'
- *  #define DEFINE_VIRT_MACHINE_TAGGED(major, minor, tag) \
- *      DEFINE_VIRT_MACHINE_IMPL(false, major, minor, _, tag)
- *
- *  // Tagged bugfix 2 digit e.g. 'virt-9.0.1-extra'
- *  #define DEFINE_VIRT_MACHINE_TAGGED(major, minor, micro, tag) \
- *      DEFINE_VIRT_MACHINE_IMPL(false, major, minor, micro, _, tag)
- */
 
-/*
- * Helper for dispatching different macros based on how
- * many __VA_ARGS__ are passed. Supports 1 to 5 variadic
- * arguments, with the called target able to be prefixed
- * with 0 or more fixed arguments too. To be called thus:
- *
- *  _MACHINE_VER_PICK(__VA_ARGS,
- *                    MACRO_MATCHING_5_ARGS,
- *                    MACRO_MATCHING_4_ARGS,
- *                    MACRO_MATCHING_3_ARGS,
- *                    MACRO_MATCHING_2_ARGS,
- *                    MACRO_MATCHING_1_ARG) (FIXED-ARG-1,
- *                                           ...,
- *                                           FIXED-ARG-N,
- *                                           __VA_ARGS__)
- */
 #define _MACHINE_VER_PICK(x1, x2, x3, x4, x5, x6, ...) x6
 
-/*
- * Construct a human targeted machine version string.
- *
- * Can be invoked with various signatures
- *
- *  MACHINE_VER_STR(sym, prefix, major, minor)
- *  MACHINE_VER_STR(sym, prefix, major, minor, micro)
- *  MACHINE_VER_STR(sym, prefix, major, minor, _, tag)
- *  MACHINE_VER_STR(sym, prefix, major, minor, micro, _, tag)
- *
- * Respectively emitting symbols with the format
- *
- *   "{major}.{minor}"
- *   "{major}.{minor}-{tag}"
- *   "{major}.{minor}.{micro}"
- *   "{major}.{minor}.{micro}-{tag}"
- */
 #define _MACHINE_VER_STR2(major, minor) \
     #major "." #minor
 
@@ -558,24 +246,6 @@ struct MachineState {
                       _MACHINE_VER_STR2) (__VA_ARGS__)
 
 
-/*
- * Construct a QAPI type name for a versioned machine
- * type
- *
- * Can be invoked with various signatures
- *
- *  MACHINE_VER_TYPE_NAME(prefix, major, minor)
- *  MACHINE_VER_TYPE_NAME(prefix, major, minor, micro)
- *  MACHINE_VER_TYPE_NAME(prefix, major, minor, _, tag)
- *  MACHINE_VER_TYPE_NAME(prefix, major, minor, micro, _, tag)
- *
- * Respectively emitting symbols with the format
- *
- *   "{prefix}-{major}.{minor}"
- *   "{prefix}-{major}.{minor}.{micro}"
- *   "{prefix}-{major}.{minor}-{tag}"
- *   "{prefix}-{major}.{minor}.{micro}-{tag}"
- */
 #define _MACHINE_VER_TYPE_NAME2(prefix, major, minor)   \
     prefix "-" #major "." #minor TYPE_MACHINE_SUFFIX
 
@@ -595,24 +265,6 @@ struct MachineState {
                       _MACHINE_VER_TYPE_NAME3, \
                       _MACHINE_VER_TYPE_NAME2) (prefix, __VA_ARGS__)
 
-/*
- * Construct a name for a versioned machine type that is
- * suitable for use as a C symbol (function/variable/etc).
- *
- * Can be invoked with various signatures
- *
- *  MACHINE_VER_SYM(sym, prefix, major, minor)
- *  MACHINE_VER_SYM(sym, prefix, major, minor, micro)
- *  MACHINE_VER_SYM(sym, prefix, major, minor, _, tag)
- *  MACHINE_VER_SYM(sym, prefix, major, minor, micro, _, tag)
- *
- * Respectively emitting symbols with the format
- *
- *   {prefix}_machine_{major}_{minor}_{sym}
- *   {prefix}_machine_{major}_{minor}_{micro}_{sym}
- *   {prefix}_machine_{major}_{minor}_{tag}_{sym}
- *   {prefix}_machine_{major}_{minor}_{micro}_{tag}_{sym}
- */
 #define _MACHINE_VER_SYM2(sym, prefix, major, minor) \
     prefix ## _machine_ ## major ## _ ## minor ## _ ## sym
 
@@ -633,18 +285,9 @@ struct MachineState {
                       _MACHINE_VER_SYM2) (sym, prefix, __VA_ARGS__)
 
 
-/*
- * How many years/major releases for each phase
- * of the life cycle. Assumes use of versioning
- * scheme where major is bumped each year
- */
 #define MACHINE_VER_DELETION_MAJOR 6
 #define MACHINE_VER_DEPRECATION_MAJOR 3
 
-/*
- * Expands to a static string containing a deprecation
- * message for a versioned machine type
- */
 #define MACHINE_VER_DEPRECATION_MSG \
     "machines more than " stringify(MACHINE_VER_DEPRECATION_MAJOR) \
     " years old are subject to deletion after " \
@@ -671,36 +314,12 @@ struct MachineState {
                       _MACHINE_VER_IS_EXPIRED3, \
                       _MACHINE_VER_IS_EXPIRED2) (cutoff, __VA_ARGS__)
 
-/*
- * Evaluates true when a machine type with (major, minor)
- * or (major, minor, micro) version should be considered
- * deprecated based on the current versioned machine type
- * lifecycle rules
- */
 #define MACHINE_VER_IS_DEPRECATED(...) \
     _MACHINE_IS_EXPIRED(MACHINE_VER_DEPRECATION_MAJOR, __VA_ARGS__)
 
-/*
- * Evaluates true when a machine type with (major, minor)
- * or (major, minor, micro) version should be considered
- * for deletion based on the current versioned machine type
- * lifecycle rules
- */
 #define MACHINE_VER_SHOULD_DELETE(...) \
     _MACHINE_IS_EXPIRED(MACHINE_VER_DELETION_MAJOR, __VA_ARGS__)
 
-/*
- * Sets the deprecation reason for a versioned machine based
- * on its age
- *
- * This must be unconditionally used in the _class_init
- * function for all machine types which support versioning.
- *
- * Initially it will effectively be a no-op, but after a
- * suitable period of time has passed, it will set the
- * 'deprecation_reason' field on the machine, to warn users
- * about forthcoming removal.
- */
 #define MACHINE_VER_DEPRECATION(...) \
     do { \
         if (MACHINE_VER_IS_DEPRECATED(__VA_ARGS__)) { \
@@ -708,31 +327,6 @@ struct MachineState {
         } \
     } while (0)
 
-/*
- * Prevents registration of a versioned machined based on
- * its age
- *
- * This must be unconditionally used in the register
- * method for all machine types which support versioning.
- *
- * Inijtially it will effectively be a no-op, but after a
- * suitable period of time has passed, it will cause
- * execution of the method to return, avoiding registration
- * of the machine
- *
- * The new deprecation and deletion policy for versioned
- * machine types was introduced in QEMU 9.1.0.
- *
- * Under the new policy a number of old machine types (any
- * prior to 2.12) would be liable for immediate deletion
- * which would be a violation of our historical deprecation
- * and removal policy
- *
- * Thus deletions are temporarily gated on existance of
- * the env variable "QEMU_DELETE_MACHINES" / QEMU version
- * number >= 10.1.0. This gate can be deleted in the 10.1.0
- * dev cycle
- */
 #define MACHINE_VER_DELETION(...) \
     do { \
         if (MACHINE_VER_SHOULD_DELETE(__VA_ARGS__)) { \

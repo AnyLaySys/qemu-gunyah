@@ -1,19 +1,3 @@
-/*
- * SMBIOS Support
- *
- * Copyright (C) 2009 Hewlett-Packard Development Company, L.P.
- * Copyright (C) 2013 Red Hat, Inc.
- *
- * Authors:
- *  Alex Williamson <alex.williamson@hp.com>
- *  Markus Armbruster <armbru@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/units.h"
@@ -30,9 +14,6 @@
 #include "hw/pci/pci_device.h"
 #include "smbios_build.h"
 
-/*
- * SMBIOS tables provided by user with '-smbios file=<foo>' option
- */
 uint8_t *usr_blobs;
 size_t usr_blobs_len;
 static unsigned usr_table_max;
@@ -63,11 +44,6 @@ static struct {
     const char *manufacturer, *version, *serial, *asset, *sku;
 } type3;
 
-/*
- * SVVP requires max_speed and current_speed to be set and not being
- * 0 which counts as unknown (SMBIOS 3.1.0/Table 21). Set the
- * default value to 2000MHz as we did before.
- */
 #define DEFAULT_CPU_SPEED 2000
 
 static struct {
@@ -90,7 +66,6 @@ struct type8_instance {
 };
 static QTAILQ_HEAD(, type8_instance) type8 = QTAILQ_HEAD_INITIALIZER(type8);
 
-/* type 9 instance for parsing */
 struct type9_instance {
     const char *slot_designation, *pcidev;
     uint8_t slot_type, slot_data_bus_width, current_usage, slot_length,
@@ -136,10 +111,6 @@ static QemuOptsList qemu_smbios_opts = {
     .name = "smbios",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_smbios_opts.head),
     .desc = {
-        /*
-         * no elements => accept any params
-         * validation will happen later
-         */
         { /* end of list */ }
     }
 };
@@ -501,11 +472,6 @@ static void smbios_register_config(void)
 
 opts_init(smbios_register_config);
 
-/*
- * The SMBIOS 2.1 "structure table length" field in the
- * entry point uses a 16-bit integer, so we're limited
- * in total table size
- */
 #define SMBIOS_21_MAX_TABLES_LEN 0xffff
 
 static bool smbios_check_type4_count(uint32_t expected_t4_count, Error **errp)
@@ -586,16 +552,12 @@ static void smbios_build_type_0_table(void)
         t->system_bios_minor_release = 0;
     }
 
-    /* hardcoded in SeaBIOS */
     t->embedded_controller_major_release = 0xFF;
     t->embedded_controller_minor_release = 0xFF;
 
     SMBIOS_BUILD_TABLE_POST;
 }
 
-/* Encode UUID from the big endian encoding described on RFC4122 to the wire
- * format specified by SMBIOS version 2.6.
- */
 static void smbios_encode_uuid(struct smbios_uuid *uuid, QemuUUID *in)
 {
     memcpy(uuid, in, 16);
@@ -743,7 +705,6 @@ static void smbios_build_type_8_table(void)
 
         SMBIOS_TABLE_SET_STR(8, internal_reference_str, t8->internal_reference);
         SMBIOS_TABLE_SET_STR(8, external_reference_str, t8->external_reference);
-        /* most vendors seem to set this to None */
         t->internal_connector_type = 0x0;
         t->external_connector_type = t8->connector_type;
         t->port_type = t8->port_type;
@@ -779,12 +740,6 @@ static void smbios_build_type_9_table(Error **errp)
                            t9->pcidev, t9->slot_designation);
                 return;
             }
-            /*
-             * We only handle the case were the device is attached to
-             * the PCI root bus. The general case is more complex as
-             * bridges are enumerated later and the table would need
-             * to be updated at this moment.
-             */
             if (!pci_bus_is_root(pci_get_bus(pdev))) {
                 error_setg(errp,
                            "Cannot create type 9 entry for PCI device %s: "
@@ -796,12 +751,6 @@ static void smbios_build_type_9_table(Error **errp)
             t->bus_number = pci_dev_bus_num(pdev);
             t->device_number = pdev->devfn;
         } else {
-            /*
-             * Per SMBIOS spec, For slots that are not of the PCI, AGP, PCI-X,
-             * or PCI-Express type that do not have bus/device/function
-             * information, 0FFh should be populated in the fields of Segment
-             * Group Number, Bus Number, Device/Function Number.
-             */
             t->segment_group_number = 0xff;
             t->bus_number = 0xff;
             t->device_number = 0xff;
@@ -966,12 +915,6 @@ static void smbios_build_type_41_table(Error **errp)
                            t41->pcidev, t41->designation);
                 return;
             }
-            /*
-             * We only handle the case were the device is attached to
-             * the PCI root bus. The general case is more complex as
-             * bridges are enumerated later and the table would need
-             * to be updated at this moment.
-             */
             if (!pci_bus_is_root(pci_get_bus(pdev))) {
                 error_setg(errp,
                            "Cannot create type 41 entry for PCI device %s: "
@@ -1043,17 +986,14 @@ static void smbios_entry_point_setup(SmbiosEntryPointType ep_type)
         ep.ep21.entry_point_revision = 0; /* formatted_area reserved */
         memset(ep.ep21.formatted_area, 0, 5);
 
-        /* compliant with smbios spec v2.8 */
         ep.ep21.smbios_major_version = 2;
         ep.ep21.smbios_minor_version = 8;
         ep.ep21.smbios_bcd_revision = 0x28;
 
-        /* set during table construction, but BIOS may override: */
         ep.ep21.structure_table_length = cpu_to_le16(smbios_tables_len);
         ep.ep21.max_structure_size = cpu_to_le16(smbios_table_max);
         ep.ep21.number_of_structures = cpu_to_le16(smbios_table_cnt);
 
-        /* BIOS must recalculate */
         ep.ep21.checksum = 0;
         ep.ep21.intermediate_checksum = 0;
         ep.ep21.structure_table_address = cpu_to_le32(0);
@@ -1065,15 +1005,12 @@ static void smbios_entry_point_setup(SmbiosEntryPointType ep_type)
         ep.ep30.entry_point_revision = 1;
         ep.ep30.reserved = 0;
 
-        /* compliant with smbios spec 3.0 */
         ep.ep30.smbios_major_version = 3;
         ep.ep30.smbios_minor_version = 0;
         ep.ep30.smbios_doc_rev = 0;
 
-        /* set during table construct, but BIOS might override */
         ep.ep30.structure_table_max_size = cpu_to_le32(smbios_tables_len);
 
-        /* BIOS must recalculate */
         ep.ep30.checksum = 0;
         ep.ep30.structure_table_address = cpu_to_le64(0);
 
@@ -1131,13 +1068,6 @@ static bool smbios_get_tables_ep(MachineState *ms,
                              mc->smbios_memory_device_size) /
                mc->smbios_memory_device_size;
 
-    /*
-     * The offset determines if we need to keep additional space between
-     * table 17 and table 19 header handle numbers so that they do
-     * not overlap. For example, for a VM with larger than 8 TB guest
-     * memory and DIMM like chunks of 16 GiB, the default space between
-     * the two tables (T19_BASE - T17_BASE = 512) is not enough.
-     */
     offset = (dimm_cnt > (T19_BASE - T17_BASE)) ? \
              dimm_cnt - (T19_BASE - T17_BASE) : 0;
 
@@ -1152,10 +1082,6 @@ static bool smbios_get_tables_ep(MachineState *ms,
                                    mem_array[i].length);
     }
 
-    /*
-     * make sure 16 bit handle numbers in the headers of tables 19
-     * and 32 do not overlap.
-     */
     assert((mem_array_size + offset) < (T32_BASE - T19_BASE));
 
     smbios_build_type_32_table();
@@ -1171,11 +1097,9 @@ static bool smbios_get_tables_ep(MachineState *ms,
     }
     smbios_entry_point_setup(ep_type);
 
-    /* return tables blob and entry point (anchor), and their sizes */
     *tables = smbios_tables;
     *tables_len = smbios_tables_len;
     *anchor = (uint8_t *)&ep;
-    /* calculate length based on anchor string */
     if (!strncmp((char *)&ep, "_SM_", 4)) {
         *anchor_len = sizeof(struct smbios_21_entry_point);
     } else if (!strncmp((char *)&ep, "_SM3_", 5)) {
@@ -1214,11 +1138,6 @@ void smbios_get_tables(MachineState *ms,
         if (is_valid || ep_type != SMBIOS_ENTRY_POINT_TYPE_AUTO) {
             break;
         }
-        /*
-         * fall through in case AUTO endpoint is selected and
-         * SMBIOS 2.x tables can't be generated, to try if SMBIOS 3.x
-         * tables would work
-         */
     case SMBIOS_ENTRY_POINT_TYPE_64:
         error_free(local_err);
         local_err = NULL;
@@ -1337,11 +1256,6 @@ void smbios_entry_add(QemuOpts *opts, Error **errp)
             return;
         }
 
-        /*
-         * NOTE: standard double '\0' terminator expected, per smbios spec.
-         * (except in legacy mode, where the second '\0' is implicit and
-         *  will be inserted by the BIOS).
-         */
         usr_blobs = g_realloc(usr_blobs, usr_blobs_len + size);
         header = (struct smbios_structure_header *)(usr_blobs +
                                                     usr_blobs_len);
@@ -1365,10 +1279,6 @@ void smbios_entry_add(QemuOpts *opts, Error **errp)
             smbios_type4_count++;
         }
 
-        /*
-         * preserve blob size for legacy mode so it could build its
-         * blobs flavor from 'usr_blobs'
-         */
         smbios_add_usr_blob_size(size);
 
         usr_blobs_len += size;
@@ -1469,7 +1379,6 @@ void smbios_entry_add(QemuOpts *opts, Error **errp)
             save_opt(&type4.serial, opts, "serial");
             save_opt(&type4.asset, opts, "asset");
             save_opt(&type4.part, opts, "part");
-            /* If the value is 0, it will take the value from the CPU model. */
             type4.processor_id = qemu_opt_get_number(opts, "processor-id", 0);
             type4.max_speed = qemu_opt_get_number(opts, "max-speed",
                                                   DEFAULT_CPU_SPEED);

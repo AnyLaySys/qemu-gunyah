@@ -1,22 +1,3 @@
-/*
- * pcie_aer.c
- *
- * Copyright (c) 2010 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "migration/vmstate.h"
@@ -28,7 +9,6 @@
 #include "hw/pci/pcie_regs.h"
 #include "pci-internal.h"
 
-//#define DEBUG_PCIE
 #ifdef DEBUG_PCIE
 # define PCIE_DPRINTF(fmt, ...)                                         \
     fprintf(stderr, "%s:%d " fmt, __func__, __LINE__, ## __VA_ARGS__)
@@ -41,7 +21,6 @@
 #define PCI_ERR_SRC_COR_OFFS    0
 #define PCI_ERR_SRC_UNCOR_OFFS  2
 
-/* From 6.2.7 Error Listing and Rules. Table 6-2, 6-3 and 6-4 */
 static uint32_t pcie_aer_uncor_default_severity(uint32_t status)
 {
     switch (status) {
@@ -101,7 +80,6 @@ int pcie_aer_init(PCIDevice *dev, uint8_t cap_ver, uint16_t offset,
                         offset, size);
     dev->exp.aer_cap = offset;
 
-    /* clip down the value to avoid unreasonable memory usage */
     if (dev->exp.aer_log.log_max > PCIE_AER_LOG_MAX_LIMIT) {
         error_setg(errp, "Invalid aer_log_max %d. The max number of aer log "
                 "is %d", dev->exp.aer_log.log_max, PCIE_AER_LOG_MAX_LIMIT);
@@ -133,7 +111,6 @@ int pcie_aer_init(PCIDevice *dev, uint8_t cap_ver, uint16_t offset,
     pci_set_long(dev->wmask + offset + PCI_ERR_COR_MASK,
                  PCI_ERR_COR_SUPPORTED);
 
-    /* capabilities and control. multiple header logging is supported */
     if (dev->exp.aer_log.log_max > 0) {
         pci_set_long(dev->config + offset + PCI_ERR_CAP,
                      PCI_ERR_CAP_ECRC_GENC | PCI_ERR_CAP_ECRC_CHKC |
@@ -150,8 +127,6 @@ int pcie_aer_init(PCIDevice *dev, uint8_t cap_ver, uint16_t offset,
 
     switch (pcie_cap_get_type(dev)) {
     case PCI_EXP_TYPE_ROOT_PORT:
-        /* this case will be set by pcie_aer_root_init() */
-        /* fallthrough */
     case PCI_EXP_TYPE_DOWNSTREAM:
     case PCI_EXP_TYPE_UPSTREAM:
         pci_word_test_and_set_mask(dev->wmask + PCI_BRIDGE_CONTROL,
@@ -160,7 +135,6 @@ int pcie_aer_init(PCIDevice *dev, uint8_t cap_ver, uint16_t offset,
                                    PCI_SEC_STATUS_RCV_SYSTEM_ERROR);
         break;
     default:
-        /* nothing */
         break;
     }
     return 0;
@@ -183,15 +157,6 @@ static void pcie_aer_update_uncor_status(PCIDevice *dev)
     }
 }
 
-/*
- * return value:
- * true: error message needs to be sent up
- * false: error message is masked
- *
- * 6.2.6 Error Message Control
- * Figure 6-3
- * all pci express devices part
- */
 static bool
 pcie_aer_msg_alldev(PCIDevice *dev, const PCIEAERMsg *msg)
 {
@@ -208,17 +173,6 @@ pcie_aer_msg_alldev(PCIDevice *dev, const PCIEAERMsg *msg)
         return false;
     }
 
-    /* Signaled System Error
-     *
-     * 7.5.1.1 Command register
-     * Bit 8 SERR# Enable
-     *
-     * When Set, this bit enables reporting of Non-fatal and Fatal
-     * errors detected by the Function to the Root Complex. Note that
-     * errors are reported if enabled either through this bit or through
-     * the PCI Express specific bits in the Device Control register (see
-     * Section 7.8.4).
-     */
     pci_word_test_and_set_mask(dev->config + PCI_STATUS,
                                PCI_STATUS_SIG_SYSTEM_ERROR);
 
@@ -227,25 +181,14 @@ pcie_aer_msg_alldev(PCIDevice *dev, const PCIEAERMsg *msg)
         return false;
     }
 
-    /* send up error message */
     return true;
 }
 
-/*
- * return value:
- * true: error message is sent up
- * false: error message is masked
- *
- * 6.2.6 Error Message Control
- * Figure 6-3
- * virtual pci bridge part
- */
 static bool pcie_aer_msg_vbridge(PCIDevice *dev, const PCIEAERMsg *msg)
 {
     uint16_t bridge_control = pci_get_word(dev->config + PCI_BRIDGE_CONTROL);
 
     if (pcie_aer_msg_is_uncor(msg)) {
-        /* Received System Error */
         pci_word_test_and_set_mask(dev->config + PCI_SEC_STATUS,
                                    PCI_SEC_STATUS_RCV_SYSTEM_ERROR);
     }
@@ -273,7 +216,6 @@ static unsigned int pcie_aer_root_get_vector(PCIDevice *dev)
     return (root_status & PCI_ERR_ROOT_IRQ) >> PCI_ERR_ROOT_IRQ_SHIFT;
 }
 
-/* Given a status register, get corresponding bits in the command register */
 static uint32_t pcie_aer_status_to_cmd(uint32_t status)
 {
     uint32_t cmd = 0;
@@ -300,11 +242,6 @@ static void pcie_aer_root_notify(PCIDevice *dev)
     }
 }
 
-/*
- * 6.2.6 Error Message Control
- * Figure 6-3
- * root port part
- */
 static void pcie_aer_msg_root_port(PCIDevice *dev, const PCIEAERMsg *msg)
 {
     uint16_t cmd;
@@ -318,17 +255,8 @@ static void pcie_aer_msg_root_port(PCIDevice *dev, const PCIEAERMsg *msg)
     prev_status = root_status = pci_get_long(aer_cap + PCI_ERR_ROOT_STATUS);
 
     if (cmd & PCI_COMMAND_SERR) {
-        /* System Error.
-         *
-         * The way to report System Error is platform specific and
-         * it isn't implemented in qemu right now.
-         * So just discard the error for now.
-         * OS which cares of aer would receive errors via
-         * native aer mechanisms, so this wouldn't matter.
-         */
     }
 
-    /* Error Message Received: Root Error Status register */
     switch (msg->severity) {
     case PCI_ERR_ROOT_CMD_COR_EN:
         if (root_status & PCI_ERR_ROOT_COR_RCV) {
@@ -363,33 +291,20 @@ static void pcie_aer_msg_root_port(PCIDevice *dev, const PCIEAERMsg *msg)
     }
     pci_set_long(aer_cap + PCI_ERR_ROOT_STATUS, root_status);
 
-    /* 6.2.4.1.2 Interrupt Generation */
-    /* All the above did was set some bits in the status register.
-     * Specifically these that match message severity.
-     * The below code relies on this fact. */
     if (!(root_cmd & msg->severity) ||
         (pcie_aer_status_to_cmd(prev_status) & root_cmd)) {
-        /* Condition is not being set or was already true so nothing to do. */
         return;
     }
 
     pcie_aer_root_notify(dev);
 }
 
-/*
- * 6.2.6 Error Message Control Figure 6-3
- *
- * Walk up the bus tree from the device, propagate the error message.
- */
 static void pcie_aer_msg(PCIDevice *dev, const PCIEAERMsg *msg)
 {
     uint8_t type;
 
     while (dev) {
         if (!pci_is_express(dev)) {
-            /* just ignore it */
-            /* TODO: Shouldn't we set PCI_STATUS_SIG_SYSTEM_ERROR?
-             * Consider e.g. a PCI bridge above a PCI Express device. */
             return;
         }
 
@@ -405,13 +320,6 @@ static void pcie_aer_msg(PCIDevice *dev, const PCIEAERMsg *msg)
         }
         if (type == PCI_EXP_TYPE_ROOT_PORT) {
             pcie_aer_msg_root_port(dev, msg);
-            /* Root port can notify system itself,
-               or send the error message to root complex event collector. */
-            /*
-             * if root port is associated with an event collector,
-             * return the root complex event collector here.
-             * For now root complex event collector isn't supported.
-             */
             return;
         }
         dev = pci_bridge_get_device(pci_get_bus(dev));
@@ -433,7 +341,6 @@ static void pcie_aer_update_log(PCIDevice *dev, const PCIEAERErr *err)
 
     if (err->flags & PCIE_AER_ERR_HEADER_VALID) {
         for (i = 0; i < ARRAY_SIZE(err->header); ++i) {
-            /* 7.10.8 Header Log Register */
             uint8_t *header_log =
                 aer_cap + PCI_ERR_HEADER_LOG + i * sizeof err->header[0];
             stl_be_p(header_log, err->header[i]);
@@ -447,7 +354,6 @@ static void pcie_aer_update_log(PCIDevice *dev, const PCIEAERErr *err)
         (pci_get_long(dev->config + dev->exp.exp_cap + PCI_EXP_DEVCAP2) &
          PCI_EXP_DEVCAP2_EETLPP)) {
         for (i = 0; i < ARRAY_SIZE(err->prefix); ++i) {
-            /* 7.10.12 tlp prefix log register */
             uint8_t *prefix_log =
                 aer_cap + PCI_ERR_TLP_PREFIX_LOG + i * sizeof err->prefix[0];
             stl_be_p(prefix_log, err->prefix[i]);
@@ -483,15 +389,6 @@ static void pcie_aer_clear_error(PCIDevice *dev)
         return;
     }
 
-    /*
-     * If more errors are queued, set corresponding bits in uncorrectable
-     * error status.
-     * We emulate uncorrectable error status register as W1CS.
-     * So set bit in uncorrectable error status here again for multiple
-     * error recording support.
-     *
-     * 6.2.4.2 Multiple Error Handling(Advanced Error Reporting Capability)
-     */
     pcie_aer_update_uncor_status(dev);
 
     aer_log_del_err(aer_log, &err);
@@ -510,9 +407,7 @@ static int pcie_aer_record_error(PCIDevice *dev,
 
     if (errcap & PCI_ERR_CAP_MHRE &&
         (pci_get_long(aer_cap + PCI_ERR_UNCOR_STATUS) & (1U << fep))) {
-        /*  Not first error. queue error */
         if (aer_log_add_err(&dev->exp.aer_log, err) < 0) {
-            /* overflow */
             return -1;
         }
         return 0;
@@ -625,17 +520,6 @@ static bool pcie_aer_inject_uncor_error(PCIEAERInject *inj, bool is_fatal)
     return true;
 }
 
-/*
- * non-Function specific error must be recorded in all functions.
- * It is the responsibility of the caller of this function.
- * It is also caller's responsibility to determine which function should
- * report the error.
- *
- * 6.2.4 Error Logging
- * 6.2.5 Sequence of Device Error Signaling and Logging Operations
- * Figure 6-2: Flowchart Showing Sequence of Device Error Signaling and Logging
- *             Operations
- */
 int pcie_aer_inject_error(PCIDevice *dev, const PCIEAERErr *err)
 {
     uint8_t *aer_cap = NULL;
@@ -654,7 +538,6 @@ int pcie_aer_inject_error(PCIDevice *dev, const PCIEAERErr *err)
         error_status &= PCI_ERR_UNC_SUPPORTED;
     }
 
-    /* invalid status bit. one and only one bit must be set */
     if (!error_status || (error_status & (error_status - 1))) {
         return -EINVAL;
     }
@@ -700,7 +583,6 @@ int pcie_aer_inject_error(PCIDevice *dev, const PCIEAERErr *err)
         }
     }
 
-    /* send up error message */
     inj.msg.source_id = err->source_id;
     pcie_aer_msg(dev, &inj.msg);
 
@@ -723,20 +605,11 @@ void pcie_aer_write_config(PCIDevice *dev,
     uint32_t first_error = 1U << PCI_ERR_CAP_FEP(errcap);
     uint32_t uncorsta = pci_get_long(aer_cap + PCI_ERR_UNCOR_STATUS);
 
-    /* uncorrectable error */
     if (!(uncorsta & first_error)) {
-        /* the bit that corresponds to the first error is cleared */
         pcie_aer_clear_error(dev);
     } else if (errcap & PCI_ERR_CAP_MHRE) {
-        /* When PCI_ERR_CAP_MHRE is enabled and the first error isn't cleared
-         * nothing should happen. So we have to revert the modification to
-         * the register.
-         */
         pcie_aer_update_uncor_status(dev);
     } else {
-        /* capability & control
-         * PCI_ERR_CAP_MHRE might be cleared, so clear of header log.
-         */
         aer_log_clear_all_err(&dev->exp.aer_log);
     }
 }
@@ -749,9 +622,6 @@ void pcie_aer_root_init(PCIDevice *dev)
                  PCI_ERR_ROOT_CMD_EN_MASK);
     pci_set_long(dev->w1cmask + pos + PCI_ERR_ROOT_STATUS,
                  PCI_ERR_ROOT_STATUS_REPORT_MASK);
-    /* PCI_ERR_ROOT_IRQ is RO but devices change it using a
-     * device-specific method.
-     */
     pci_set_long(dev->cmask + pos + PCI_ERR_ROOT_STATUS,
                  ~PCI_ERR_ROOT_IRQ);
 }
@@ -762,11 +632,6 @@ void pcie_aer_root_reset(PCIDevice *dev)
 
     pci_set_long(aer_cap + PCI_ERR_ROOT_COMMAND, 0);
 
-    /*
-     * Advanced Error Interrupt Message Number in Root Error Status Register
-     * must be updated by chip dependent code because it's chip dependent
-     * which number is used.
-     */
 }
 
 void pcie_aer_root_write_config(PCIDevice *dev,
@@ -777,7 +642,6 @@ void pcie_aer_root_write_config(PCIDevice *dev,
     uint32_t root_status = pci_get_long(aer_cap + PCI_ERR_ROOT_STATUS);
     uint32_t enabled_cmd = pcie_aer_status_to_cmd(root_status);
     uint32_t root_cmd = pci_get_long(aer_cap + PCI_ERR_ROOT_COMMAND);
-    /* 6.2.4.1.2 Interrupt Generation */
     if (!msix_enabled(dev) && !msi_enabled(dev)) {
         if (pci_intx(dev) != -1) {
             pci_set_irq(dev, !!(root_cmd & enabled_cmd));
@@ -786,7 +650,6 @@ void pcie_aer_root_write_config(PCIDevice *dev,
     }
 
     if ((root_cmd_prev & enabled_cmd) || !(root_cmd & enabled_cmd)) {
-        /* Send MSI on transition from false to true. */
         return;
     }
 
@@ -834,10 +697,6 @@ typedef struct PCIEAERErrorName {
     bool correctable;
 } PCIEAERErrorName;
 
-/*
- * AER error name -> value conversion table
- * This naming scheme is same to linux aer-injection tool.
- */
 static const struct PCIEAERErrorName pcie_aer_error_list[] = {
     {
         .name = "DLP",

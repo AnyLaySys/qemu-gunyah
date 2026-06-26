@@ -1,23 +1,3 @@
-/*
- * QEMU Crypto ASN.1 DER decoder
- *
- * Copyright (c) 2022 Bytedance
- * Author: lei he <helei.sig11@bytedance.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "crypto/der.h"
@@ -26,7 +6,6 @@ typedef struct QCryptoDerEncodeNode {
     uint8_t tag;
     struct QCryptoDerEncodeNode *parent;
     struct QCryptoDerEncodeNode *next;
-    /* for constructed type, data is null */
     const uint8_t *data;
     size_t dlen;
 } QCryptoDerEncodeNode;
@@ -73,15 +52,6 @@ enum QCryptoDERTagEnc {
     (((class) << QCRYPTO_DER_TAG_CLASS_SHIFT) |    \
      ((enc) << QCRYPTO_DER_TAG_ENC_SHIFT) | (val))
 
-/**
- * qcrypto_der_encode_length:
- * @src_len: the length of source data
- * @dst: destination to save the encoded 'length', if dst is NULL, only compute
- * the expected buffer size in bytes.
- * @dst_len: output parameter, indicates how many bytes wrote.
- *
- * Encode the 'length' part of TLV tuple.
- */
 static void qcrypto_der_encode_length(size_t src_len,
                                       uint8_t *dst, size_t *dst_len)
 {
@@ -103,7 +73,6 @@ static void qcrypto_der_encode_length(size_t src_len,
         return;
     }
     *dst++ = header_byte;
-    /* Bigendian length bytes */
     for (; length_bytes > 0; length_bytes--) {
         *dst++ = ((src_len >> (length_bytes - 1) * 8) & 0xFF);
     }
@@ -150,7 +119,6 @@ static int qcrypto_der_extract_definite_data(const uint8_t **data, size_t *dlen,
     size_t vlen = 0;
     uint8_t byte_count = qcrypto_der_cut_byte(data, dlen);
 
-    /* short format of definite-length */
     if (!(byte_count & QCRYPTO_DER_SHORT_LEN_MASK)) {
         if (byte_count > *dlen) {
             error_setg(errp, "Invalid content length: %u", byte_count);
@@ -167,13 +135,8 @@ static int qcrypto_der_extract_definite_data(const uint8_t **data, size_t *dlen,
         return vlen;
     }
 
-    /* Ignore highest bit */
     byte_count &= ~QCRYPTO_DER_SHORT_LEN_MASK;
 
-    /*
-     * size_t is enough to store the value of length, although the DER
-     * encoding standard supports larger length.
-     */
     if (byte_count > sizeof(size_t)) {
         error_setg(errp, "Invalid byte count of content length: %u",
                    byte_count);
@@ -214,7 +177,6 @@ static int qcrypto_der_extract_data(const uint8_t **data, size_t *dlen,
     }
     val = qcrypto_der_peek_byte(data, dlen);
 
-    /* must use definite length format */
     if (val == QCRYPTO_DER_SHORT_LEN_MASK) {
         error_setg(errp, "Only definite length format is allowed");
         return -1;
@@ -322,7 +284,6 @@ static void qcrypto_der_encode_prim(QCryptoEncodeContext *ctx, uint8_t tag,
     node->parent = ctx->current_parent;
 
     qcrypto_der_encode_length(dlen, NULL, &nbytes_len);
-    /* 1 byte for Tag, nbyte_len for Length, and dlen for Value */
     node->parent->dlen += 1 + nbytes_len + dlen;
 
     ctx->tail->next = node;
@@ -355,7 +316,6 @@ static void qcrypto_der_encode_cons_end(QCryptoEncodeContext *ctx)
     size_t nbytes_len;
 
     qcrypto_der_encode_length(cons_node->dlen, NULL, &nbytes_len);
-    /* 1 byte for Tag, nbyte_len for Length, and dlen for Value */
     cons_node->parent->dlen += 1 + nbytes_len + cons_node->dlen;
     ctx->current_parent = cons_node->parent;
 }
@@ -421,14 +381,11 @@ void qcrypto_der_encode_ctx_flush_and_free(QCryptoEncodeContext *ctx,
 
     for (prev = &ctx->root;
          (node = prev->next) && (prev->next = node->next, 1);) {
-        /* Tag */
         *dst++ = node->tag;
 
-        /* Length */
         qcrypto_der_encode_length(node->dlen, dst, &len);
         dst += len;
 
-        /* Value */
         if (node->data) {
             memcpy(dst, node->data, node->dlen);
             dst += node->dlen;

@@ -1,14 +1,12 @@
 #ifndef QEMU_ELF_H
 #define QEMU_ELF_H
 
-/* 32-bit ELF base types. */
 typedef uint32_t Elf32_Addr;
 typedef uint16_t Elf32_Half;
 typedef uint32_t Elf32_Off;
 typedef int32_t  Elf32_Sword;
 typedef uint32_t Elf32_Word;
 
-/* 64-bit ELF base types. */
 typedef uint64_t Elf64_Addr;
 typedef uint16_t Elf64_Half;
 typedef int16_t  Elf64_SHalf;
@@ -18,7 +16,6 @@ typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Xword;
 typedef int64_t  Elf64_Sxword;
 
-/* These constants are for the segment types stored in the image headers */
 #define PT_NULL           0
 #define PT_LOAD           1
 #define PT_DYNAMIC        2
@@ -39,11 +36,8 @@ typedef int64_t  Elf64_Sxword;
 #define PT_MIPS_OPTIONS   0x70000002
 #define PT_MIPS_ABIFLAGS  0x70000003
 
-/* Flags in the e_flags field of the header */
-/* MIPS architecture level. */
 #define EF_MIPS_ARCH          0xf0000000
 
-/* Legal values for MIPS architecture level.  */
 #define EF_MIPS_ARCH_1        0x00000000      /* -mips1 code.  */
 #define EF_MIPS_ARCH_2        0x10000000      /* -mips2 code.  */
 #define EF_MIPS_ARCH_3        0x20000000      /* -mips3 code.  */
@@ -56,7 +50,6 @@ typedef int64_t  Elf64_Sxword;
 #define EF_MIPS_ARCH_32R6     0x90000000      /* MIPS32r6 code.  */
 #define EF_MIPS_ARCH_64R6     0xa0000000      /* MIPS64r6 code.  */
 
-/* The ABI of a file. */
 #define EF_MIPS_ABI_O32       0x00001000      /* O32 ABI.  */
 #define EF_MIPS_ABI_O64       0x00002000      /* O32 extended for 64 bit.  */
 
@@ -70,7 +63,6 @@ typedef int64_t  Elf64_Sxword;
 #define EF_MIPS_FP64          0x00000200
 #define EF_MIPS_NAN2008       0x00000400
 
-/* MIPS machine variant */
 #define EF_MIPS_MACH_NONE     0x00000000  /* A standard MIPS implementation  */
 #define EF_MIPS_MACH_3900     0x00810000  /* Toshiba R3900                   */
 #define EF_MIPS_MACH_4010     0x00820000  /* LSI R4010                       */
@@ -107,8 +99,6 @@ typedef struct mips_elf_abiflags_v0 {
   uint16_t version;           /* Version of flags structure                  */
   uint8_t isa_level;          /* The level of the ISA: 1-5, 32, 64           */
   uint8_t isa_rev;            /* The revision of ISA:                        */
-                              /*   - 0 for MIPS V and below,                 */
-                              /*   - 1-n otherwise.                          */
   uint8_t gpr_size;           /* The size of general purpose registers       */
   uint8_t cpr1_size;          /* The size of co-processor 1 registers        */
   uint8_t cpr2_size;          /* The size of co-processor 2 registers        */
@@ -119,7 +109,6 @@ typedef struct mips_elf_abiflags_v0 {
   uint32_t flags2;
 } Mips_elf_abiflags_v0;
 
-/* These constants define the different elf file types */
 #define ET_NONE   0
 #define ET_REL    1
 #define ET_EXEC   2
@@ -128,7 +117,6 @@ typedef struct mips_elf_abiflags_v0 {
 #define ET_LOPROC 0xff00
 #define ET_HIPROC 0xffff
 
-/* These constants define the various ELF target machines */
 #define EM_NONE             0
 #define EM_M32              1
 #define EM_SPARC            2
@@ -185,18 +173,10 @@ typedef struct mips_elf_abiflags_v0 {
 
 #define EM_LOONGARCH        258 /* LoongArch */
 
-/*
- * This is an interim value that we will use until the committee comes
- * up with a final number.
- */
 #define EM_ALPHA            0x9026
 
-/* Bogus old v850 magic number, used by old tools.  */
 #define EM_CYGNUS_V850      0x9080
 
-/*
- * This is the old interim value for S/390 architecture
- */
 #define EM_S390_OLD         0xA390
 
 #define EM_ALTERA_NIOS2     113 /* Altera Nios II soft-core processor */
@@ -210,7 +190,6 @@ typedef struct mips_elf_abiflags_v0 {
 
 #define EF_AVR_MACH         0x7F /* Mask for AVR e_flags to get core type */
 
-/* This is the info that is needed to parse the dynamic section of the file */
 #define DT_NULL         0
 #define DT_NEEDED       1
 #define DT_PLTRELSZ     2
@@ -247,13 +226,9 @@ typedef struct mips_elf_abiflags_v0 {
 #define DT_LOPROC       0x70000000
 #define DT_HIPROC       0x7fffffff
 
-/* DT_ entries which fall between DT_VALRNGLO and DT_VALRNDHI use
-   the d_val field of the Elf*_Dyn structure.  I.e. they contain scalars.  */
 #define DT_VALRNGLO     0x6ffffd00
 #define DT_VALRNGHI     0x6ffffdff
 
-/* DT_ entries which fall between DT_ADDRRNGLO and DT_ADDRRNGHI use
-   the d_ptr field of the Elf*_Dyn structure.  I.e. they contain pointers.  */
 #define DT_ADDRRNGLO    0x6ffffe00
 #define DT_ADDRRNGHI    0x6ffffeff
 
@@ -286,7 +261,6 @@ typedef struct mips_elf_abiflags_v0 {
 #define DT_MIPS_HIPAGENO        0x70000014
 #define DT_MIPS_RLD_MAP         0x70000016
 
-/* This info is needed when parsing the symbol table */
 #define STB_LOCAL  0
 #define STB_GLOBAL 1
 #define STB_WEAK   2
@@ -305,8 +279,6 @@ typedef struct mips_elf_abiflags_v0 {
 #define ELF64_ST_BIND(x)        ELF_ST_BIND(x)
 #define ELF64_ST_TYPE(x)        ELF_ST_TYPE(x)
 
-/* Symbolic values for the entries in the auxiliary table
-   put on the initial stack */
 #define AT_NULL             0   /* end of vector */
 #define AT_IGNORE           1   /* entry should be ignored */
 #define AT_EXECFD           2   /* file descriptor of program */
@@ -358,7 +330,6 @@ typedef struct {
   } d_un;
 } Elf64_Dyn;
 
-/* The following are used with relocations */
 #define ELF32_R_SYM(x) ((x) >> 8)
 #define ELF32_R_TYPE(x) ((x) & 0xff)
 
@@ -378,7 +349,6 @@ typedef struct {
 #define R_386_GOTOFF    9
 #define R_386_GOTPC     10
 #define R_386_NUM       11
-/* Not a dynamic reloc, so not included in R_386_NUM.  Used in TCG.  */
 #define R_386_PC8       23
 
 #define R_MIPS_NONE     0
@@ -394,8 +364,6 @@ typedef struct {
 #define R_MIPS_PC16     10
 #define R_MIPS_CALL16   11
 #define R_MIPS_GPREL32  12
-/* The remaining relocs are defined on Irix, although they are not
-   in the MIPS ELF ABI.  */
 #define R_MIPS_UNUSED1  13
 #define R_MIPS_UNUSED2  14
 #define R_MIPS_UNUSED3  15
@@ -405,10 +373,6 @@ typedef struct {
 #define R_MIPS_GOT_DISP 19
 #define R_MIPS_GOT_PAGE 20
 #define R_MIPS_GOT_OFST 21
-/*
- * The following two relocation types are specified in the MIPS ABI
- * conformance guide version 1.2 but not yet in the psABI.
- */
 #define R_MIPS_GOTHI16  22
 #define R_MIPS_GOTLO16  23
 #define R_MIPS_SUB      24
@@ -417,22 +381,13 @@ typedef struct {
 #define R_MIPS_DELETE   27
 #define R_MIPS_HIGHER   28
 #define R_MIPS_HIGHEST  29
-/*
- * The following two relocation types are specified in the MIPS ABI
- * conformance guide version 1.2 but not yet in the psABI.
- */
 #define R_MIPS_CALLHI16 30
 #define R_MIPS_CALLLO16 31
-/*
- * This range is reserved for vendor specific relocations.
- */
 #define R_MIPS_LOVENDOR 100
 #define R_MIPS_HIVENDOR 127
 
 
-/* SUN SPARC specific definitions.  */
 
-/* Values for Elf64_Ehdr.e_flags.  */
 
 #define EF_SPARCV9_MM           3
 #define EF_SPARCV9_TSO          0
@@ -445,9 +400,6 @@ typedef struct {
 #define EF_SPARC_HAL_R1         0x000400 /* HAL R1 extensions */
 #define EF_SPARC_SUN_US3        0x000800 /* Sun UltraSPARCIII extensions */
 
-/*
- * Sparc ELF relocation types
- */
 #define R_SPARC_NONE        0
 #define R_SPARC_8           1
 #define R_SPARC_16          2
@@ -491,7 +443,6 @@ typedef struct {
 #define R_SPARC_5           44
 #define R_SPARC_6           45
 
-/* Bits present in AT_HWCAP for ARM.  */
 
 #define HWCAP_ARM_SWP           (1 << 0)
 #define HWCAP_ARM_HALF          (1 << 1)
@@ -516,7 +467,6 @@ typedef struct {
 #define HWCAP_VFPD32            (1 << 19)       /* set if VFP has 32 regs */
 #define HWCAP_LPAE              (1 << 20)
 
-/* Bits present in AT_HWCAP for PowerPC.  */
 
 #define PPC_FEATURE_32                  0x80000000
 #define PPC_FEATURE_64                  0x40000000
@@ -550,7 +500,6 @@ typedef struct {
 #define PPC_FEATURE_TRUE_LE             0x00000002
 #define PPC_FEATURE_PPC_LE              0x00000001
 
-/* Bits present in AT_HWCAP2 for PowerPC.  */
 
 #define PPC_FEATURE2_ARCH_2_07          0x80000000
 #define PPC_FEATURE2_HAS_HTM            0x40000000
@@ -564,7 +513,6 @@ typedef struct {
 #define PPC_FEATURE2_HAS_IEEE128        0x00400000
 #define PPC_FEATURE2_ARCH_3_10          0x00040000
 
-/* Bits present in AT_HWCAP for Sparc.  */
 
 #define HWCAP_SPARC_FLUSH               0x00000001
 #define HWCAP_SPARC_STBAR               0x00000002
@@ -594,7 +542,6 @@ typedef struct {
 #define HWCAP_SPARC_CBCOND              0x02000000
 #define HWCAP_SPARC_CRYPTO              0x04000000
 
-/* Bits present in AT_HWCAP for s390.  */
 
 #define HWCAP_S390_NR_ESAN3      0
 #define HWCAP_S390_NR_ZARCH      1
@@ -644,9 +591,6 @@ typedef struct {
 #define HWCAP_S390_PCI_MIO   (1 << HWCAP_S390_NR_PCI_MIO)
 #define HWCAP_S390_SIE       (1 << HWCAP_S390_NR_SIE)
 
-/* M68K specific definitions. */
-/* We use the top 24 bits to encode information about the
-   architecture variant.  */
 #define EF_M68K_CPU32    0x00810000
 #define EF_M68K_M68000   0x01000000
 #define EF_M68K_CFV4E    0x00008000
@@ -654,9 +598,6 @@ typedef struct {
 #define EF_M68K_ARCH_MASK                                               \
   (EF_M68K_M68000 | EF_M68K_CPU32 | EF_M68K_CFV4E | EF_M68K_FIDO)
 
-/* We use the bottom 8 bits to encode information about the
-   coldfire variant.  If we use any of these bits, the top 24 bits are
-   either 0 or EF_M68K_CFV4E.  */
 #define EF_M68K_CF_ISA_MASK     0x0F  /* Which ISA */
 #define EF_M68K_CF_ISA_A_NODIV  0x01  /* ISA A except for div */
 #define EF_M68K_CF_ISA_A        0x02
@@ -672,9 +613,6 @@ typedef struct {
 #define EF_M68K_CF_FLOAT        0x40  /* Has float insns */
 #define EF_M68K_CF_MASK         0xFF
 
-/*
- * 68k ELF relocation types
- */
 #define R_68K_NONE      0
 #define R_68K_32        1
 #define R_68K_16        2
@@ -699,9 +637,6 @@ typedef struct {
 #define R_68K_JMP_SLOT  21
 #define R_68K_RELATIVE  22
 
-/*
- * Alpha ELF relocation types
- */
 #define R_ALPHA_NONE            0       /* No reloc */
 #define R_ALPHA_REFLONG         1       /* Direct 32 bit */
 #define R_ALPHA_REFQUAD         2       /* Direct 64 bit */
@@ -739,12 +674,9 @@ typedef struct {
 #define SHF_ALPHA_GPREL         0x10000000
 
 
-/* PowerPC specific definitions.  */
 
-/* Processor specific flags for the ELF header e_flags field.  */
 #define EF_PPC64_ABI            0x3
 
-/* PowerPC relocations defined by the ABIs */
 #define R_PPC_NONE              0
 #define R_PPC_ADDR32            1   /* 32bit absolute address */
 #define R_PPC_ADDR24            2   /* 26bit address, 2 bits ignored.  */
@@ -782,14 +714,11 @@ typedef struct {
 #define R_PPC_SECTOFF_LO        34
 #define R_PPC_SECTOFF_HI        35
 #define R_PPC_SECTOFF_HA        36
-/* Keep this the last entry.  */
 #ifndef R_PPC_NUM
 #define R_PPC_NUM               37
 #endif
 
-/* ARM specific declarations */
 
-/* Processor specific flags for the ELF header e_flags field.  */
 #define EF_ARM_RELEXEC        0x01
 #define EF_ARM_HASENTRY       0x02
 #define EF_ARM_INTERWORK      0x04
@@ -803,13 +732,11 @@ typedef struct {
 #define EF_ARM_VFP_FLOAT      0x400
 #define EF_ARM_MAVERICK_FLOAT 0x800
 
-/* Other constants defined in the ARM ELF spec. version B-01.  */
 #define EF_ARM_SYMSARESORTED    0x04   /* NB conflicts with EF_INTERWORK */
 #define EF_ARM_DYNSYMSUSESEGIDX 0x08   /* NB conflicts with EF_APCS26 */
 #define EF_ARM_MAPSYMSFIRST     0x10   /* NB conflicts with EF_APCS_FLOAT */
 #define EF_ARM_EABIMASK         0xFF000000
 
-/* Constants defined in AAELF.  */
 #define EF_ARM_BE8          0x00800000
 #define EF_ARM_LE8          0x00400000
 
@@ -821,19 +748,15 @@ typedef struct {
 #define EF_ARM_EABI_VER4     0x04000000
 #define EF_ARM_EABI_VER5     0x05000000
 
-/* Additional symbol types for Thumb */
 #define STT_ARM_TFUNC      0xd
 
-/* ARM-specific values for sh_flags */
 #define SHF_ARM_ENTRYSECT  0x10000000   /* Section contains an entry point */
 #define SHF_ARM_COMDEF     0x80000000   /* Section may be multiply defined
                                            in the input to a link step */
 
-/* ARM-specific program header flags */
 #define PF_ARM_SB          0x10000000   /* Segment contains the location
                                            addressed by the static base */
 
-/* ARM relocs.  */
 #define R_ARM_NONE              0   /* No reloc */
 #define R_ARM_PC24              1   /* PC relative 26 bit branch */
 #define R_ARM_ABS32             2   /* Direct 32 bit  */
@@ -872,20 +795,15 @@ typedef struct {
 #define R_ARM_RABS22            253
 #define R_ARM_RPC24             254
 #define R_ARM_RBASE             255
-/* Keep this the last entry.  */
 #define R_ARM_NUM               256
 
-/* ARM Aarch64 relocation types */
 #define R_AARCH64_NONE                256 /* also accepts R_ARM_NONE (0) */
-/* static data relocations */
 #define R_AARCH64_ABS64               257
 #define R_AARCH64_ABS32               258
 #define R_AARCH64_ABS16               259
 #define R_AARCH64_PREL64              260
 #define R_AARCH64_PREL32              261
 #define R_AARCH64_PREL16              262
-/* static aarch64 group relocations */
-/* group relocs to create unsigned data value or address inline */
 #define R_AARCH64_MOVW_UABS_G0        263
 #define R_AARCH64_MOVW_UABS_G0_NC     264
 #define R_AARCH64_MOVW_UABS_G1        265
@@ -893,11 +811,9 @@ typedef struct {
 #define R_AARCH64_MOVW_UABS_G2        267
 #define R_AARCH64_MOVW_UABS_G2_NC     268
 #define R_AARCH64_MOVW_UABS_G3        269
-/* group relocs to create signed data or offset value inline */
 #define R_AARCH64_MOVW_SABS_G0        270
 #define R_AARCH64_MOVW_SABS_G1        271
 #define R_AARCH64_MOVW_SABS_G2        272
-/* relocs to generate 19, 21, and 33 bit PC-relative addresses */
 #define R_AARCH64_LD_PREL_LO19        273
 #define R_AARCH64_ADR_PREL_LO21       274
 #define R_AARCH64_ADR_PREL_PG_HI21    275
@@ -908,12 +824,10 @@ typedef struct {
 #define R_AARCH64_LDST32_ABS_LO12_NC  285
 #define R_AARCH64_LDST64_ABS_LO12_NC  286
 #define R_AARCH64_LDST128_ABS_LO12_NC 299
-/* relocs for control-flow - all offsets as multiple of 4 */
 #define R_AARCH64_TSTBR14             279
 #define R_AARCH64_CONDBR19            280
 #define R_AARCH64_JUMP26              282
 #define R_AARCH64_CALL26              283
-/* group relocs to create pc-relative offset inline */
 #define R_AARCH64_MOVW_PREL_G0        287
 #define R_AARCH64_MOVW_PREL_G0_NC     288
 #define R_AARCH64_MOVW_PREL_G1        289
@@ -921,7 +835,6 @@ typedef struct {
 #define R_AARCH64_MOVW_PREL_G2        291
 #define R_AARCH64_MOVW_PREL_G2_NC     292
 #define R_AARCH64_MOVW_PREL_G3        293
-/* group relocs to create a GOT-relative offset inline */
 #define R_AARCH64_MOVW_GOTOFF_G0      300
 #define R_AARCH64_MOVW_GOTOFF_G0_NC   301
 #define R_AARCH64_MOVW_GOTOFF_G1      302
@@ -929,22 +842,18 @@ typedef struct {
 #define R_AARCH64_MOVW_GOTOFF_G2      304
 #define R_AARCH64_MOVW_GOTOFF_G2_NC   305
 #define R_AARCH64_MOVW_GOTOFF_G3      306
-/* GOT-relative data relocs */
 #define R_AARCH64_GOTREL64            307
 #define R_AARCH64_GOTREL32            308
-/* GOT-relative instr relocs */
 #define R_AARCH64_GOT_LD_PREL19       309
 #define R_AARCH64_LD64_GOTOFF_LO15    310
 #define R_AARCH64_ADR_GOT_PAGE        311
 #define R_AARCH64_LD64_GOT_LO12_NC    312
 #define R_AARCH64_LD64_GOTPAGE_LO15   313
-/* General Dynamic TLS relocations */
 #define R_AARCH64_TLSGD_ADR_PREL21            512
 #define R_AARCH64_TLSGD_ADR_PAGE21            513
 #define R_AARCH64_TLSGD_ADD_LO12_NC           514
 #define R_AARCH64_TLSGD_MOVW_G1               515
 #define R_AARCH64_TLSGD_MOVW_G0_NC            516
-/* Local Dynamic TLS relocations */
 #define R_AARCH64_TLSLD_ADR_PREL21            517
 #define R_AARCH64_TLSLD_ADR_PAGE21            518
 #define R_AARCH64_TLSLD_ADD_LO12_NC           519
@@ -967,13 +876,11 @@ typedef struct {
 #define R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC 536
 #define R_AARCH64_TLSLD_LDST64_DTPREL_LO12    537
 #define R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC 538
-/* initial exec TLS relocations */
 #define R_AARCH64_TLSIE_MOVW_GOTTPREL_G1      539
 #define R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC   540
 #define R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21   541
 #define R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC 542
 #define R_AARCH64_TLSIE_LD_GOTTPREL_PREL19    543
-/* local exec TLS relocations */
 #define R_AARCH64_TLSLE_MOVW_TPREL_G2         544
 #define R_AARCH64_TLSLE_MOVW_TPREL_G1         545
 #define R_AARCH64_TLSLE_MOVW_TPREL_G1_NC      546
@@ -990,7 +897,6 @@ typedef struct {
 #define R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC  557
 #define R_AARCH64_TLSLE_LDST64_TPREL_LO12     558
 #define R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC  559
-/* Dynamic Relocations */
 #define R_AARCH64_COPY         1024
 #define R_AARCH64_GLOB_DAT     1025
 #define R_AARCH64_JUMP_SLOT    1026
@@ -1002,7 +908,6 @@ typedef struct {
 #define R_AARCH64_TLS_DTPMOD32 1032
 #define R_AARCH64_TLS_TPREL32  1033
 
-/* s390 relocations defined by the ABIs */
 #define R_390_NONE              0   /* No reloc.  */
 #define R_390_8                 1   /* Direct 8 bit.  */
 #define R_390_12                2   /* Direct 12 bit.  */
@@ -1078,10 +983,8 @@ typedef struct {
 #define R_390_TLS_TPOFF         56  /* Negate offset in static TLS
                                            block.  */
 #define R_390_20                57
-/* Keep this the last entry.  */
 #define R_390_NUM               58
 
-/* x86-64 relocation types */
 #define R_X86_64_NONE       0   /* No reloc */
 #define R_X86_64_64         1   /* Direct 64 bit  */
 #define R_X86_64_PC32       2   /* PC relative 32 bit signed */
@@ -1102,13 +1005,10 @@ typedef struct {
 
 #define R_X86_64_NUM        16
 
-/* Legal values for e_flags field of Elf64_Ehdr.  */
 
 #define EF_ALPHA_32BIT      1   /* All addresses are below 2GB */
 
-/* HPPA specific definitions.  */
 
-/* Legal values for e_flags field of Elf32_Ehdr.  */
 
 #define EF_PARISC_TRAPNIL   0x00010000 /* Trap nil pointer dereference.  */
 #define EF_PARISC_EXT       0x00020000 /* Program uses arch. extensions. */
@@ -1119,38 +1019,32 @@ typedef struct {
 #define EF_PARISC_LAZYSWAP  0x00400000 /* Allow lazy swapping.  */
 #define EF_PARISC_ARCH      0x0000ffff /* Architecture version.  */
 
-/* Defined values for `e_flags & EF_PARISC_ARCH' are:  */
 
 #define EFA_PARISC_1_0      0x020b /* PA-RISC 1.0 big-endian.  */
 #define EFA_PARISC_1_1      0x0210 /* PA-RISC 1.1 big-endian.  */
 #define EFA_PARISC_2_0      0x0214 /* PA-RISC 2.0 big-endian.  */
 
-/* Additional section indices.  */
 
 #define SHN_PARISC_ANSI_COMMON  0xff00   /* Section for tentatively declared
                                               symbols in ANSI C.  */
 #define SHN_PARISC_HUGE_COMMON  0xff01   /* Common blocks in huge model.  */
 
-/* Legal values for sh_type field of Elf32_Shdr.  */
 
 #define SHT_PARISC_EXT      0x70000000 /* Contains product specific ext. */
 #define SHT_PARISC_UNWIND   0x70000001 /* Unwind information.  */
 #define SHT_PARISC_DOC      0x70000002 /* Debug info for optimized code. */
 
-/* Legal values for sh_flags field of Elf32_Shdr.  */
 
 #define SHF_PARISC_SHORT    0x20000000 /* Section with short addressing. */
 #define SHF_PARISC_HUGE     0x40000000 /* Section far from gp.  */
 #define SHF_PARISC_SBP      0x80000000 /* Static branch prediction code. */
 
-/* Legal values for ST_TYPE subfield of st_info (symbol type).  */
 
 #define STT_PARISC_MILLICODE    13  /* Millicode function entry point.  */
 
 #define STT_HP_OPAQUE           (STT_LOOS + 0x1)
 #define STT_HP_STUB             (STT_LOOS + 0x2)
 
-/* HPPA relocs.  */
 
 #define R_PARISC_NONE           0   /* No reloc.  */
 #define R_PARISC_DIR32          1   /* Direct 32-bit reference.  */
@@ -1241,7 +1135,6 @@ typedef struct {
 #define R_PARISC_LTOFF_TP16DF   231 /* 16 bits LT-TP-rel. address.  */
 #define R_PARISC_HIRESERVE      255
 
-/* Legal values for p_type field of Elf32_Phdr/Elf64_Phdr.  */
 
 #define PT_HP_TLS               (PT_LOOS + 0x0)
 #define PT_HP_CORE_NONE         (PT_LOOS + 0x1)
@@ -1262,7 +1155,6 @@ typedef struct {
 #define PT_PARISC_ARCHEXT       0x70000000
 #define PT_PARISC_UNWIND        0x70000001
 
-/* Legal values for p_flags field of Elf32_Phdr/Elf64_Phdr.  */
 
 #define PF_PARISC_SBP           0x08000000
 
@@ -1274,33 +1166,25 @@ typedef struct {
 #define PF_HP_LAZYSWAP          0x04000000
 #define PF_HP_SBP               0x08000000
 
-/* IA-64 specific declarations.  */
 
-/* Processor specific flags for the Ehdr e_flags field.  */
 #define EF_IA_64_MASKOS         0x0000000f  /* os-specific flags */
 #define EF_IA_64_ABI64          0x00000010  /* 64-bit ABI */
 #define EF_IA_64_ARCH           0xff000000  /* arch. version mask */
 
-/* Processor specific values for the Phdr p_type field.  */
 #define PT_IA_64_ARCHEXT        (PT_LOPROC + 0) /* arch extension bits */
 #define PT_IA_64_UNWIND         (PT_LOPROC + 1) /* ia64 unwind bits */
 
-/* Processor specific flags for the Phdr p_flags field.  */
 #define PF_IA_64_NORECOV        0x80000000  /* spec insns w/o recovery */
 
-/* Processor specific values for the Shdr sh_type field.  */
 #define SHT_IA_64_EXT           (SHT_LOPROC + 0) /* extension bits */
 #define SHT_IA_64_UNWIND        (SHT_LOPROC + 1) /* unwind bits */
 
-/* Processor specific flags for the Shdr sh_flags field.  */
 #define SHF_IA_64_SHORT         0x10000000  /* section near gp */
 #define SHF_IA_64_NORECOV       0x20000000  /* spec insns w/o recovery */
 
-/* Processor specific values for the Dyn d_tag field.  */
 #define DT_IA_64_PLT_RESERVE    (DT_LOPROC + 0)
 #define DT_IA_64_NUM            1
 
-/* IA-64 relocations.  */
 #define R_IA64_NONE             0x00    /* none */
 #define R_IA64_IMM14            0x21    /* symbol + addend, add imm14 */
 #define R_IA64_IMM22            0x22    /* symbol + addend, add imm22 */
@@ -1383,7 +1267,6 @@ typedef struct {
 #define R_IA64_DTPREL64LSB      0xb7    /* @dtprel(sym + add), data8 LSB */
 #define R_IA64_LTOFF_DTPREL22   0xba    /* @ltoff(@dtprel(s+a)), imm22 */
 
-/* RISC-V relocations.  */
 #define R_RISCV_NONE          0
 #define R_RISCV_32            1
 #define R_RISCV_64            2
@@ -1438,7 +1321,6 @@ typedef struct {
 #define R_RISCV_SET16         55
 #define R_RISCV_SET32         56
 
-/* RISC-V ELF Flags.  */
 #define EF_RISCV_RVC              0x0001
 #define EF_RISCV_FLOAT_ABI        0x0006
 #define EF_RISCV_FLOAT_ABI_SOFT   0x0000
@@ -1491,9 +1373,6 @@ typedef struct elf64_sym {
 
 #define EI_NIDENT       16
 
-/* Special value for e_phnum.  This indicates that the real number of
-   program headers is too large to fit into e_phnum.  Instead the real
-   value is in the field sh_info of section 0.  */
 #define PN_XNUM         0xffff
 
 typedef struct elf32_hdr{
@@ -1530,8 +1409,6 @@ typedef struct elf64_hdr {
   Elf64_Half e_shstrndx;
 } Elf64_Ehdr;
 
-/* These constants define the permissions on sections in the program
-   header, p_flags. */
 #define PF_R 0x4
 #define PF_W 0x2
 #define PF_X 0x1
@@ -1558,7 +1435,6 @@ typedef struct elf64_phdr {
   Elf64_Xword p_align;      /* Segment alignment, file & memory */
 } Elf64_Phdr;
 
-/* sh_type */
 #define SHT_NULL            0
 #define SHT_PROGBITS        1
 #define SHT_SYMTAB          2
@@ -1581,14 +1457,12 @@ typedef struct elf64_phdr {
 #define SHT_MIPS_GPTAB      0x70000003
 #define SHT_MIPS_UCODE      0x70000004
 
-/* sh_flags */
 #define SHF_WRITE       0x1
 #define SHF_ALLOC       0x2
 #define SHF_EXECINSTR   0x4
 #define SHF_MASKPROC    0xf0000000
 #define SHF_MIPS_GPREL  0x10000000
 
-/* special section indexes */
 #define SHN_UNDEF           0
 #define SHN_LORESERVE       0xff00
 #define SHN_LOPROC          0xff00
@@ -1671,7 +1545,6 @@ typedef struct elf64_shdr {
 #define EV_CURRENT      1
 #define EV_NUM          2
 
-/* Notes used in ET_CORE */
 #define NT_PRSTATUS         1
 #define NT_FPREGSET         2
 #define NT_PRFPREG          2
@@ -1699,11 +1572,9 @@ typedef struct elf64_shdr {
 #define NT_ARM_SYSTEM_CALL  0x404       /* ARM system call number */
 #define NT_ARM_SVE          0x405       /* ARM Scalable Vector Extension regs */
 
-/* Defined note types for GNU systems.  */
 
 #define NT_GNU_PROPERTY_TYPE_0  5       /* Program property */
 
-/* Values used in GNU .note.gnu.property notes (NT_GNU_PROPERTY_TYPE_0).  */
 
 #define GNU_PROPERTY_STACK_SIZE                 1
 #define GNU_PROPERTY_NO_COPY_ON_PROTECTED       2
@@ -1717,25 +1588,14 @@ typedef struct elf64_shdr {
 #define GNU_PROPERTY_AARCH64_FEATURE_1_BTI      (1u << 0)
 #define GNU_PROPERTY_AARCH64_FEATURE_1_PAC      (1u << 1)
 
-/*
- * Physical entry point into the kernel.
- *
- * 32bit entry point into the kernel. When requested to launch the
- * guest kernel, use this entry point to launch the guest in 32-bit
- * protected mode with paging disabled.
- *
- * [ Corresponding definition in Linux kernel: include/xen/interface/elfnote.h ]
- */
 #define XEN_ELFNOTE_PHYS32_ENTRY    18  /* 0x12 */
 
-/* Note header in a PT_NOTE section */
 typedef struct elf32_note {
   Elf32_Word n_namesz;   /* Name size */
   Elf32_Word n_descsz;   /* Content size */
   Elf32_Word n_type;     /* Content type */
 } Elf32_Nhdr;
 
-/* Note header in a PT_NOTE section */
 typedef struct elf64_note {
   Elf64_Word n_namesz;  /* Name size */
   Elf64_Word n_descsz;  /* Content size */
@@ -1743,21 +1603,14 @@ typedef struct elf64_note {
 } Elf64_Nhdr;
 
 
-/* This data structure represents a PT_LOAD segment.  */
 struct elf32_fdpic_loadseg {
-  /* Core address to which the segment is mapped.  */
   Elf32_Addr addr;
-  /* VMA recorded in the program header.  */
   Elf32_Addr p_vaddr;
-  /* Size of this segment in memory.  */
   Elf32_Word p_memsz;
 };
 struct elf32_fdpic_loadmap {
-  /* Protocol version number, must be zero.  */
   Elf32_Half version;
-  /* Number of segments in this map.  */
   Elf32_Half nsegs;
-  /* The actual memory map.  */
   struct elf32_fdpic_loadseg segs[/*nsegs*/];
 };
 

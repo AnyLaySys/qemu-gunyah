@@ -1,22 +1,3 @@
-/*
- * QEMU AArch64 CPU
- *
- * Copyright (c) 2013 Linaro Ltd
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see
- * <http://www.gnu.org/licenses/gpl-2.0.html>
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -35,38 +16,12 @@
 
 void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
 {
-    /*
-     * If any vector lengths are explicitly enabled with sve<N> properties,
-     * then all other lengths are implicitly disabled.  If sve-max-vq is
-     * specified then it is the same as explicitly enabling all lengths
-     * up to and including the specified maximum, which means all larger
-     * lengths will be implicitly disabled.  If no sve<N> properties
-     * are enabled and sve-max-vq is not specified, then all lengths not
-     * explicitly disabled will be enabled.  Additionally, all power-of-two
-     * vector lengths less than the maximum enabled length will be
-     * automatically enabled and all vector lengths larger than the largest
-     * disabled power-of-two vector length will be automatically disabled.
-     * Errors are generated if the user provided input that interferes with
-     * any of the above.  Finally, if SVE is not disabled, then at least one
-     * vector length must be enabled.
-     */
     uint32_t vq_map = cpu->sve_vq.map;
     uint32_t vq_init = cpu->sve_vq.init;
     uint32_t vq_supported = cpu->sve_vq.supported;
     uint32_t vq_mask = 0;
     uint32_t tmp, vq, max_vq = 0;
 
-    /*
-     * CPU models specify a set of supported vector lengths which are
-     * enabled by default.  Attempting to enable any vector length not set
-     * in the supported bitmap results in an error.  When Gunyah is enabled we
-     * fetch the supported bitmap from the host.
-     */
-    /*
-     * Process explicit sve<N> properties.
-     * From the properties, sve_vq_map<N> implies sve_vq_init<N>.
-     * Check first for any sve<N> enabled.
-     */
     if (vq_map != 0) {
         max_vq = 32 - clz32(vq_map);
         vq_mask = MAKE_64BIT_MASK(0, max_vq);
@@ -82,14 +37,7 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
 
         vq_map |= SVE_VQ_POW2_MAP & ~vq_init & vq_mask;
     } else if (cpu->sve_max_vq == 0) {
-        /*
-         * No explicit bits enabled, and no implicit bits from sve-max-vq.
-         */
         if (!cpu_isar_feature(aa64_sve, cpu)) {
-            /*
-             * SVE is disabled and so are all vector lengths.  Good.
-             * Disable all SVE extensions as well.
-             */
             cpu->isar.id_aa64zfr0 = 0;
             return;
         }
@@ -115,11 +63,6 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
         vq_mask = MAKE_64BIT_MASK(0, max_vq);
     }
 
-    /*
-     * Process the sve-max-vq property.
-     * Note that we know from the above that no bit above
-     * sve-max-vq is currently set.
-     */
     if (cpu->sve_max_vq != 0) {
         max_vq = cpu->sve_max_vq;
         vq_mask = MAKE_64BIT_MASK(0, max_vq);
@@ -132,20 +75,13 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
             return;
         }
 
-        /* Set all bits not explicitly set within sve-max-vq. */
         vq_map |= ~vq_init & vq_mask;
     }
 
-    /*
-     * We should know what max-vq is now.  Also, as we're done
-     * manipulating sve-vq-map, we ensure any bits above max-vq
-     * are clear, just in case anybody looks.
-     */
     assert(max_vq != 0);
     assert(vq_mask != 0);
     vq_map &= vq_mask;
 
-    /* Ensure the set of lengths matches what is supported. */
     tmp = vq_map ^ (vq_supported & vq_mask);
     if (tmp) {
         vq = 32 - clz32(tmp);
@@ -182,10 +118,6 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
         }
     }
 
-    /*
-     * Now that we validated all our vector lengths, the only question
-     * left to answer is if we even want SVE at all.
-     */
     if (!cpu_isar_feature(aa64_sve, cpu)) {
         error_setg(errp, "cannot enable sve%d", max_vq * 128);
         error_append_hint(errp, "SVE must be enabled to enable vector "
@@ -194,16 +126,10 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp)
         return;
     }
 
-    /* From now on sve_max_vq is the actual maximum supported length. */
     cpu->sve_max_vq = max_vq;
     cpu->sve_vq.map = vq_map;
 }
 
-/*
- * Note that cpu_arm_{get,set}_vq cannot use the simpler
- * object_property_add_bool interface because they make use of the
- * contents of "name" to determine which bit on which to operate.
- */
 static void cpu_arm_get_vq(Object *obj, Visitor *v, const char *name,
                            void *opaque, Error **errp)
 {
@@ -213,7 +139,6 @@ static void cpu_arm_get_vq(Object *obj, Visitor *v, const char *name,
     bool sve = vq_map == &cpu->sve_vq;
     bool value;
 
-    /* All vector lengths are disabled when feature is off. */
     if (sve
         ? !cpu_isar_feature(aa64_sve, cpu)
         : !cpu_isar_feature(aa64_sme, cpu)) {
@@ -268,7 +193,6 @@ void arm_cpu_sme_finalize(ARMCPU *cpu, Error **errp)
             return;
         }
 
-        /* TODO: KVM will require limitations via SMCR_EL2. */
         vq_map = vq_supported & ~vq_init;
 
         if (vq_map == 0) {
@@ -288,7 +212,6 @@ void arm_cpu_sme_finalize(ARMCPU *cpu, Error **errp)
             error_append_hint(errp, "Add sme=on to the CPU property list.\n");
             return;
         }
-        /* TODO: KVM will require limitations via SMCR_EL2. */
     }
 
     cpu->sme_vq.map = vq_map;
@@ -328,7 +251,6 @@ static void cpu_arm_set_sme_fa64(Object *obj, bool value, Error **errp)
 }
 
 #ifdef CONFIG_USER_ONLY
-/* Mirror linux /proc/sys/abi/{sve,sme}_default_vector_length. */
 static void cpu_arm_set_default_vec_len(Object *obj, Visitor *v,
                                         const char *name, void *opaque,
                                         Error **errp)
@@ -340,7 +262,6 @@ static void cpu_arm_set_default_vec_len(Object *obj, Visitor *v,
         return;
     }
 
-    /* Undocumented, but the kernel allows -1 to indicate "maximum". */
     if (default_len == -1) {
         *ptr_default_vq = ARM_MAX_VQ;
         return;
@@ -349,10 +270,6 @@ static void cpu_arm_set_default_vec_len(Object *obj, Visitor *v,
     default_vq = default_len / 16;
     remainder = default_len % 16;
 
-    /*
-     * Note that the 512 max comes from include/uapi/asm/sve_context.h
-     * and is the maximum architectural width of ZCR_ELx.LEN.
-     */
     if (remainder || default_vq < 1 || default_vq > 512) {
         ARMCPU *cpu = ARM_CPU(obj);
         const char *which =
@@ -399,7 +316,6 @@ void aarch64_add_sve_properties(Object *obj)
     }
 
 #ifdef CONFIG_USER_ONLY
-    /* Mirror linux /proc/sys/abi/sve_default_vector_length. */
     object_property_add(obj, "sve-default-vector-length", "int32",
                         cpu_arm_get_default_vec_len,
                         cpu_arm_set_default_vec_len, NULL,
@@ -424,7 +340,6 @@ void aarch64_add_sme_properties(Object *obj)
     }
 
 #ifdef CONFIG_USER_ONLY
-    /* Mirror linux /proc/sys/abi/sme_default_vector_length. */
     object_property_add(obj, "sme-default-vector-length", "int32",
                         cpu_arm_get_default_vec_len,
                         cpu_arm_set_default_vec_len, NULL,
@@ -437,14 +352,6 @@ void arm_cpu_pauth_finalize(ARMCPU *cpu, Error **errp)
     ARMPauthFeature features = cpu_isar_feature(pauth_feature, cpu);
     uint64_t isar1, isar2;
 
-    /*
-     * These properties enable or disable Pauth as a whole, or change
-     * the pauth algorithm, but do not change the set of features that
-     * are present.  We have saved a copy of those features above and
-     * will now place it into the field that chooses the algorithm.
-     *
-     * Begin by disabling all fields.
-     */
     isar1 = cpu->isar.id_aa64isar1;
     isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, APA, 0);
     isar1 = FIELD_DP64(isar1, ID_AA64ISAR1, GPA, 0);
@@ -513,7 +420,6 @@ static Property arm_cpu_pauth_qarma5_property =
 
 void aarch64_add_pauth_properties(Object *obj)
 {
-    /* Default to PAUTH on, with the architected algorithm on TCG. */
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_property);
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_impdef_property);
     qdev_property_add_static(DEVICE(obj), &arm_cpu_pauth_qarma3_property);
@@ -524,10 +430,6 @@ void arm_cpu_lpa2_finalize(ARMCPU *cpu, Error **errp)
 {
     uint64_t t;
 
-    /*
-     * We only install the property for tcg -cpu max; this is the
-     * only situation in which the cpu field can be true.
-     */
     if (!cpu->prop_lpa2) {
         return;
     }
@@ -587,11 +489,8 @@ static void aarch64_a57_initfn(Object *obj)
     cpu->isar.dbgdevid1 = 0x2;
     cpu->isar.reset_pmcr_el0 = 0x41013000;
     cpu->clidr = 0x0a200023;
-    /* 32KB L1 dcache */
     cpu->ccsidr[0] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 4, 64, 32 * KiB, 7);
-    /* 48KB L1 icache */
     cpu->ccsidr[1] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 3, 64, 48 * KiB, 2);
-    /* 2048KB L2 cache */
     cpu->ccsidr[2] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 16, 64, 2 * MiB, 7);
     cpu->dcz_blocksize = 4; /* 64 bytes */
     cpu->gic_num_lrs = 4;
@@ -648,11 +547,8 @@ static void aarch64_a53_initfn(Object *obj)
     cpu->isar.dbgdevid1 = 0x1;
     cpu->isar.reset_pmcr_el0 = 0x41033000;
     cpu->clidr = 0x0a200023;
-    /* 32KB L1 dcache */
     cpu->ccsidr[0] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 4, 64, 32 * KiB, 7);
-    /* 32KB L1 icache */
     cpu->ccsidr[1] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 1, 64, 32 * KiB, 2);
-    /* 1024KB L2 cache */
     cpu->ccsidr[2] = make_ccsidr(CCSIDR_FORMAT_LEGACY, 16, 64, 1 * MiB, 7);
     cpu->dcz_blocksize = 4; /* 64 bytes */
     cpu->gic_num_lrs = 4;
@@ -666,11 +562,6 @@ static void aarch64_host_initfn(Object *obj)
 {
 #if defined(CONFIG_GH)
     if (gunyah_enabled()) {
-        /*
-         * Gunyah hypervisor passes through host CPU features transparently.
-         * Use cortex-a57 as a baseline; the hypervisor handles the actual
-         * CPU feature set at runtime.
-         */
         aarch64_a57_initfn(obj);
         return;
     }
@@ -689,7 +580,6 @@ static void aarch64_max_initfn(Object *obj)
         aarch64_a57_initfn(obj);
     }
 
-    /* '-cpu max' for TCG: we currently do this as "A57 with extra things" */
     if (tcg_enabled()) {
         aarch64_max_tcg_initfn(obj);
     }
@@ -715,10 +605,6 @@ static void aarch64_cpu_set_aarch64(Object *obj, bool value, Error **errp)
 {
     ARMCPU *cpu = ARM_CPU(obj);
 
-    /* At this time, this property is only allowed if KVM is enabled.  This
-     * restriction allows us to avoid fixing up functionality that assumes a
-     * uniform execution state like do_interrupt.
-     */
     if (value == false) {
         if (!false) {
             error_setg(errp, "'aarch64' feature cannot be disabled "

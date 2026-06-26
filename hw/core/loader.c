@@ -1,46 +1,3 @@
-/*
- * QEMU Executable loader
- *
- * Copyright (c) 2006 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * Gunzip functionality in this file is derived from u-boot:
- *
- * (C) Copyright 2008 Semihalf
- *
- * (C) Copyright 2000-2005
- * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/datadir.h"
@@ -68,7 +25,6 @@
 
 static int roms_loaded;
 
-/* return the size or -1 if error */
 int64_t get_image_size(const char *filename)
 {
     int fd;
@@ -81,7 +37,6 @@ int64_t get_image_size(const char *filename)
     return size;
 }
 
-/* return the size or -1 if error */
 ssize_t load_image_size(const char *filename, void *addr, size_t size)
 {
     int fd;
@@ -101,7 +56,6 @@ ssize_t load_image_size(const char *filename, void *addr, size_t size)
     return actsize < 0 ? -1 : l;
 }
 
-/* read()-like version */
 ssize_t read_targphys(const char *name,
                       int fd, hwaddr dst_addr, size_t nbytes)
 {
@@ -122,7 +76,6 @@ ssize_t load_image_targphys(const char *filename,
     return load_image_targphys_as(filename, addr, max_sz, NULL);
 }
 
-/* return the size or -1 if error */
 ssize_t load_image_targphys_as(const char *filename,
                                hwaddr addr, uint64_t max_sz, AddressSpace *as)
 {
@@ -145,7 +98,6 @@ ssize_t load_image_mr(const char *filename, MemoryRegion *mr)
     ssize_t size;
 
     if (!memory_access_is_direct(mr, false, MEMTXATTRS_UNSPECIFIED)) {
-        /* Can only load an image into RAM or ROM */
         return -1;
     }
 
@@ -179,7 +131,6 @@ void pstrcpy_targphys(const char *name, hwaddr dest, int buf_size,
     }
 }
 
-/* A.OUT loader */
 
 struct exec
 {
@@ -279,7 +230,6 @@ ssize_t load_aout(const char *filename, hwaddr addr, int max_sz,
     return -1;
 }
 
-/* ELF loader */
 
 static void *load_at(int fd, off_t offset, size_t size)
 {
@@ -404,7 +354,6 @@ fail:
     close(fd);
 }
 
-/* return < 0 if error, otherwise the number of bytes loaded in memory */
 ssize_t load_elf(const char *filename,
                  uint64_t (*elf_note_fn)(void *, void *, bool),
                  uint64_t (*translate_fn)(void *, uint64_t),
@@ -417,7 +366,6 @@ ssize_t load_elf(const char *filename,
                        elf_machine, clear_lsb, data_swab, NULL);
 }
 
-/* return < 0 if error, otherwise the number of bytes loaded in memory */
 ssize_t load_elf_as(const char *filename,
                     uint64_t (*elf_note_fn)(void *, void *, bool),
                     uint64_t (*translate_fn)(void *, uint64_t),
@@ -433,7 +381,6 @@ ssize_t load_elf_as(const char *filename,
                             true, NULL);
 }
 
-/* return < 0 if error, otherwise the number of bytes loaded in memory */
 ssize_t load_elf_ram_sym(const char *filename,
                          uint64_t (*elf_note_fn)(void *, void *, bool),
                          uint64_t (*translate_fn)(void *, uint64_t),
@@ -540,7 +487,6 @@ ssize_t gunzip(void *dst, size_t dstlen, uint8_t *src, size_t srclen)
     ssize_t dstbytes;
     int r, i, flags;
 
-    /* skip header */
     i = 10;
     if (srclen < 4) {
         goto toosmall;
@@ -558,12 +504,10 @@ ssize_t gunzip(void *dst, size_t dstlen, uint8_t *src, size_t srclen)
     }
     if ((flags & ORIG_NAME) != 0) {
         while (i < srclen && src[i++] != 0) {
-            /* do nothing */
         }
     }
     if ((flags & COMMENT) != 0) {
         while (i < srclen && src[i++] != 0) {
-            /* do nothing */
         }
     }
     if ((flags & HEAD_CRC) != 0) {
@@ -601,7 +545,6 @@ toosmall:
     return -1;
 }
 
-/* Load a U-Boot image.  */
 static ssize_t load_uboot_image(const char *filename, hwaddr *ep,
                                 hwaddr *loadaddr, int *is_linux,
                                 uint8_t image_type,
@@ -640,7 +583,6 @@ static ssize_t load_uboot_image(const char *filename, hwaddr *ep,
         }
     }
 
-    /* TODO: Implement other image types.  */
     switch (hdr->ih_type) {
     case IH_TYPE_KERNEL_NOLOAD:
         if (!loadaddr || *loadaddr == LOAD_UIMAGE_LOADADDR_INVALID) {
@@ -651,7 +593,6 @@ static ssize_t load_uboot_image(const char *filename, hwaddr *ep,
 
         hdr->ih_load = *loadaddr + sizeof(*hdr);
         hdr->ih_ep += hdr->ih_load;
-        /* fall through */
     case IH_TYPE_KERNEL:
         address = hdr->ih_load;
         if (translate_fn) {
@@ -678,15 +619,10 @@ static ssize_t load_uboot_image(const char *filename, hwaddr *ep,
             *ep = hdr->ih_ep;
         }
 
-        /* TODO: Check CPU type.  */
         if (is_linux) {
             if (hdr->ih_os == IH_OS_LINUX) {
                 *is_linux = 1;
             } else if (hdr->ih_os == IH_OS_VXWORKS) {
-                /*
-                 * VxWorks 7 uses the same boot interface as the Linux kernel
-                 * on Arm (64-bit only), PowerPC and RISC-V architectures.
-                 */
                 switch (hdr->ih_arch) {
                 case IH_ARCH_ARM64:
                 case IH_ARCH_PPC:
@@ -764,7 +700,6 @@ ssize_t load_uimage_as(const char *filename, hwaddr *ep, hwaddr *loadaddr,
                             translate_fn, translate_opaque, as);
 }
 
-/* Load a ramdisk.  */
 ssize_t load_ramdisk(const char *filename, hwaddr addr, uint64_t max_sz)
 {
     return load_ramdisk_as(filename, addr, max_sz, NULL);
@@ -777,7 +712,6 @@ ssize_t load_ramdisk_as(const char *filename, hwaddr addr, uint64_t max_sz,
                             NULL, NULL, as);
 }
 
-/* Load a gzip-compressed kernel to a dynamically allocated buffer. */
 ssize_t load_image_gzipped_buffer(const char *filename, uint64_t max_sz,
                                   uint8_t **buffer)
 {
@@ -792,7 +726,6 @@ ssize_t load_image_gzipped_buffer(const char *filename, uint64_t max_sz,
         goto out;
     }
 
-    /* Is it a gzip-compressed file? */
     if (len < 2 ||
         compressed_data[0] != 0x1f ||
         compressed_data[1] != 0x8b) {
@@ -811,10 +744,8 @@ ssize_t load_image_gzipped_buffer(const char *filename, uint64_t max_sz,
         goto out;
     }
 
-    /* trim to actual size and return to caller */
     *buffer = g_realloc(data, bytes);
     ret = bytes;
-    /* ownership has been transferred to caller */
     data = NULL;
 
  out:
@@ -824,26 +755,10 @@ ssize_t load_image_gzipped_buffer(const char *filename, uint64_t max_sz,
 }
 
 
-/* The PE/COFF MS-DOS stub magic number */
 #define EFI_PE_MSDOS_MAGIC        "MZ"
 
-/*
- * The Linux header magic number for a EFI PE/COFF
- * image targeting an unspecified architecture.
- */
 #define EFI_PE_LINUX_MAGIC        "\xcd\x23\x82\x81"
 
-/*
- * Bootable Linux kernel images may be packaged as EFI zboot images, which are
- * self-decompressing executables when loaded via EFI. The compressed payload
- * can also be extracted from the image and decompressed by a non-EFI loader.
- *
- * The de facto specification for this format is at the following URL:
- *
- * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/firmware/efi/libstub/zboot-header.S
- *
- * This definition is based on Linux upstream commit 29636a5ce87beba.
- */
 struct linux_efi_zboot_header {
     uint8_t     msdos_magic[2];         /* PE/COFF 'MZ' magic number */
     uint8_t     reserved0[2];
@@ -856,14 +771,6 @@ struct linux_efi_zboot_header {
     uint32_t    pe_header_offset;       /* LE offset to the PE header */
 };
 
-/*
- * Check whether *buffer points to a Linux EFI zboot image in memory.
- *
- * If it does, attempt to decompress it to a new buffer, and free the old one.
- * If any of this fails, return an error to the caller.
- *
- * If the image is not a Linux EFI zboot image, do nothing and return success.
- */
 ssize_t unpack_efi_zboot_image(uint8_t **buffer, ssize_t *size)
 {
     const struct linux_efi_zboot_header *header;
@@ -871,14 +778,12 @@ ssize_t unpack_efi_zboot_image(uint8_t **buffer, ssize_t *size)
     ssize_t ploff, plsize;
     ssize_t bytes;
 
-    /* ignore if this is too small to be a EFI zboot image */
     if (*size < sizeof(*header)) {
         return 0;
     }
 
     header = (struct linux_efi_zboot_header *)*buffer;
 
-    /* ignore if this is not a Linux EFI zboot image */
     if (memcmp(&header->msdos_magic, EFI_PE_MSDOS_MAGIC, 2) != 0 ||
         memcmp(&header->zimg, "zimg", 4) != 0 ||
         memcmp(&header->linux_magic, EFI_PE_LINUX_MAGIC, 4) != 0) {
@@ -915,11 +820,6 @@ ssize_t unpack_efi_zboot_image(uint8_t **buffer, ssize_t *size)
     return bytes;
 }
 
-/*
- * Functions for reboot-persistent memory regions.
- *  - used for vga bios and option roms.
- *  - also linux kernel (-kernel / -initrd).
- */
 
 typedef struct Rom Rom;
 
@@ -927,10 +827,6 @@ struct Rom {
     char *name;
     char *path;
 
-    /* datasize is the amount of memory allocated in "data". If datasize is less
-     * than romsize, it means that the area from datasize to romsize is filled
-     * with zeros.
-     */
     size_t romsize;
     size_t datasize;
 
@@ -951,10 +847,6 @@ struct Rom {
 static FWCfgState *fw_cfg;
 static QTAILQ_HEAD(, Rom) roms = QTAILQ_HEAD_INITIALIZER(roms);
 
-/*
- * rom->data can be heap-allocated or memory-mapped (e.g. when added with
- * rom_add_elf_program())
- */
 static void rom_free_data(Rom *rom)
 {
     if (rom->mapped_file) {
@@ -991,14 +883,12 @@ static void rom_insert(Rom *rom)
         hw_error ("ROM images must be loaded at startup\n");
     }
 
-    /* The user didn't specify an address space, this is the default */
     if (!rom->as) {
         rom->as = &address_space_memory;
     }
 
     rom->committed = false;
 
-    /* List is ordered by load address in the same address space */
     QTAILQ_FOREACH(item, &roms, next) {
         if (rom_order_compare(rom, item)) {
             continue;
@@ -1048,7 +938,6 @@ ssize_t rom_add_file(const char *file, const char *fw_dir,
     if (as && mr) {
         fprintf(stderr, "Specifying an Address Space and Memory Region is " \
                 "not valid when loading a rom\n");
-        /* We haven't allocated anything so we don't need any cleanup */
         return -1;
     }
 
@@ -1157,11 +1046,6 @@ MemoryRegion *rom_add_blob(const char *name, const void *blob, size_t len,
     return mr;
 }
 
-/* This function is specific for elf program because we don't need to allocate
- * all the rom. We just allocate the first part and the rest is just zeros. This
- * is why romsize and datasize are different. Also, this function takes its own
- * reference to "mapped_file", so we don't have to allocate and copy the buffer.
- */
 int rom_add_elf_program(const char *name, GMappedFile *mapped_file, void *data,
                         size_t datasize, size_t romsize, hwaddr addr,
                         AddressSpace *as)
@@ -1203,17 +1087,8 @@ static void rom_reset(void *unused)
         if (rom->fw_file) {
             continue;
         }
-        /*
-         * We don't need to fill in the RAM with ROM data because we'll fill
-         * the data in during the next incoming migration in all cases.  Note
-         * that some of those RAMs can actually be modified by the guest.
-         */
         if (runstate_check(RUN_STATE_INMIGRATE)) {
             if (rom->data && rom->isrom) {
-                /*
-                 * Free it so that a rom_reset after migration doesn't
-                 * overwrite a potentially modified 'rom'.
-                 */
                 rom_free_data(rom);
             }
             continue;
@@ -1234,22 +1109,14 @@ static void rom_reset(void *unused)
                               MEMTXATTRS_UNSPECIFIED);
         }
         if (rom->isrom) {
-            /* rom needs to be written only once */
             rom_free_data(rom);
         }
-        /*
-         * The rom loader is really on the same level as firmware in the guest
-         * shadowing a ROM into RAM. Such a shadowing mechanism needs to ensure
-         * that the instruction cache for that new region is clear, so that the
-         * CPU definitely fetches its instructions from the just written data.
-         */
         cpu_flush_icache_range(rom->addr, rom->datasize);
 
         trace_loader_write_rom(rom->name, rom->addr, rom->datasize, rom->isrom);
     }
 }
 
-/* Return true if two consecutive ROMs in the ROM list overlap */
 static bool roms_overlap(Rom *last_rom, Rom *this_rom)
 {
     if (!last_rom) {
@@ -1307,7 +1174,6 @@ int rom_check_and_register_reset(void)
                     rom_print_overlap_error_header();
                 }
                 rom_print_one_overlap_error(last_rom, rom);
-                /* Keep going through the list so we report all overlaps */
             }
             last_rom = rom;
         }
@@ -1348,7 +1214,6 @@ void rom_transaction_begin(void)
 {
     Rom *rom;
 
-    /* Ignore ROMs added without the transaction API */
     QTAILQ_FOREACH(rom, &roms, next) {
         rom->committed = true;
     }
@@ -1400,13 +1265,6 @@ typedef struct RomSec {
 } RomSec;
 
 
-/*
- * Sort into address order. We break ties between rom-startpoints
- * and rom-endpoints in favour of the startpoint, by sorting the 0->1
- * transition before the 1->0 transition. Either way round would
- * work, but this way saves a little work later by avoiding
- * dealing with "gaps" of 0 length.
- */
 static gint sort_secs(gconstpointer a, gconstpointer b)
 {
     RomSec *ra = (RomSec *) a;
@@ -1436,20 +1294,16 @@ RomGap rom_find_largest_gap_between(hwaddr base, size_t size)
     int count = 0;
 
     QTAILQ_FOREACH(rom, &roms, next) {
-        /* Ignore blobs being loaded to special places */
         if (rom->mr || rom->fw_file) {
             continue;
         }
-        /* ignore anything finishing below base */
         if (rom->addr + rom->romsize <= base) {
             continue;
         }
-        /* ignore anything starting above the region */
         if (rom->addr >= base + size) {
             continue;
         }
 
-        /* Save the start and end of each relevant ROM */
         secs = add_romsec_to_list(secs, rom->addr, 1);
 
         if (rom->addr + rom->romsize < base + size) {
@@ -1457,7 +1311,6 @@ RomGap rom_find_largest_gap_between(hwaddr base, size_t size)
         }
     }
 
-    /* sentinel */
     secs = add_romsec_to_list(secs, base + size, 1);
 
     secs = g_list_sort(secs, sort_secs);
@@ -1480,11 +1333,6 @@ RomGap rom_find_largest_gap_between(hwaddr base, size_t size)
     return res;
 }
 
-/*
- * Copies memory from registered ROMs to dest. Any memory that is contained in
- * a ROM between addr and addr + size is copied. Note that this can involve
- * multiple ROMs, which need not start at addr and need not end at addr + size.
- */
 int rom_copy(uint8_t *dest, hwaddr addr, size_t size)
 {
     hwaddr end = addr + size;
@@ -1519,17 +1367,11 @@ int rom_copy(uint8_t *dest, hwaddr addr, size_t size)
         }
 
         if (rom->romsize > rom->datasize) {
-            /* If datasize is less than romsize, it means that we didn't
-             * allocate all the ROM because the trailing data are only zeros.
-             */
 
             d += l;
             l = rom->romsize - rom->datasize;
 
             if ((d + l) > (dest + size)) {
-                /* Rom size doesn't fit in the destination area. Adjust to avoid
-                 * overflow.
-                 */
                 l = dest - d;
             }
 
@@ -1574,40 +1416,16 @@ static bool find_rom_cb(Int128 start, Int128 len, const MemoryRegion *mr,
     if (!cbdata->rom) {
         return false;
     }
-    /* Found a match, stop iterating */
     return true;
 }
 
 void *rom_ptr_for_as(AddressSpace *as, hwaddr addr, size_t size)
 {
-    /*
-     * Find any ROM data for the given guest address range.  If there
-     * is a ROM blob then return a pointer to the host memory
-     * corresponding to 'addr'; otherwise return NULL.
-     *
-     * We look not only for ROM blobs that were loaded directly to
-     * addr, but also for ROM blobs that were loaded to aliases of
-     * that memory at other addresses within the AddressSpace.
-     *
-     * Note that we do not check @as against the 'as' member in the
-     * 'struct Rom' returned by rom_ptr(). The Rom::as is the
-     * AddressSpace which the rom blob should be written to, whereas
-     * our @as argument is the AddressSpace which we are (effectively)
-     * reading from, and the same underlying RAM will often be visible
-     * in multiple AddressSpaces. (A common example is a ROM blob
-     * written to the 'system' address space but then read back via a
-     * CPU's cpu->as pointer.) This does mean we might potentially
-     * return a false-positive match if a ROM blob was loaded into an
-     * AS which is entirely separate and distinct from the one we're
-     * querying, but this issue exists also for rom_ptr() and hasn't
-     * caused any problems in practice.
-     */
     FlatView *fv;
     void *rom;
     hwaddr len_unused;
     FindRomCBData cbdata = {};
 
-    /* Easy case: there's data at the actual address */
     rom = rom_ptr(addr, size);
     if (rom) {
         return rom;
@@ -1619,7 +1437,6 @@ void *rom_ptr_for_as(AddressSpace *as, hwaddr addr, size_t size)
     cbdata.mr = flatview_translate(fv, addr, &cbdata.xlat, &len_unused,
                                    false, MEMTXATTRS_UNSPECIFIED);
     if (!cbdata.mr) {
-        /* Nothing at this address, so there can't be any aliasing */
         return NULL;
     }
     cbdata.size = size;
@@ -1668,15 +1485,10 @@ enum HexRecord {
     START_LINEAR_ADDR_RECORD,
 };
 
-/* Each record contains a 16-bit address which is combined with the upper 16
- * bits of the implicit "next address" to form a 32-bit address.
- */
 #define NEXT_ADDR_MASK 0xffff0000
 
 #define DATA_FIELD_MAX_LEN 0xff
 #define LEN_EXCEPT_DATA 0x5
-/* 0x5 = sizeof(byte_count) + sizeof(address) + sizeof(record_type) +
- *       sizeof(checksum) */
 typedef struct {
     uint8_t byte_count;
     uint16_t address;
@@ -1685,20 +1497,11 @@ typedef struct {
     uint8_t checksum;
 } HexLine;
 
-/* return 0 or -1 if error */
 static bool parse_record(HexLine *line, uint8_t *our_checksum, const uint8_t c,
                          uint32_t *index, const bool in_process)
 {
-    /* +-------+---------------+-------+---------------------+--------+
-     * | byte  |               |record |                     |        |
-     * | count |    address    | type  |        data         |checksum|
-     * +-------+---------------+-------+---------------------+--------+
-     * ^       ^               ^       ^                     ^        ^
-     * |1 byte |    2 bytes    |1 byte |     0-255 bytes     | 1 byte |
-     */
     uint8_t value = 0;
     uint32_t idx = *index;
-    /* ignore space */
     if (g_ascii_isspace(c)) {
         return true;
     }
@@ -1741,7 +1544,6 @@ typedef struct {
     bool complete;
 } HexParser;
 
-/* return size or -1 if error */
 static int handle_record_type(HexParser *parser)
 {
     HexLine *line = &(parser->line);
@@ -1749,7 +1551,6 @@ static int handle_record_type(HexParser *parser)
     case DATA_RECORD:
         parser->current_address =
             (parser->next_address_to_write & NEXT_ADDR_MASK) | line->address;
-        /* verify this is a contiguous block of memory */
         if (parser->current_address != parser->next_address_to_write) {
             if (parser->current_rom_index != 0) {
                 rom_add_blob_fixed_as(parser->filename, parser->bin_buf,
@@ -1760,12 +1561,10 @@ static int handle_record_type(HexParser *parser)
             parser->current_rom_index = 0;
         }
 
-        /* copy from line buffer to output bin_buf */
         memcpy(parser->bin_buf + parser->current_rom_index, line->data,
                line->byte_count);
         parser->current_rom_index += line->byte_count;
         parser->total_size += line->byte_count;
-        /* save next address to write */
         parser->next_address_to_write =
             parser->current_address + line->byte_count;
         break;
@@ -1790,8 +1589,6 @@ static int handle_record_type(HexParser *parser)
                                   parser->rom_start_address, parser->as);
         }
 
-        /* save next address to write,
-         * in case of non-contiguous block of memory */
         parser->next_address_to_write = (line->data[0] << 12) |
                                         (line->data[1] << 4);
         if (line->record_type == EXT_LINEAR_ADDR_RECORD) {
@@ -1807,7 +1604,6 @@ static int handle_record_type(HexParser *parser)
             return -1;
         }
 
-        /* x86 16-bit CS:IP segmented addressing */
         *(parser->start_addr) = (((line->data[0] << 8) | line->data[1]) << 4) +
                                 ((line->data[2] << 8) | line->data[3]);
         break;
@@ -1827,7 +1623,6 @@ static int handle_record_type(HexParser *parser)
     return parser->total_size;
 }
 
-/* return size or -1 if error */
 static int parse_hex_blob(const char *filename, hwaddr *addr, uint8_t *hex_blob,
                           size_t hex_blob_size, AddressSpace *as)
 {
@@ -1868,14 +1663,12 @@ static int parse_hex_blob(const char *filename, hwaddr *addr, uint8_t *hex_blob,
             }
             break;
 
-        /* start of a new record. */
         case ':':
             memset(&parser.line, 0, sizeof(HexLine));
             in_process = true;
             record_index = 0;
             break;
 
-        /* decoding lines */
         default:
             if (!parse_record(&parser.line, &our_checksum, *hex_blob,
                               &record_index, in_process)) {
@@ -1892,7 +1685,6 @@ out:
     return parser.total_size;
 }
 
-/* return size or -1 if error */
 ssize_t load_targphys_hex_as(const char *filename, hwaddr *entry,
                              AddressSpace *as)
 {

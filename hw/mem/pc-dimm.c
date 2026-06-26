@@ -1,22 +1,3 @@
-/*
- * Dimm device for Memory Hotplug
- *
- * Copyright ProfitBricks GmbH 2012
- * Copyright (C) 2014 Red Hat Inc
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>
- */
 
 #include "qemu/osdep.h"
 #include "hw/boards.h"
@@ -79,7 +60,6 @@ void pc_dimm_plug(PCDIMMDevice *dimm, MachineState *machine)
 
     memory_device_plug(MEMORY_DEVICE(dimm), machine);
     vmstate_register_ram(vmstate_mr, DEVICE(dimm));
-    /* count only "real" DIMMs, not NVDIMMs */
     if (!object_dynamic_cast(OBJECT(dimm), TYPE_NVDIMM)) {
         machine->device_memory->dimm_size += memory_region_size(vmstate_mr);
     }
@@ -127,7 +107,6 @@ static int pc_dimm_get_free_slot(const int *hint, int max_slots, Error **errp)
     bitmap = bitmap_new(max_slots);
     object_child_foreach(qdev_get_machine(), pc_dimm_slot2bitmap, bitmap);
 
-    /* check if requested slot is not occupied */
     if (hint) {
         if (*hint >= max_slots) {
             error_setg(errp, "invalid slot# %d, should be less than %d",
@@ -140,7 +119,6 @@ static int pc_dimm_get_free_slot(const int *hint, int max_slots, Error **errp)
         goto out;
     }
 
-    /* search for free slot */
     slot = find_first_zero_bit(bitmap, max_slots);
     if (slot == max_slots) {
         error_setg(errp, "no free slots available");
@@ -289,7 +267,6 @@ static void pc_dimm_class_init(ObjectClass *oc, void *data)
 
     mdc->get_addr = pc_dimm_md_get_addr;
     mdc->set_addr = pc_dimm_md_set_addr;
-    /* for a dimm plugged_size == region_size */
     mdc->get_plugged_size = memory_device_get_region_size;
     mdc->get_memory_region = pc_dimm_md_get_memory_region;
     mdc->fill_device_info = pc_dimm_md_fill_device_info;

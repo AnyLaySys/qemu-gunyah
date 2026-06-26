@@ -1,12 +1,3 @@
-/*
- * AWS Nitro Secure Module (NSM) device
- *
- * Copyright (c) 2024 Dorjoy Chowdhury <dorjoychy111@gmail.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #ifndef QEMU_VIRTIO_NSM_H
 #define QEMU_VIRTIO_NSM_H
@@ -30,10 +21,8 @@ struct PCRInfo {
 struct VirtIONSM {
     VirtIODevice parent_obj;
 
-    /* Only one vq - guest puts request and response buffers on it */
     VirtQueue *vq;
 
-    /* NSM State */
     uint16_t max_pcrs;
     struct PCRInfo pcrs[NSM_MAX_PCRS];
     char *digest;

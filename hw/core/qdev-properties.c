@@ -25,7 +25,6 @@ void qdev_prop_set_after_realize(DeviceState *dev, const char *name,
     }
 }
 
-/* returns: true if property is allowed to be set, false otherwise */
 static bool qdev_prop_allow_set(Object *obj, const char *name,
                                 const PropertyInfo *info, Error **errp)
 {
@@ -65,11 +64,6 @@ static void field_prop_get(Object *obj, Visitor *v, const char *name,
     return prop->info->get(obj, v, name, opaque, errp);
 }
 
-/**
- * field_prop_getter: Return getter function to be used for property
- *
- * Return value can be NULL if @info has no getter function.
- */
 static ObjectPropertyAccessor *field_prop_getter(const PropertyInfo *info)
 {
     return info->get ? field_prop_get : NULL;
@@ -87,11 +81,6 @@ static void field_prop_set(Object *obj, Visitor *v, const char *name,
     return prop->info->set(obj, v, name, opaque, errp);
 }
 
-/**
- * field_prop_setter: Return setter function to be used for property
- *
- * Return value can be NULL if @info has not setter function.
- */
 static ObjectPropertyAccessor *field_prop_setter(const PropertyInfo *info)
 {
     return info->set ? field_prop_set : NULL;
@@ -122,7 +111,6 @@ void qdev_propinfo_set_default_value_enum(ObjectProperty *op,
         qapi_enum_lookup(prop->info->enum_table, prop->defval.i));
 }
 
-/* Bit */
 
 static uint32_t qdev_get_prop_mask(const Property *prop)
 {
@@ -176,7 +164,6 @@ const PropertyInfo qdev_prop_bit = {
     .set_default_value = set_default_value_bool,
 };
 
-/* Bit64 */
 
 static uint64_t qdev_get_prop_mask64(const Property *prop)
 {
@@ -225,7 +212,6 @@ const PropertyInfo qdev_prop_bit64 = {
     .set_default_value = set_default_value_bool,
 };
 
-/* --- bool --- */
 
 static void get_bool(Object *obj, Visitor *v, const char *name, void *opaque,
                      Error **errp)
@@ -253,7 +239,6 @@ const PropertyInfo qdev_prop_bool = {
     .set_default_value = set_default_value_bool,
 };
 
-/* --- 8bit integer --- */
 
 static void get_uint8(Object *obj, Visitor *v, const char *name, void *opaque,
                       Error **errp)
@@ -292,7 +277,6 @@ const PropertyInfo qdev_prop_uint8 = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- 16bit integer --- */
 
 static void get_uint16(Object *obj, Visitor *v, const char *name,
                        void *opaque, Error **errp)
@@ -319,7 +303,6 @@ const PropertyInfo qdev_prop_uint16 = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- 32bit integer --- */
 
 static void get_uint32(Object *obj, Visitor *v, const char *name,
                        void *opaque, Error **errp)
@@ -371,7 +354,6 @@ const PropertyInfo qdev_prop_int32 = {
     .set_default_value = qdev_propinfo_set_default_value_int,
 };
 
-/* --- 64bit integer --- */
 
 static void get_uint64(Object *obj, Visitor *v, const char *name,
                        void *opaque, Error **errp)
@@ -442,7 +424,6 @@ const PropertyInfo qdev_prop_uint64_checkmask = {
     .set   = set_uint64_checkmask,
 };
 
-/* --- pointer-size integer --- */
 
 static void get_usize(Object *obj, Visitor *v, const char *name, void *opaque,
                       Error **errp)
@@ -479,7 +460,6 @@ const PropertyInfo qdev_prop_usize = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- string --- */
 
 static void release_string(Object *obj, const char *name, void *opaque)
 {
@@ -522,7 +502,6 @@ const PropertyInfo qdev_prop_string = {
     .set   = set_string,
 };
 
-/* --- on/off/auto --- */
 
 const PropertyInfo qdev_prop_on_off_auto = {
     .type = "OnOffAuto",
@@ -533,7 +512,6 @@ const PropertyInfo qdev_prop_on_off_auto = {
     .set_default_value = qdev_propinfo_set_default_value_enum,
 };
 
-/* --- 32bit unsigned int 'size' type --- */
 
 void qdev_propinfo_get_size32(Object *obj, Visitor *v, const char *name,
                               void *opaque, Error **errp)
@@ -574,7 +552,6 @@ const PropertyInfo qdev_prop_size32 = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- support for array properties --- */
 
 typedef struct ArrayElementList ArrayElementList;
 
@@ -583,34 +560,16 @@ struct ArrayElementList {
     void *value;
 };
 
-/*
- * Given an array property @parent_prop in @obj, return a Property for a
- * specific element of the array. Arrays are backed by an uint32_t length field
- * and an element array. @elem points at an element in this element array.
- */
 static Property array_elem_prop(Object *obj, const Property *parent_prop,
                                 const char *name, char *elem)
 {
     return (Property) {
         .info = parent_prop->arrayinfo,
         .name = name,
-        /*
-         * This ugly piece of pointer arithmetic sets up the offset so
-         * that when the underlying release hook calls qdev_get_prop_ptr
-         * they get the right answer despite the array element not actually
-         * being inside the device struct.
-         */
         .offset = (uintptr_t)elem - (uintptr_t)obj,
     };
 }
 
-/*
- * Object property release callback for array properties: We call the
- * underlying element's property release hook for each element.
- *
- * Note that it is the responsibility of the individual device's deinit
- * to free the array proper.
- */
 static void release_prop_array(Object *obj, const char *name, void *opaque)
 {
     const Property *prop = opaque;
@@ -630,12 +589,6 @@ static void release_prop_array(Object *obj, const char *name, void *opaque)
     }
 }
 
-/*
- * Setter for an array property. This sets both the array length (which
- * is technically the property field in the object) and the array itself
- * (a pointer to which is stored in the additional field described by
- * prop->arrayoffset).
- */
 static void set_prop_array(Object *obj, Visitor *v, const char *name,
                            void *opaque, Error **errp)
 {
@@ -658,7 +611,6 @@ static void set_prop_array(Object *obj, Visitor *v, const char *name,
         return;
     }
 
-    /* Read the whole input into a temporary list */
     elem = list;
     while (elem) {
         Property elem_prop;
@@ -697,10 +649,6 @@ out_obj:
         return;
     }
 
-    /*
-     * Now that we know how big the array has to be, move the data over to a
-     * linear array and free the temporary list.
-     */
     *arrayptr = g_malloc_n(*alenptr, prop->arrayfieldsize);
     elemptr = *arrayptr;
     for (elem = list; elem; elem = next) {
@@ -726,7 +674,6 @@ static void get_prop_array(Object *obj, Visitor *v, const char *name,
     int i;
     bool ok;
 
-    /* At least the string output visitor needs a real list */
     for (i = 0; i < *alenptr; i++) {
         elem = g_new0(ArrayElementList, 1);
         elem->value = elemptr;
@@ -751,7 +698,6 @@ static void get_prop_array(Object *obj, Visitor *v, const char *name,
                                                     size);
     }
 
-    /* visit_check_list() can only fail for input visitors */
     ok = visit_check_list(v, errp);
     assert(ok);
 
@@ -778,7 +724,6 @@ const PropertyInfo qdev_prop_array = {
     .set_default_value = default_prop_array,
 };
 
-/* --- public helpers --- */
 
 static const Property *qdev_prop_walk(DeviceClass *cls, const char *name)
 {
@@ -796,7 +741,6 @@ static const Property *qdev_prop_find(DeviceState *dev, const char *name)
     ObjectClass *class;
     const Property *prop;
 
-    /* device properties */
     class = object_get_class(OBJECT(dev));
     do {
         prop = qdev_prop_walk(DEVICE_CLASS(class), name);
@@ -954,7 +898,6 @@ void qdev_prop_set_globals(DeviceState *dev)
                               dev->hotplugged ? NULL : &error_fatal);
 }
 
-/* --- 64bit unsigned int 'size' type --- */
 
 static void get_size(Object *obj, Visitor *v, const char *name, void *opaque,
                      Error **errp)
@@ -981,7 +924,6 @@ const PropertyInfo qdev_prop_size = {
     .set_default_value = qdev_propinfo_set_default_value_uint,
 };
 
-/* --- object link property --- */
 
 static ObjectProperty *create_link_property(ObjectClass *oc, const char *name,
                                             const Property *prop)
@@ -1043,9 +985,6 @@ static void qdev_class_add_property(DeviceClass *klass, const char *name,
     object_class_property_set_description(oc, name, prop->info->description);
 }
 
-/**
- * Legacy property handling
- */
 
 static void qdev_get_legacy_property(Object *obj, Visitor *v,
                                      const char *name, void *opaque,
@@ -1060,25 +999,10 @@ static void qdev_get_legacy_property(Object *obj, Visitor *v,
     visit_type_str(v, name, &ptr, errp);
 }
 
-/**
- * qdev_class_add_legacy_property:
- * @dev: Device to add the property to.
- * @prop: The qdev property definition.
- *
- * Add a legacy QOM property to @dev for qdev property @prop.
- *
- * Legacy properties are string versions of QOM properties.  The format of
- * the string depends on the property type.  Legacy properties are only
- * needed for "info qtree".
- *
- * Do not use this in new code!  QOM Properties added through this interface
- * will be given names in the "legacy" namespace.
- */
 static void qdev_class_add_legacy_property(DeviceClass *dc, const Property *prop)
 {
     g_autofree char *name = NULL;
 
-    /* Register pointer properties as legacy properties */
     if (!prop->info->print && prop->info->get) {
         return;
     }
@@ -1091,7 +1015,6 @@ static void qdev_class_add_legacy_property(DeviceClass *dc, const Property *prop
 
 void device_class_set_props_n(DeviceClass *dc, const Property *props, size_t n)
 {
-    /* We used a hole in DeviceClass because that's still a lot. */
     assert(n <= UINT16_MAX);
     assert(n != 0);
 

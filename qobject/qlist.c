@@ -1,14 +1,3 @@
-/*
- * QList Module
- *
- * Copyright (C) 2009 Red Hat Inc.
- *
- * Authors:
- *  Luiz Capitulino <lcapitulino@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qobject/qbool.h"
@@ -19,11 +8,6 @@
 #include "qemu/queue.h"
 #include "qobject-internal.h"
 
-/**
- * qlist_new(): Create a new QList
- *
- * Return strong reference.
- */
 QList *qlist_new(void)
 {
     QList *qlist;
@@ -49,11 +33,6 @@ QList *qlist_copy(QList *src)
     return dst;
 }
 
-/**
- * qlist_append_obj(): Append an QObject into QList
- *
- * NOTE: ownership of 'value' is transferred to the QList
- */
 void qlist_append_obj(QList *qlist, QObject *value)
 {
     QListEntry *entry;
@@ -131,15 +110,6 @@ size_t qlist_size(const QList *qlist)
     return count;
 }
 
-/**
- * qlist_is_equal(): Test whether the two QLists are equal
- *
- * In order to be considered equal, the respective two objects at each
- * index of the two lists have to compare equal (regarding
- * qobject_is_equal()), and both lists have to have the same number of
- * elements.
- * That means both lists have to contain equal objects in equal order.
- */
 bool qlist_is_equal(const QObject *x, const QObject *y)
 {
     const QList *list_x = qobject_to(QList, x);
@@ -163,9 +133,6 @@ bool qlist_is_equal(const QObject *x, const QObject *y)
     return !entry_x && !entry_y;
 }
 
-/**
- * qlist_destroy_obj(): Free all the memory allocated by a QList
- */
 void qlist_destroy_obj(QObject *obj)
 {
     QList *qlist;

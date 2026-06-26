@@ -1,7 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef QEMU_PIXMAN_H
 #define QEMU_PIXMAN_H
@@ -14,12 +10,6 @@
 
 #include "qapi/error.h"
 
-/*
- * pixman image formats are defined to be native endian,
- * that means host byte order on qemu.  So we go define
- * fixed formats here for cases where it is needed, like
- * feeding libjpeg / libpng and writing screenshots.
- */
 
 #if HOST_BIG_ENDIAN
 # define PIXMAN_BE_r8g8b8     PIXMAN_r8g8b8
@@ -59,7 +49,6 @@
 #define QEMU_PIXMAN_COLOR_BLACK QEMU_PIXMAN_COLOR(0x00, 0x00, 0x00)
 #define QEMU_PIXMAN_COLOR_GRAY QEMU_PIXMAN_COLOR(0xaa, 0xaa, 0xaa)
 
-/* -------------------------------------------------------------------- */
 
 typedef struct PixelFormat {
     uint8_t bits_per_pixel;

@@ -1,14 +1,3 @@
-/*
- * QEMU ACPI hotplug utilities
- *
- * Copyright (C) 2013 Red Hat Inc
- *
- * Authors:
- *   Igor Mammedov <imammedo@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 #include "qemu/osdep.h"
 #include "hw/acpi/cpu_hotplug.h"
 #include "qapi/error.h"
@@ -35,10 +24,6 @@ static uint64_t cpu_status_read(void *opaque, hwaddr addr, unsigned int size)
 static void cpu_status_write(void *opaque, hwaddr addr, uint64_t data,
                              unsigned int size)
 {
-    /* firmware never used to write in CPU present bitmap so use
-       this fact as means to switch QEMU into modern CPU hotplug
-       mode by writing 0 at the beginning of legacy CPU bitmap
-     */
     if (addr == 0 && data == 0) {
         AcpiCpuHotplug *cpus = opaque;
         object_property_set_bool(cpus->device, "cpu-hotplug-legacy", false,
@@ -84,7 +69,6 @@ void legacy_acpi_cpu_plug_cb(HotplugHandler *hotplug_dev,
 
     acpi_set_cpu_present_bit(g, CPU(dev), &swtchd_to_modern);
     if (swtchd_to_modern) {
-        /* propagate the hotplug to the modern interface */
         hotplug_handler_plug(hotplug_dev, dev, &local_err);
     } else {
         acpi_send_event(DEVICE(hotplug_dev), ACPI_CPU_HOTPLUG_STATUS);
@@ -141,30 +125,17 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
     const CPUArchIdList *apic_ids = mc->possible_cpu_arch_ids(machine);
     X86MachineState *x86ms = X86_MACHINE(machine);
 
-    /*
-     * _MAT method - creates an madt apic buffer
-     * apic_id = Arg0 = Local APIC ID
-     * cpu_id  = Arg1 = Processor ID
-     * cpu_on = Local0 = CPON flag for this cpu
-     * madt = Local1 = Buffer (in madt apic form) to return
-     */
     method = aml_method(CPU_MAT_METHOD, 2, AML_NOTSERIALIZED);
     aml_append(method,
         aml_store(aml_derefof(aml_index(cpus_map, apic_id)), cpu_on));
     aml_append(method,
         aml_store(aml_buffer(sizeof(madt_tmpl), madt_tmpl), madt));
-    /* Update the processor id, lapic id, and enable/disable status */
     aml_append(method, aml_store(cpu_id, aml_index(madt, aml_int(2))));
     aml_append(method, aml_store(apic_id, aml_index(madt, aml_int(3))));
     aml_append(method, aml_store(cpu_on, aml_index(madt, aml_int(4))));
     aml_append(method, aml_return(madt));
     aml_append(sb_scope, method);
 
-    /*
-     * _STA method - return ON status of cpu
-     * apic_id = Arg0 = Local APIC ID
-     * cpu_on = Local0 = CPON flag for this cpu
-     */
     method = aml_method(CPU_STATUS_METHOD, 1, AML_NOTSERIALIZED);
     aml_append(method,
         aml_store(aml_derefof(aml_index(cpus_map, apic_id)), cpu_on));
@@ -199,21 +170,18 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
         aml_append(method, aml_store(zero, byte));
         aml_append(method, aml_store(zero, idx));
 
-        /* While (idx < SizeOf(CPON)) */
         while_ctx = aml_while(aml_lless(idx, aml_sizeof(cpus_map)));
         aml_append(while_ctx,
             aml_store(aml_derefof(aml_index(cpus_map, idx)), is_cpu_on));
 
         if_ctx = aml_if(aml_and(idx, aml_int(0x07), NULL));
         {
-            /* Shift down previously read bitmap byte */
             aml_append(if_ctx, aml_shiftright(byte, one, byte));
         }
         aml_append(while_ctx, if_ctx);
 
         else_ctx = aml_else();
         {
-            /* Read next byte from cpu bitmap */
             aml_append(else_ctx, aml_store(aml_derefof(aml_index(status_map,
                        aml_shiftright(idx, aml_int(3), NULL))), byte));
         }
@@ -222,7 +190,6 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
         aml_append(while_ctx, aml_store(aml_and(byte, one, NULL), status));
         if_ctx = aml_if(aml_lnot(aml_equal(is_cpu_on, status)));
         {
-            /* State change - update CPON with new state */
             aml_append(if_ctx, aml_store(status, aml_index(cpus_map, idx)));
             if_ctx2 = aml_if(aml_equal(status, one));
             {
@@ -244,8 +211,6 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
     }
     aml_append(sb_scope, method);
 
-    /* The current AML generator can cover the APIC ID range [0..255],
-     * inclusive, for VCPU hotplug. */
     QEMU_BUILD_BUG_ON(ACPI_CPU_HOTPLUG_ID_LIMIT > 256);
     if (x86ms->apic_id_limit > ACPI_CPU_HOTPLUG_ID_LIMIT) {
         error_report("max_cpus is too large. APIC ID of last CPU is %u",
@@ -253,13 +218,11 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
         exit(1);
     }
 
-    /* create PCI0.PRES device and its _CRS to reserve CPU hotplug MMIO */
     dev = aml_device("PCI0." stringify(CPU_HOTPLUG_RESOURCE_DEVICE));
     aml_append(dev, aml_name_decl("_HID", aml_eisaid("PNP0A06")));
     aml_append(dev,
         aml_name_decl("_UID", aml_string("CPU Hotplug resources"))
     );
-    /* device present, functioning, decoding, not shown in UI */
     aml_append(dev, aml_name_decl("_STA", aml_int(0xB)));
     crs = aml_resource_template();
     aml_append(crs,
@@ -267,14 +230,12 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
     );
     aml_append(dev, aml_name_decl("_CRS", crs));
     aml_append(sb_scope, dev);
-    /* declare CPU hotplug MMIO region and PRS field to access it */
     aml_append(sb_scope, aml_operation_region(
         "PRST", AML_SYSTEM_IO, aml_int(io_base), ACPI_GPE_PROC_LEN));
     field = aml_field("PRST", AML_BYTE_ACC, AML_NOLOCK, AML_PRESERVE);
     aml_append(field, aml_named_field("PRS", 256));
     aml_append(sb_scope, field);
 
-    /* build Processor object for each processor */
     for (i = 0; i < apic_ids->len; i++) {
         int cpu_apic_id = apic_ids->cpus[i].arch_id;
 
@@ -304,10 +265,6 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
         aml_append(sb_scope, dev);
     }
 
-    /* build this code:
-     *   Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}
-     */
-    /* Arg0 = APIC ID */
     method = aml_method(AML_NOTIFY_METHOD, 2, AML_NOTSERIALIZED);
     for (i = 0; i < apic_ids->len; i++) {
         int cpu_apic_id = apic_ids->cpus[i].arch_id;
@@ -320,13 +277,6 @@ void build_legacy_cpu_hotplug_aml(Aml *ctx, MachineState *machine,
     }
     aml_append(sb_scope, method);
 
-    /* build "Name(CPON, Package() { One, One, ..., Zero, Zero, ... })"
-     *
-     * Note: The ability to create variable-sized packages was first
-     * introduced in ACPI 2.0. ACPI 1.0 only allowed fixed-size packages
-     * ith up to 255 elements. Windows guests up to win2k8 fail when
-     * VarPackageOp is used.
-     */
     pkg = x86ms->apic_id_limit <= 255 ? aml_package(x86ms->apic_id_limit) :
                                         aml_varpackage(x86ms->apic_id_limit);
 

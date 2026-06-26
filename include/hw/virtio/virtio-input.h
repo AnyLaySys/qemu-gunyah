@@ -6,8 +6,6 @@
 #include "ui/input.h"
 #include "system/vhost-user-backend.h"
 
-/* ----------------------------------------------------------------- */
-/* virtio input protocol                                             */
 
 #include "standard-headers/linux/virtio_ids.h"
 #include "standard-headers/linux/virtio_input.h"
@@ -17,8 +15,6 @@ typedef struct virtio_input_absinfo virtio_input_absinfo;
 typedef struct virtio_input_config virtio_input_config;
 typedef struct virtio_input_event virtio_input_event;
 
-/* ----------------------------------------------------------------- */
-/* qemu internals                                                    */
 
 #define TYPE_VIRTIO_INPUT "virtio-input-device"
 OBJECT_DECLARE_TYPE(VirtIOInput, VirtIOInputClass,
@@ -72,9 +68,7 @@ struct VirtIOInput {
 };
 
 struct VirtIOInputClass {
-    /*< private >*/
     VirtioDeviceClass parent;
-    /*< public >*/
 
     DeviceRealize realize;
     DeviceUnrealize unrealize;

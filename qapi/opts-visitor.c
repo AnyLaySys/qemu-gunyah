@@ -1,14 +1,3 @@
-/*
- * Options Visitor
- *
- * Copyright Red Hat, Inc. 2012-2016
- *
- * Author: Laszlo Ersek <lersek@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -66,35 +55,20 @@ struct OptsVisitor
 {
     Visitor visitor;
 
-    /* Ownership remains with opts_visitor_new()'s caller. */
     const QemuOpts *opts_root;
 
     unsigned depth;
 
-    /* Non-null iff depth is positive. Each key is a QemuOpt name. Each value
-     * is a non-empty GQueue, enumerating all QemuOpt occurrences with that
-     * name. */
     GHashTable *unprocessed_opts;
 
-    /* The list currently being traversed with opts_start_list() /
-     * opts_next_list(). The list must have a struct element type in the
-     * schema, with a single mandatory scalar member. */
     ListMode list_mode;
     GQueue *repeated_opts;
 
-    /* When parsing a list of repeating options as integers, values of the form
-     * "a-b", representing a closed interval, are allowed. Elements in the
-     * range are generated individually.
-     */
     union {
         int64_t s;
         uint64_t u;
     } range_next, range_limit;
 
-    /* If "opts_root->id" is set, reinstantiate it as a fake QemuOpt for
-     * uniformity. Only its "name" and "str" fields are set. "fake_id_opt" does
-     * not survive or escape the OptsVisitor object.
-     */
     QemuOpt *fake_id_opt;
 };
 
@@ -121,14 +95,9 @@ opts_visitor_insert(GHashTable *unprocessed_opts, const QemuOpt *opt)
     if (list == NULL) {
         list = g_queue_new();
 
-        /* GHashTable will never try to free the keys -- we supply NULL as
-         * "key_destroy_func" in opts_start_struct(). Thus cast away key
-         * const-ness in order to suppress gcc's warning.
-         */
         g_hash_table_insert(unprocessed_opts, (gpointer)opt->name, list);
     }
 
-    /* Similarly, destroy_list() doesn't call g_queue_free_full(). */
     g_queue_push_tail(list, (gpointer)opt);
 }
 
@@ -150,7 +119,6 @@ opts_start_struct(Visitor *v, const char *name, void **obj,
     ov->unprocessed_opts = g_hash_table_new_full(&g_str_hash, &g_str_equal,
                                                  NULL, &destroy_list);
     QTAILQ_FOREACH(opt, &ov->opts_root->head, next) {
-        /* ensured by qemu-option.c::opts_do_parse() */
         assert(strcmp(opt->name, "id") != 0);
 
         opts_visitor_insert(ov->unprocessed_opts, opt);
@@ -178,7 +146,6 @@ opts_check_struct(Visitor *v, Error **errp)
         return true;
     }
 
-    /* we should have processed all (distinct) QemuOpt instances */
     g_hash_table_iter_init(&iter, ov->unprocessed_opts);
     if (g_hash_table_iter_next(&iter, NULL, (void **)&any)) {
         const QemuOpt *first;
@@ -230,9 +197,7 @@ opts_start_list(Visitor *v, const char *name, GenericList **list, size_t size,
 {
     OptsVisitor *ov = to_ov(v);
 
-    /* we can't traverse a list in a list */
     assert(ov->list_mode == LM_NONE);
-    /* we don't support visits without a list */
     assert(list);
     ov->repeated_opts = lookup_distinct(ov, name, errp);
     if (!ov->repeated_opts) {
@@ -265,7 +230,6 @@ opts_next_list(Visitor *v, GenericList *tail, size_t size)
             break;
         }
         ov->list_mode = LM_IN_PROGRESS;
-        /* range has been completed, fall through in order to pop option */
 
     case LM_IN_PROGRESS: {
         const QemuOpt *opt;
@@ -292,10 +256,6 @@ opts_next_list(Visitor *v, GenericList *tail, size_t size)
 static bool
 opts_check_list(Visitor *v, Error **errp)
 {
-    /*
-     * Unvisited list elements will be reported later when checking
-     * whether unvisited struct members remain.
-     */
     return true;
 }
 
@@ -320,8 +280,6 @@ lookup_scalar(const OptsVisitor *ov, const char *name, Error **errp)
     if (ov->list_mode == LM_NONE) {
         GQueue *list;
 
-        /* the last occurrence of any QemuOpt takes effect when queried by name
-         */
         list = lookup_distinct(ov, name, errp);
         return list ? g_queue_peek_tail(list) : NULL;
     }
@@ -342,7 +300,6 @@ processed(OptsVisitor *ov, const char *name)
         return;
     }
     assert(ov->list_mode == LM_IN_PROGRESS);
-    /* do nothing */
 }
 
 
@@ -358,11 +315,6 @@ opts_type_str(Visitor *v, const char *name, char **obj, Error **errp)
         return false;
     }
     *obj = g_strdup(opt->str ? opt->str : "");
-    /* Note that we consume a string even if this is called as part of
-     * an enum visit that later fails because the string is not a
-     * valid enum value; this is harmless because tracking what gets
-     * consumed only matters to visit_end_struct() as the final error
-     * check if there were no other failures during the visit.  */
     processed(ov, name);
     return true;
 }
@@ -411,7 +363,6 @@ opts_type_int64(Visitor *v, const char *name, int64_t *obj, Error **errp)
     }
     str = opt->str ? opt->str : "";
 
-    /* we've gotten past lookup_scalar() */
     assert(ov->list_mode == LM_NONE || ov->list_mode == LM_IN_PROGRESS);
 
     errno = 0;
@@ -435,7 +386,6 @@ opts_type_int64(Visitor *v, const char *name, int64_t *obj, Error **errp)
                 ov->range_limit.s = val2;
                 ov->list_mode = LM_SIGNED_INTERVAL;
 
-                /* as if entering on the top */
                 *obj = ov->range_next.s;
                 return true;
             }
@@ -468,7 +418,6 @@ opts_type_uint64(Visitor *v, const char *name, uint64_t *obj, Error **errp)
     }
     str = opt->str;
 
-    /* we've gotten past lookup_scalar() */
     assert(ov->list_mode == LM_NONE || ov->list_mode == LM_IN_PROGRESS);
 
     if (parse_uint(str, &endptr, 0, &val) == 0) {
@@ -488,7 +437,6 @@ opts_type_uint64(Visitor *v, const char *name, uint64_t *obj, Error **errp)
                 ov->range_limit.u = val2;
                 ov->list_mode = LM_UNSIGNED_INTERVAL;
 
-                /* as if entering on the top */
                 *obj = ov->range_next.u;
                 return true;
             }
@@ -530,7 +478,6 @@ opts_optional(Visitor *v, const char *name, bool *present)
 {
     OptsVisitor *ov = to_ov(v);
 
-    /* we only support a single mandatory scalar field in a list node */
     assert(ov->list_mode == LM_NONE);
     *present = (lookup_distinct(ov, name, NULL) != NULL);
 }
@@ -574,8 +521,6 @@ opts_visitor_new(const QemuOpts *opts)
     ov->visitor.type_bool   = &opts_type_bool;
     ov->visitor.type_str    = &opts_type_str;
 
-    /* type_number() is not filled in, but this is not the first visitor to
-     * skip some mandatory methods... */
 
     ov->visitor.optional = &opts_optional;
     ov->visitor.free = opts_free;

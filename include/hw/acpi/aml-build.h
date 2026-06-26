@@ -26,7 +26,6 @@ typedef enum {
 struct Aml {
     GArray *buf;
 
-    /*< private >*/
     uint8_t op;
     AmlBlockFlags block_flags;
 };
@@ -110,20 +109,12 @@ typedef enum {
     AML_MIN_NOT_FIXED = 0
 } AmlMinFixed;
 
-/*
- * ACPI 1.0b: Table 6-26 I/O Resource Flag (Resource Type = 1) Definitions
- * _RNG field definition
- */
 typedef enum {
     AML_ISA_ONLY = 1,
     AML_NON_ISA_ONLY = 2,
     AML_ENTIRE_RANGE = 3,
 } AmlISARanges;
 
-/*
- * ACPI 1.0b: Table 6-25 Memory Resource Flag (Resource Type = 0) Definitions
- * _MEM field definition
- */
 typedef enum {
     AML_NON_CACHEABLE = 0,
     AML_CACHEABLE = 1,
@@ -131,46 +122,26 @@ typedef enum {
     AML_PREFETCHABLE = 3,
 } AmlCacheable;
 
-/*
- * ACPI 1.0b: Table 6-25 Memory Resource Flag (Resource Type = 0) Definitions
- * _RW field definition
- */
 typedef enum {
     AML_READ_ONLY = 0,
     AML_READ_WRITE = 1,
 } AmlReadAndWrite;
 
-/*
- * ACPI 5.0: Table 6-187 Extended Interrupt Descriptor Definition
- * Interrupt Vector Flags Bits[0] Consumer/Producer
- */
 typedef enum {
     AML_CONSUMER_PRODUCER = 0,
     AML_CONSUMER = 1,
 } AmlConsumerAndProducer;
 
-/*
- * ACPI 5.0: Table 6-187 Extended Interrupt Descriptor Definition
- * _HE field definition
- */
 typedef enum {
     AML_LEVEL = 0,
     AML_EDGE = 1,
 } AmlLevelAndEdge;
 
-/*
- * ACPI 5.0: Table 6-187 Extended Interrupt Descriptor Definition
- * _LL field definition
- */
 typedef enum {
     AML_ACTIVE_HIGH = 0,
     AML_ACTIVE_LOW = 1,
 } AmlActiveHighAndLow;
 
-/*
- * ACPI 5.0: Table 6-187 Extended Interrupt Descriptor Definition
- * _SHR field definition
- */
 typedef enum {
     AML_EXCLUSIVE = 0,
     AML_SHARED = 1,
@@ -178,25 +149,16 @@ typedef enum {
     AML_SHARED_AND_WAKE = 3,
 } AmlShared;
 
-/* ACPI 1.0b: 16.2.5.2 Named Objects Encoding: MethodFlags */
 typedef enum {
     AML_NOTSERIALIZED = 0,
     AML_SERIALIZED = 1,
 } AmlSerializeFlag;
 
-/*
- * ACPI 5.0: Table 6-189 GPIO Connection Descriptor Definition
- * GPIO Connection Type
- */
 typedef enum {
     AML_INTERRUPT_CONNECTION = 0,
     AML_IO_CONNECTION = 1,
 } AmlGpioConnectionType;
 
-/*
- * ACPI 5.0: Table 6-189 GPIO Connection Descriptor Definition
- * _PPI field definition
- */
 typedef enum {
     AML_PULL_DEFAULT = 0,
     AML_PULL_UP = 1,
@@ -235,60 +197,19 @@ struct CrsRangeSet {
 } CrsRangeSet;
 
 
-/*
- * ACPI 5.0: 6.4.3.8.2 Serial Bus Connection Descriptors
- * Serial Bus Type
- */
 #define AML_SERIAL_BUS_TYPE_I2C  1
 #define AML_SERIAL_BUS_TYPE_SPI  2
 #define AML_SERIAL_BUS_TYPE_UART 3
 
-/*
- * ACPI 5.0: 6.4.3.8.2 Serial Bus Connection Descriptors
- * General Flags
- */
-/* Slave Mode */
 #define AML_SERIAL_BUS_FLAG_MASTER_DEVICE       (1 << 0)
-/* Consumer/Producer */
 #define AML_SERIAL_BUS_FLAG_CONSUME_ONLY        (1 << 1)
 
-/**
- * init_aml_allocator:
- *
- * Called for initializing API allocator which allow to use
- * AML API.
- * Returns: toplevel container which accumulates all other
- * AML elements for a table.
- */
 Aml *init_aml_allocator(void);
 
-/**
- * free_aml_allocator:
- *
- * Releases all elements used by AML API, frees associated memory
- * and invalidates AML allocator. After this call @init_aml_allocator
- * should be called again if AML API is to be used again.
- */
 void free_aml_allocator(void);
 
-/**
- * aml_append:
- * @parent_ctx: context to which @child element is added
- * @child: element that is copied into @parent_ctx context
- *
- * Joins Aml elements together and helps to construct AML tables
- * Example of usage:
- *   Aml *table = aml_def_block("SSDT", ...);
- *   Aml *sb = aml_scope("\\_SB");
- *   Aml *dev = aml_device("PCI0");
- *
- *   aml_append(dev, aml_name_decl("HID", aml_eisaid("PNP0A03")));
- *   aml_append(sb, dev);
- *   aml_append(table, sb);
- */
 void aml_append(Aml *parent_ctx, Aml *child);
 
-/* non block AML object primitives */
 Aml *aml_name(const char *name_format, ...) G_GNUC_PRINTF(1, 2);
 Aml *aml_name_decl(const char *name, Aml *val);
 Aml *aml_debug(void);
@@ -383,7 +304,6 @@ Aml *aml_dma(AmlDmaType typ, AmlDmaBusMaster bm, AmlTransferSize sz,
 Aml *aml_sleep(uint64_t msec);
 Aml *aml_i2c_serial_bus_device(uint16_t address, const char *resource_source);
 
-/* Block AML object primitives */
 Aml *aml_scope(const char *name_format, ...) G_GNUC_PRINTF(1, 2);
 Aml *aml_device(const char *name_format, ...) G_GNUC_PRINTF(1, 2);
 Aml *aml_method(const char *name, int arg_count, AmlSerializeFlag sflag);
@@ -419,29 +339,12 @@ typedef struct AcpiTable {
     const uint8_t rev;
     const char *oem_id;
     const char *oem_table_id;
-    /* private vars tracking table state */
     GArray *array;
     unsigned table_offset;
 } AcpiTable;
 
-/**
- * acpi_table_begin:
- * initializes table header and keeps track of
- * table data/offsets
- * @desc: ACPI table descriptor
- * @array: blob where the ACPI table will be composed/stored.
- */
 void acpi_table_begin(AcpiTable *desc, GArray *array);
 
-/**
- * acpi_table_end:
- * sets actual table length and tells bios loader
- * where table is for the later initialization on
- * guest side.
- * @linker: reference to BIOSLinker object to use for the table
- * @table: ACPI table descriptor that was used with @acpi_table_begin
- * counterpart
- */
 void acpi_table_end(BIOSLinker *linker, AcpiTable *table);
 
 void *acpi_data_push(GArray *table_data, unsigned size);

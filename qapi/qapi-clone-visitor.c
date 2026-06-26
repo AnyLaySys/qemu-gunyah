@@ -1,12 +1,3 @@
-/*
- * Copy one QAPI object to another
- *
- * Copyright (C) 2016 Red Hat, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/clone-visitor.h"
@@ -31,9 +22,6 @@ static bool qapi_clone_start_struct(Visitor *v, const char *name, void **obj,
 
     if (!obj) {
         assert(qcv->depth);
-        /* Only possible when visiting an alternate's object
-         * branch. Nothing further to do here, since the earlier
-         * visit_start_alternate() already copied memory. */
         return true;
     }
 
@@ -65,7 +53,6 @@ static GenericList *qapi_clone_next_list(Visitor *v, GenericList *tail,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /* Unshare the tail of the list cloned by g_memdup() */
     tail->next = g_memdup(tail->next, size);
     return tail->next;
 }
@@ -83,7 +70,6 @@ static bool qapi_clone_type_int64(Visitor *v, const char *name, int64_t *obj,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /* Value was already cloned by g_memdup() */
     return true;
 }
 
@@ -93,7 +79,6 @@ static bool qapi_clone_type_uint64(Visitor *v, const char *name,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /* Value was already cloned by g_memdup() */
     return true;
 }
 
@@ -103,7 +88,6 @@ static bool qapi_clone_type_bool(Visitor *v, const char *name, bool *obj,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /* Value was already cloned by g_memdup() */
     return true;
 }
 
@@ -113,13 +97,6 @@ static bool qapi_clone_type_str(Visitor *v, const char *name, char **obj,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /*
-     * Pointer was already cloned by g_memdup; create fresh copy.
-     * Note that as long as qobject-output-visitor accepts NULL instead of
-     * "", then we must do likewise. However, we want to obey the
-     * input visitor semantics of never producing NULL when the empty
-     * string is intended.
-     */
     *obj = g_strdup(*obj ?: "");
     return true;
 }
@@ -130,7 +107,6 @@ static bool qapi_clone_type_number(Visitor *v, const char *name, double *obj,
     QapiCloneVisitor *qcv = to_qcv(v);
 
     assert(qcv->depth);
-    /* Value was already cloned by g_memdup() */
     return true;
 }
 

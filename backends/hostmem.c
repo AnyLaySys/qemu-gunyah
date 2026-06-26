@@ -1,14 +1,3 @@
-/*
- * QEMU Host Memory Backend
- *
- * Copyright (C) 2013-2014 Red Hat Inc
- *
- * Authors:
- *   Igor Mammedov <imammedo@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "system/hostmem.h"
@@ -27,10 +16,6 @@
 #include <numaif.h>
 #include <numa.h>
 QEMU_BUILD_BUG_ON(HOST_MEM_POLICY_DEFAULT != MPOL_DEFAULT);
-/*
- * HOST_MEM_POLICY_PREFERRED may either translate to MPOL_PREFERRED or
- * MPOL_PREFERRED_MANY, see comments further below.
- */
 QEMU_BUILD_BUG_ON(HOST_MEM_POLICY_PREFERRED != MPOL_PREFERRED);
 QEMU_BUILD_BUG_ON(HOST_MEM_POLICY_BIND != MPOL_BIND);
 QEMU_BUILD_BUG_ON(HOST_MEM_POLICY_INTERLEAVE != MPOL_INTERLEAVE);
@@ -285,7 +270,6 @@ static void host_memory_backend_init(Object *obj)
     HostMemoryBackend *backend = MEMORY_BACKEND(obj);
     MachineState *machine = MACHINE(qdev_get_machine());
 
-    /* TODO: convert access to globals to compat properties */
     backend->merge = machine_mem_merge(machine);
     backend->dump = machine_dump_guest_core(machine);
     backend->guest_memfd = machine_require_guest_memfd(machine);
@@ -300,10 +284,6 @@ static void host_memory_backend_post_init(Object *obj)
 
 bool host_memory_backend_mr_inited(HostMemoryBackend *backend)
 {
-    /*
-     * NOTE: We forbid zero-length memory backend, so here zero means
-     * "we haven't inited the backend memory region yet".
-     */
     return memory_region_size(&backend->mr) != 0;
 }
 
@@ -365,18 +345,10 @@ host_memory_backend_memory_complete(UserCreatable *uc, Error **errp)
     }
 #ifdef CONFIG_NUMA
     unsigned long lastbit = find_last_bit(backend->host_nodes, MAX_NODES);
-    /* lastbit == MAX_NODES means maxnode = 0 */
     unsigned long maxnode = (lastbit + 1) % (MAX_NODES + 1);
-    /*
-     * Ensure policy won't be ignored in case memory is preallocated
-     * before mbind(). note: MPOL_MF_STRICT is ignored on hugepages so
-     * this doesn't catch hugepage case.
-     */
     unsigned flags = MPOL_MF_STRICT | MPOL_MF_MOVE;
     int mode = backend->policy;
 
-    /* check for invalid host-nodes and policies and give more verbose
-     * error messages than mbind(). */
     if (maxnode && backend->policy == MPOL_DEFAULT) {
         error_setg(errp, "host-nodes must be empty for policy default,"
                    " or you should explicitly specify a policy other"
@@ -388,22 +360,12 @@ host_memory_backend_memory_complete(UserCreatable *uc, Error **errp)
         return;
     }
 
-    /*
-     * We can have up to MAX_NODES nodes, but we need to pass maxnode+1
-     * as argument to mbind() due to an old Linux bug (feature?) which
-     * cuts off the last specified node. This means backend->host_nodes
-     * must have MAX_NODES+1 bits available.
-     */
     assert(sizeof(backend->host_nodes) >=
            BITS_TO_LONGS(MAX_NODES + 1) * sizeof(unsigned long));
     assert(maxnode <= MAX_NODES);
 
 #ifdef HAVE_NUMA_HAS_PREFERRED_MANY
     if (mode == MPOL_PREFERRED && numa_has_preferred_many() > 0) {
-        /*
-         * Replace with MPOL_PREFERRED_MANY otherwise the mbind() below
-         * silently picks the first node.
-         */
         mode = MPOL_PREFERRED_MANY;
     }
 #endif
@@ -417,11 +379,6 @@ host_memory_backend_memory_complete(UserCreatable *uc, Error **errp)
         }
     }
 #endif
-    /*
-     * Preallocate memory after the NUMA policy has been instantiated.
-     * This is necessary to guarantee memory is allocated with
-     * specified NUMA policy in place.
-     */
     if (backend->prealloc && !qemu_prealloc_mem(memory_region_get_fd(&backend->mr),
                                                 ptr, sz,
                                                 backend->prealloc_threads,
@@ -562,16 +519,6 @@ host_memory_backend_class_init(ObjectClass *oc, void *data)
     object_class_property_set_description(oc, "reserve",
         "Reserve swap space (or huge pages) if applicable");
 #endif /* CONFIG_LINUX */
-    /*
-     * Do not delete/rename option. This option must be considered stable
-     * (as if it didn't have the 'x-' prefix including deprecation period) as
-     * long as 4.0 and older machine types exists.
-     * Option will be used by upper layers to override (disable) canonical path
-     * for ramblock-id set by compat properties on old machine types ( <= 4.0),
-     * to keep migration working when backend is used for main RAM with
-     * -machine memory-backend= option (main RAM historically used prefix-less
-     * ramblock-id).
-     */
     object_class_property_add_bool(oc, "x-use-canonical-path-for-ramblock-id",
         host_memory_backend_get_use_canonical_path,
         host_memory_backend_set_use_canonical_path);

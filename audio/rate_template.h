@@ -1,32 +1,4 @@
-/*
- * QEMU Mixing engine
- *
- * Copyright (c) 2004-2005 Vassili Karpov (malc)
- * Copyright (c) 1998 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
-/*
- * Processed signed long samples from ibuf to obuf.
- * Return number of samples processed.
- */
 void NAME (void *opaque, struct st_sample *ibuf, struct st_sample *obuf,
            size_t *isamp, size_t *osamp)
 {
@@ -57,7 +29,6 @@ void NAME (void *opaque, struct st_sample *ibuf, struct st_sample *obuf,
         return;
     }
 
-    /* without input samples, there's nothing to do */
     if (ibuf >= iend) {
         *osamp = 0;
         return;
@@ -67,31 +38,26 @@ void NAME (void *opaque, struct st_sample *ibuf, struct st_sample *obuf,
 
     while (true) {
 
-        /* read as many input samples so that ipos > opos */
         while (rate->ipos <= (rate->opos >> 32)) {
             ilast = *ibuf++;
             rate->ipos++;
 
-            /* See if we finished the input buffer yet */
             if (ibuf >= iend) {
                 goto the_end;
             }
         }
 
-        /* make sure that the next output sample can be written */
         if (obuf >= oend) {
             break;
         }
 
         icur = *ibuf;
 
-        /* wrap ipos and opos around long before they overflow */
         if (rate->ipos >= 0x10001) {
             rate->ipos = 1;
             rate->opos &= 0xffffffff;
         }
 
-        /* interpolate */
 #ifdef FLOAT_MIXENG
 #ifdef RECIPROCAL
         t = (rate->opos & UINT_MAX) * (1.f / UINT_MAX);
@@ -106,7 +72,6 @@ void NAME (void *opaque, struct st_sample *ibuf, struct st_sample *obuf,
         out.r = (ilast.r * ((int64_t) UINT_MAX - t) + icur.r * t) >> 32;
 #endif
 
-        /* output sample & increment position */
         OP (obuf->l, out.l);
         OP (obuf->r, out.r);
         obuf += 1;

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Generate .stp file that outputs simpletrace binary traces (DTrace with SystemTAP only).
@@ -33,7 +32,6 @@ def generate(events, backend, group):
             probeprefix=probeprefix(),
             name=e.name)
 
-        # Calculate record size
         sizes = ['24'] # sizeof(TraceRecord)
         for type_, name in e.args:
             name = stap_escape(name)
@@ -48,7 +46,6 @@ def generate(events, backend, group):
                 sizes.append('8')
         sizestr = ' + '.join(sizes)
 
-        # Generate format string and value pairs for record header and arguments
         fields = [('8b', str(event_id)),
                   ('8b', 'gettimeofday_ns()'),
                   ('4b', sizestr),
@@ -61,7 +58,6 @@ def generate(events, backend, group):
             else:
                 fields.append(('8b', name))
 
-        # Emit the entire record in a single SystemTap printf()
         fmt_str = '%'.join(fmt for fmt, _ in fields)
         arg_str = ', '.join(arg for _, arg in fields)
         out('    printf("%%8b%%%(fmt_str)s", 1, %(arg_str)s)',

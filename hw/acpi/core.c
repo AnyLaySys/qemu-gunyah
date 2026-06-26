@@ -1,23 +1,3 @@
-/*
- * ACPI implementation
- *
- * Copyright (c) 2006 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License version 2.1 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "hw/irq.h"
@@ -36,7 +16,6 @@
 
 struct acpi_table_header {
     uint16_t _length;         /* our length, not actual part of the hdr */
-                              /* allows easier parsing for fw_cfg clients */
     char sig[4]
              QEMU_NONSTRING;  /* ACPI signature (4 ASCII characters) */
     uint32_t length;          /* Length of table, in bytes, including header */
@@ -94,22 +73,6 @@ static int acpi_checksum(const uint8_t *data, int len)
 }
 
 
-/* Install a copy of the ACPI table specified in @blob.
- *
- * If @has_header is set, @blob starts with the System Description Table Header
- * structure. Otherwise, "dfl_hdr" is prepended. In any case, each header field
- * is optionally overwritten from @hdrs.
- *
- * It is valid to call this function with
- * (@blob == NULL && bloblen == 0 && !has_header).
- *
- * @hdrs->file and @hdrs->data are ignored.
- *
- * SIZE_MAX is considered "infinity" in this function.
- *
- * The number of tables that can be installed is not limited, but the 16-bit
- * counter at the beginning of "acpi_tables" wraps around after UINT16_MAX.
- */
 static void acpi_table_install(const char unsigned *blob, size_t bloblen,
                                bool has_header,
                                const struct AcpiTableOptions *hdrs,
@@ -121,18 +84,7 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
     struct acpi_table_header *ext_hdr;
     unsigned changed_fields;
 
-    /* Calculate where the ACPI table body starts within the blob, plus where
-     * to copy the ACPI table header from.
-     */
     if (has_header) {
-        /*   _length             | ACPI header in blob | blob body
-         *   ^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^
-         *   ACPI_TABLE_PFX_SIZE     sizeof dfl_hdr      body_size
-         *                           == body_start
-         *
-         *                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         *                           acpi_payload_size == bloblen
-         */
         body_start = sizeof dfl_hdr;
 
         if (bloblen < body_start) {
@@ -143,14 +95,6 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
         }
         hdr_src = blob;
     } else {
-        /*   _length             | ACPI header in template | blob body
-         *   ^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^
-         *   ACPI_TABLE_PFX_SIZE       sizeof dfl_hdr        body_size
-         *                                                   == bloblen
-         *
-         *                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         *                                  acpi_payload_size
-         */
         body_start = 0;
         hdr_src = dfl_hdr;
     }
@@ -163,7 +107,6 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
         return;
     }
 
-    /* We won't fail from here on. Initialize / extend the globals. */
     if (acpi_tables == NULL) {
         acpi_tables_len = sizeof(uint16_t);
         acpi_tables = g_malloc0(acpi_tables_len);
@@ -184,10 +127,8 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
         acpi_tables_len += body_size;
     }
 
-    /* increase number of tables */
     stw_le_p(acpi_tables, lduw_le_p(acpi_tables) + 1u);
 
-    /* Update the header fields. The strings need not be NUL-terminated. */
     changed_fields = 0;
     ext_hdr->_length = cpu_to_le16(acpi_payload_size);
 
@@ -237,7 +178,6 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
         warn_report("ACPI table: no headers are specified");
     }
 
-    /* recalculate checksum */
     ext_hdr->checksum = acpi_checksum((const char unsigned *)ext_hdr +
                                       ACPI_TABLE_PFX_SIZE, acpi_payload_size);
 }
@@ -272,7 +212,6 @@ void acpi_table_add(const QemuOpts *opts, Error **errp)
         goto out;
     }
 
-    /* now read in the data files, reallocating buffer as needed */
     for (cur = pathnames; *cur; ++cur) {
         int fd = open(*cur, O_RDONLY | O_BINARY);
 
@@ -374,8 +313,6 @@ static void acpi_notify_wakeup(Notifier *notifier, void *data)
             (ACPI_BITMASK_WAKE_STATUS | ACPI_BITMASK_TIMER_STATUS);
         break;
     case QEMU_WAKEUP_REASON_OTHER:
-        /* ACPI_BITMASK_WAKE_STATUS should be set on resume.
-           Pretend that resume was caused by power button */
         ar->pm1.evt.sts |=
             (ACPI_BITMASK_WAKE_STATUS | ACPI_BITMASK_POWER_BUTTON_STATUS);
         break;
@@ -384,11 +321,8 @@ static void acpi_notify_wakeup(Notifier *notifier, void *data)
     }
 }
 
-/* ACPI PM1a EVT */
 uint16_t acpi_pm1_evt_get_sts(ACPIREGS *ar)
 {
-    /* Compare ns-clock, not PM timer ticks, because
-       acpi_pm_tmr_update function uses ns for setting the timer. */
     int64_t d = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     if (d >= muldiv64(ar->tmr.overflow_time,
                       NANOSECONDS_PER_SECOND, PM_TIMER_FREQUENCY)) {
@@ -401,7 +335,6 @@ static void acpi_pm1_evt_write_sts(ACPIREGS *ar, uint16_t val)
 {
     uint16_t pm1_sts = acpi_pm1_evt_get_sts(ar);
     if (pm1_sts & val & ACPI_BITMASK_TIMER_STATUS) {
-        /* if TMRSTS is reset, then compute the new overflow time */
         acpi_pm_tmr_calc_overflow_time(ar);
     }
     ar->pm1.evt.sts &= ~val;
@@ -479,12 +412,10 @@ void acpi_pm1_evt_init(ACPIREGS *ar, acpi_update_sci_fn update_sci,
     memory_region_add_subregion(parent, 0, &ar->pm1.evt.io);
 }
 
-/* ACPI PM_TMR */
 void acpi_pm_tmr_update(ACPIREGS *ar, bool enable)
 {
     int64_t expire_time;
 
-    /* schedule a timer interruption if needed */
     if (enable) {
         expire_time = muldiv64(ar->tmr.overflow_time, NANOSECONDS_PER_SECOND,
                                PM_TIMER_FREQUENCY);
@@ -528,7 +459,6 @@ static uint64_t acpi_pm_tmr_read(void *opaque, hwaddr addr, unsigned width)
 static void acpi_pm_tmr_write(void *opaque, hwaddr addr, uint64_t val,
                               unsigned width)
 {
-    /* nothing */
 }
 
 static const MemoryRegionOps acpi_pm_tmr_ops = {
@@ -556,11 +486,9 @@ void acpi_pm_tmr_reset(ACPIREGS *ar)
     timer_del(ar->tmr.timer);
 }
 
-/* ACPI PM1aCNT */
 void acpi_pm1_cnt_update(ACPIREGS *ar,
                          bool sci_enable, bool sci_disable)
 {
-    /* ACPI specs 3.0, 4.7.2.5 */
     if (ar->pm1.cnt.acpi_only) {
         return;
     }
@@ -589,7 +517,6 @@ static void acpi_pm_cnt_write(void *opaque, hwaddr addr, uint64_t val,
     ar->pm1.cnt.cnt = val & ~(ACPI_BITMASK_SLEEP_ENABLE);
 
     if (val & ACPI_BITMASK_SLEEP_ENABLE) {
-        /* change suspend type */
         uint16_t sus_typ = (val >> 10) & 7;
         switch (sus_typ) {
         case 0: /* soft power off */
@@ -628,9 +555,6 @@ void acpi_pm1_cnt_init(ACPIREGS *ar, MemoryRegion *parent,
     ar->wakeup.notify = acpi_notify_wakeup;
     qemu_register_wakeup_notifier(&ar->wakeup);
 
-    /*
-     * Register wake-up support in QMP query-current-machine API
-     */
     qemu_register_wakeup_support();
 
     memory_region_init_io(&ar->pm1.cnt.io, memory_region_owner(parent),
@@ -655,14 +579,9 @@ void acpi_pm1_cnt_reset(ACPIREGS *ar)
     }
 }
 
-/* ACPI GPE */
 void acpi_gpe_init(ACPIREGS *ar, uint8_t len)
 {
     ar->gpe.len = len;
-    /* Only first len / 2 bytes are ever used,
-     * but the caller in ich9.c migrates full len bytes.
-     * TODO: fix ich9.c and drop the extra allocation.
-     */
     ar->gpe.sts = g_malloc0(len);
     ar->gpe.en = g_malloc0(len);
 }
@@ -695,11 +614,9 @@ void acpi_gpe_ioport_writeb(ACPIREGS *ar, uint32_t addr, uint32_t val)
     cur = acpi_gpe_ioport_get_ptr(ar, addr);
     if (addr < ar->gpe.len / 2) {
         trace_acpi_gpe_sts_ioport_writeb(addr, val);
-        /* GPE_STS */
         *cur = (*cur) & ~val;
     } else if (addr < ar->gpe.len) {
         trace_acpi_gpe_en_ioport_writeb(addr - (ar->gpe.len / 2), val);
-        /* GPE_EN */
         *cur = val;
     } else {
         abort();
@@ -745,7 +662,6 @@ void acpi_update_sci(ACPIREGS *regs, qemu_irq irq)
 
     qemu_set_irq(irq, sci_level);
 
-    /* schedule a timer interruption if needed */
     acpi_pm_tmr_update(regs,
                        (regs->pm1.evt.en & ACPI_BITMASK_TIMER_ENABLE) &&
                        !(pm1a_sts & ACPI_BITMASK_TIMER_STATUS));

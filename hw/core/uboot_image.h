@@ -1,27 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * (C) Copyright 2008 Semihalf
- *
- * (C) Copyright 2000-2005
- * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- ********************************************************************
- * NOTE: This header file defines an interface to U-Boot. Including
- * this (unmodified) header file in another file is considered normal
- * use of U-Boot, and does *not* fall under the heading of "derived
- * work".
- ********************************************************************
- */
 
 #ifndef UBOOT_IMAGE_H
 #define UBOOT_IMAGE_H
 
-/*
- * Operating System Codes
- *
- * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
- */
 enum {
 	IH_OS_INVALID		= 0,	/* Invalid OS	*/
 	IH_OS_OPENBSD,			/* OpenBSD	*/
@@ -56,13 +36,6 @@ enum {
 	IH_OS_COUNT,
 };
 
-/*
- * CPU Architecture Codes (supported by Linux)
- *
- * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
- */
 enum {
 	IH_ARCH_INVALID		= 0,	/* Invalid CPU	*/
 	IH_ARCH_ALPHA,			/* Alpha	*/
@@ -95,48 +68,6 @@ enum {
 	IH_ARCH_COUNT,
 };
 
-/*
- * Image Types
- *
- * "Standalone Programs" are directly runnable in the environment
- *	provided by U-Boot; it is expected that (if they behave
- *	well) you can continue to work in U-Boot after return from
- *	the Standalone Program.
- * "OS Kernel Images" are usually images of some Embedded OS which
- *	will take over control completely. Usually these programs
- *	will install their own set of exception handlers, device
- *	drivers, set up the MMU, etc. - this means, that you cannot
- *	expect to re-enter U-Boot except by resetting the CPU.
- * "RAMDisk Images" are more or less just data blocks, and their
- *	parameters (address, size) are passed to an OS kernel that is
- *	being started.
- * "Multi-File Images" contain several images, typically an OS
- *	(Linux) kernel image and one or more data images like
- *	RAMDisks. This construct is useful for instance when you want
- *	to boot over the network using BOOTP etc., where the boot
- *	server provides just a single image file, but you want to get
- *	for instance an OS kernel and a RAMDisk image.
- *
- *	"Multi-File Images" start with a list of image sizes, each
- *	image size (in bytes) specified by an "uint32_t" in network
- *	byte order. This list is terminated by an "(uint32_t)0".
- *	Immediately after the terminating 0 follow the images, one by
- *	one, all aligned on "uint32_t" boundaries (size rounded up to
- *	a multiple of 4 bytes - except for the last file).
- *
- * "Firmware Images" are binary images containing firmware (like
- *	U-Boot or FPGA images) which usually will be programmed to
- *	flash memory.
- *
- * "Script files" are command sequences that will be executed by
- *	U-Boot's command interpreter; this feature is especially
- *	useful when you configure U-Boot to use a real shell (hush)
- *	as command interpreter (=> Shell Scripts).
- *
- * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
- */
 
 enum {
 	IH_TYPE_INVALID		= 0,	/* Invalid Image		*/
@@ -153,7 +84,6 @@ enum {
 	IH_TYPE_UBLIMAGE,		/* Davinci UBL Image		*/
 	IH_TYPE_OMAPIMAGE,		/* TI OMAP Config Header Image	*/
 	IH_TYPE_AISIMAGE,		/* TI Davinci AIS Image		*/
-	/* OS Kernel Image, can run from any load address */
 	IH_TYPE_KERNEL_NOLOAD,
 	IH_TYPE_PBLIMAGE,		/* Freescale PBL Boot Image	*/
 	IH_TYPE_MXSIMAGE,		/* Freescale MXSBoot Image	*/
@@ -185,13 +115,6 @@ enum {
 	IH_TYPE_COUNT,			/* Number of image types */
 };
 
-/*
- * Compression Types
- *
- * The following are exposed to uImage header.
- * New IDs *MUST* be appended at the end of the list and *NEVER*
- * inserted for backward compatibility.
- */
 enum {
 	IH_COMP_NONE		= 0,	/*  No	 Compression Used	*/
 	IH_COMP_GZIP,			/* gzip	 Compression Used	*/
@@ -207,10 +130,6 @@ enum {
 #define IH_MAGIC	0x27051956	/* Image Magic Number		*/
 #define IH_NMLEN		32	/* Image Name Length		*/
 
-/*
- * Legacy format image header,
- * all data in network byte order (aka natural aka bigendian).
- */
 typedef struct uboot_image_header {
 	uint32_t	ih_magic;	/* Image Header Magic Number	*/
 	uint32_t	ih_hcrc;	/* Image Header CRC Checksum	*/

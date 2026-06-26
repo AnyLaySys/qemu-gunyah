@@ -1,22 +1,3 @@
-/*
- * QEMU generic buffers
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/host-utils.h"
@@ -26,9 +7,6 @@
 #define BUFFER_MIN_INIT_SIZE     4096
 #define BUFFER_MIN_SHRINK_SIZE  65536
 
-/* define the factor alpha for the exponential smoothing
- * that is used in the average size calculation. a shift
- * of 7 results in an alpha of 1/2^7. */
 #define BUFFER_AVG_SIZE_SHIFT       7
 
 static size_t buffer_req_size(Buffer *buffer, size_t len)
@@ -45,8 +23,6 @@ static void buffer_adj_size(Buffer *buffer, size_t len)
     trace_buffer_resize(buffer->name ?: "unnamed",
                         old, buffer->capacity);
 
-    /* make it even harder for the buffer to shrink, reset average size
-     * to current capacity if it is larger than the average. */
     buffer->avg_size = MAX(buffer->avg_size,
                            buffer->capacity << BUFFER_AVG_SIZE_SHIFT);
 }
@@ -69,16 +45,10 @@ void buffer_shrink(Buffer *buffer)
 {
     size_t new;
 
-    /* Calculate the average size of the buffer as
-     * avg_size = avg_size * ( 1 - a ) + required_size * a
-     * where a is 1 / 2 ^ BUFFER_AVG_SIZE_SHIFT. */
     buffer->avg_size *= (1 << BUFFER_AVG_SIZE_SHIFT) - 1;
     buffer->avg_size >>= BUFFER_AVG_SIZE_SHIFT;
     buffer->avg_size += buffer_req_size(buffer, 0);
 
-    /* And then only shrink if the average size of the buffer is much
-     * too big, to avoid bumping up & down the buffers all the time.
-     * realloc() isn't exactly cheap ...  */
     new = buffer_req_size(buffer, buffer_get_avg_size(buffer));
     if (new < buffer->capacity >> 3 &&
         new >= BUFFER_MIN_SHRINK_SIZE) {

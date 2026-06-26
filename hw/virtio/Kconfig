@@ -12,7 +12,5 @@ config VIRTIO_MMIO
     bool
     select VIRTIO
 
-# not all virtio transports support memory devices; if none does,
-# no need to include the code
 config VIRTIO_MD_SUPPORTED
     bool

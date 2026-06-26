@@ -1,89 +1,12 @@
-/*
- * qht.c - QEMU Hash Table, designed to scale for read-mostly workloads.
- *
- * Copyright (C) 2016, Emilio G. Cota <cota@braap.org>
- *
- * License: GNU GPL, version 2 or later.
- *   See the COPYING file in the top-level directory.
- *
- * Assumptions:
- * - NULL cannot be inserted/removed as a pointer value.
- * - Trying to insert an already-existing hash-pointer pair is OK. However,
- *   it is not OK to insert into the same hash table different hash-pointer
- *   pairs that have the same pointer value, but not the hashes.
- * - Lookups are performed under an RCU read-critical section; removals
- *   must wait for a grace period to elapse before freeing removed objects.
- *
- * Features:
- * - Reads (i.e. lookups and iterators) can be concurrent with other reads.
- *   Lookups that are concurrent with writes to the same bucket will retry
- *   via a seqlock; iterators acquire all bucket locks and therefore can be
- *   concurrent with lookups and are serialized wrt writers.
- * - Writes (i.e. insertions/removals) can be concurrent with writes to
- *   different buckets; writes to the same bucket are serialized through a lock.
- * - Optional auto-resizing: the hash table resizes up if the load surpasses
- *   a certain threshold. Resizing is done concurrently with readers; writes
- *   are serialized with the resize operation.
- *
- * The key structure is the bucket, which is cacheline-sized. Buckets
- * contain a few hash values and pointers; the u32 hash values are stored in
- * full so that resizing is fast. Having this structure instead of directly
- * chaining items has two advantages:
- * - Failed lookups fail fast, and touch a minimum number of cache lines.
- * - Resizing the hash table with concurrent lookups is easy.
- *
- * There are two types of buckets:
- * 1. "head" buckets are the ones allocated in the array of buckets in qht_map.
- * 2. all "non-head" buckets (i.e. all others) are members of a chain that
- *    starts from a head bucket.
- * Note that the seqlock and spinlock of a head bucket applies to all buckets
- * chained to it; these two fields are unused in non-head buckets.
- *
- * On removals, we move the last valid item in the chain to the position of the
- * just-removed entry. This makes lookups slightly faster, since the moment an
- * invalid entry is found, the (failed) lookup is over.
- *
- * Resizing is done by taking all bucket spinlocks (so that no other writers can
- * race with us) and then copying all entries into a new hash map. Then, the
- * ht->map pointer is set, and the old map is freed once no RCU readers can see
- * it anymore.
- *
- * Writers check for concurrent resizes by comparing ht->map before and after
- * acquiring their bucket lock. If they don't match, a resize has occurred
- * while the bucket spinlock was being acquired.
- *
- * Related Work:
- * - Idea of cacheline-sized buckets with full hashes taken from:
- *   David, Guerraoui & Trigonakis, "Asynchronized Concurrency:
- *   The Secret to Scaling Concurrent Search Data Structures", ASPLOS'15.
- * - Why not RCU-based hash tables? They would allow us to get rid of the
- *   seqlock, but resizing would take forever since RCU read critical
- *   sections in QEMU take quite a long time.
- *   More info on relativistic hash tables:
- *   + Triplett, McKenney & Walpole, "Resizable, Scalable, Concurrent Hash
- *     Tables via Relativistic Programming", USENIX ATC'11.
- *   + Corbet, "Relativistic hash tables, part 1: Algorithms", @ lwn.net, 2014.
- *     https://lwn.net/Articles/612021/
- */
 #include "qemu/osdep.h"
 #include "qemu/qht.h"
 #include "qemu/atomic.h"
 #include "qemu/rcu.h"
 #include "qemu/memalign.h"
 
-//#define QHT_DEBUG
 
-/*
- * We want to avoid false sharing of cache lines. Most systems have 64-byte
- * cache lines so we go with it for simplicity.
- *
- * Note that systems with smaller cache lines will be fine (the struct is
- * almost 64-bytes); systems with larger cache lines might suffer from
- * some false sharing.
- */
 #define QHT_BUCKET_ALIGN 64
 
-/* define these to keep sizeof(qht_bucket) within QHT_BUCKET_ALIGN */
 #if HOST_LONG_BITS == 32
 #define QHT_BUCKET_ENTRIES 6
 #else /* 64-bit */
@@ -103,10 +26,6 @@ struct qht_iter {
     enum qht_iter_type type;
 };
 
-/*
- * Do _not_ use qemu_mutex_[try]lock directly! Use these macros, otherwise
- * the profiler (QSP) will deadlock.
- */
 static inline void qht_lock(struct qht *ht)
 {
     if (ht->mode & QHT_MODE_RAW_MUTEXES) {
@@ -124,23 +43,11 @@ static inline int qht_trylock(struct qht *ht)
     return qemu_mutex_trylock(&(ht)->lock);
 }
 
-/* this inline is not really necessary, but it helps keep code consistent */
 static inline void qht_unlock(struct qht *ht)
 {
     qemu_mutex_unlock(&ht->lock);
 }
 
-/*
- * Note: reading partially-updated pointers in @pointers could lead to
- * segfaults. We thus access them with qatomic_read/set; this guarantees
- * that the compiler makes all those accesses atomic. We also need the
- * volatile-like behavior in qatomic_read, since otherwise the compiler
- * might refetch the pointer.
- * qatomic_read's are of course not necessary when the bucket lock is held.
- *
- * If both ht->lock and b->lock are grabbed, ht->lock should always
- * be grabbed first.
- */
 struct qht_bucket {
     QemuSpin lock;
     QemuSeqLock sequence;
@@ -151,15 +58,6 @@ struct qht_bucket {
 
 QEMU_BUILD_BUG_ON(sizeof(struct qht_bucket) > QHT_BUCKET_ALIGN);
 
-/*
- * Under TSAN, we use striped locks instead of one lock per bucket chain.
- * This avoids crashing under TSAN, since TSAN aborts the program if more than
- * 64 locks are held (this is a hardcoded limit in TSAN).
- * When resizing a QHT we grab all the buckets' locks, which can easily
- * go over TSAN's limit. By using striped locks, we avoid this problem.
- *
- * Note: this number must be a power of two for easy index computation.
- */
 #define QHT_TSAN_BUCKET_LOCKS_BITS 4
 #define QHT_TSAN_BUCKET_LOCKS (1 << QHT_TSAN_BUCKET_LOCKS_BITS)
 
@@ -167,19 +65,6 @@ struct qht_tsan_lock {
     QemuSpin lock;
 } QEMU_ALIGNED(QHT_BUCKET_ALIGN);
 
-/**
- * struct qht_map - structure to track an array of buckets
- * @rcu: used by RCU. Keep it as the top field in the struct to help valgrind
- *       find the whole struct.
- * @buckets: array of head buckets. It is constant once the map is created.
- * @n_buckets: number of head buckets. It is constant once the map is created.
- * @n_added_buckets: number of added (i.e. "non-head") buckets
- * @n_added_buckets_threshold: threshold to trigger an upward resize once the
- *                             number of added buckets surpasses it.
- * @tsan_bucket_locks: Array of striped locks to be used only under TSAN.
- *
- * Buckets are tracked in what we call a "map", i.e. this structure.
- */
 struct qht_map {
     struct rcu_head rcu;
     struct qht_bucket *buckets;
@@ -191,7 +76,6 @@ struct qht_map {
 #endif
 };
 
-/* trigger a resize when n_added_buckets > n_buckets / div */
 #define QHT_NR_ADDED_BUCKETS_THRESHOLD_DIV 8
 
 static void qht_do_resize_reset(struct qht *ht, struct qht_map *new,
@@ -249,11 +133,6 @@ static inline size_t qht_elems_to_buckets(size_t n_elems)
     return pow2ceil(n_elems / QHT_BUCKET_ENTRIES);
 }
 
-/*
- * When using striped locks (i.e. under TSAN), we have to be careful not
- * to operate on the same lock twice (e.g. when iterating through all buckets).
- * We achieve this by operating only on each stripe's first matching lock.
- */
 static inline void qht_do_if_first_in_stripe(struct qht_map *map,
                                              struct qht_bucket *b,
                                              void (*func)(QemuSpin *spin))
@@ -308,7 +187,6 @@ struct qht_bucket *qht_map_to_bucket(const struct qht_map *map, uint32_t hash)
     return &map->buckets[hash & (map->n_buckets - 1)];
 }
 
-/* acquire all bucket locks from a map */
 static void qht_map_lock_buckets(struct qht_map *map)
 {
     size_t i;
@@ -331,23 +209,12 @@ static void qht_map_unlock_buckets(struct qht_map *map)
     }
 }
 
-/*
- * Call with at least a bucket lock held.
- * @map should be the value read before acquiring the lock (or locks).
- */
 static inline bool qht_map_is_stale__locked(const struct qht *ht,
                                             const struct qht_map *map)
 {
     return map != ht->map;
 }
 
-/*
- * Grab all bucket locks, and set @pmap after making sure the map isn't stale.
- *
- * Pairs with qht_map_unlock_buckets(), hence the pass-by-reference.
- *
- * Note: callers cannot have ht->lock held.
- */
 static inline
 void qht_map_lock_buckets__no_stale(struct qht *ht, struct qht_map **pmap)
 {
@@ -361,7 +228,6 @@ void qht_map_lock_buckets__no_stale(struct qht *ht, struct qht_map **pmap)
     }
     qht_map_unlock_buckets(map);
 
-    /* we raced with a resize; acquire ht->lock to see the updated ht->map */
     qht_lock(ht);
     map = ht->map;
     qht_map_lock_buckets(map);
@@ -370,14 +236,6 @@ void qht_map_lock_buckets__no_stale(struct qht *ht, struct qht_map **pmap)
     return;
 }
 
-/*
- * Get a head bucket and lock it, making sure its parent map is not stale.
- * @pmap is filled with a pointer to the bucket's parent map.
- *
- * Unlock with qht_bucket_unlock.
- *
- * Note: callers cannot have ht->lock held.
- */
 static inline
 struct qht_bucket *qht_bucket_lock__no_stale(struct qht *ht, uint32_t hash,
                                              struct qht_map **pmap)
@@ -395,7 +253,6 @@ struct qht_bucket *qht_bucket_lock__no_stale(struct qht *ht, uint32_t hash,
     }
     qht_bucket_unlock(map, b);
 
-    /* we raced with a resize; acquire ht->lock to see the updated ht->map */
     qht_lock(ht);
     map = ht->map;
     b = qht_map_to_bucket(map, hash);
@@ -425,7 +282,6 @@ static inline void qht_chain_destroy(struct qht_map *map,
     }
 }
 
-/* pass only an orphan map */
 static void qht_map_destroy(struct qht_map *map)
 {
     size_t i;
@@ -449,7 +305,6 @@ static struct qht_map *qht_map_create(size_t n_buckets)
     map->n_added_buckets_threshold = n_buckets /
         QHT_NR_ADDED_BUCKETS_THRESHOLD_DIV;
 
-    /* let tiny hash tables to at least add one non-head bucket */
     if (unlikely(map->n_added_buckets_threshold == 0)) {
         map->n_added_buckets_threshold = 1;
     }
@@ -476,7 +331,6 @@ void qht_init(struct qht *ht, qht_cmp_func_t cmp, size_t n_elems,
     qatomic_rcu_set(&ht->map, map);
 }
 
-/* call only when there are no readers/writers left */
 void qht_destroy(struct qht *ht)
 {
     qht_map_destroy(ht->map);
@@ -503,7 +357,6 @@ static void qht_bucket_reset__locked(struct qht_bucket *head)
     seqlock_write_end(&head->sequence);
 }
 
-/* call with all bucket locks held */
 static void qht_map_reset__all_locked(struct qht_map *map)
 {
     size_t i;
@@ -562,10 +415,6 @@ void *qht_do_lookup(const struct qht_bucket *head, qht_lookup_func_t func,
     do {
         for (i = 0; i < QHT_BUCKET_ENTRIES; i++) {
             if (qatomic_read(&b->hashes[i]) == hash) {
-                /* The pointer is dereferenced before seqlock_read_retry,
-                 * so (unlike qht_insert__locked) we need to use
-                 * qatomic_rcu_read here.
-                 */
                 void *p = qatomic_rcu_read(&b->pointers[i]);
 
                 if (likely(p) && likely(func(p, userp))) {
@@ -609,10 +458,6 @@ void *qht_lookup_custom(const struct qht *ht, const void *userp, uint32_t hash,
     if (likely(!seqlock_read_retry(&b->sequence, version))) {
         return ret;
     }
-    /*
-     * Removing the do/while from the fastpath gives a 4% perf. increase when
-     * running a 100%-lookup microbenchmark.
-     */
     return qht_lookup__slowpath(b, func, userp, hash);
 }
 
@@ -621,10 +466,6 @@ void *qht_lookup(const struct qht *ht, const void *userp, uint32_t hash)
     return qht_lookup_custom(ht, userp, hash, ht->cmp);
 }
 
-/*
- * call with head->lock held
- * @ht is const since it is only used for ht->cmp()
- */
 static void *qht_insert__locked(const struct qht *ht, struct qht_map *map,
                                 struct qht_bucket *head, void *p, uint32_t hash,
                                 bool *needs_resize)
@@ -659,12 +500,10 @@ static void *qht_insert__locked(const struct qht *ht, struct qht_map *map,
     }
 
  found:
-    /* found an empty key: acquire the seqlock and write */
     seqlock_write_begin(&head->sequence);
     if (new) {
         qatomic_rcu_set(&prev->next, b);
     }
-    /* smp_wmb() implicit in seqlock_write_begin.  */
     qatomic_set(&b->hashes[i], hash);
     qatomic_set(&b->pointers[i], p);
     seqlock_write_end(&head->sequence);
@@ -675,15 +514,10 @@ static __attribute__((noinline)) void qht_grow_maybe(struct qht *ht)
 {
     struct qht_map *map;
 
-    /*
-     * If the lock is taken it probably means there's an ongoing resize,
-     * so bail out.
-     */
     if (qht_trylock(ht)) {
         return;
     }
     map = ht->map;
-    /* another thread might have just performed the resize we were after */
     if (qht_map_needs_resize(map)) {
         struct qht_map *new = qht_map_create(map->n_buckets * 2);
 
@@ -699,7 +533,6 @@ bool qht_insert(struct qht *ht, void *p, uint32_t hash, void **existing)
     bool needs_resize = false;
     void *prev;
 
-    /* NULL pointers are not supported */
     qht_debug_assert(p);
 
     b = qht_bucket_lock__no_stale(ht, hash, &map);
@@ -744,10 +577,6 @@ qht_entry_move(struct qht_bucket *to, int i, struct qht_bucket *from, int j)
     qatomic_set(&from->pointers[j], NULL);
 }
 
-/*
- * Find the last valid entry in @orig, and swap it with @orig[pos], which has
- * just been invalidated.
- */
 static inline void qht_bucket_remove_entry(struct qht_bucket *orig, int pos)
 {
     struct qht_bucket *b = orig;
@@ -773,11 +602,9 @@ static inline void qht_bucket_remove_entry(struct qht_bucket *orig, int pos)
         prev = b;
         b = b->next;
     } while (b);
-    /* no free entries other than orig[pos], so swap it with the last one */
     qht_entry_move(orig, pos, prev, QHT_BUCKET_ENTRIES - 1);
 }
 
-/* call with b->lock held */
 static inline
 bool qht_remove__locked(struct qht_bucket *head, const void *p, uint32_t hash)
 {
@@ -810,7 +637,6 @@ bool qht_remove(struct qht *ht, const void *p, uint32_t hash)
     struct qht_map *map;
     bool ret;
 
-    /* NULL pointers are not supported */
     qht_debug_assert(p);
 
     b = qht_bucket_lock__no_stale(ht, hash, &map);
@@ -837,12 +663,10 @@ static inline void qht_bucket_iter(struct qht_bucket *head,
                 break;
             case QHT_ITER_RM:
                 if (iter->f.retbool(b->pointers[i], b->hashes[i], userp)) {
-                    /* replace i with the last valid element in the bucket */
                     seqlock_write_begin(&head->sequence);
                     qht_bucket_remove_entry(b, i);
                     seqlock_write_end(&head->sequence);
                     qht_bucket_debug__locked(b);
-                    /* reevaluate i, since it just got replaced */
                     i--;
                     continue;
                 }
@@ -855,7 +679,6 @@ static inline void qht_bucket_iter(struct qht_bucket *head,
     } while (b);
 }
 
-/* call with all of the map's locks held */
 static inline void qht_map_iter__all_locked(struct qht_map *map,
                                             const struct qht_iter *iter,
                                             void *userp)
@@ -910,14 +733,9 @@ static void qht_map_copy(void *p, uint32_t hash, void *userp)
     struct qht_map *new = data->new;
     struct qht_bucket *b = qht_map_to_bucket(new, hash);
 
-    /* no need to acquire b->lock because no thread has seen this map yet */
     qht_insert__locked(ht, new, b, p, hash, NULL);
 }
 
-/*
- * Atomically perform a resize and/or reset.
- * Call with ht->lock held.
- */
 static void qht_do_resize_reset(struct qht *ht, struct qht_map *new, bool reset)
 {
     struct qht_map *old;
@@ -968,7 +786,6 @@ bool qht_resize(struct qht *ht, size_t n_elems)
     return ret;
 }
 
-/* pass @stats to qht_statistics_destroy() when done */
 void qht_statistics_init(const struct qht *ht, struct qht_stats *stats)
 {
     const struct qht_map *map;
@@ -980,7 +797,6 @@ void qht_statistics_init(const struct qht *ht, struct qht_stats *stats)
     stats->entries = 0;
     qdist_init(&stats->chain);
     qdist_init(&stats->occupancy);
-    /* bail out if the qht has not yet been initialized */
     if (unlikely(map == NULL)) {
         stats->head_buckets = 0;
         return;

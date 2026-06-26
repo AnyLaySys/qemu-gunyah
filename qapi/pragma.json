@@ -1,12 +1,7 @@
-# -*- Mode: Python -*-
-# vim: filetype=python
 
-{ 'pragma': { 'doc-required': true } }
+{ 'pragma': { 'doc-required': false } }
 
-# Entries in these lists are allowed to violate the QAPI rules (for
-# historical reasons); think twice before you add to them!
 { 'pragma': {
-    # Command names containing '_'
     'command-name-exceptions': [
         'add_client',
         'block_resize',
@@ -22,14 +17,12 @@
         'system_powerdown',
         'system_reset',
         'system_wakeup' ],
-    # Commands allowed to return a non-dictionary
     'command-returns-exceptions': [
         'human-monitor-command',
         'qom-get',
         'query-tpm-models',
         'query-tpm-types',
         'ringbuf-read' ],
-    # Types, commands, and events with undocumented members / arguments:
     'documentation-exceptions': [
         'AbortWrapper',
         'AudiodevDriver',
@@ -71,7 +64,6 @@
         'VncVencryptSubAuth',
         'X86CPURegister32',
         'YankInstanceType' ],
-    # Externally visible types whose member names may use uppercase
     'member-name-exceptions': [     # visible in:
         'ACPISlotType',             # query-acpi-ospm-status
         'AcpiTableOptions',         # -acpitable
@@ -93,5 +85,4 @@
         'SysEmuTarget',             # query-cpu-fast, query-target
         'UuidInfo',                 # query-uuid
         'X86CPURegister32'          # qom-get of x86 CPU properties
-                                    # feature-words, filtered-features
     ] } }

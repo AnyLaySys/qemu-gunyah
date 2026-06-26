@@ -1,16 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #include <asm/bitsperlong.h>
 
-/*
- * This file contains the system call numbers, based on the
- * layout of the x86-64 architecture, which embeds the
- * pointer to the syscall in the table.
- *
- * As a basic principle, no duplication of functionality
- * should be added, e.g. we don't use lseek when llseek
- * is present. New architectures should use this file
- * and implement the less feature-full calls in user space.
- */
 
 #ifndef __SYSCALL
 #define __SYSCALL(x, y)
@@ -112,7 +101,6 @@ __SYSCALL(__NR_symlinkat, sys_symlinkat)
 __SYSCALL(__NR_linkat, sys_linkat)
 
 #ifdef __ARCH_WANT_RENAMEAT
-/* renameat is superseded with flags by renameat2 */
 #define __NR_renameat 38
 __SYSCALL(__NR_renameat, sys_renameat)
 #endif /* __ARCH_WANT_RENAMEAT */
@@ -433,7 +421,6 @@ __SYSCALL(__NR_sethostname, sys_sethostname)
 __SYSCALL(__NR_setdomainname, sys_setdomainname)
 
 #ifdef __ARCH_WANT_SET_GET_RLIMIT
-/* getrlimit and setrlimit are superseded with prlimit64 */
 #define __NR_getrlimit 163
 __SC_COMP(__NR_getrlimit, sys_getrlimit, compat_sys_getrlimit)
 #define __NR_setrlimit 164
@@ -572,7 +559,6 @@ __SC_3264(__NR3264_mmap, sys_mmap2, sys_mmap)
 #define __NR3264_fadvise64 223
 __SC_COMP(__NR3264_fadvise64, sys_fadvise64_64, compat_sys_fadvise64_64)
 
-/* CONFIG_MMU only */
 #ifndef __ARCH_NOMMU
 #define __NR_swapon 224
 __SYSCALL(__NR_swapon, sys_swapon)
@@ -621,10 +607,6 @@ __SYSCALL(__NR_accept4, sys_accept4)
 __SC_COMP_3264(__NR_recvmmsg, sys_recvmmsg_time32, sys_recvmmsg, compat_sys_recvmmsg_time32)
 #endif
 
-/*
- * Architectures may provide up to 16 syscalls of their own
- * starting with this value.
- */
 #define __NR_arch_specific_syscall 244
 
 #if defined(__ARCH_WANT_TIME32_SYSCALLS) || __BITS_PER_LONG != 32
@@ -709,7 +691,6 @@ __SYSCALL(__NR_rseq, sys_rseq)
 #define __NR_kexec_file_load 294
 __SYSCALL(__NR_kexec_file_load,     sys_kexec_file_load)
 
-/* 295 through 402 are unassigned to sync up with generic numbers, don't use */
 
 #if defined(__SYSCALL_COMPAT) || __BITS_PER_LONG == 32
 #define __NR_clock_gettime64 403
@@ -853,16 +834,6 @@ __SYSCALL(__NR_removexattrat, sys_removexattrat)
 #undef __NR_syscalls
 #define __NR_syscalls 467
 
-/*
- * 32 bit systems traditionally used different
- * syscalls for off_t and loff_t arguments, while
- * 64 bit systems only need the off_t version.
- * For new 32 bit platforms, there is no need to
- * implement the old 32 bit off_t syscalls, so
- * they take different names.
- * Here we map the numbers so that both versions
- * use the same syscall table layout.
- */
 #if __BITS_PER_LONG == 64 && !defined(__SYSCALL_COMPAT)
 #define __NR_fcntl __NR3264_fcntl
 #define __NR_statfs __NR3264_statfs

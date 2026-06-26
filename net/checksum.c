@@ -1,19 +1,3 @@
-/*
- *  IP checksumming functions.
- *  (c) 2008 Gerd Hoffmann <kraxel@redhat.com>
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; under version 2 or later of the License.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "net/checksum.h"
@@ -63,18 +47,11 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
     struct ip_header *ip;
     uint16_t csum;
 
-    /*
-     * Note: We cannot assume "data" is aligned, so the all code uses
-     * some macros that take care of possible unaligned access for
-     * struct members (just in case).
-     */
 
-    /* Ensure we have at least an Eth header */
     if (length < sizeof(struct eth_header)) {
         return;
     }
 
-    /* Handle the optional VLAN headers */
     switch (lduw_be_p(&PKT_GET_ETH_HDR(data)->h_proto)) {
     case ETH_P_VLAN:
         mac_hdr_len = sizeof(struct eth_header) +
@@ -96,7 +73,6 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
 
     length -= mac_hdr_len;
 
-    /* Now check we have an IP header (with an optional VLAN header) */
     if (length < sizeof(struct ip_header)) {
         return;
     }
@@ -107,7 +83,6 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
         return; /* not IPv4 */
     }
 
-    /* Calculate IP checksum */
     if (csum_flag & CSUM_IP) {
         stw_he_p(&ip->ip_sum, 0);
         csum = net_raw_checksum((uint8_t *)ip, IP_HDR_GET_LEN(ip));
@@ -120,7 +95,6 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
 
     ip_len = lduw_be_p(&ip->ip_len);
 
-    /* Last, check that we have enough data for the all IP frame */
     if (length < ip_len) {
         return;
     }
@@ -140,14 +114,12 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
             return;
         }
 
-        /* Set csum to 0 */
         stw_he_p(&tcp->th_sum, 0);
 
         csum = net_checksum_tcpudp(ip_len, ip->ip_p,
                                    (uint8_t *)&ip->ip_src,
                                    (uint8_t *)tcp);
 
-        /* Store computed csum */
         stw_be_p(&tcp->th_sum, csum);
 
         break;
@@ -164,20 +136,17 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
             return;
         }
 
-        /* Set csum to 0 */
         stw_he_p(&udp->uh_sum, 0);
 
         csum = net_checksum_tcpudp(ip_len, ip->ip_p,
                                    (uint8_t *)&ip->ip_src,
                                    (uint8_t *)udp);
 
-        /* Store computed csum */
         stw_be_p(&udp->uh_sum, csum);
 
         break;
     }
     default:
-        /* Can't handle any other protocol */
         break;
     }
 }

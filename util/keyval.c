@@ -1,93 +1,4 @@
-/*
- * Parsing KEY=VALUE,... strings
- *
- * Copyright (C) 2017 Red Hat Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
-/*
- * KEY=VALUE,... syntax:
- *
- *   key-vals     = [ key-val { ',' key-val } [ ',' ] ]
- *   key-val      = key '=' val | help
- *   key          = key-fragment { '.' key-fragment }
- *   key-fragment = qapi-name | index
- *   qapi-name    = '__' / [a-z0-9.-]+ / '_' / [A-Za-z][A-Za-z0-9_-]* /
- *   index        = / [0-9]+ /
- *   val          = { / [^,]+ / | ',,' }
- *   help         = 'help' | '?'
- *
- * Semantics defined by reduction to JSON:
- *
- *   key-vals specifies a JSON object, i.e. a tree whose root is an
- *   object, inner nodes other than the root are objects or arrays,
- *   and leaves are strings.
- *
- *   Each key-val = key-fragment '.' ... '=' val specifies a path from
- *   root to a leaf (left of '='), and the leaf's value (right of
- *   '=').
- *
- *   A path from the root is defined recursively:
- *       L '.' key-fragment is a child of the node denoted by path L
- *       key-fragment is a child of the tree root
- *   If key-fragment is numeric, the parent is an array and the child
- *   is its key-fragment-th member, counting from zero.
- *   Else, the parent is an object, and the child is its member named
- *   key-fragment.
- *
- *   This constrains inner nodes to be either array or object.  The
- *   constraints must be satisfiable.  Counter-example: a.b=1,a=2 is
- *   not, because root.a must be an object to satisfy a.b=1 and a
- *   string to satisfy a=2.
- *
- *   Array subscripts can occur in any order, but the set of
- *   subscripts must not have gaps.  For instance, a.1=v is not okay,
- *   because root.a[0] is missing.
- *
- *   If multiple key-val denote the same leaf, the last one determines
- *   the value.
- *
- * Key-fragments must be valid QAPI names or consist only of decimal
- * digits.
- *
- * The length of any key-fragment must be between 1 and 127.
- *
- * If any key-val is help, the object is to be treated as a help
- * request.
- *
- * Design flaw: there is no way to denote an empty array or non-root
- * object.  While interpreting "key absent" as empty seems natural
- * (removing a key-val from the input string removes the member when
- * there are more, so why not when it's the last), it doesn't work:
- * "key absent" already means "optional object/array absent", which
- * isn't the same as "empty object/array present".
- *
- * Design flaw: scalar values can only be strings; there is no way to
- * denote numbers, true, false or null.  The special QObject input
- * visitor returned by qobject_input_visitor_new_keyval() mostly hides
- * this by automatically converting strings to the type the visitor
- * expects.  Breaks down for type 'any', where the visitor's
- * expectation isn't clear.  Code visiting 'any' needs to do the
- * conversion itself, but only when using this keyval visitor.
- * Awkward.  Note that we carefully restrict alternate types to avoid
- * similar ambiguity.
- *
- * Alternative syntax for use with an implied key:
- *
- *   key-vals     = [ key-val-1st { ',' key-val } [ ',' ] ]
- *   key-val-1st  = val-no-key | key-val
- *   val-no-key   = / [^=,]+ / - help
- *
- * where val-no-key is syntactic sugar for implied-key=val-no-key.
- *
- * Note that you can't use the sugared form when the value contains
- * '=' or ','.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -98,18 +9,6 @@
 #include "qemu/keyval.h"
 #include "qemu/help_option.h"
 
-/*
- * Convert @key to a list index.
- * Convert all leading decimal digits to a (non-negative) number,
- * capped at INT_MAX.
- * If @end is non-null, assign a pointer to the first character after
- * the number to *@end.
- * Else, fail if any characters follow.
- * On success, return the converted number.
- * On failure, return a negative value.
- * Note: since only digits are converted, no two keys can map to the
- * same number, except by overflow to INT_MAX.
- */
 static int key_to_index(const char *key, const char **end)
 {
     int ret;
@@ -125,23 +24,6 @@ static int key_to_index(const char *key, const char **end)
     return index <= INT_MAX ? index : INT_MAX;
 }
 
-/*
- * Ensure @cur maps @key_in_cur the right way.
- * If @value is null, it needs to map to a QDict, else to this
- * QString.
- * If @cur doesn't have @key_in_cur, put an empty QDict or @value,
- * respectively.
- * Else, if it needs to map to a QDict, and already does, do nothing.
- * Else, if it needs to map to this QString, and already maps to a
- * QString, replace it by @value.
- * Else, fail because we have conflicting needs on how to map
- * @key_in_cur.
- * In any case, take over the reference to @value, i.e. if the caller
- * wants to hold on to a reference, it needs to qobject_ref().
- * Use @key up to @key_cursor to identify the key in error messages.
- * On success, return the mapped value.
- * On failure, store an error through @errp and return NULL.
- */
 static QObject *keyval_parse_put(QDict *cur,
                                  const char *key_in_cur, QString *value,
                                  const char *key, const char *key_cursor,
@@ -168,19 +50,6 @@ static QObject *keyval_parse_put(QDict *cur,
     return new;
 }
 
-/*
- * Parse one parameter from @params.
- *
- * If we're looking at KEY=VALUE, store result in @qdict.
- * The first fragment of KEY applies to @qdict.  Subsequent fragments
- * apply to nested QDicts, which are created on demand.  @implied_key
- * is as in keyval_parse().
- *
- * If we're looking at "help" or "?", set *help to true.
- *
- * On success, return a pointer to the next parameter, or else to '\0'.
- * On failure, return NULL.
- */
 static const char *keyval_parse_one(QDict *qdict, const char *params,
                                     const char *implied_key, bool *help,
                                     Error **errp)
@@ -206,7 +75,6 @@ static const char *keyval_parse_one(QDict *qdict, const char *params,
             return s;
         }
         if (implied_key) {
-            /* Desugar implied key */
             key = implied_key;
             val_end = params + len;
             len = strlen(implied_key);
@@ -214,14 +82,9 @@ static const char *keyval_parse_one(QDict *qdict, const char *params,
     }
     key_end = key + len;
 
-    /*
-     * Loop over key fragments: @s points to current fragment, it
-     * applies to @cur.  @key_in_cur[] holds the previous fragment.
-     */
     cur = qdict;
     s = key;
     for (;;) {
-        /* Want a key index (unless it's first) or a QAPI name */
         if (s != key && key_to_index(s, &end) >= 0) {
             len = end - s;
         } else {
@@ -312,13 +175,6 @@ static char *reassemble_key(GSList *key)
     return g_string_free(s, FALSE);
 }
 
-/*
- * Recursive worker for keyval_merge.
- *
- * @str is the path that led to the * current dictionary (to be used for
- * error messages).  It is modified internally but restored before the
- * function returns.
- */
 static void keyval_do_merge(QDict *dest, const QDict *merged, GString *str, Error **errp)
 {
     size_t save_len = str->len;
@@ -333,7 +189,6 @@ static void keyval_do_merge(QDict *dest, const QDict *merged, GString *str, Erro
                            str->str, ent->key);
                 return;
             } else if (qobject_type(ent->value) == QTYPE_QDICT) {
-                /* Merge sub-dictionaries.  */
                 g_string_append(str, ent->key);
                 g_string_append_c(str, '.');
                 keyval_do_merge(qobject_to(QDict, old_value),
@@ -342,7 +197,6 @@ static void keyval_do_merge(QDict *dest, const QDict *merged, GString *str, Erro
                 g_string_truncate(str, save_len);
                 continue;
             } else if (qobject_type(ent->value) == QTYPE_QLIST) {
-                /* Append to old list.  */
                 QList *old = qobject_to(QList, old_value);
                 QList *new = qobject_to(QList, ent->value);
                 const QListEntry *item;
@@ -361,28 +215,6 @@ static void keyval_do_merge(QDict *dest, const QDict *merged, GString *str, Erro
     }
 }
 
-/* Merge the @merged dictionary into @dest.
- *
- * The dictionaries are expected to be returned by the keyval parser, and
- * therefore the only expected scalar type is the string.  In case the same
- * path is present in both @dest and @merged, the semantics are as follows:
- *
- * - lists are concatenated
- *
- * - dictionaries are merged recursively
- *
- * - for scalar values, @merged wins
- *
- * In case an error is reported, @dest may already have been modified.
- *
- * This function can be used to implement semantics analogous to QemuOpts's
- * .merge_lists = true case, or to implement -set for options backed by QDicts.
- *
- * Note: while QemuOpts is commonly used so that repeated keys overwrite
- * ("last one wins"), it can also be used so that repeated keys build up
- * a list. keyval_merge() can only be used when the options' semantics are
- * the former, not the latter.
- */
 void keyval_merge(QDict *dest, const QDict *merged, Error **errp)
 {
     GString *str;
@@ -392,13 +224,6 @@ void keyval_merge(QDict *dest, const QDict *merged, Error **errp)
     g_string_free(str, TRUE);
 }
 
-/*
- * Listify @cur recursively.
- * Replace QDicts whose keys are all valid list indexes by QLists.
- * @key_of_cur is the list of key fragments leading up to @cur.
- * On success, return either @cur or its replacement.
- * On failure, store an error through @errp and return NULL.
- */
 static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
 {
     GSList key_node;
@@ -414,10 +239,6 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
 
     key_node.next = key_of_cur;
 
-    /*
-     * Recursively listify @cur's members, and figure out whether @cur
-     * itself is to be listified.
-     */
     has_index = false;
     has_member = false;
     for (ent = qdict_first(cur); ent; ent = qdict_next(cur, ent)) {
@@ -452,7 +273,6 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
         return QOBJECT(cur);
     }
 
-    /* Copy @cur's values to @elt[] */
     nelt = qdict_size(cur) + 1; /* one extra, for use as sentinel */
     elt = g_new0(QObject *, nelt);
     max_index = -1;
@@ -462,24 +282,12 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
         if (index > max_index) {
             max_index = index;
         }
-        /*
-         * We iterate @nelt times.  If we get one exceeding @nelt
-         * here, we will put less than @nelt values into @elt[],
-         * triggering the error in the next loop.
-         */
         if ((size_t)index >= nelt - 1) {
             continue;
         }
-        /* Even though dict keys are distinct, indexes need not be */
         elt[index] = ent->value;
     }
 
-    /*
-     * Make a list from @elt[], reporting the first missing element,
-     * if any.
-     * If we dropped an index >= nelt in the previous loop, this loop
-     * will run into the sentinel and report index @nelt missing.
-     */
     list = qlist_new();
     assert(!elt[nelt-1]);       /* need the sentinel to be null */
     for (i = 0; i < MIN(nelt, max_index + 1); i++) {
@@ -499,25 +307,6 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
     return QOBJECT(list);
 }
 
-/*
- * Parse @params in QEMU's traditional KEY=VALUE,... syntax.
- *
- * If @implied_key, the first KEY= can be omitted.  @implied_key is
- * implied then, and VALUE can't be empty or contain ',' or '='.
- *
- * A parameter "help" or "?" without a value isn't added to the
- * resulting dictionary, but instead is interpreted as help request.
- * All other options are parsed and returned normally so that context
- * specific help can be printed.
- *
- * If @p_help is not NULL, store whether help is requested there.
- * If @p_help is NULL and help is requested, fail.
- *
- * On success, return @dict, now filled with the parsed keys and values.
- *
- * On failure, store an error through @errp and return NULL.  Any keys
- * and values parsed so far will be in @dict nevertheless.
- */
 QDict *keyval_parse_into(QDict *qdict, const char *params, const char *implied_key,
                          bool *p_help, Error **errp)
 {
@@ -549,23 +338,6 @@ QDict *keyval_parse_into(QDict *qdict, const char *params, const char *implied_k
     return qdict;
 }
 
-/*
- * Parse @params in QEMU's traditional KEY=VALUE,... syntax.
- *
- * If @implied_key, the first KEY= can be omitted.  @implied_key is
- * implied then, and VALUE can't be empty or contain ',' or '='.
- *
- * A parameter "help" or "?" without a value isn't added to the
- * resulting dictionary, but instead is interpreted as help request.
- * All other options are parsed and returned normally so that context
- * specific help can be printed.
- *
- * If @p_help is not NULL, store whether help is requested there.
- * If @p_help is NULL and help is requested, fail.
- *
- * On success, return a dictionary of the parsed keys and values.
- * On failure, store an error through @errp and return NULL.
- */
 QDict *keyval_parse(const char *params, const char *implied_key,
                     bool *p_help, Error **errp)
 {

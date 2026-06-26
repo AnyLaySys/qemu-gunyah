@@ -1,10 +1,3 @@
-/*
- * QEMU Gunyah hypervisor support
- *
- * Copyright(c) 2023 Qualcomm Innovation Center, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -30,21 +23,12 @@ struct GUNYAHARMGICv3Class {
 #define TYPE_GUNYAH_ARM_GICV3 "gunyah-arm-gicv3"
 typedef struct GUNYAHARMGICv3Class GUNYAHARMGICv3Class;
 
-/* This is reusing the GICv3State typedef from ARM_GICV3_ITS_COMMON */
 DECLARE_OBJ_CHECKERS(GICv3State, GUNYAHARMGICv3Class,
                      GUNYAH_ARM_GICV3, TYPE_GUNYAH_ARM_GICV3)
 
 static EventNotifier *irq_notify;
 static int irq_notify_count;
 
-/*
- * Register eventfd-based IRQ notifiers for Gunyah doorbell injection.
- * Called from gunyah_start_vm() after creating virtio IRQFDs.
- *
- * @notifiers: array of EventNotifiers (owned by caller, contents copied)
- * @count: number of notifiers
- * @base_spi: first SPI number these map to (e.g., 16 for virtio)
- */
 void gunyah_gic_register_irq_notifiers(EventNotifier *notifiers,
                                         int count, int base_spi)
 {
@@ -77,23 +61,9 @@ static void gunyah_arm_gicv3_set_irq(void *opaque, int irq, int level)
     GICv3State *s = (GICv3State *)opaque;
 
     if (!irq_notify || irq_notify_count == 0) {
-        /*
-         * No doorbell eventfds registered yet (or intentionally zero).
-         * In Gunyah mode, the guest uses hypervisor-provided virtual
-         * devices (doorbells + shared memory), NOT QEMU device models.
-         * QEMU devices may still fire IRQs (e.g., PL011 UART, timer)
-         * on the main loop, but they're irrelevant to the guest.
-         * Silently ignore to avoid flooding logs.
-         */
         return;
     }
 
-    /*
-     * Only inject on assert (level=1).  De-assert (level=0) must NOT
-     * fire the eventfd — Gunyah doorbells are edge-triggered, and a
-     * spurious bell_send when the guest hasn't set QUEUE_NOTIFY yet
-     * causes "irq N: nobody cared" → IRQ gets permanently disabled.
-     */
     if (level && irq < irq_notify_count && irq < s->num_irq - GIC_INTERNAL) {
         event_notifier_set(&irq_notify[irq]);
     }
@@ -120,16 +90,6 @@ static void gunyah_arm_gicv3_realize(DeviceState *dev, Error **errp)
 
     gicv3_init_irqs_and_mmio(s, gunyah_arm_gicv3_set_irq, NULL);
 
-    /*
-     * In Gunyah mode, interrupt injection into the guest VM is done
-     * via doorbells (GH_FN_IRQFD), NOT via QEMU's GIC model.
-     * The doorbell IRQFDs are registered in gunyah_start_vm() which
-     * runs later. QEMU device models (UART, timer, etc.) may still
-     * raise IRQs through this GIC model, but they're silently ignored
-     * since the guest uses Gunyah virtual devices, not QEMU devices.
-     *
-     * Set irq_notify_count = 0 so the set_irq handler returns early.
-     */
     irq_notify = NULL;
     irq_notify_count = 0;
     gh_report("GIC realized - IRQs from QEMU devices will be ignored "

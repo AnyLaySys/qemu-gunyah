@@ -1,27 +1,3 @@
-/*
- * win32 specific declarations
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2010 Jes Sorensen <Jes.Sorensen@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef QEMU_OS_WIN32_H
 #define QEMU_OS_WIN32_H
@@ -34,10 +10,6 @@
 #ifdef HAVE_AFUNIX_H
 #include <afunix.h>
 #else
-/*
- * Fallback definitions of things we need in afunix.h, if not available from
- * the used Windows SDK or MinGW headers.
- */
 #define UNIX_PATH_MAX 108
 
 typedef struct sockaddr_un {
@@ -53,43 +25,20 @@ extern "C" {
 #endif
 
 #if defined(__aarch64__)
-/*
- * On windows-arm64, setjmp is available in only one variant, and longjmp always
- * does stack unwinding. This crash with generated code.
- * Thus, we use another implementation of setjmp (not windows one), coming from
- * mingw, which never performs stack unwinding.
- */
 #undef setjmp
 #undef longjmp
-/*
- * These functions are not declared in setjmp.h because __aarch64__ defines
- * setjmp to _setjmpex instead. However, they are still defined in libmingwex.a,
- * which gets linked automatically.
- */
 int __mingw_setjmp(jmp_buf);
 void __attribute__((noreturn)) __mingw_longjmp(jmp_buf, int);
 #define setjmp(env) __mingw_setjmp(env)
 #define longjmp(env, val) __mingw_longjmp(env, val)
 #elif defined(_WIN64)
-/*
- * On windows-x64, setjmp is implemented by _setjmp which needs a second parameter.
- * If this parameter is NULL, longjump does no stack unwinding.
- * That is what we need for QEMU. Passing the value of register rsp (default)
- * lets longjmp try a stack unwinding which will crash with generated code.
- */
 # undef setjmp
 # define setjmp(env) _setjmp(env, NULL)
 #endif /* __aarch64__ */
-/* QEMU uses sigsetjmp()/siglongjmp() as the portable way to specify
- * "longjmp and don't touch the signal masks". Since we know that the
- * savemask parameter will always be zero we can safely define these
- * in terms of setjmp/longjmp on Win32.
- */
 #define sigjmp_buf jmp_buf
 #define sigsetjmp(env, savemask) setjmp(env)
 #define siglongjmp(env, val) longjmp(env, val)
 
-/* Missing POSIX functions. Don't use MinGW-w64 macros. */
 #ifndef _POSIX_THREAD_SAFE_FUNCTIONS
 #undef gmtime_r
 struct tm *gmtime_r(const time_t *timep, struct tm *result);
@@ -151,10 +100,6 @@ static inline char *realpath(const char *path, char *resolved_path)
     return resolved_path;
 }
 
-/*
- * Older versions of MinGW do not import _lock_file and _unlock_file properly.
- * This was fixed for v6.0.0 with commit b48e3ac8969d.
- */
 static inline void qemu_flockfile(FILE *f)
 {
 #ifdef HAVE__LOCK_FILE
@@ -169,25 +114,12 @@ static inline void qemu_funlockfile(FILE *f)
 #endif
 }
 
-/* Helper for WSAEventSelect, to report errors */
 bool qemu_socket_select(int sockfd, WSAEVENT hEventObject,
                         long lNetworkEvents, Error **errp);
 
 bool qemu_socket_unselect(int sockfd, Error **errp);
 
-/* We wrap all the sockets functions so that we can set errno based on
- * WSAGetLastError(), and use file-descriptors instead of SOCKET.
- */
 
-/*
- * qemu_close_socket_osfhandle:
- * @fd: a file descriptor associated with a SOCKET
- *
- * Close only the C run-time file descriptor, leave the SOCKET opened.
- *
- * Returns zero on success. On error, -1 is returned, and errno is set to
- * indicate the error.
- */
 int qemu_close_socket_osfhandle(int fd);
 
 #undef close

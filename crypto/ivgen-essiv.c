@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto block IV generator - essiv
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/bswap.h"
@@ -36,11 +17,9 @@ static int qcrypto_ivgen_essiv_init(QCryptoIVGen *ivgen,
     size_t nsalt;
     QCryptoIVGenESSIV *essiv = g_new0(QCryptoIVGenESSIV, 1);
 
-    /* Not necessarily the same as nkey */
     nsalt = qcrypto_cipher_get_key_len(ivgen->cipher);
 
     nhash = qcrypto_hash_digest_len(ivgen->hash);
-    /* Salt must be larger of hash size or key size */
     salt = g_new0(uint8_t, MAX(nhash, nsalt));
 
     if (qcrypto_hash_bytes(ivgen->hash, (const gchar *)key, nkey,
@@ -51,7 +30,6 @@ static int qcrypto_ivgen_essiv_init(QCryptoIVGen *ivgen,
         return -1;
     }
 
-    /* Now potentially truncate salt to match cipher key len */
     essiv->cipher = qcrypto_cipher_new(ivgen->cipher,
                                        QCRYPTO_CIPHER_MODE_ECB,
                                        salt, MIN(nhash, nsalt),

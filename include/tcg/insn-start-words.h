@@ -1,8 +1,3 @@
-/* SPDX-License-Identifier: MIT */
-/*
- * Define TARGET_INSN_START_WORDS
- * Copyright (c) 2008 Fabrice Bellard
- */
 
 #ifndef TARGET_INSN_START_WORDS
 

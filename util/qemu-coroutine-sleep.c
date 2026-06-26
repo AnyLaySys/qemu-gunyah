@@ -1,15 +1,3 @@
-/*
- * QEMU coroutine sleep
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Stefan Hajnoczi    <stefanha@linux.vnet.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/coroutine_int.h"
@@ -25,7 +13,6 @@ void qemu_co_sleep_wake(QemuCoSleep *w)
     co = w->to_wake;
     w->to_wake = NULL;
     if (co) {
-        /* Write of schedule protected by barrier write in aio_co_schedule */
         const char *scheduled = qatomic_cmpxchg(&co->scheduled,
                                                 qemu_co_sleep_ns__scheduled, NULL);
 
@@ -56,7 +43,6 @@ void coroutine_fn qemu_co_sleep(QemuCoSleep *w)
     w->to_wake = co;
     qemu_coroutine_yield();
 
-    /* w->to_wake is cleared before resuming this coroutine.  */
     assert(w->to_wake == NULL);
 }
 
@@ -69,11 +55,6 @@ void coroutine_fn qemu_co_sleep_ns_wakeable(QemuCoSleep *w,
     aio_timer_init(ctx, &ts, type, SCALE_NS, co_sleep_cb, w);
     timer_mod(&ts, qemu_clock_get_ns(type) + ns);
 
-    /*
-     * The timer will fire in the current AiOContext, so the callback
-     * must happen after qemu_co_sleep yields and there is no race
-     * between timer_mod and qemu_co_sleep.
-     */
     qemu_co_sleep(w);
     timer_del(&ts);
 }

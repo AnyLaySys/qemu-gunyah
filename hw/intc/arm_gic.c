@@ -1,22 +1,4 @@
-/*
- * ARM Generic/Distributed Interrupt Controller
- *
- * Copyright (c) 2006-2007 CodeSourcery.
- * Written by Paul Brook
- *
- * This code is licensed under the GPL.
- */
 
-/* This file contains implementation code for the RealView EB interrupt
- * controller, MPCore distributed interrupt controller and ARMv7-M
- * Nested Vectored Interrupt Controller.
- * It is compiled in two ways:
- *  (1) as a standalone file to produce a sysbus device which is a GIC
- *  that can be used on the realview board and as one of the builtin
- *  private peripherals for the ARM MP CPUs (11MPCore, A9, etc)
- *  (2) by being directly #included into armv7m_nvic.c to produce the
- *  armv7m_nvic device.
- */
 
 #include "qemu/osdep.h"
 #include "hw/irq.h"
@@ -29,7 +11,6 @@
 #include "trace.h"
 #include "system/qtest.h"
 
-/* #define DEBUG_GIC */
 
 #ifdef DEBUG_GIC
 #define DEBUG_GIC_GATE 1
@@ -68,9 +49,6 @@ static inline int gic_get_current_vcpu(GICState *s)
     return gic_get_current_cpu(s) + GIC_NCPU;
 }
 
-/* Return true if this GIC config has interrupt groups, which is
- * true if we're a GICv2, or a GICv1 with the security extensions.
- */
 static inline bool gic_has_groups(GICState *s)
 {
     return s->revision == 2 || s->security_extn;
@@ -130,14 +108,6 @@ static inline void gic_get_best_virq(GICState *s, int cpu,
     }
 }
 
-/* Return true if IRQ signaling is enabled for the given cpu and at least one
- * of the given groups:
- *   - in the non-virt case, the distributor must be enabled for one of the
- *   given groups
- *   - in the virt case, the virtual interface must be enabled.
- *   - in all cases, the (v)CPU interface must be enabled for one of the given
- *   groups.
- */
 static inline bool gic_irq_signaling_enabled(GICState *s, int cpu, bool virt,
                                     int group_mask)
 {
@@ -158,8 +128,6 @@ static inline bool gic_irq_signaling_enabled(GICState *s, int cpu, bool virt,
     return true;
 }
 
-/* TODO: Many places that call this routine could be optimized.  */
-/* Update interrupt status after enabled or pending bits have been changed.  */
 static inline void gic_update_internal(GICState *s, bool virt)
 {
     int best_irq;
@@ -228,18 +196,12 @@ static void gic_update(GICState *s)
     gic_update_internal(s, false);
 }
 
-/* Return true if this LR is empty, i.e. the corresponding bit
- * in ELRSR is set.
- */
 static inline bool gic_lr_entry_is_free(uint32_t entry)
 {
     return (GICH_LR_STATE(entry) == GICH_LR_STATE_INVALID)
         && (GICH_LR_HW(entry) || !GICH_LR_EOI(entry));
 }
 
-/* Return true if this LR should trigger an EOI maintenance interrupt, i.e. the
- * corresponding bit in EISR is set.
- */
 static inline bool gic_lr_entry_is_eoi(uint32_t entry)
 {
     return (GICH_LR_STATE(entry) == GICH_LR_STATE_INVALID)
@@ -281,46 +243,38 @@ static void gic_compute_misr(GICState *s, int cpu)
 
     gic_extract_lr_info(s, cpu, &num_eoi, &num_valid, &num_pending);
 
-    /* EOI */
     if (num_eoi) {
         value |= R_GICH_MISR_EOI_MASK;
     }
 
-    /* U: true if only 0 or 1 LR entry is valid */
     if ((s->h_hcr[cpu] & R_GICH_HCR_UIE_MASK) && (num_valid < 2)) {
         value |= R_GICH_MISR_U_MASK;
     }
 
-    /* LRENP: EOICount is not 0 */
     if ((s->h_hcr[cpu] & R_GICH_HCR_LRENPIE_MASK) &&
         ((s->h_hcr[cpu] & R_GICH_HCR_EOICount_MASK) != 0)) {
         value |= R_GICH_MISR_LRENP_MASK;
     }
 
-    /* NP: no pending interrupts */
     if ((s->h_hcr[cpu] & R_GICH_HCR_NPIE_MASK) && (num_pending == 0)) {
         value |= R_GICH_MISR_NP_MASK;
     }
 
-    /* VGrp0E: group0 virq signaling enabled */
     if ((s->h_hcr[cpu] & R_GICH_HCR_VGRP0EIE_MASK) &&
         (s->cpu_ctlr[vcpu] & GICC_CTLR_EN_GRP0)) {
         value |= R_GICH_MISR_VGrp0E_MASK;
     }
 
-    /* VGrp0D: group0 virq signaling disabled */
     if ((s->h_hcr[cpu] & R_GICH_HCR_VGRP0DIE_MASK) &&
         !(s->cpu_ctlr[vcpu] & GICC_CTLR_EN_GRP0)) {
         value |= R_GICH_MISR_VGrp0D_MASK;
     }
 
-    /* VGrp1E: group1 virq signaling enabled */
     if ((s->h_hcr[cpu] & R_GICH_HCR_VGRP1EIE_MASK) &&
         (s->cpu_ctlr[vcpu] & GICC_CTLR_EN_GRP1)) {
         value |= R_GICH_MISR_VGrp1E_MASK;
     }
 
-    /* VGrp1D: group1 virq signaling disabled */
     if ((s->h_hcr[cpu] & R_GICH_HCR_VGRP1DIE_MASK) &&
         !(s->cpu_ctlr[vcpu] & GICC_CTLR_EN_GRP1)) {
         value |= R_GICH_MISR_VGrp1D_MASK;
@@ -377,19 +331,11 @@ static void gic_set_irq_generic(GICState *s, int irq, int level,
     }
 }
 
-/* Process a change in an external IRQ input.  */
 static void gic_set_irq(void *opaque, int irq, int level)
 {
-    /* Meaning of the 'irq' parameter:
-     *  [0..N-1] : external interrupts
-     *  [N..N+31] : PPI (internal) interrupts for CPU 0
-     *  [N+32..N+63] : PPI (internal interrupts for CPU 1
-     *  ...
-     */
     GICState *s = (GICState *)opaque;
     int cm, target;
     if (irq < (s->num_irq - GIC_INTERNAL)) {
-        /* The first external input line is internal interrupt 32.  */
         cm = ALL_CPU_MASK;
         irq += GIC_INTERNAL;
         target = GIC_DIST_TARGET(irq);
@@ -426,19 +372,12 @@ static uint16_t gic_get_current_pending_irq(GICState *s, int cpu,
     if (pending_irq < GIC_MAXIRQ && gic_has_groups(s)) {
         int group = gic_test_group(s, pending_irq, cpu);
 
-        /* On a GIC without the security extensions, reading this register
-         * behaves in the same way as a secure access to a GIC with them.
-         */
         bool secure = !gic_cpu_ns_access(s, cpu, attrs);
 
         if (group == 0 && !secure) {
-            /* Group0 interrupts hidden from Non-secure access */
             return 1023;
         }
         if (group == 1 && secure && !(s->cpu_ctlr[cpu] & GICC_CTLR_ACK_CTL)) {
-            /* Group1 interrupts only seen by Secure access if
-             * AckCtl bit set.
-             */
             return 1022;
         }
     }
@@ -447,10 +386,6 @@ static uint16_t gic_get_current_pending_irq(GICState *s, int cpu,
 
 static int gic_get_group_priority(GICState *s, int cpu, int irq)
 {
-    /* Return the group priority of the specified interrupt
-     * (which is the top bits of its priority, with the number
-     * of bits masked determined by the applicable binary point register).
-     */
     int bpr;
     uint32_t mask;
 
@@ -463,10 +398,6 @@ static int gic_get_group_priority(GICState *s, int cpu, int irq)
         bpr = s->bpr[cpu];
     }
 
-    /* a BPR of 0 means the group priority bits are [7:1];
-     * a BPR of 1 means they are [7:2], and so on down to
-     * a BPR of 7 meaning no group priority bits at all.
-     */
     mask = ~0U << ((bpr & 7) + 1);
 
     return gic_get_priority(s, irq, cpu) & mask;
@@ -474,9 +405,6 @@ static int gic_get_group_priority(GICState *s, int cpu, int irq)
 
 static void gic_activate_irq(GICState *s, int cpu, int irq)
 {
-    /* Set the appropriate Active Priority Register bit for this IRQ,
-     * and update the running priority.
-     */
     int prio = gic_get_group_priority(s, cpu, irq);
     int min_bpr = gic_is_vcpu(cpu) ? GIC_VIRT_MIN_BPR : GIC_MIN_BPR;
     int preemption_level = prio >> (min_bpr + 1);
@@ -501,9 +429,6 @@ static void gic_activate_irq(GICState *s, int cpu, int irq)
 
 static int gic_get_prio_from_apr_bits(GICState *s, int cpu)
 {
-    /* Recalculate the current running priority for this CPU based
-     * on the set bits in the Active Priority Registers.
-     */
     int i;
 
     if (gic_is_vcpu(cpu)) {
@@ -527,27 +452,10 @@ static int gic_get_prio_from_apr_bits(GICState *s, int cpu)
 
 static void gic_drop_prio(GICState *s, int cpu, int group)
 {
-    /* Drop the priority of the currently active interrupt in the
-     * specified group.
-     *
-     * Note that we can guarantee (because of the requirement to nest
-     * GICC_IAR reads [which activate an interrupt and raise priority]
-     * with GICC_EOIR writes [which drop the priority for the interrupt])
-     * that the interrupt we're being called for is the highest priority
-     * active interrupt, meaning that it has the lowest set bit in the
-     * APR registers.
-     *
-     * If the guest does not honour the ordering constraints then the
-     * behaviour of the GIC is UNPREDICTABLE, which for us means that
-     * the values of the APR registers might become incorrect and the
-     * running priority will be wrong, so interrupts that should preempt
-     * might not do so, and interrupts that should not preempt might do so.
-     */
     if (gic_is_vcpu(cpu)) {
         int rcpu = gic_get_vcpu_real_id(cpu);
 
         if (s->h_apr[rcpu]) {
-            /* Clear lowest set bit */
             s->h_apr[rcpu] &= s->h_apr[rcpu] - 1;
         }
     } else {
@@ -558,7 +466,6 @@ static void gic_drop_prio(GICState *s, int cpu, int group)
             if (!*papr) {
                 continue;
             }
-            /* Clear lowest set bit */
             *papr &= *papr - 1;
             break;
         }
@@ -573,10 +480,6 @@ static inline uint32_t gic_clear_pending_sgi(GICState *s, int irq, int cpu)
     uint32_t ret;
 
     if (!gic_is_vcpu(cpu)) {
-        /* Lookup the source CPU for the SGI and clear this in the
-         * sgi_pending map.  Return the src and clear the overall pending
-         * state on this CPU if the SGI is not pending from any CPUs.
-         */
         assert(s->sgi_pending[irq][cpu] != 0);
         src = ctz32(s->sgi_pending[irq][cpu]);
         s->sgi_pending[irq][cpu] &= ~(1 << src);
@@ -599,10 +502,6 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu, MemTxAttrs attrs)
 {
     int ret, irq;
 
-    /* gic_get_current_pending_irq() will return 1022 or 1023 appropriately
-     * for the case where this GIC supports grouping and the pending interrupt
-     * is in the wrong group.
-     */
     irq = gic_get_current_pending_irq(s, cpu, attrs);
     trace_gic_acknowledge_irq(gic_is_vcpu(cpu) ? "vcpu" : "cpu",
                               gic_get_vcpu_real_id(cpu), irq);
@@ -620,9 +519,6 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu, MemTxAttrs attrs)
     gic_activate_irq(s, cpu, irq);
 
     if (s->revision == REV_11MPCORE) {
-        /* Clear pending flags for both level and edge triggered interrupts.
-         * Level triggered IRQs will be reasserted once they become inactive.
-         */
         gic_clear_pending(s, irq, cpu);
         ret = irq;
     } else {
@@ -645,11 +541,6 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu, MemTxAttrs attrs)
 
 static uint32_t gic_fullprio_mask(GICState *s, int cpu)
 {
-    /*
-     * Return a mask word which clears the unimplemented priority
-     * bits from a priority value for an interrupt. (Not to be
-     * confused with the group priority, whose mask depends on BPR.)
-     */
     int priBits;
 
     if (gic_is_vcpu(cpu)) {
@@ -698,10 +589,8 @@ static void gic_set_priority_mask(GICState *s, int cpu, uint8_t pmask,
 {
     if (gic_cpu_ns_access(s, cpu, attrs)) {
         if (s->priority_mask[cpu] & 0x80) {
-            /* Priority Mask in upper half */
             pmask = 0x80 | (pmask >> 1);
         } else {
-            /* Non-secure write ignored if priority mask is in lower half */
             return;
         }
     }
@@ -714,10 +603,8 @@ static uint32_t gic_get_priority_mask(GICState *s, int cpu, MemTxAttrs attrs)
 
     if (gic_cpu_ns_access(s, cpu, attrs)) {
         if (pmask & 0x80) {
-            /* Priority Mask in upper half, return Non-secure view */
             pmask = (pmask << 1) & 0xff;
         } else {
-            /* Priority Mask in lower half, RAZ */
             pmask = 0;
         }
     }
@@ -729,11 +616,6 @@ static uint32_t gic_get_cpu_control(GICState *s, int cpu, MemTxAttrs attrs)
     uint32_t ret = s->cpu_ctlr[cpu];
 
     if (gic_cpu_ns_access(s, cpu, attrs)) {
-        /* Construct the NS banked view of GICC_CTLR from the correct
-         * bits of the S banked view. We don't need to move the bypass
-         * control bits because we don't implement that (IMPDEF) part
-         * of the GIC architecture.
-         */
         ret = (ret & (GICC_CTLR_EN_GRP1 | GICC_CTLR_EOIMODE_NS)) >> 1;
     }
     return ret;
@@ -745,9 +627,6 @@ static void gic_set_cpu_control(GICState *s, int cpu, uint32_t value,
     uint32_t mask;
 
     if (gic_cpu_ns_access(s, cpu, attrs)) {
-        /* The NS view can only write certain bits in the register;
-         * the rest are unchanged
-         */
         mask = GICC_CTLR_EN_GRP1;
         if (s->revision == 2) {
             mask |= GICC_CTLR_EOIMODE_NS;
@@ -771,18 +650,13 @@ static void gic_set_cpu_control(GICState *s, int cpu, uint32_t value,
 static uint8_t gic_get_running_priority(GICState *s, int cpu, MemTxAttrs attrs)
 {
     if ((s->revision != REV_11MPCORE) && (s->running_priority[cpu] > 0xff)) {
-        /* Idle priority */
         return 0xff;
     }
 
     if (gic_cpu_ns_access(s, cpu, attrs)) {
         if (s->running_priority[cpu] & 0x80) {
-            /* Running priority in upper half of range: return the Non-secure
-             * view of the priority.
-             */
             return s->running_priority[cpu] << 1;
         } else {
-            /* Running priority in lower half of range: RAZ */
             return 0;
         }
     } else {
@@ -790,13 +664,9 @@ static uint8_t gic_get_running_priority(GICState *s, int cpu, MemTxAttrs attrs)
     }
 }
 
-/* Return true if we should split priority drop and interrupt deactivation,
- * ie whether the relevant EOIMode bit is set.
- */
 static bool gic_eoi_split(GICState *s, int cpu, MemTxAttrs attrs)
 {
     if (s->revision != 2) {
-        /* Before GICv2 prio-drop and deactivate are not separable */
         return false;
     }
     if (gic_cpu_ns_access(s, cpu, attrs)) {
@@ -810,35 +680,19 @@ static void gic_deactivate_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
     int group;
 
     if (irq >= GIC_MAXIRQ || (!gic_is_vcpu(cpu) && irq >= s->num_irq)) {
-        /*
-         * This handles two cases:
-         * 1. If software writes the ID of a spurious interrupt [ie 1023]
-         * to the GICC_DIR, the GIC ignores that write.
-         * 2. If software writes the number of a non-existent interrupt
-         * this must be a subcase of "value written is not an active interrupt"
-         * and so this is UNPREDICTABLE. We choose to ignore it. For vCPUs,
-         * all IRQs potentially exist, so this limit does not apply.
-         */
         return;
     }
 
     if (!gic_eoi_split(s, cpu, attrs)) {
-        /* This is UNPREDICTABLE; we choose to ignore it */
         qemu_log_mask(LOG_GUEST_ERROR,
                       "gic_deactivate_irq: GICC_DIR write when EOIMode clear");
         return;
     }
 
     if (gic_is_vcpu(cpu) && !gic_virq_is_valid(s, irq, cpu)) {
-        /* This vIRQ does not have an LR entry which is either active or
-         * pending and active. Increment EOICount and ignore the write.
-         */
         int rcpu = gic_get_vcpu_real_id(cpu);
         s->h_hcr[rcpu] += 1 << R_GICH_HCR_EOICount_SHIFT;
 
-        /* Update the virtual interface in case a maintenance interrupt should
-         * be raised.
-         */
         gic_update_virt(s);
         return;
     }
@@ -860,13 +714,9 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
 
     DPRINTF("EOI %d\n", irq);
     if (gic_is_vcpu(cpu)) {
-        /* The call to gic_prio_drop() will clear a bit in GICH_APR iff the
-         * running prio is < 0x100.
-         */
         bool prio_drop = s->running_priority[cpu] < 0x100;
 
         if (irq >= GIC_MAXIRQ) {
-            /* Ignore spurious interrupt */
             return;
         }
 
@@ -875,13 +725,6 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
         if (!gic_eoi_split(s, cpu, attrs)) {
             bool valid = gic_virq_is_valid(s, irq, cpu);
             if (prio_drop && !valid) {
-                /* We are in a situation where:
-                 *   - V_CTRL.EOIMode is false (no EOI split),
-                 *   - The call to gic_drop_prio() cleared a bit in GICH_APR,
-                 *   - This vIRQ does not have an LR entry which is either
-                 *     active or pending and active.
-                 * In that case, we must increment EOICount.
-                 */
                 int rcpu = gic_get_vcpu_real_id(cpu);
                 s->h_hcr[rcpu] += 1 << R_GICH_HCR_EOICount_SHIFT;
             } else if (valid) {
@@ -894,14 +737,6 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
     }
 
     if (irq >= s->num_irq) {
-        /* This handles two cases:
-         * 1. If software writes the ID of a spurious interrupt [ie 1023]
-         * to the GICC_EOIR, the GIC ignores that write.
-         * 2. If software writes the number of a non-existent interrupt
-         * this must be a subcase of "value written does not match the last
-         * valid interrupt value read from the Interrupt Acknowledge
-         * register" and so this is UNPREDICTABLE. We choose to ignore it.
-         */
         return;
     }
     if (s->running_priority[cpu] == 0x100) {
@@ -909,8 +744,6 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
     }
 
     if (s->revision == REV_11MPCORE) {
-        /* Mark level triggered interrupts as pending if they are still
-           raised.  */
         if (!GIC_DIST_TEST_EDGE_TRIGGER(irq) && GIC_DIST_TEST_ENABLED(irq, cm)
             && GIC_DIST_TEST_LEVEL(irq, cm)
             && (GIC_DIST_TARGET(irq) & cm) != 0) {
@@ -926,14 +759,9 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
         return;
     }
 
-    /* Secure EOI with GICC_CTLR.AckCtl == 0 when the IRQ is a Group 1
-     * interrupt is UNPREDICTABLE. We choose to handle it as if AckCtl == 1,
-     * i.e. go ahead and complete the irq anyway.
-     */
 
     gic_drop_prio(s, cpu, group);
 
-    /* In GICv2 the guest can choose to split priority-drop and deactivate */
     if (!gic_eoi_split(s, cpu, attrs)) {
         gic_clear_active(s, irq, cpu);
     }
@@ -954,44 +782,30 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
     cm = 1 << cpu;
     if (offset < 0x100) {
         if (offset == 0) {      /* GICD_CTLR */
-            /* We rely here on the only non-zero bits being in byte 0 */
             if (s->security_extn && !attrs.secure) {
-                /* The NS bank of this register is just an alias of the
-                 * EnableGrp1 bit in the S bank version.
-                 */
                 return extract32(s->ctlr, 1, 1);
             } else {
                 return s->ctlr;
             }
         }
         if (offset == 4) {
-            /* GICD_TYPER byte 0 */
             return ((s->num_irq / 32) - 1) | ((s->num_cpu - 1) << 5);
         }
         if (offset == 5) {
-            /* GICD_TYPER byte 1 */
             return (s->security_extn << 2);
         }
         if (offset == 8) {
-            /* GICD_IIDR byte 0 */
             return 0x3b; /* Arm JEP106 identity */
         }
         if (offset == 9) {
-            /* GICD_IIDR byte 1 */
             return 0x04; /* Arm JEP106 identity */
         }
         if (offset < 0x0c) {
-            /* All other bytes in this range are RAZ */
             return 0;
         }
         if (offset >= 0x80) {
-            /* Interrupt Group Registers: these RAZ/WI if this is an NS
-             * access to a GIC with the security extensions, or if the GIC
-             * doesn't have groups at all.
-             */
             res = 0;
             if (!(s->security_extn && !attrs.secure) && gic_has_groups(s)) {
-                /* Every byte offset holds 8 group status bits */
                 irq = (offset - 0x080) * 8;
                 if (irq >= s->num_irq) {
                     goto bad_reg;
@@ -1006,7 +820,6 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         }
         goto bad_reg;
     } else if (offset < 0x200) {
-        /* Interrupt Set/Clear Enable.  */
         if (offset < 0x180)
             irq = (offset - 0x100) * 8;
         else
@@ -1025,7 +838,6 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
             }
         }
     } else if (offset < 0x300) {
-        /* Interrupt Set/Clear Pending.  */
         if (offset < 0x280)
             irq = (offset - 0x200) * 8;
         else
@@ -1045,7 +857,6 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
             }
         }
     } else if (offset < 0x400) {
-        /* Interrupt Set/Clear Active.  */
         if (offset < 0x380) {
             irq = (offset - 0x300) * 8;
         } else if (s->revision == 2) {
@@ -1069,15 +880,12 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
             }
         }
     } else if (offset < 0x800) {
-        /* Interrupt Priority.  */
         irq = (offset - 0x400);
         if (irq >= s->num_irq)
             goto bad_reg;
         res = gic_dist_get_priority(s, cpu, irq, attrs);
     } else if (offset < 0xc00) {
-        /* Interrupt CPU Target.  */
         if (s->num_cpu == 1 && s->revision != REV_11MPCORE) {
-            /* For uniprocessor GICs these RAZ/WI */
             res = 0;
         } else {
             irq = (offset - 0x800);
@@ -1093,7 +901,6 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
             }
         }
     } else if (offset < 0xf00) {
-        /* Interrupt Configuration.  */
         irq = (offset - 0xc00) * 4;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1119,11 +926,9 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         }
 
         if (offset < 0xf20) {
-            /* GICD_CPENDSGIRn */
             irq = (offset - 0xf10);
         } else {
             irq = (offset - 0xf20);
-            /* GICD_SPENDSGIRn */
         }
 
         if (s->security_extn && !attrs.secure &&
@@ -1199,7 +1004,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
     if (offset < 0x100) {
         if (offset == 0) {
             if (s->security_extn && !attrs.secure) {
-                /* NS version is just an alias of the S version's bit 1 */
                 s->ctlr = deposit32(s->ctlr, 1, 1, value);
             } else if (gic_has_groups(s)) {
                 s->ctlr = value & (GICD_CTLR_EN_GRP0 | GICD_CTLR_EN_GRP1);
@@ -1210,25 +1014,17 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
                     s->ctlr & GICD_CTLR_EN_GRP0 ? "En" : "Dis",
                     s->ctlr & GICD_CTLR_EN_GRP1 ? "En" : "Dis");
         } else if (offset < 4) {
-            /* ignored.  */
         } else if (offset >= 0x80) {
-            /* Interrupt Group Registers: RAZ/WI for NS access to secure
-             * GIC, or for GICs without groups.
-             */
             if (!(s->security_extn && !attrs.secure) && gic_has_groups(s)) {
-                /* Every byte offset holds 8 group status bits */
                 irq = (offset - 0x80) * 8;
                 if (irq >= s->num_irq) {
                     goto bad_reg;
                 }
                 for (i = 0; i < 8; i++) {
-                    /* Group bits are banked for private interrupts */
                     int cm = (irq < GIC_INTERNAL) ? (1 << cpu) : ALL_CPU_MASK;
                     if (value & (1 << i)) {
-                        /* Group1 (Non-secure) */
                         GIC_DIST_SET_GROUP(irq + i, cm);
                     } else {
-                        /* Group0 (Secure) */
                         GIC_DIST_CLEAR_GROUP(irq + i, cm);
                     }
                 }
@@ -1237,7 +1033,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             goto bad_reg;
         }
     } else if (offset < 0x180) {
-        /* Interrupt Set Enable.  */
         irq = (offset - 0x100) * 8;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1262,12 +1057,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
                     trace_gic_enable_irq(irq + i);
                 }
                 GIC_DIST_SET_ENABLED(irq + i, cm);
-                /*
-                 * If a raised level triggered IRQ enabled then mark
-                 * it as pending on 11MPCore. For other GIC revisions we
-                 * handle the "level triggered and line asserted" check
-                 * at the other end in gic_test_pending().
-                 */
                 if (s->revision == REV_11MPCORE
                         && GIC_DIST_TEST_LEVEL(irq + i, mask)
                         && !GIC_DIST_TEST_EDGE_TRIGGER(irq + i)) {
@@ -1277,7 +1066,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0x200) {
-        /* Interrupt Clear Enable.  */
         irq = (offset - 0x180) * 8;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1302,7 +1090,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0x280) {
-        /* Interrupt Set Pending.  */
         irq = (offset - 0x200) * 8;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1324,7 +1111,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0x300) {
-        /* Interrupt Clear Pending.  */
         irq = (offset - 0x280) * 8;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1338,15 +1124,11 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
                 continue; /* Ignore Non-secure access of Group0 IRQ */
             }
 
-            /* ??? This currently clears the pending bit for all CPUs, even
-               for per-CPU interrupts.  It's unclear whether this is the
-               correct behavior.  */
             if (value & (1 << i)) {
                 GIC_DIST_CLEAR_PENDING(irq + i, ALL_CPU_MASK);
             }
         }
     } else if (offset < 0x380) {
-        /* Interrupt Set Active.  */
         if (s->revision != 2) {
             goto bad_reg;
         }
@@ -1356,7 +1138,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             goto bad_reg;
         }
 
-        /* This register is banked per-cpu for PPIs */
         int cm = irq < GIC_INTERNAL ? (1 << cpu) : ALL_CPU_MASK;
 
         for (i = 0; i < 8; i++) {
@@ -1370,7 +1151,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0x400) {
-        /* Interrupt Clear Active.  */
         if (s->revision != 2) {
             goto bad_reg;
         }
@@ -1380,7 +1160,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             goto bad_reg;
         }
 
-        /* This register is banked per-cpu for PPIs */
         int cm = irq < GIC_INTERNAL ? (1 << cpu) : ALL_CPU_MASK;
 
         for (i = 0; i < 8; i++) {
@@ -1394,15 +1173,11 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0x800) {
-        /* Interrupt Priority.  */
         irq = (offset - 0x400);
         if (irq >= s->num_irq)
             goto bad_reg;
         gic_dist_set_priority(s, cpu, irq, value, attrs);
     } else if (offset < 0xc00) {
-        /* Interrupt CPU Target. RAZ/WI on uniprocessor GICs, with the
-         * annoying exception of the 11MPCore's GIC.
-         */
         if (s->num_cpu != 1 || s->revision == REV_11MPCORE) {
             irq = (offset - 0x800);
             if (irq >= s->num_irq) {
@@ -1415,15 +1190,10 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
             s->irq_target[irq] = value & ALL_CPU_MASK;
             if (irq >= GIC_INTERNAL && s->irq_state[irq].pending) {
-                /*
-                 * Changing the target of an interrupt that is currently
-                 * pending updates the set of CPUs it is pending on.
-                 */
                 s->irq_state[irq].pending = value & ALL_CPU_MASK;
             }
         }
     } else if (offset < 0xf00) {
-        /* Interrupt Configuration.  */
         irq = (offset - 0xc00) * 4;
         if (irq >= s->num_irq)
             goto bad_reg;
@@ -1449,10 +1219,8 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0xf10) {
-        /* 0xf00 is only handled for 32-bit writes.  */
         goto bad_reg;
     } else if (offset < 0xf20) {
-        /* GICD_CPENDSGIRn */
         if (s->revision == REV_11MPCORE) {
             goto bad_reg;
         }
@@ -1466,7 +1234,6 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             }
         }
     } else if (offset < 0xf30) {
-        /* GICD_SPENDSGIRn */
         if (s->revision == REV_11MPCORE) {
             goto bad_reg;
         }
@@ -1557,9 +1324,6 @@ static MemTxResult gic_dist_write(void *opaque, hwaddr offset, uint64_t data,
 
 static inline uint32_t gic_apr_ns_view(GICState *s, int cpu, int regno)
 {
-    /* Return the Nonsecure view of GICC_APR<regno>. This is the
-     * second half of GICC_NSAPR.
-     */
     switch (GIC_MIN_BPR) {
     case 0:
         if (regno < 2) {
@@ -1590,7 +1354,6 @@ static inline uint32_t gic_apr_ns_view(GICState *s, int cpu, int regno)
 static inline void gic_apr_write_ns_view(GICState *s, int cpu, int regno,
                                          uint32_t value)
 {
-    /* Write the Nonsecure view of GICC_APR<regno>. */
     switch (GIC_MIN_BPR) {
     case 0:
         if (regno < 2) {
@@ -1630,10 +1393,8 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
     case 0x08: /* Binary Point */
         if (gic_cpu_ns_access(s, cpu, attrs)) {
             if (s->cpu_ctlr[cpu] & GICC_CTLR_CBPR) {
-                /* NS view of BPR when CBPR is 1 */
                 *data = MIN(s->bpr[cpu] + 1, 7);
             } else {
-                /* BPR is banked. Non-secure copy stored in ABPR. */
                 *data = s->abpr[cpu];
             }
         } else {
@@ -1650,11 +1411,6 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
         *data = gic_get_current_pending_irq(s, cpu, attrs);
         break;
     case 0x1c: /* Aliased Binary Point */
-        /* GIC v2, no security: ABPR
-         * GIC v1, no security: not implemented (RAZ/WI)
-         * With security extensions, secure access: ABPR (alias of NS BPR)
-         * With security extensions, nonsecure access: RAZ/WI
-         */
         if (!gic_has_groups(s) || (gic_cpu_ns_access(s, cpu, attrs))) {
             *data = 0;
         } else {
@@ -1671,7 +1427,6 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
         } else if (gic_is_vcpu(cpu)) {
             *data = s->h_apr[gic_get_vcpu_real_id(cpu)];
         } else if (gic_cpu_ns_access(s, cpu, attrs)) {
-            /* NS view of GICC_APR<n> is the top half of GIC_NSAPR<n> */
             *data = gic_apr_ns_view(s, cpu, regno);
         } else {
             *data = s->apr[regno][cpu];
@@ -1692,10 +1447,8 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
     }
     case 0xfc:
         if (s->revision == REV_11MPCORE) {
-            /* Reserved on 11MPCore */
             *data = 0;
         } else {
-            /* GICv1 or v2; Arm implementation */
             *data = (s->revision << 16) | 0x43b;
         }
         break;
@@ -1727,7 +1480,6 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
     case 0x08: /* Binary Point */
         if (gic_cpu_ns_access(s, cpu, attrs)) {
             if (s->cpu_ctlr[cpu] & GICC_CTLR_CBPR) {
-                /* WI when CBPR is 1 */
                 return MEMTX_OK;
             } else {
                 s->abpr[cpu] = MAX(value & 0x7, GIC_MIN_ABPR);
@@ -1742,7 +1494,6 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
         return MEMTX_OK;
     case 0x1c: /* Aliased Binary Point */
         if (!gic_has_groups(s) || (gic_cpu_ns_access(s, cpu, attrs))) {
-            /* unimplemented, or NS access: RAZ/WI */
             return MEMTX_OK;
         } else {
             s->abpr[cpu] = MAX(value & 0x7, GIC_MIN_ABPR);
@@ -1759,7 +1510,6 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
         if (gic_is_vcpu(cpu)) {
             s->h_apr[gic_get_vcpu_real_id(cpu)] = value;
         } else if (gic_cpu_ns_access(s, cpu, attrs)) {
-            /* NS view of GICC_APR<n> is the top half of GIC_NSAPR<n> */
             gic_apr_write_ns_view(s, cpu, regno, value);
         } else {
             s->apr[regno][cpu] = value;
@@ -1785,7 +1535,6 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
         break;
     }
     case 0x1000:
-        /* GICC_DIR */
         gic_deactivate_irq(s, cpu, value & 0x3ff, attrs);
         break;
     default:
@@ -1803,7 +1552,6 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
     return MEMTX_OK;
 }
 
-/* Wrappers to read/write the GIC CPU interface for the current CPU */
 static MemTxResult gic_thiscpu_read(void *opaque, hwaddr addr, uint64_t *data,
                                     unsigned size, MemTxAttrs attrs)
 {
@@ -1819,9 +1567,6 @@ static MemTxResult gic_thiscpu_write(void *opaque, hwaddr addr,
     return gic_cpu_write(s, gic_get_current_cpu(s), addr, value, attrs);
 }
 
-/* Wrappers to read/write the GIC CPU interface for a specific CPU.
- * These just decode the opaque pointer into GICState* + cpu id.
- */
 static MemTxResult gic_do_cpu_read(void *opaque, hwaddr addr, uint64_t *data,
                                    unsigned size, MemTxAttrs attrs)
 {
@@ -2097,7 +1842,6 @@ static const MemoryRegionOps gic_viface_ops = {
 
 static void arm_gic_realize(DeviceState *dev, Error **errp)
 {
-    /* Device instance realize function for the GIC sysbus device */
     int i;
     GICState *s = ARM_GIC(dev);
     SysBusDevice *sbd = SYS_BUS_DEVICE(dev);
@@ -2120,20 +1864,8 @@ static void arm_gic_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    /* This creates distributor, main CPU interface (s->cpuiomem[0]) and if
-     * enabled, virtualization extensions related interfaces (main virtual
-     * interface (s->vifaceiomem[0]) and virtual CPU interface).
-     */
     gic_init_irqs_and_mmio(s, gic_set_irq, gic_ops, gic_virt_ops);
 
-    /* Extra core-specific regions for the CPU interfaces. This is
-     * necessary for "franken-GIC" implementations, for example on
-     * Exynos 4.
-     * NB that the memory region size of 0x100 applies for the 11MPCore
-     * and also cores following the GIC v1 spec (ie A9).
-     * GIC v2 defines a larger memory region (0x1000) so this will need
-     * to be extended when we implement A15.
-     */
     for (i = 0; i < s->num_cpu; i++) {
         s->backref[i] = s;
         memory_region_init_io(&s->cpuiomem[i+1], OBJECT(s), &gic_cpu_ops,
@@ -2141,9 +1873,6 @@ static void arm_gic_realize(DeviceState *dev, Error **errp)
         sysbus_init_mmio(sbd, &s->cpuiomem[i+1]);
     }
 
-    /* Extra core-specific regions for virtual interfaces. This is required by
-     * the GICv2 specification.
-     */
     if (s->virt_extn) {
         for (i = 0; i < s->num_cpu; i++) {
             memory_region_init_io(&s->vifaceiomem[i + 1], OBJECT(s),

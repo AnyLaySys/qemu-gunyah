@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -32,16 +9,9 @@
 #include "qapi/qapi-commands-control.h"
 #include "chardev-internal.h"
 
-/* MUX driver for serial I/O splitting */
 
-/*
- * Set to false by suspend_mux_open.  Open events are delayed until
- * resume_mux_open.  Usually suspend_mux_open is called before
- * command line processing and resume_mux_open afterwards.
- */
 static bool muxes_opened = true;
 
-/* Called with chr_write_lock held.  */
 static int mux_chr_write(Chardev *chr, const uint8_t *buf, int len)
 {
     MuxChardev *d = MUX_CHARDEV(chr);
@@ -70,8 +40,6 @@ static int mux_chr_write(Chardev *chr, const uint8_t *buf, int len)
                          (secs / 60) % 60,
                          secs % 60,
                          (int)(ti % 1000));
-                /* XXX this blocks entire thread. Rewrite to use
-                 * qemu_chr_fe_write and background I/O callbacks */
                 qemu_chr_fe_write_all(&d->chr,
                                       (uint8_t *)buf1, strlen(buf1));
                 d->linestart = false;
@@ -111,8 +79,6 @@ static void mux_print_help(Chardev *chr)
                  "\n\rEscape-Char set to Ascii: 0x%02x\n\r\n\r",
                  term_escape_char);
     }
-    /* XXX this blocks entire thread. Rewrite to use
-     * qemu_chr_fe_write and background I/O callbacks */
     qemu_chr_write_all(chr, (uint8_t *)cbuf, strlen(cbuf));
     for (i = 0; mux_help[i] != NULL; i++) {
         for (j = 0; mux_help[i][j] != '\0'; j++) {
@@ -169,9 +135,7 @@ static int mux_proc_byte(Chardev *chr, MuxChardev *d, int ch)
         case 'c': {
             unsigned int bit;
 
-            /* Handler registered with first fe */
             assert(d->mux_bitset != 0);
-            /* Switch to the next registered device */
             bit = find_next_bit(&d->mux_bitset, MAX_MUX, d->focus + 1);
             if (bit >= MAX_MUX) {
                 bit = find_next_bit(&d->mux_bitset, MAX_MUX, 0);
@@ -254,7 +218,6 @@ void mux_chr_send_all_event(Chardev *chr, QEMUChrEvent event)
         return;
     }
 
-    /* Send the event to all registered listeners */
     bit = -1;
     while ((bit = find_next_bit(&d->mux_bitset, MAX_MUX, bit + 1)) < MAX_MUX) {
         mux_chr_send_event(d, bit, event);
@@ -298,7 +261,6 @@ static void mux_chr_update_read_handlers(Chardev *chr)
 {
     MuxChardev *d = MUX_CHARDEV(chr);
 
-    /* Fix up the real driver with mux routines */
     qemu_chr_fe_set_handlers_full(&d->chr,
                                   mux_chr_can_read,
                                   mux_chr_read,
@@ -374,9 +336,6 @@ static void qemu_chr_open_mux(Chardev *chr,
     }
 
     d->focus = -1;
-    /* only default to opened state if we've realized the initial
-     * set of muxes
-     */
     *be_opened = muxes_opened;
     qemu_chr_fe_init(&d->chr, drv, errp);
 }
@@ -397,27 +356,10 @@ static void qemu_chr_parse_mux(QemuOpts *opts, ChardevBackend *backend,
     mux->chardev = g_strdup(chardev);
 }
 
-/**
- * Called after processing of default and command-line-specified
- * chardevs to deliver CHR_EVENT_OPENED events to any FEs attached
- * to a mux chardev. This is done here to ensure that
- * output/prompts/banners are only displayed for the FE that has
- * focus when initial command-line processing/machine init is
- * completed.
- *
- * After this point, any new FE attached to any new or existing
- * mux will receive CHR_EVENT_OPENED notifications for the BE
- * immediately.
- */
 static void open_muxes(Chardev *chr)
 {
-    /* send OPENED to all already-attached FEs */
     mux_chr_send_all_event(chr, CHR_EVENT_OPENED);
 
-    /*
-     * mark mux as OPENED so any new FEs will immediately receive
-     * OPENED event
-     */
     chr->be_open = 1;
 }
 

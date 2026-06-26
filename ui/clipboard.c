@@ -36,7 +36,6 @@ void qemu_clipboard_peer_release(QemuClipboardPeer *peer,
     g_autoptr(QemuClipboardInfo) info = NULL;
 
     if (qemu_clipboard_peer_owns(peer, selection)) {
-        /* set empty clipboard info */
         info = qemu_clipboard_info_new(NULL, selection);
         qemu_clipboard_update(info);
     }
@@ -73,11 +72,6 @@ void qemu_clipboard_update(QemuClipboardInfo *info)
     assert(info->selection < QEMU_CLIPBOARD_SELECTION__COUNT);
 
     for (type = 0; type < QEMU_CLIPBOARD_TYPE__COUNT; type++) {
-        /*
-         * If data is missing, the clipboard owner's 'request' callback needs to
-         * be set. Otherwise, there is no way to get the clipboard data and
-         * qemu_clipboard_request() cannot be called.
-         */
         if (info->types[type].available && !info->types[type].data) {
             assert(info->owner && info->owner->request);
         }

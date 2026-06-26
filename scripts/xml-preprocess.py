@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-#
-# Copyright (c) 2017-2019 Tony Su
-# Copyright (c) 2023 Red Hat, Inc.
-#
-# SPDX-License-Identifier: MIT
-#
-# Adapted from https://github.com/peitaosu/XML-Preprocessor
-#
 """This is a XML Preprocessor which can be used to process your XML file before
 you use it, to process conditional statements, variables, iteration
 statements, error/warning, execute command, etc.

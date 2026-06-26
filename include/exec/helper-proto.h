@@ -1,8 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * Helper file for declaring TCG helper functions.
- * This one expands prototypes for the helper functions.
- */
 
 #ifndef HELPER_PROTO_H
 #define HELPER_PROTO_H

@@ -1,18 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * Helper file for declaring TCG helper functions.
- * This one expands info structures for tcg helpers.
- * Define HELPER_H for the header file to be expanded.
- */
 
 #include "tcg/tcg.h"
 #include "tcg/helper-info.h"
 #include "exec/helper-head.h.inc"
 
-/*
- * Need one more level of indirection before stringification
- * to get all the macros expanded first.
- */
 #define str(s) #s
 
 #define DEF_HELPER_FLAGS_0(NAME, FLAGS, RET)                            \

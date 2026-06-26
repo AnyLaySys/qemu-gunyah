@@ -1,15 +1,3 @@
-/*
- * Event loop thread
- *
- * Copyright Red Hat Inc., 2013
- *
- * Authors:
- *  Stefan Hajnoczi   <stefanha@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #ifndef IOTHREAD_H
 #define IOTHREAD_H
@@ -34,7 +22,6 @@ struct IOThread {
     bool running;               /* should iothread_run() continue? */
     int thread_id;
 
-    /* AioContext poll parameters */
     int64_t poll_max_ns;
     int64_t poll_grow;
     int64_t poll_shrink;
@@ -49,19 +36,10 @@ IOThread *iothread_by_id(const char *id);
 AioContext *iothread_get_aio_context(IOThread *iothread);
 GMainContext *iothread_get_g_main_context(IOThread *iothread);
 
-/*
- * Helpers used to allocate iothreads for internal use.  These
- * iothreads will not be seen by monitor clients when query using
- * "query-iothreads".
- */
 IOThread *iothread_create(const char *id, Error **errp);
 void iothread_stop(IOThread *iothread);
 void iothread_destroy(IOThread *iothread);
 
-/*
- * Returns true if executing within IOThread context,
- * false otherwise.
- */
 bool qemu_in_iothread(void);
 
 #endif /* IOTHREAD_H */

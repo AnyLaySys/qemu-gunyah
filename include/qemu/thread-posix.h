@@ -13,10 +13,6 @@ struct QemuMutex {
     bool initialized;
 };
 
-/*
- * QemuRecMutex cannot be a typedef of QemuMutex lest we have two
- * compatible cases in _Generic.  See qemu/lockable.h.
- */
 typedef struct QemuRecMutex {
     QemuMutex m;
 } QemuRecMutex;

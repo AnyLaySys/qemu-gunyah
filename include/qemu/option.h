@@ -1,46 +1,9 @@
-/*
- * Commandline option parsing functions
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2009 Kevin Wolf <kwolf@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef QEMU_OPTION_H
 #define QEMU_OPTION_H
 
 #include "qemu/queue.h"
 
-/**
- * get_opt_value
- * @p: a pointer to the option name, delimited by commas
- * @value: a non-NULL pointer that will received the delimited options
- *
- * The @value char pointer will be allocated and filled with
- * the delimited options.
- *
- * Returns the position of the comma delimiter/zero byte after the
- * option name in @p.
- * The memory pointer in @value must be released with a call to g_free()
- * when no longer required.
- */
 const char *get_opt_value(const char *p, char **value);
 
 bool parse_option_size(const char *name, const char *value,
@@ -73,17 +36,6 @@ struct QemuOptsList {
 
 const char *qemu_opt_get(QemuOpts *opts, const char *name);
 char *qemu_opt_get_del(QemuOpts *opts, const char *name);
-/**
- * qemu_opt_has_help_opt:
- * @opts: options to search for a help request
- *
- * Check whether the options specified by @opts include one of the
- * standard strings which indicate that the user is asking for a
- * list of the valid values for a command line option (as defined
- * by is_help_option()).
- *
- * Returns: true if @opts includes 'help' or equivalent.
- */
 bool qemu_opt_has_help_opt(QemuOpts *opts);
 QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name);
 bool qemu_opt_get_bool(QemuOpts *opts, const char *name, bool defval);

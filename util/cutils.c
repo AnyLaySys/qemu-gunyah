@@ -1,26 +1,3 @@
-/*
- * Simple C functions to supplement the C library
- *
- * Copyright (c) 2006 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/host-utils.h"
@@ -76,7 +53,6 @@ void pstrcpy(char *buf, int buf_size, const char *str)
     *q = '\0';
 }
 
-/* strcat and truncate. */
 char *pstrcat(char *buf, int buf_size, const char *s)
 {
     int len;
@@ -118,7 +94,6 @@ int stristart(const char *str, const char *val, const char **ptr)
     return 1;
 }
 
-/* XXX: use host strnlen if available ? */
 int qemu_strnlen(const char *s, int max_len)
 {
     int i;
@@ -187,39 +162,6 @@ static int64_t suffix_mul(char suffix, int64_t unit)
     return -1;
 }
 
-/*
- * Convert size string to bytes.
- *
- * The size parsing supports the following syntaxes
- * - 12345 - decimal, scale determined by @default_suffix and @unit
- * - 12345{bBkKmMgGtTpPeE} - decimal, scale determined by suffix and @unit
- * - 12345.678{kKmMgGtTpPeE} - decimal, scale determined by suffix, and
- *   fractional portion is truncated to byte, either side of . may be empty
- * - 0x7fEE - hexadecimal, unit determined by @default_suffix
- *
- * The following are intentionally not supported
- * - hex with scaling suffix, such as 0x20M or 0x1p3 (both fail with
- *   -EINVAL), while 0x1b is 27 (not 1 with byte scale)
- * - octal, such as 08 (parsed as decimal instead)
- * - binary, such as 0b1000 (parsed as 0b with trailing garbage "1000")
- * - fractional hex, such as 0x1.8 (parsed as 0 with trailing garbage "x1.8")
- * - negative values, including -0 (fail with -ERANGE)
- * - floating point exponents, such as 1e3 (parsed as 1e with trailing
- *   garbage "3") or 0x1p3 (rejected as hex with scaling suffix)
- * - non-finite values, such as inf or NaN (fail with -EINVAL)
- *
- * The end pointer will be returned in *end, if not NULL.  If there is
- * no fraction, the input can be decimal or hexadecimal; if there is a
- * non-zero fraction, then the input must be decimal and there must be
- * a suffix (possibly by @default_suffix) larger than Byte, and the
- * fractional portion may suffer from precision loss or rounding.  The
- * input must be positive.
- *
- * Return -ERANGE on overflow (with *@end advanced), and -EINVAL on
- * other error (with *@end at @nptr).  Unlike strtoull, *@result is
- * set to 0 on all errors, as returning UINT64_MAX on overflow is less
- * likely to be usable as a size.
- */
 static int do_strtosz(const char *nptr, const char **end,
                       const char default_suffix, int64_t unit,
                       uint64_t *result)
@@ -230,13 +172,11 @@ static int do_strtosz(const char *nptr, const char **end,
     uint64_t val = 0, valf = 0;
     int64_t mul;
 
-    /* Parse integral portion as decimal. */
     retval = parse_uint(nptr, &endptr, 10, &val);
     if (retval == -ERANGE || !nptr) {
         goto out;
     }
     if (retval == 0 && val == 0 && (*endptr == 'x' || *endptr == 'X')) {
-        /* Input looks like hex; reparse, and insist on no fraction or suffix. */
         retval = qemu_strtou64(nptr, &endptr, 16, &val);
         if (retval) {
             goto out;
@@ -247,16 +187,9 @@ static int do_strtosz(const char *nptr, const char **end,
             goto out;
         }
     } else if (*endptr == '.' || (endptr == nptr && strchr(nptr, '.'))) {
-        /*
-         * Input looks like a fraction.  Make sure even 1.k works
-         * without fractional digits.  strtod tries to treat 'e' as an
-         * exponent, but we want to treat it as a scaling suffix;
-         * doing this requires modifying a copy of the fraction.
-         */
         double fraction = 0.0;
 
         if (retval == 0 && *endptr == '.' && !isdigit(endptr[1])) {
-            /* If we got here, we parsed at least one digit already. */
             endptr++;
         } else {
             char *e;
@@ -271,14 +204,6 @@ static int do_strtosz(const char *nptr, const char **end,
             if (e) {
                 *e = '\0';
             }
-            /*
-             * If this is a floating point, we are guaranteed that '.'
-             * appears before any possible digits in copy.  If it is
-             * not a floating point, strtod will fail.  Either way,
-             * there is now no exponent in copy, so if it parses, we
-             * know 0.0 <= abs(result) <= 1.0 (after rounding), and
-             * ERANGE is only possible on underflow which is okay.
-             */
             retval = qemu_strtod_finite(copy, &tail, &fraction);
             endptr += tail - copy;
             if (signbit(fraction)) {
@@ -287,7 +212,6 @@ static int do_strtosz(const char *nptr, const char **end,
             }
         }
 
-        /* Extract into a 64-bit fixed-point fraction. */
         if (fraction == 1.0) {
             if (val == UINT64_MAX) {
                 retval = -ERANGE;
@@ -295,11 +219,9 @@ static int do_strtosz(const char *nptr, const char **end,
             }
             val++;
         } else if (retval == -ERANGE) {
-            /* See comments above about underflow */
             valf = 1;
             retval = 0;
         } else {
-            /* We want non-zero valf for any non-zero fraction */
             valf = (uint64_t)(fraction * 0x1p64);
             if (valf == 0 && fraction > 0.0) {
                 valf = 1;
@@ -318,7 +240,6 @@ static int do_strtosz(const char *nptr, const char **end,
         assert(mul > 0);
     }
     if (mul == 1) {
-        /* When a fraction is present, a scale is required. */
         if (valf != 0) {
             endptr = nptr;
             retval = -EINVAL;
@@ -327,18 +248,15 @@ static int do_strtosz(const char *nptr, const char **end,
     } else {
         uint64_t valh, tmp;
 
-        /* Compute exact result: 64.64 x 64.0 -> 128.64 fixed point */
         mulu64(&val, &valh, val, mul);
         mulu64(&valf, &tmp, valf, mul);
         val += tmp;
         valh += val < tmp;
 
-        /* Round 0.5 upward. */
         tmp = valf >> 63;
         val += tmp;
         valh += val < tmp;
 
-        /* Report overflow. */
         if (valh != 0) {
             retval = -ERANGE;
             goto out;
@@ -380,16 +298,12 @@ int qemu_strtosz_metric(const char *nptr, const char **end, uint64_t *result)
     return do_strtosz(nptr, end, 'B', 1000, result);
 }
 
-/**
- * Helper function for error checking after strtol() and the like
- */
 static int check_strtox_error(const char *nptr, char *ep,
                               const char **endptr, bool check_zero,
                               int libc_errno)
 {
     assert(ep >= nptr);
 
-    /* Windows has a bug in that it fails to parse 0 from "0x" in base 16 */
     if (check_zero && ep == nptr && libc_errno == 0) {
         char *tmp;
 
@@ -404,12 +318,10 @@ static int check_strtox_error(const char *nptr, char *ep,
         *endptr = ep;
     }
 
-    /* Turn "no conversion" into an error */
     if (libc_errno == 0 && ep == nptr) {
         return -EINVAL;
     }
 
-    /* Fail when we're expected to consume the string, but didn't */
     if (!endptr && *ep) {
         return -EINVAL;
     }
@@ -417,34 +329,6 @@ static int check_strtox_error(const char *nptr, char *ep,
     return -libc_errno;
 }
 
-/**
- * Convert string @nptr to an integer, and store it in @result.
- *
- * This is a wrapper around strtol() that is harder to misuse.
- * Semantics of @nptr, @endptr, @base match strtol() with differences
- * noted below.
- *
- * @nptr may be null, and no conversion is performed then.
- *
- * If no conversion is performed, store @nptr in *@endptr, 0 in
- * @result, and return -EINVAL.
- *
- * If @endptr is null, and the string isn't fully converted, return
- * -EINVAL with @result set to the parsed value.  This is the case
- * when the pointer that would be stored in a non-null @endptr points
- * to a character other than '\0'.
- *
- * If the conversion overflows @result, store INT_MAX in @result,
- * and return -ERANGE.
- *
- * If the conversion underflows @result, store INT_MIN in @result,
- * and return -ERANGE.
- *
- * Else store the converted value in @result, and return zero.
- *
- * This matches the behavior of strtol() on 32-bit platforms, even on
- * platforms where long is 64-bits.
- */
 int qemu_strtoi(const char *nptr, const char **endptr, int base,
                 int *result)
 {
@@ -474,33 +358,6 @@ int qemu_strtoi(const char *nptr, const char **endptr, int base,
     return check_strtox_error(nptr, ep, endptr, lresult == 0, errno);
 }
 
-/**
- * Convert string @nptr to an unsigned integer, and store it in @result.
- *
- * This is a wrapper around strtoul() that is harder to misuse.
- * Semantics of @nptr, @endptr, @base match strtoul() with differences
- * noted below.
- *
- * @nptr may be null, and no conversion is performed then.
- *
- * If no conversion is performed, store @nptr in *@endptr, 0 in
- * @result, and return -EINVAL.
- *
- * If @endptr is null, and the string isn't fully converted, return
- * -EINVAL with @result set to the parsed value.  This is the case
- * when the pointer that would be stored in a non-null @endptr points
- * to a character other than '\0'.
- *
- * If the conversion overflows @result, store UINT_MAX in @result,
- * and return -ERANGE.
- *
- * Else store the converted value in @result, and return zero.
- *
- * Note that a number with a leading minus sign gets converted without
- * the minus sign, checked for overflow (see above), then negated (in
- * @result's type).  This matches the behavior of strtoul() on 32-bit
- * platforms, even on platforms where long is 64-bits.
- */
 int qemu_strtoui(const char *nptr, const char **endptr, int base,
                  unsigned int *result)
 {
@@ -520,17 +377,9 @@ int qemu_strtoui(const char *nptr, const char **endptr, int base,
     errno = 0;
     lresult = strtoull(nptr, &ep, base);
 
-    /* Windows returns 1 for negative out-of-range values.  */
     if (errno == ERANGE) {
         *result = -1;
     } else {
-        /*
-         * Note that platforms with 32-bit strtoul only accept input
-         * in the range [-4294967295, 4294967295]; but we used 64-bit
-         * strtoull which wraps -18446744073709551615 to 1 instead of
-         * declaring overflow.  So we must check if '-' was parsed,
-         * and if so, undo the negation before doing our bounds check.
-         */
         neg = memchr(nptr, '-', ep - nptr) != NULL;
         if (neg) {
             lresult = -lresult;
@@ -545,31 +394,6 @@ int qemu_strtoui(const char *nptr, const char **endptr, int base,
     return check_strtox_error(nptr, ep, endptr, lresult == 0, errno);
 }
 
-/**
- * Convert string @nptr to a long integer, and store it in @result.
- *
- * This is a wrapper around strtol() that is harder to misuse.
- * Semantics of @nptr, @endptr, @base match strtol() with differences
- * noted below.
- *
- * @nptr may be null, and no conversion is performed then.
- *
- * If no conversion is performed, store @nptr in *@endptr, 0 in
- * @result, and return -EINVAL.
- *
- * If @endptr is null, and the string isn't fully converted, return
- * -EINVAL with @result set to the parsed value.  This is the case
- * when the pointer that would be stored in a non-null @endptr points
- * to a character other than '\0'.
- *
- * If the conversion overflows @result, store LONG_MAX in @result,
- * and return -ERANGE.
- *
- * If the conversion underflows @result, store LONG_MIN in @result,
- * and return -ERANGE.
- *
- * Else store the converted value in @result, and return zero.
- */
 int qemu_strtol(const char *nptr, const char **endptr, int base,
                 long *result)
 {
@@ -589,32 +413,6 @@ int qemu_strtol(const char *nptr, const char **endptr, int base,
     return check_strtox_error(nptr, ep, endptr, *result == 0, errno);
 }
 
-/**
- * Convert string @nptr to an unsigned long, and store it in @result.
- *
- * This is a wrapper around strtoul() that is harder to misuse.
- * Semantics of @nptr, @endptr, @base match strtoul() with differences
- * noted below.
- *
- * @nptr may be null, and no conversion is performed then.
- *
- * If no conversion is performed, store @nptr in *@endptr, 0 in
- * @result, and return -EINVAL.
- *
- * If @endptr is null, and the string isn't fully converted, return
- * -EINVAL with @result set to the parsed value.  This is the case
- * when the pointer that would be stored in a non-null @endptr points
- * to a character other than '\0'.
- *
- * If the conversion overflows @result, store ULONG_MAX in @result,
- * and return -ERANGE.
- *
- * Else store the converted value in @result, and return zero.
- *
- * Note that a number with a leading minus sign gets converted without
- * the minus sign, checked for overflow (see above), then negated (in
- * @result's type).  This is exactly how strtoul() works.
- */
 int qemu_strtoul(const char *nptr, const char **endptr, int base,
                  unsigned long *result)
 {
@@ -631,19 +429,12 @@ int qemu_strtoul(const char *nptr, const char **endptr, int base,
 
     errno = 0;
     *result = strtoul(nptr, &ep, base);
-    /* Windows returns 1 for negative out-of-range values.  */
     if (errno == ERANGE) {
         *result = -1;
     }
     return check_strtox_error(nptr, ep, endptr, *result == 0, errno);
 }
 
-/**
- * Convert string @nptr to an int64_t.
- *
- * Works like qemu_strtol(), except it stores INT64_MAX on overflow,
- * and INT64_MIN on underflow.
- */
 int qemu_strtoi64(const char *nptr, const char **endptr, int base,
                  int64_t *result)
 {
@@ -658,20 +449,12 @@ int qemu_strtoi64(const char *nptr, const char **endptr, int base,
         return -EINVAL;
     }
 
-    /* This assumes int64_t is long long TODO relax */
     QEMU_BUILD_BUG_ON(sizeof(int64_t) != sizeof(long long));
     errno = 0;
     *result = strtoll(nptr, &ep, base);
     return check_strtox_error(nptr, ep, endptr, *result == 0, errno);
 }
 
-/**
- * Convert string @nptr to an uint64_t.
- *
- * Works like qemu_strtoul(), except it stores UINT64_MAX on overflow.
- * (If you want to prohibit negative numbers that wrap around to
- * positive, use parse_uint()).
- */
 int qemu_strtou64(const char *nptr, const char **endptr, int base,
                   uint64_t *result)
 {
@@ -686,42 +469,15 @@ int qemu_strtou64(const char *nptr, const char **endptr, int base,
         return -EINVAL;
     }
 
-    /* This assumes uint64_t is unsigned long long TODO relax */
     QEMU_BUILD_BUG_ON(sizeof(uint64_t) != sizeof(unsigned long long));
     errno = 0;
     *result = strtoull(nptr, &ep, base);
-    /* Windows returns 1 for negative out-of-range values.  */
     if (errno == ERANGE) {
         *result = -1;
     }
     return check_strtox_error(nptr, ep, endptr, *result == 0, errno);
 }
 
-/**
- * Convert string @nptr to a double.
-  *
- * This is a wrapper around strtod() that is harder to misuse.
- * Semantics of @nptr and @endptr match strtod() with differences
- * noted below.
- *
- * @nptr may be null, and no conversion is performed then.
- *
- * If no conversion is performed, store @nptr in *@endptr, +0.0 in
- * @result, and return -EINVAL.
- *
- * If @endptr is null, and the string isn't fully converted, return
- * -EINVAL with @result set to the parsed value.  This is the case
- * when the pointer that would be stored in a non-null @endptr points
- * to a character other than '\0'.
- *
- * If the conversion overflows, store +/-HUGE_VAL in @result, depending
- * on the sign, and return -ERANGE.
- *
- * If the conversion underflows, store +/-0.0 in @result, depending on the
- * sign, and return -ERANGE.
- *
- * Else store the converted value in @result, and return zero.
- */
 int qemu_strtod(const char *nptr, const char **endptr, double *result)
 {
     char *ep;
@@ -739,15 +495,6 @@ int qemu_strtod(const char *nptr, const char **endptr, double *result)
     return check_strtox_error(nptr, ep, endptr, false, errno);
 }
 
-/**
- * Convert string @nptr to a finite double.
- *
- * Works like qemu_strtod(), except that "NaN", "inf", and strings
- * that cause ERANGE overflow errors are rejected with -EINVAL as if
- * no conversion is performed, storing 0.0 into @result regardless of
- * any sign.  -ERANGE failures for underflow still preserve the parsed
- * sign.
- */
 int qemu_strtod_finite(const char *nptr, const char **endptr, double *result)
 {
     const char *tmp;
@@ -768,10 +515,6 @@ int qemu_strtod_finite(const char *nptr, const char **endptr, double *result)
     return ret;
 }
 
-/**
- * Searches for the first occurrence of 'c' in 's', and returns a pointer
- * to the trailing null byte if none was found.
- */
 #ifndef HAVE_STRCHRNUL
 const char *qemu_strchrnul(const char *s, int c)
 {
@@ -783,36 +526,6 @@ const char *qemu_strchrnul(const char *s, int c)
 }
 #endif
 
-/**
- * parse_uint:
- *
- * @s: String to parse
- * @endptr: Destination for pointer to first character not consumed
- * @base: integer base, between 2 and 36 inclusive, or 0
- * @value: Destination for parsed integer value
- *
- * Parse unsigned integer
- *
- * Parsed syntax is like strtoull()'s: arbitrary whitespace, a single optional
- * '+' or '-', an optional "0x" if @base is 0 or 16, one or more digits.
- *
- * If @s is null, or @s doesn't start with an integer in the syntax
- * above, set *@value to 0, *@endptr to @s, and return -EINVAL.
- *
- * Set *@endptr to point right beyond the parsed integer (even if the integer
- * overflows or is negative, all digits will be parsed and *@endptr will
- * point right beyond them).  If @endptr is %NULL, any trailing character
- * instead causes a result of -EINVAL with *@value of 0.
- *
- * If the integer is negative, set *@value to 0, and return -ERANGE.
- * (If you want to allow negative numbers that wrap around within
- * bounds, use qemu_strtou64()).
- *
- * If the integer overflows unsigned long long, set *@value to
- * ULLONG_MAX, and return -ERANGE.
- *
- * Else, set *@value to the parsed integer, and return 0.
- */
 int parse_uint(const char *s, const char **endptr, int base, uint64_t *value)
 {
     int r = 0;
@@ -837,7 +550,6 @@ int parse_uint(const char *s, const char **endptr, int base, uint64_t *value)
         goto out;
     }
 
-    /* make sure we reject negative numbers: */
     while (qemu_isspace(*s)) {
         s++;
     }
@@ -858,17 +570,6 @@ out:
     return r;
 }
 
-/**
- * parse_uint_full:
- *
- * @s: String to parse
- * @base: integer base, between 2 and 36 inclusive, or 0
- * @value: Destination for parsed integer value
- *
- * Parse unsigned integer from entire string, rejecting any trailing slop.
- *
- * Shorthand for parse_uint(s, NULL, base, value).
- */
 int parse_uint_full(const char *s, int base, uint64_t *value)
 {
     return parse_uint(s, NULL, base, value);
@@ -891,10 +592,6 @@ int qemu_parse_fd(const char *param)
     return fd;
 }
 
-/*
- * Implementation of  ULEB128 (http://en.wikipedia.org/wiki/LEB128)
- * Input is limited to 14-bit numbers
- */
 int uleb128_encode_small(uint8_t *out, uint32_t n)
 {
     g_assert(n <= 0x3fff);
@@ -915,7 +612,6 @@ int uleb128_decode_small(const uint8_t *in, uint32_t *n)
         return 1;
     } else {
         *n = *in++ & 0x7f;
-        /* we exceed 14 bit number */
         if (*in & 0x80) {
             return -1;
         }
@@ -924,9 +620,6 @@ int uleb128_decode_small(const uint8_t *in, uint32_t *n)
     }
 }
 
-/*
- * helper to parse debug environment variables
- */
 int parse_debug_env(const char *name, int max, int initial)
 {
     char *debug_env = getenv(name);
@@ -967,23 +660,11 @@ const char *iec_binary_prefix(unsigned int exp2)
     return prefixes[exp2 / 10];
 }
 
-/*
- * Return human readable string for size @val.
- * @val can be anything that uint64_t allows (no more than "16 EiB").
- * Use IEC binary units like KiB, MiB, and so forth.
- * Caller is responsible for passing it to g_free().
- */
 char *size_to_str(uint64_t val)
 {
     uint64_t div;
     int i;
 
-    /*
-     * The exponent (returned in i) minus one gives us
-     * floor(log2(val * 1024 / 1000).  The correction makes us
-     * switch to the higher power when the integer part is >= 1000.
-     * (see e41b509d68afb1f for more info)
-     */
     frexp(val / (1000.0 / 1024.0), &i);
     i = (i - 1) / 10 * 10;
     div = 1ULL << i;
@@ -1012,10 +693,6 @@ int qemu_pstrcmp0(const char **str1, const char **str2)
 static inline bool starts_with_prefix(const char *dir)
 {
     size_t prefix_len = strlen(CONFIG_PREFIX);
-    /*
-     * dir[prefix_len] is only accessed if the length of dir is
-     * >= prefix_len, so no out of bounds access is possible.
-     */
 #pragma GCC diagnostic push
 #if !defined(__clang__) || __has_warning("-Warray-bounds=")
 #pragma GCC diagnostic ignored "-Warray-bounds="
@@ -1025,7 +702,6 @@ static inline bool starts_with_prefix(const char *dir)
 #pragma GCC diagnostic pop
 }
 
-/* Return the next path component in dir, and store its length in *p_len.  */
 static inline const char *next_component(const char *dir, int *p_len)
 {
     int len;
@@ -1131,8 +807,6 @@ void qemu_init_exec_dir(const char *argv0)
         }
     }
 #endif
-    /* If we don't have any way of figuring out the actual executable
-       location then try argv[0].  */
     if (!p && argv0) {
         p = realpath(argv0, buf);
     }
@@ -1151,7 +825,6 @@ char *get_relocated_path(const char *dir)
     GString *result;
     int len_dir, len_bindir;
 
-    /* Fail if qemu_init_exec_dir was not called.  */
     assert(exec_dir[0]);
 
     result = g_string_new(exec_dir);
@@ -1184,7 +857,6 @@ char *get_relocated_path(const char *dir)
         starts_with_prefix(dir) && starts_with_prefix(bindir)) {
         g_string_assign(result, exec_dir);
 
-        /* Advance over common components.  */
         len_dir = len_bindir = prefix_len;
         do {
             dir += len_dir;
@@ -1193,7 +865,6 @@ char *get_relocated_path(const char *dir)
             bindir = next_component(bindir, &len_bindir);
         } while (len_dir && len_dir == len_bindir && !memcmp(dir, bindir, len_dir));
 
-        /* Ascend from bindir to the common prefix with dir.  */
         while (len_bindir) {
             bindir += len_bindir;
             g_string_append(result, "/..");

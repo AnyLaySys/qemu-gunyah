@@ -1,4 +1,3 @@
-# Files needed by unit tests
 migration_files = files(
   'vmstate-types.c',
   'vmstate.c',

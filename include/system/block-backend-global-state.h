@@ -1,26 +1,9 @@
-/*
- * QEMU Block backends
- *
- * Copyright (C) 2014-2016 Red Hat, Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1
- * or later.  See the COPYING.LIB file in the top-level directory.
- */
 
 #ifndef BLOCK_BACKEND_GLOBAL_STATE_H
 #define BLOCK_BACKEND_GLOBAL_STATE_H
 
 #include "block-backend-common.h"
 
-/*
- * Global state (GS) API. These functions run under the BQL.
- *
- * See include/block/block-global-state.h for more information about
- * the GS API.
- */
 
 BlockBackend *blk_new(AioContext *ctx, uint64_t perm, uint64_t shared_perm);
 

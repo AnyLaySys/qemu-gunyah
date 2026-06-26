@@ -1,17 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/* const.h: Macros for dealing with constants.  */
 
 #ifndef _LINUX_CONST_H
 #define _LINUX_CONST_H
 
-/* Some constant macros are used in both assembler and
- * C code.  Therefore we cannot annotate them always with
- * 'UL' and other type specifiers unilaterally.  We
- * use the following macros to deal with this.
- *
- * Similarly, _AT() will cast an expression with a type in C, but
- * leave it unchanged in asm.
- */
 
 #ifdef __ASSEMBLY__
 #define _AC(X,Y)	X
@@ -29,19 +19,6 @@
 #define _BITULL(x)	(_ULL(1) << (x))
 
 #if !defined(__ASSEMBLY__)
-/*
- * Missing __asm__ support
- *
- * __BIT128() would not work in the __asm__ code, as it shifts an
- * 'unsigned __init128' data type as direct representation of
- * 128 bit constants is not supported in the gcc compiler, as
- * they get silently truncated.
- *
- * TODO: Please revisit this implementation when gcc compiler
- * starts representing 128 bit constants directly like long
- * and unsigned long etc. Subsequently drop the comment for
- * GENMASK_U128() which would then start supporting __asm__ code.
- */
 #define _BIT128(x)	((unsigned __int128)(1) << (x))
 #endif
 

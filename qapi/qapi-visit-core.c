@@ -1,16 +1,3 @@
-/*
- * Core Definitions for QAPI Visitor Classes
- *
- * Copyright (C) 2012-2016 Red Hat, Inc.
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/compat-policy.h"
@@ -20,7 +7,6 @@
 #include "qapi/visitor-impl.h"
 #include "trace.h"
 
-/* Zero-initialization must result in default policy */
 QEMU_BUILD_BUG_ON(COMPAT_POLICY_INPUT_ACCEPT || COMPAT_POLICY_OUTPUT_ACCEPT);
 
 
@@ -341,10 +327,6 @@ bool visit_type_str(Visitor *v, const char *name, char **obj, Error **errp)
     bool ok;
 
     assert(obj);
-    /* TODO: Fix callers to not pass NULL when they mean "", so that we
-     * can enable:
-    assert(!(v->type & VISITOR_OUTPUT) || *obj);
-     */
     trace_visit_type_str(v, name, obj);
     ok = v->type_str(v, name, obj, errp);
     if (v->type & VISITOR_INPUT) {
@@ -432,11 +414,8 @@ bool visit_type_enum(Visitor *v, const char *name, int *obj,
     case VISITOR_OUTPUT:
         return output_type_enum(v, name, obj, lookup, errp);
     case VISITOR_CLONE:
-        /* nothing further to do, scalar value was already copied by
-         * g_memdup() during visit_start_*() */
         return true;
     case VISITOR_DEALLOC:
-        /* nothing to deallocate for a scalar */
         return true;
     default:
         abort();

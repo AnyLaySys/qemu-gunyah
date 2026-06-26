@@ -1,15 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/*
-** asm/bootinfo-mac.h -- Macintosh-specific boot information definitions
-*/
 
 #ifndef _UAPI_ASM_M68K_BOOTINFO_MAC_H
 #define _UAPI_ASM_M68K_BOOTINFO_MAC_H
 
 
-    /*
-     *  Macintosh-specific tags (all __be32)
-     */
 
 #define BI_MAC_MODEL		0x8000	/* Mac Gestalt ID (model type) */
 #define BI_MAC_VADDR		0x8001	/* Mac video base address */
@@ -25,10 +18,6 @@
 #define BI_MAC_ROMBASE		0x800b	/* Mac system ROM base address */
 
 
-    /*
-     *  Macintosh hardware profile data - unused, see macintosh.h for
-     *  reasonable type values
-     */
 
 #define BI_MAC_VIA1BASE		0x8010	/* Mac VIA1 base address (always present) */
 #define BI_MAC_VIA2BASE		0x8011	/* Mac VIA2 base address (type varies) */
@@ -50,9 +39,6 @@
 #define BI_MAC_IOP_ADB		0x8021	/* Mac ADB IOP */
 
 
-    /*
-     * Macintosh Gestalt numbers (BI_MAC_MODEL)
-     */
 
 #define MAC_MODEL_II		6
 #define MAC_MODEL_IIX		7
@@ -110,9 +96,6 @@
 #define MAC_MODEL_PB150		115
 
 
-    /*
-     *  Latest Macintosh bootinfo version
-     */
 
 #define MAC_BOOTI_VERSION	MK_BI_VERSION(2, 0)
 

@@ -1,14 +1,3 @@
-/*
- * QEMU Block backends
- *
- * Copyright (C) 2014-2016 Red Hat, Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1
- * or later.  See the COPYING.LIB file in the top-level directory.
- */
 
 #ifndef BLOCK_BACKEND_IO_H
 #define BLOCK_BACKEND_IO_H
@@ -16,12 +5,6 @@
 #include "block-backend-common.h"
 #include "block/accounting.h"
 
-/*
- * I/O API functions. These functions are thread-safe.
- *
- * See include/block/block-io.h for more information about
- * the I/O API.
- */
 
 const char *blk_name(const BlockBackend *blk);
 
@@ -32,13 +15,6 @@ void blk_set_allow_aio_context_change(BlockBackend *blk, bool allow);
 void blk_set_disable_request_queuing(BlockBackend *blk, bool disable);
 bool blk_iostatus_is_enabled(const BlockBackend *blk);
 
-/*
- * Return the qdev ID, or if no ID is assigned the QOM path,
- * of the block device attached to the BlockBackend.
- *
- * The caller is responsible for releasing the value returned
- * with g_free() after use.
- */
 char *blk_get_attached_dev_id(BlockBackend *blk);
 
 BlockAIOCB *blk_aio_pwrite_zeroes(BlockBackend *blk, int64_t offset,
@@ -134,13 +110,6 @@ int coroutine_fn blk_co_is_allocated_above(BlockBackend *blk,
                                            bool include_base, int64_t offset,
                                            int64_t bytes, int64_t *pnum);
 
-/*
- * "I/O or GS" API functions. These functions can run without
- * the BQL, but only in one specific iothread/main loop.
- *
- * See include/block/block-io.h for more information about
- * the "I/O or GS" API.
- */
 
 int co_wrapper_mixed blk_pread(BlockBackend *blk, int64_t offset,
                                int64_t bytes, void *buf,

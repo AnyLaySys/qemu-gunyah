@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: MIT
- * QEMU VC
- */
 #include "qemu/osdep.h"
 
 #include "chardev/char.h"
@@ -66,7 +62,6 @@ typedef struct QemuTextConsole {
     int update_y1;
 
     Chardev *chr;
-    /* fifo for key pressed */
     Fifo8 out_fifo;
 } QemuTextConsole;
 
@@ -140,7 +135,6 @@ static void qemu_console_fill_rect(QemuConsole *con, int posx, int posy,
                                  &color, 1, &rect);
 }
 
-/* copy from (xs, ys) to (xd, yd) a rectangle of size (w, h) */
 static void qemu_console_bitblt(QemuConsole *con,
                                 int xs, int ys, int xd, int yd, int w, int h)
 {
@@ -297,7 +291,6 @@ static void kbd_send_chars(QemuTextConsole *s)
     }
 }
 
-/* called when an ascii key is pressed */
 void qemu_text_console_handle_keysym(QemuTextConsole *s, int keysym)
 {
     uint8_t buf[16], *q;
@@ -318,7 +311,6 @@ void qemu_text_console_handle_keysym(QemuTextConsole *s, int keysym)
         console_scroll(s, 10);
         break;
     default:
-        /* convert the QEMU keysym to VT100 key string */
         q = buf;
         if (keysym >= 0xe100 && keysym <= 0xe11f) {
             *q++ = '\033';
@@ -461,10 +453,6 @@ static void vc_put_lf(VCChardev *vc)
     }
 }
 
-/* Set console attributes depending on the current escape codes.
- * NOTE: I know this code is not very efficient (checking every color for it
- * self) but it is more readable and better maintainable.
- */
 static void vc_handle_escape(VCChardev *vc)
 {
     int i;
@@ -504,7 +492,6 @@ static void vc_handle_escape(VCChardev *vc)
             case 28:
                 vc->t_attrib.unvisible = 0;
                 break;
-            /* set foreground color */
             case 30:
                 vc->t_attrib.fgcol = QEMU_COLOR_BLACK;
                 break;
@@ -529,7 +516,6 @@ static void vc_handle_escape(VCChardev *vc)
             case 37:
                 vc->t_attrib.fgcol = QEMU_COLOR_WHITE;
                 break;
-            /* set background color */
             case 40:
                 vc->t_attrib.bgcol = QEMU_COLOR_BLACK;
                 break;
@@ -604,7 +590,6 @@ static void vc_put_one(VCChardev *vc, int ch)
     TextCell *c;
     int y1;
     if (s->x >= s->width) {
-        /* line wrap */
         s->x = 0;
         vc_put_lf(vc);
     }
@@ -623,7 +608,6 @@ static void vc_respond_str(VCChardev *vc, const char *buf)
     qemu_chr_be_write(s->chr, (const uint8_t *)buf, strlen(buf));
 }
 
-/* set cursor, checking bounds */
 static void vc_set_cursor(VCChardev *vc, int x, int y)
 {
     QemuTextConsole *s = vc->console;
@@ -645,12 +629,6 @@ static void vc_set_cursor(VCChardev *vc, int x, int y)
     s->y = y;
 }
 
-/**
- * vc_csi_P() - (DCH) deletes one or more characters from the cursor
- * position to the right. As characters are deleted, the remaining
- * characters between the cursor and right margin move to the
- * left. Character attributes move with the characters.
- */
 static void vc_csi_P(struct VCChardev *vc, unsigned int nr)
 {
     QemuTextConsole *s = vc->console;
@@ -680,18 +658,11 @@ static void vc_csi_P(struct VCChardev *vc, unsigned int nr)
             vc_update_xy(vc, x1, s->y);
         }
     }
-    /* Clear the rest */
     for (; x1 < s->width; x1++) {
         vc_clear_xy(vc, x1, s->y);
     }
 }
 
-/**
- * vc_csi_at() - (ICH) inserts `nr` blank characters with the default
- * character attribute. The cursor remains at the beginning of the
- * blank characters. Text between the cursor and right margin moves to
- * the right. Characters scrolled past the right margin are lost.
- */
 static void vc_csi_at(struct VCChardev *vc, unsigned int nr)
 {
     QemuTextConsole *s = vc->console;
@@ -721,15 +692,11 @@ static void vc_csi_at(struct VCChardev *vc, unsigned int nr)
             vc_update_xy(vc, x1, s->y);
         }
     }
-    /* Insert blanks */
     for (x1 = s->x; x1 < s->x + nr; x1++) {
         vc_clear_xy(vc, x1, s->y);
     }
 }
 
-/**
- * vc_save_cursor() - saves cursor position and character attributes.
- */
 static void vc_save_cursor(VCChardev *vc)
 {
     QemuTextConsole *s = vc->console;
@@ -739,10 +706,6 @@ static void vc_save_cursor(VCChardev *vc)
     vc->t_attrib_saved = vc->t_attrib;
 }
 
-/**
- * vc_restore_cursor() - restores cursor position and character
- * attributes from saved state.
- */
 static void vc_restore_cursor(VCChardev *vc)
 {
     QemuTextConsole *s = vc->console;
@@ -781,13 +744,10 @@ static void vc_putchar(VCChardev *vc, int ch)
             }
             break;
         case '\a':  /* alert aka. bell */
-            /* TODO: has to be implemented */
             break;
         case 14:
-            /* SI (shift in), character set 0 (ignored) */
             break;
         case 15:
-            /* SO (shift out), character set 1 (ignored) */
             break;
         case 27:    /* esc (introducing an escape sequence) */
             vc->state = TTY_STATE_ESC;
@@ -837,46 +797,39 @@ static void vc_putchar(VCChardev *vc, int ch)
             vc->state = TTY_STATE_NORM;
             switch(ch) {
             case 'A':
-                /* move cursor up */
                 if (vc->esc_params[0] == 0) {
                     vc->esc_params[0] = 1;
                 }
                 vc_set_cursor(vc, s->x, s->y - vc->esc_params[0]);
                 break;
             case 'B':
-                /* move cursor down */
                 if (vc->esc_params[0] == 0) {
                     vc->esc_params[0] = 1;
                 }
                 vc_set_cursor(vc, s->x, s->y + vc->esc_params[0]);
                 break;
             case 'C':
-                /* move cursor right */
                 if (vc->esc_params[0] == 0) {
                     vc->esc_params[0] = 1;
                 }
                 vc_set_cursor(vc, s->x + vc->esc_params[0], s->y);
                 break;
             case 'D':
-                /* move cursor left */
                 if (vc->esc_params[0] == 0) {
                     vc->esc_params[0] = 1;
                 }
                 vc_set_cursor(vc, s->x - vc->esc_params[0], s->y);
                 break;
             case 'G':
-                /* move cursor to column */
                 vc_set_cursor(vc, vc->esc_params[0] - 1, s->y);
                 break;
             case 'f':
             case 'H':
-                /* move cursor to row, column */
                 vc_set_cursor(vc, vc->esc_params[1] - 1, vc->esc_params[0] - 1);
                 break;
             case 'J':
                 switch (vc->esc_params[0]) {
                 case 0:
-                    /* clear to end of screen */
                     for (y = s->y; y < s->height; y++) {
                         for (x = 0; x < s->width; x++) {
                             if (y == s->y && x < s->x) {
@@ -887,7 +840,6 @@ static void vc_putchar(VCChardev *vc, int ch)
                     }
                     break;
                 case 1:
-                    /* clear from beginning of screen */
                     for (y = 0; y <= s->y; y++) {
                         for (x = 0; x < s->width; x++) {
                             if (y == s->y && x > s->x) {
@@ -898,7 +850,6 @@ static void vc_putchar(VCChardev *vc, int ch)
                     }
                     break;
                 case 2:
-                    /* clear entire screen */
                     for (y = 0; y <= s->height; y++) {
                         for (x = 0; x < s->width; x++) {
                             vc_clear_xy(vc, x, y);
@@ -910,19 +861,16 @@ static void vc_putchar(VCChardev *vc, int ch)
             case 'K':
                 switch (vc->esc_params[0]) {
                 case 0:
-                    /* clear to eol */
                     for(x = s->x; x < s->width; x++) {
                         vc_clear_xy(vc, x, s->y);
                     }
                     break;
                 case 1:
-                    /* clear from beginning of line */
                     for (x = 0; x <= s->x && x < s->width; x++) {
                         vc_clear_xy(vc, x, s->y);
                     }
                     break;
                 case 2:
-                    /* clear entire line */
                     for(x = 0; x < s->width; x++) {
                         vc_clear_xy(vc, x, s->y);
                     }
@@ -938,11 +886,9 @@ static void vc_putchar(VCChardev *vc, int ch)
             case 'n':
                 switch (vc->esc_params[0]) {
                 case 5:
-                    /* report console status (always succeed)*/
                     vc_respond_str(vc, "\033[0n");
                     break;
                 case 6:
-                    /* report cursor position */
                     response = g_strdup_printf("\033[%d;%dR",
                                                s->y + 1, s->x + 1);
                     vc_respond_str(vc, response);
@@ -969,7 +915,6 @@ static void vc_putchar(VCChardev *vc, int ch)
     case TTY_STATE_G1: /* set character sets */
         switch (ch) {
         case 'B':
-            /* Latin-1 map */
             break;
         }
         vc->state = TTY_STATE_NORM;
@@ -1130,7 +1075,6 @@ static void vc_chr_open(Chardev *chr,
     s->chr = chr;
     drv->console = s;
 
-    /* set current text attributes to default */
     drv->t_attrib = TEXT_ATTRIBUTES_DEFAULT;
     text_console_resize(s);
 
@@ -1201,7 +1145,6 @@ static const TypeInfo char_vc_type_info = {
 
 void qemu_console_early_init(void)
 {
-    /* set the default vc driver */
     if (!object_class_by_name(TYPE_CHARDEV_VC)) {
         type_register_static(&char_vc_type_info);
     }

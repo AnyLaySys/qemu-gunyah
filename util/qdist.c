@@ -1,11 +1,3 @@
-/*
- * qdist.c - QEMU helpers for handling frequency distributions of data.
- *
- * Copyright (C) 2016, Emilio G. Cota <cota@braap.org>
- *
- * License: GNU GPL, version 2 or later.
- *   See the COPYING file in the top-level directory.
- */
 #include "qemu/osdep.h"
 #include "qemu/qdist.h"
 
@@ -78,10 +70,6 @@ void qdist_inc(struct qdist *dist, double x)
     qdist_add(dist, x, 1);
 }
 
-/*
- * Unicode for block elements. See:
- *   https://en.wikipedia.org/wiki/Block_Elements
- */
 static const gunichar qdist_blocks[] = {
     0x2581,
     0x2582,
@@ -95,21 +83,12 @@ static const gunichar qdist_blocks[] = {
 
 #define QDIST_NR_BLOCK_CODES ARRAY_SIZE(qdist_blocks)
 
-/*
- * Print a distribution into a string.
- *
- * This function assumes that appropriate binning has been done on the input;
- * see qdist_bin__internal() and qdist_pr_plain().
- *
- * Callers must free the returned string with g_free().
- */
 static char *qdist_pr_internal(const struct qdist *dist)
 {
     double min, max;
     GString *s = g_string_new("");
     size_t i;
 
-    /* if only one entry, its printout will be either full or empty */
     if (dist->n == 1) {
         if (dist->entries[0].count) {
             g_string_append_unichar(s, qdist_blocks[QDIST_NR_BLOCK_CODES - 1]);
@@ -119,7 +98,6 @@ static char *qdist_pr_internal(const struct qdist *dist)
         goto out;
     }
 
-    /* get min and max counts */
     min = dist->entries[0].count;
     max = min;
     for (i = 0; i < dist->n; i++) {
@@ -137,9 +115,7 @@ static char *qdist_pr_internal(const struct qdist *dist)
         struct qdist_entry *e = &dist->entries[i];
         int index;
 
-        /* make an exception with 0; instead of using block[0], print a space */
         if (e->count) {
-            /* divide first to avoid loss of precision when e->count == max */
             index = (e->count - min) / (max - min) * (QDIST_NR_BLOCK_CODES - 1);
             g_string_append_unichar(s, qdist_blocks[index]);
         } else {
@@ -150,17 +126,6 @@ static char *qdist_pr_internal(const struct qdist *dist)
     return g_string_free(s, FALSE);
 }
 
-/*
- * Bin the distribution in @from into @n bins of consecutive, non-overlapping
- * intervals, copying the result to @to.
- *
- * This function is internal to qdist: only this file and test code should
- * ever call it.
- *
- * Note: calling this function on an already-binned qdist is a bug.
- *
- * If @n == 0 or @from->n == 1, use @from->n.
- */
 void qdist_bin__internal(struct qdist *to, const struct qdist *from, size_t n)
 {
     double xmin, xmax;
@@ -176,19 +141,16 @@ void qdist_bin__internal(struct qdist *to, const struct qdist *from, size_t n)
         n = from->n;
     }
 
-    /* set equally-sized bins between @from's left and right */
     xmin = qdist_xmin(from);
     xmax = qdist_xmax(from);
     step = (xmax - xmin) / n;
 
     if (n == from->n) {
-        /* if @from's entries are equally spaced, no need to re-bin */
         for (i = 0; i < from->n; i++) {
             if (from->entries[i].x != xmin + i * step) {
                 goto rebin;
             }
         }
-        /* they're equally spaced, so copy the dist and bail out */
         to->entries = g_renew(struct qdist_entry, to->entries, n);
         to->n = from->n;
         memcpy(to->entries, from->entries, sizeof(*to->entries) * to->n);
@@ -204,14 +166,9 @@ void qdist_bin__internal(struct qdist *to, const struct qdist *from, size_t n)
         left = xmin + i * step;
         right = xmin + (i + 1) * step;
 
-        /* Add x, even if it might not get any counts later */
         x = left;
         qdist_add(to, x, 0);
 
-        /*
-         * To avoid double-counting we capture [left, right) ranges, except for
-         * the rightmost bin, which captures a [left, right] range.
-         */
         while (j < from->n && (from->entries[j].x < right || i == n - 1)) {
             struct qdist_entry *o = &from->entries[j];
 
@@ -221,14 +178,6 @@ void qdist_bin__internal(struct qdist *to, const struct qdist *from, size_t n)
     }
 }
 
-/*
- * Print @dist into a string, after re-binning it into @n bins of consecutive,
- * non-overlapping intervals.
- *
- * If @n == 0, use @orig->n.
- *
- * Callers must free the returned string with g_free().
- */
 char *qdist_pr_plain(const struct qdist *dist, size_t n)
 {
     struct qdist binned;
@@ -295,13 +244,6 @@ static char *qdist_pr_label(const struct qdist *dist, size_t n_bins,
     return g_string_free(s, FALSE);
 }
 
-/*
- * Print the distribution's histogram into a string.
- *
- * See also: qdist_pr_plain().
- *
- * Callers must free the returned string with g_free().
- */
 char *qdist_pr(const struct qdist *dist, size_t n_bins, uint32_t opt)
 {
     const char *border = opt & QDIST_PR_BORDER ? "|" : "";
@@ -366,7 +308,6 @@ unsigned long qdist_sample_count(const struct qdist *dist)
 static double qdist_pairwise_avg(const struct qdist *dist, size_t index,
                                  size_t n, unsigned long count)
 {
-    /* amortize the recursion by using a base case > 2 */
     if (n <= 8) {
         size_t i;
         double ret = 0;

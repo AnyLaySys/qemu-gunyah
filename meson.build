@@ -14,9 +14,6 @@ add_test_setup('thorough',
 
 meson.add_postconf_script(find_program('scripts/symlink-install-tree.py'))
 
-####################
-# Global variables #
-####################
 
 not_found = dependency('', required: false)
 keyval = import('keyval')
@@ -27,11 +24,6 @@ fs = import('fs')
 host_os = host_machine.system()
 config_host = keyval.load(meson.current_build_dir() / 'config-host.mak')
 
-# Temporary directory used for files created while
-# configure runs. Since it is in the build directory
-# we can safely blow away any previous version of it
-# (and we need not jump through hoops to try to delete
-# it when configure exits.)
 tmpdir = meson.current_build_dir() / 'meson-private/temp'
 
 if get_option('qemu_suffix').startswith('/')
@@ -58,7 +50,6 @@ cpu = host_machine.cpu_family()
 
 target_dirs = config_host['TARGET_DIRS'].split()
 
-# type of binaries to build
 have_linux_user = false
 have_bsd_user = false
 have_system = false
@@ -69,9 +60,6 @@ foreach target : target_dirs
 endforeach
 have_user = have_linux_user or have_bsd_user
 
-############
-# Programs #
-############
 
 sh = find_program('sh')
 python = import('python').find_installation()
@@ -135,11 +123,6 @@ if have_rust
   rustc_lint_args = run_command(rustc_args, '--lints',
      capture: true, check: true).stdout().strip().splitlines()
 
-  # Apart from procedural macros, our Rust executables will often link
-  # with C code, so include all the libraries that C code needs.  This
-  # is safe; https://github.com/rust-lang/rust/pull/54675 says that
-  # passing -nodefaultlibs to the linker "was more ideological to
-  # start with than anything".
   add_project_arguments(rustc_lint_args +
       ['--cfg', 'MESON', '-C', 'default-linker-libraries'],
       native: false, language: 'rust')
@@ -153,11 +136,6 @@ if 'dtrace' in get_option('trace_backends')
   dtrace = find_program('dtrace', required: true)
   stap = find_program('stap', required: false)
   if stap.found()
-    # Workaround to avoid dtrace(1) producing a file with 'hidden' symbol
-    # visibility. Define STAP_SDT_V2 to produce 'default' symbol visibility
-    # instead. QEMU --enable-modules depends on this because the SystemTap
-    # semaphores are linked into the main binary and not the module's shared
-    # object.
     add_global_arguments('-DSTAP_SDT_V2',
                          native: false, language: all_languages)
   endif
@@ -179,11 +157,7 @@ foreach target : edk2_targets
   endif
 endforeach
 
-#####################
-# Option validation #
-#####################
 
-# Fuzzing
 if get_option('fuzzing') and get_option('fuzzing_engine') == '' and \
     not cc.links('''
           #include <stdint.h>
@@ -195,7 +169,6 @@ if get_option('fuzzing') and get_option('fuzzing_engine') == '' and \
   error('Your compiler does not support -fsanitize=fuzzer')
 endif
 
-# Tracing backends
 if 'ftrace' in get_option('trace_backends') and host_os != 'linux'
   error('ftrace is supported only on Linux')
 endif
@@ -209,7 +182,6 @@ if 'syslog' in get_option('trace_backends') and not cc.compiles('''
   error('syslog is not supported on this system')
 endif
 
-# Miscellaneous Linux-only features
 get_option('mpath') \
   .require(host_os == 'linux', error_message: 'Multipath is supported only on Linux')
 
@@ -221,7 +193,6 @@ have_tpm = get_option('tpm') \
   .require(host_os != 'windows', error_message: 'TPM emulation only available on POSIX systems') \
   .allowed()
 
-# vhost
 have_vhost_user = get_option('vhost_user') \
   .disable_auto_if(host_os != 'linux') \
   .require(host_os != 'windows',
@@ -260,9 +231,6 @@ enable_modules = get_option('modules') \
            error_message: 'Modules are incompatible with static linking') \
   .allowed()
 
-#######################################
-# Variables for host and accelerators #
-#######################################
 
 if cpu not in supported_cpus
   host_arch = 'unknown'
@@ -284,14 +252,10 @@ if cpu == 'aarch64'
   }
 endif
 
-##################
-# Compiler flags #
-##################
 
 foreach lang : all_languages
   compiler = meson.get_compiler(lang)
   if compiler.get_id() == 'gcc' and compiler.version().version_compare('>=7.4')
-    # ok
   elif compiler.get_id() == 'clang' and compiler.compiles('''
       #ifdef __apple_build_version__
       # if __clang_major__ < 15 || (__clang_major__ == 15 && __clang_minor__ < 0)
@@ -302,17 +266,11 @@ foreach lang : all_languages
       #  error You need at least Clang v10.0 to compile QEMU
       # endif
       #endif''')
-    # ok
   else
     error('You either need GCC v7.4 or Clang v10.0 (or XCode Clang v15.0) to compile QEMU')
   endif
 endforeach
 
-# default flags for all hosts
-# We use -fwrapv to tell the compiler that we require a C dialect where
-# left shift of signed integers is well defined and has the expected
-# 2s-complement style results. (Both clang and gcc agree that it
-# provides these semantics.)
 
 qemu_common_flags = [
   '-D_GNU_SOURCE', '-D_FILE_OFFSET_BITS=64', '-D_LARGEFILE_SOURCE',
@@ -322,32 +280,23 @@ qemu_ldflags = []
 qemu_ldflags += ['-llog']
 
 if host_os == 'darwin'
-  # Disable attempts to use ObjectiveC features in os/object.h since they
-  # won't work when we're compiling with gcc as a C compiler.
   if compiler.get_id() == 'gcc'
     qemu_common_flags += '-DOS_OBJECT_USE_OBJC=0'
   endif
 elif host_os == 'sunos'
-  # needed for CMSG_ macros in sys/socket.h
   qemu_common_flags += '-D_XOPEN_SOURCE=600'
-  # needed for TIOCWIN* defines in termios.h
   qemu_common_flags += '-D__EXTENSIONS__'
 elif host_os == 'haiku'
   qemu_common_flags += ['-DB_USE_POSITIVE_POSIX_ERRORS', '-D_BSD_SOURCE', '-fPIC']
 elif host_os == 'windows'
-  # plugins use delaylib, and clang needs to be used with lld to make it work.
   if compiler.get_id() == 'clang' and compiler.get_linker_id() != 'ld.lld'
     error('On windows, you need to use lld with clang - use msys2 clang64/clangarm64 env')
   endif
 endif
 
-# Choose instruction set (currently x86-only)
 
 qemu_isa_flags = []
 
-# __sync_fetch_and_and requires at least -march=i486. Many toolchains
-# use i686 as default anyway, but for those that don't, an explicit
-# specification is necessary
 if host_arch == 'i386' and not cc.links('''
   static int sfaa(int *ptr)
   {
@@ -364,19 +313,15 @@ if host_arch == 'i386' and not cc.links('''
   qemu_isa_flags += ['-march=i486']
 endif
 
-# Pick x86-64 baseline version
 if host_arch in ['i386', 'x86_64']
   if get_option('x86_version') == '0' and host_arch == 'x86_64'
     error('x86_64-v1 required for x86-64 hosts')
   endif
 
-  # add flags for individual instruction set extensions
   if get_option('x86_version') >= '1'
     if host_arch == 'i386'
       qemu_common_flags = ['-mfpmath=sse'] + qemu_common_flags
     else
-      # present on basically all processors but technically not part of
-      # x86-64-v1, so only include -mneeded for x86-64 version 2 and above
       qemu_isa_flags += ['-mcx16']
     endif
   endif
@@ -388,7 +333,6 @@ if host_arch in ['i386', 'x86_64']
     qemu_isa_flags += ['-mmovbe', '-mabm', '-mbmi', '-mbmi2', '-mfma', '-mf16c']
   endif
 
-  # add required vector instruction set (each level implies those below)
   if get_option('x86_version') == '1'
     qemu_isa_flags += ['-msse2']
   elif get_option('x86_version') == '2'
@@ -406,21 +350,6 @@ if get_option('prefer_static')
   qemu_ldflags += get_option('b_pie') ? '-static-pie' : '-static'
 endif
 
-# Meson currently only handles pie as a boolean for now, so if the user
-# has explicitly disabled PIE we need to extend our cflags.
-#
-# -no-pie is supposedly a linker flag that has no effect on the compiler
-# command line, but some distros, that didn't quite know what they were
-# doing, made local changes to gcc's specs file that turned it into
-# a compiler command-line flag.
-#
-# What about linker flags?  For a static build, no PIE is implied by -static
-# which we added above (and if it's not because of the same specs patching,
-# there's nothing we can do: compilation will fail, report a bug to your
-# distro and do not use --disable-pie in the meanwhile).  For dynamic linking,
-# instead, we can't add -no-pie because it overrides -shared: the linker then
-# tries to build an executable instead of a shared library and fails.  So
-# don't add -no-pie anywhere and cross fingers. :(
 if not get_option('b_pie')
   qemu_common_flags += cc.get_supported_arguments('-fno-pie', '-no-pie')
 endif
@@ -437,8 +366,6 @@ if not get_option('stack_protector').disabled()
     }'''
   have_stack_protector = false
   foreach arg : ['-fstack-protector-strong', '-fstack-protector-all']
-    # We need to check both a compile and a link, since some compiler
-    # setups fail only on a .c->.o compile and some only at link time
     if cc.compiles(stack_protector_probe, args: ['-Werror', arg]) and \
        cc.links(stack_protector_probe, args: ['-Werror', arg])
       have_stack_protector = true
@@ -459,10 +386,6 @@ ucontext_probe = '''
   #endif
   int main(void) { makecontext(0, 0, 0); return 0; }'''
 
-# On Windows the only valid backend is the Windows specific one.
-# For POSIX prefer ucontext, but it's not always possible. The fallback
-# is sigcontext.
-# wasdwasd0105: force allow ucontext
 supported_backends = []
 if host_os == 'windows'
   supported_backends += ['windows']
@@ -478,7 +401,6 @@ elif coroutine_backend not in supported_backends
         .format(coroutine_backend, ', '.join(supported_backends)))
 endif
 
-# Compiles if SafeStack *not* enabled
 safe_stack_probe = '''
   int main(void)
   {
@@ -513,16 +435,11 @@ if get_option('asan')
 endif
 
 if get_option('ubsan')
-  # Detect static linking issue with ubsan:
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84285
   if cc.links('int main(int argc, char **argv) { return argc + 1; }',
               args: [qemu_ldflags, '-fsanitize=undefined'])
     qemu_cflags += ['-fsanitize=undefined']
     qemu_ldflags += ['-fsanitize=undefined']
 
-    # Suppress undefined behaviour from function call to mismatched type.
-    # In addition, tcg prologue does not emit function type prefix
-    # required by function call sanitizer.
     if cc.has_argument('-fno-sanitize=function')
       qemu_cflags += ['-fno-sanitize=function']
     endif
@@ -531,8 +448,6 @@ if get_option('ubsan')
   endif
 endif
 
-# Thread sanitizer is, for now, much noisier than the other sanitizers;
-# keep it separate until that is not the case.
 if get_option('tsan')
   if get_option('asan') or get_option('ubsan')
     error('TSAN is not supported with other sanitizers')
@@ -543,10 +458,6 @@ if get_option('tsan')
     error('Cannot enable TSAN due to missing fiber annotation interface')
   endif
   tsan_warn_suppress = []
-  # gcc (>=11) will report constructions not supported by tsan:
-  # "error: ‘atomic_thread_fence’ is not supported with ‘-fsanitize=thread’"
-  # https://gcc.gnu.org/gcc-11/changes.html
-  # However, clang does not support this warning and this triggers an error.
   if cc.has_argument('-Wno-tsan')
     tsan_warn_suppress = ['-Wno-tsan']
   endif
@@ -554,8 +465,6 @@ if get_option('tsan')
   qemu_ldflags = ['-fsanitize=thread'] + qemu_ldflags
 endif
 
-# Detect support for PT_GNU_RELRO + DT_BIND_NOW.
-# The combination is known as "full relro", because .got.plt is read-only too.
 qemu_ldflags += cc.get_supported_link_arguments('-Wl,-z,relro', '-Wl,-z,now')
 
 if host_os == 'windows'
@@ -564,8 +473,6 @@ if host_os == 'windows'
 endif
 
 if get_option('fuzzing')
-  # Specify a filter to only instrument code that is directly related to
-  # virtual-devices.
   configure_file(output: 'instrumentation-filter',
                  input: 'scripts/oss-fuzz/instrumentation-filter-template',
                  copy: true)
@@ -578,34 +485,22 @@ if get_option('fuzzing')
   endif
 
   if get_option('fuzzing_engine') == ''
-    # Add CFLAGS to tell clang to add fuzzer-related instrumentation to all the
-    # compiled code.  To build non-fuzzer binaries with --enable-fuzzing, link
-    # everything with fsanitize=fuzzer-no-link. Otherwise, the linker will be
-    # unable to bind the fuzzer-related callbacks added by instrumentation.
     qemu_common_flags += ['-fsanitize=fuzzer-no-link']
     qemu_ldflags += ['-fsanitize=fuzzer-no-link']
-    # For the actual fuzzer binaries, we need to link against the libfuzzer
-    # library. They need to be configurable, to support OSS-Fuzz
     fuzz_exe_ldflags = ['-fsanitize=fuzzer']
   else
-    # LIB_FUZZING_ENGINE was set; assume we are running on OSS-Fuzz, and
-    # the needed CFLAGS have already been provided
     fuzz_exe_ldflags = get_option('fuzzing_engine').split()
   endif
 endif
 
 if get_option('cfi')
   cfi_flags=[]
-  # Check for dependency on LTO
   if not get_option('b_lto')
     error('Selected Control-Flow Integrity but LTO is disabled')
   endif
   if enable_modules
     error('Selected Control-Flow Integrity is not compatible with modules')
   endif
-  # Check for cfi flags. CFI requires LTO so we can't use
-  # get_supported_arguments, but need a more complex "compiles" which allows
-  # custom arguments
   if cc.compiles('int main () { return 0; }', name: '-fsanitize=cfi-icall',
                  args: ['-flto', '-fsanitize=cfi-icall'] )
     cfi_flags += '-fsanitize=cfi-icall'
@@ -634,24 +529,11 @@ if get_option('cfi')
   add_global_link_arguments(cfi_flags, native: false, language: all_languages)
 endif
 
-# Check further flags that make QEMU more robust against malicious parties
 
 hardening_flags = [
-    # Initialize all stack variables to zero. This makes
-    # it harder to take advantage of uninitialized stack
-    # data to drive exploits
     '-ftrivial-auto-var-init=zero',
 ]
 
-# Zero out registers used during a function call
-# upon its return. This makes it harder to assemble
-# ROP gadgets into something usable
-#
-# NB: Clang 17 is broken and SEGVs
-# https://github.com/llvm/llvm-project/issues/75168
-#
-# NB2: This clashes with the "retguard" extension of OpenBSD's Clang
-# https://gitlab.com/qemu-project/qemu/-/issues/2278
 if host_os != 'openbsd' and \
    cc.compiles('extern struct { void (*cb)(void); } s; void f(void) { s.cb(); }',
                name: '-fzero-call-used-regs=used-gpr',
@@ -664,9 +546,7 @@ qemu_common_flags += cc.get_supported_arguments(hardening_flags)
 add_global_arguments(qemu_common_flags, native: false, language: all_languages)
 add_global_link_arguments(qemu_ldflags, native: false, language: all_languages)
 
-# Collect warning flags we want to set, sorted alphabetically
 warn_flags = [
-  # First enable interesting warnings
   '-Wempty-body',
   '-Wendif-labels',
   '-Wexpansion-to-defined',
@@ -688,7 +568,6 @@ warn_flags = [
   '-Wvla',
   '-Wwrite-strings',
 
-  # Then disable some undesirable warnings
   '-Wno-gnu-variable-sized-type-not-at-end',
   '-Wno-initializer-overrides',
   '-Wno-missing-include-dirs',
@@ -715,7 +594,6 @@ if host_os != 'darwin'
   endif
 endif
 
-# Set up C++ compiler flags
 qemu_cxxflags = []
 if 'cpp' in all_languages
   qemu_cxxflags = ['-D__STDC_LIMIT_MACROS', '-D__STDC_CONSTANT_MACROS', '-D__STDC_FORMAT_MACROS'] + qemu_cflags
@@ -728,7 +606,6 @@ if 'cpp' in all_languages
   add_project_arguments(cxx.get_supported_arguments(warn_flags), native: false, language: 'cpp')
 endif
 if 'objc' in all_languages
-  # Note sanitizer flags are not applied to Objective-C sources!
   add_project_arguments(objc.get_supported_arguments(warn_flags), native: false, language: 'objc')
 endif
 if host_os == 'linux'
@@ -742,13 +619,11 @@ add_project_arguments('-iquote', '.',
                       '-iquote', meson.current_source_dir() / 'include',
                       language: all_languages)
 
-# If a host-specific include directory exists, list that first...
 host_include = meson.current_source_dir() / 'host/include/'
 if fs.is_dir(host_include / host_arch)
   add_project_arguments('-iquote', host_include / host_arch,
                         language: all_languages)
 endif
-# ... followed by the generic fallback.
 add_project_arguments('-iquote', host_include / 'generic',
                       language: all_languages)
 
@@ -761,9 +636,6 @@ if sparse.found()
                        '-Wno-non-pointer-null'])
 endif
 
-#####################################
-# Host-specific libraries and flags #
-#####################################
 
 libm = cc.find_library('m', required: false)
 threads = dependency('threads')
@@ -807,14 +679,10 @@ elif host_os == 'haiku'
             cc.find_library('bsd')]
 elif host_os == 'openbsd'
   if get_option('tcg').allowed() and target_dirs.length() > 0
-    # Disable OpenBSD W^X if available
     emulator_link_args = cc.get_supported_link_arguments('-Wl,-z,wxneeded')
   endif
 endif
 
-###############################################
-# Host-specific configuration of accelerators #
-###############################################
 
 accelerators = []
 if get_option('gunyah').allowed() and host_os == 'linux'
@@ -863,14 +731,7 @@ have_xen_pci_passthrough = get_option('xen_pci_passthrough') \
            error_message: 'Xen PCI passthrough not available on this platform') \
   .allowed()
 
-################
-# Dependencies #
-################
 
-# When bumping glib minimum version, please check also whether to increase
-# the _WIN32_WINNT setting in osdep.h according to the value from glib.
-# You should also check if any of the glib.version() checks
-# below can also be removed.
 glib_req_ver = '>=2.66.0'
 glib_pc = dependency('glib-2.0', version: glib_req_ver, required: true,
                     method: 'pkg-config')
@@ -885,16 +746,10 @@ else
   gmodule = not_found
 endif
 
-# This workaround is required due to a bug in pkg-config file for glib as it
-# doesn't define GLIB_STATIC_COMPILATION for pkg-config --static
 if host_os == 'windows' and get_option('prefer_static')
   glib_cflags += ['-DGLIB_STATIC_COMPILATION']
 endif
 
-# Sanity check that the current size_t matches the
-# size that glib thinks it should be. This catches
-# problems on multi-arch where people try to build
-# 32-bit QEMU while pointing at 64-bit glib headers
 
 if not cc.compiles('''
   #include <glib.h>
@@ -916,18 +771,11 @@ glib = declare_dependency(dependencies: [glib_pc, gmodule],
                           compile_args: glib_cflags,
                           version: glib_pc.version())
 
-# Check whether glib has gslice, which we have to avoid for correctness.
-# TODO: remove this check and the corresponding workaround (qtree) when
-# the minimum supported glib is >= 2.75.3
 glib_has_gslice = glib.version().version_compare('<2.75.3')
-# Check whether glib has the aligned_alloc family of functions.
-# <https://docs.gtk.org/glib/func.aligned_alloc.html>
 glib_has_aligned_alloc = glib.version().version_compare('>=2.72.0')
 
-# override glib dep to include the above refinements
 meson.override_dependency('glib-2.0', glib)
 
-# The path to glib.h is added to all compilation commands.
 add_project_dependencies(glib.partial_dependency(compile_args: true, includes: true),
                          native: false, language: all_languages)
 
@@ -1099,12 +947,6 @@ slirp = not_found
 if not get_option('slirp').auto() or have_system
   slirp = dependency('slirp', required: get_option('slirp'),
                      method: 'pkg-config')
-  # slirp < 4.7 is incompatible with CFI support in QEMU.  This is because
-  # it passes function pointers within libslirp as callbacks for timers.
-  # When using a system-wide shared libslirp, the type information for the
-  # callback is missing and the timer call produces a false positive with CFI.
-  # Do not use the "version" keyword argument to produce a better error.
-  # with control-flow integrity.
   if get_option('cfi') and slirp.found() and slirp.version().version_compare('<4.7')
     if get_option('slirp').enabled()
       error('Control-Flow Integrity requires libslirp 4.7.')
@@ -1368,11 +1210,6 @@ if have_system and get_option('curses').allowed()
   endif
   if get_option('iconv').allowed()
     foreach link_args : [ ['-liconv'], [] ]
-      # Programs will be linked with glib and this will bring in libiconv on FreeBSD.
-      # We need to use libiconv if available because mixing libiconv's headers with
-      # the system libc does not work.
-      # However, without adding glib to the dependencies -L/usr/local/lib will not be
-      # included in the command line and libiconv will not be found.
       if cc.links('''
         #include <iconv.h>
         int main(void) {
@@ -1423,7 +1260,6 @@ if not get_option('sdl').auto() or have_system
   sdl_image = not_found
 endif
 if sdl.found()
-  # Some versions of SDL have problems with -Wundef
   if not cc.compiles('''
                      #include <SDL.h>
                      #include <SDL_syswm.h>
@@ -1548,7 +1384,6 @@ endif
 oss = not_found
 if get_option('oss').allowed() and have_system
   if not cc.has_header('sys/soundcard.h')
-    # not found
   elif host_os == 'netbsd'
     oss = cc.find_library('ossaudio', required: get_option('oss'))
   else
@@ -1605,37 +1440,18 @@ endif
 gnutls = not_found
 gnutls_crypto = not_found
 if get_option('gnutls').enabled() or (get_option('gnutls').auto() and have_system)
-  # For general TLS support our min gnutls matches
-  # that implied by our platform support matrix
-  #
-  # For the crypto backends, we look for a newer
-  # gnutls:
-  #
-  #   Version 3.6.8  is needed to get XTS
-  #   Version 3.6.13 is needed to get PBKDF
-  #   Version 3.6.14 is needed to get HW accelerated XTS
-  #
-  # If newer enough gnutls isn't available, we can
-  # still use a different crypto backend to satisfy
-  # the platform support requirements
   gnutls_crypto = dependency('gnutls', version: '>=3.6.14',
                              method: 'pkg-config',
                              required: false)
   if gnutls_crypto.found()
     gnutls = gnutls_crypto
   else
-    # Our min version if all we need is TLS
     gnutls = dependency('gnutls', version: '>=3.5.18',
                         method: 'pkg-config',
                         required: get_option('gnutls'))
   endif
 endif
 
-# We prefer use of gnutls for crypto, unless the options
-# explicitly asked for nettle or gcrypt.
-#
-# If gnutls isn't available for crypto, then we'll prefer
-# gcrypt over nettle for performance reasons.
 gcrypt = not_found
 nettle = not_found
 hogweed = not_found
@@ -1647,7 +1463,6 @@ if get_option('nettle').enabled() and get_option('gcrypt').enabled()
   error('Only one of gcrypt & nettle can be enabled')
 endif
 
-# Explicit nettle/gcrypt request, so ignore gnutls for crypto
 if get_option('nettle').enabled() or get_option('gcrypt').enabled()
   gnutls_crypto = not_found
 endif
@@ -1656,9 +1471,6 @@ if not gnutls_crypto.found()
   if (not get_option('gcrypt').auto() or have_system) and not get_option('nettle').enabled()
     gcrypt = dependency('libgcrypt', version: '>=1.8',
                         required: get_option('gcrypt'))
-    # Debian has removed -lgpg-error from libgcrypt-config
-    # as it "spreads unnecessary dependencies" which in
-    # turn breaks static builds...
     if gcrypt.found() and get_option('prefer_static')
       gcrypt = declare_dependency(dependencies:
         [gcrypt,
@@ -1666,7 +1478,6 @@ if not gnutls_crypto.found()
         version: gcrypt.version())
     endif
     crypto_sm4 = gcrypt
-    # SM4 ALG is available in libgcrypt >= 1.9
     if gcrypt.found() and not cc.links('''
       #include <gcrypt.h>
       int main(void) {
@@ -1677,7 +1488,6 @@ if not gnutls_crypto.found()
       crypto_sm4 = not_found
     endif
     crypto_sm3 = gcrypt
-    # SM3 ALG is available in libgcrypt >= 1.9
     if gcrypt.found() and not cc.links('''
       #include <gcrypt.h>
       int main(void) {
@@ -1696,7 +1506,6 @@ if not gnutls_crypto.found()
       xts = 'private'
     endif
     crypto_sm4 = nettle
-    # SM4 ALG is available in nettle >= 3.9
     if nettle.found() and not cc.links('''
       #include <nettle/sm4.h>
       int main(void) {
@@ -1708,7 +1517,6 @@ if not gnutls_crypto.found()
       crypto_sm4 = not_found
     endif
     crypto_sm3 = nettle
-    # SM3 ALG is available in nettle >= 3.8
     if nettle.found() and not cc.links('''
       #include <nettle/sm3.h>
       #include <nettle/hmac.h>
@@ -1741,10 +1549,6 @@ if not get_option('capstone').auto() or have_system or have_user
                         method: 'pkg-config',
                         required: get_option('capstone'))
 
-  # Some versions of capstone have broken pkg-config file
-  # that reports a wrong -I path, causing the #include to
-  # fail later. If the system has such a broken version
-  # do not use it.
   if capstone.found() and not cc.compiles('#include <capstone.h>',
                                           dependencies: [capstone])
     capstone = not_found
@@ -1927,7 +1731,6 @@ endif
 
 has_gettid = cc.has_function('gettid')
 
-# Malloc tests
 
 malloc = []
 if get_option('malloc') == 'system'
@@ -1972,7 +1775,6 @@ have_vhost_user_blk_server = get_option('vhost_user_blk_server') \
   .disable_auto_if(not have_tools and not have_system) \
   .allowed()
 
-# libdw
 libdw = not_found
 if not get_option('libdw').auto() or \
         (not get_option('prefer_static') and (have_system or have_user))
@@ -1981,9 +1783,6 @@ if not get_option('libdw').auto() or \
                        required: get_option('libdw'))
 endif
 
-#################
-# config-host.h #
-#################
 
 config_host_data = configuration_data()
 
@@ -2006,7 +1805,6 @@ if have_system
     config_host_data.set('CONFIG_AUDIO_' + k.to_upper(), v)
   endforeach
 
-  # Default to native drivers first, OSS second, SDL third
   audio_drivers_priority = \
     [ 'pa', 'coreaudio', 'dsound', 'sndio', 'oss' ] + \
     (host_os == 'linux' ? [] : [ 'sdl' ])
@@ -2252,7 +2050,6 @@ config_host_data.set('CONFIG_CFI', get_option('cfi'))
 config_host_data.set('CONFIG_XEN_BACKEND', xen.found())
 config_host_data.set('CONFIG_LIBDW', libdw.found())
 if xen.found()
-  # protect from xen.version() having less than three components
   xen_version = xen.version().split('.') + ['0', '0']
   xen_ctrl_version = xen_version[0] + \
     ('0' + xen_version[1]).substring(-2) + \
@@ -2283,7 +2080,6 @@ config_host_data.set('CONFIG_REPLICATION', get_option('replication').allowed())
 config_host_data.set('CONFIG_FSFREEZE', qga_fsfreeze)
 config_host_data.set('CONFIG_FSTRIM', qga_fstrim)
 
-# has_header
 config_host_data.set('CONFIG_EPOLL', cc.has_header('sys/epoll.h'))
 config_host_data.set('CONFIG_LINUX_MAGIC_H', cc.has_header('linux/magic.h'))
 config_host_data.set('CONFIG_VALGRIND_H', cc.has_header('valgrind/valgrind.h'))
@@ -2298,7 +2094,6 @@ if host_os == 'windows'
   config_host_data.set('HAVE_AFUNIX_H', cc.has_header('afunix.h'))
 endif
 
-# has_function
 config_host_data.set('CONFIG_CLOSE_RANGE', cc.has_function('close_range'))
 config_host_data.set('CONFIG_ACCEPT4', cc.has_function('accept4'))
 config_host_data.set('CONFIG_CLOCK_ADJTIME', cc.has_function('clock_adjtime'))
@@ -2306,8 +2101,6 @@ config_host_data.set('CONFIG_DUP3', cc.has_function('dup3'))
 config_host_data.set('CONFIG_FALLOCATE', cc.has_function('fallocate'))
 config_host_data.set('CONFIG_POSIX_FALLOCATE', cc.has_function('posix_fallocate'))
 config_host_data.set('CONFIG_SCHED_GETCPU', cc.has_function('sched_getcpu', prefix: '#include <sched.h>'))
-# Note that we need to specify prefix: here to avoid incorrectly
-# thinking that Windows has posix_memalign()
 config_host_data.set('CONFIG_POSIX_MEMALIGN', cc.has_function('posix_memalign', prefix: '#include <stdlib.h>'))
 config_host_data.set('CONFIG_ALIGNED_MALLOC', cc.has_function('_aligned_malloc'))
 config_host_data.set('CONFIG_VALLOC', cc.has_function('valloc'))
@@ -2357,7 +2150,6 @@ have_inotify_init = cc.has_header_symbol('sys/inotify.h', 'inotify_init')
 have_inotify_init1 = cc.has_header_symbol('sys/inotify.h', 'inotify_init1')
 inotify = not_found
 if (have_inotify_init or have_inotify_init1) and host_os == 'freebsd'
-  # libinotify-kqueue
   inotify = cc.find_library('inotify')
   if have_inotify_init
     have_inotify_init = inotify.found()
@@ -2369,7 +2161,6 @@ endif
 config_host_data.set('CONFIG_INOTIFY', have_inotify_init)
 config_host_data.set('CONFIG_INOTIFY1', have_inotify_init1)
 
-# has_header_symbol
 config_host_data.set('CONFIG_BLKZONED',
                      cc.has_header_symbol('linux/blkzoned.h', 'BLKOPENZONE'))
 config_host_data.set('CONFIG_EPOLL_CREATE1',
@@ -2406,7 +2197,6 @@ if linux_io_uring.found()
                        cc.has_header_symbol('liburing.h', 'io_uring_prep_writev2'))
 endif
 
-# has_member
 config_host_data.set('HAVE_SIGEV_NOTIFY_THREAD_ID',
                      cc.has_member('struct sigevent', 'sigev_notify_thread_id',
                                    prefix: '#include <signal.h>'))
@@ -2417,7 +2207,6 @@ config_host_data.set('HAVE_BLK_ZONE_REP_CAPACITY',
                      cc.has_member('struct blk_zone', 'capacity',
                                    prefix: '#include <linux/blkzoned.h>'))
 
-# has_type
 config_host_data.set('CONFIG_IOVEC',
                      cc.has_type('struct iovec',
                                  prefix: '#include <sys/uio.h>'))
@@ -2442,12 +2231,6 @@ has_madvise = cc.links(osdep_prefix + '''
   int main(void) { return madvise(NULL, 0, MADV_DONTNEED); }''')
 missing_madvise_proto = false
 if has_madvise
-  # Some platforms (illumos and Solaris before Solaris 11) provide madvise()
-  # but forget to prototype it. In this case, has_madvise will be true (the
-  # test program links despite a compile warning). To detect the
-  # missing-prototype case, we try again with a definitely-bogus prototype.
-  # This will only compile if the system headers don't provide the prototype;
-  # otherwise the conflicting prototypes will cause a compiler error.
   missing_madvise_proto = cc.links(osdep_prefix + '''>
     #include <sys/mman.h>
     extern int madvise(int);
@@ -2466,9 +2249,6 @@ config_host_data.set('CONFIG_OPEN_BY_HANDLE', cc.links(osdep_prefix + '''
   int main(void) { struct file_handle fh; return open_by_handle_at(0, &fh, 0); }
   #endif'''))
 
-# On Darwin posix_madvise() has the same return semantics as plain madvise(),
-# i.e. errno is set and -1 is returned. That's not really how POSIX defines the
-# function. On the flip side, it has madvise() which is preferred anyways.
 if host_os != 'darwin'
   config_host_data.set('CONFIG_POSIX_MADVISE', cc.links(osdep_prefix + '''
     #include <sys/mman.h>
@@ -2585,10 +2365,6 @@ if get_option('netmap').allowed() and have_system
 endif
 config_host_data.set('CONFIG_NETMAP', have_netmap)
 
-# Work around a system header bug with some kernel/XFS header
-# versions where they both try to define 'struct fsxattr':
-# xfs headers will not try to redefine structs from linux headers
-# if this macro is set.
 config_host_data.set('HAVE_FSXATTR', cc.links('''
   #include <linux/fs.h>
   struct fsxattr foo;
@@ -2596,7 +2372,6 @@ config_host_data.set('HAVE_FSXATTR', cc.links('''
     return 0;
   }'''))
 
-# Some versions of Mac OS X incorrectly define SIZE_MAX
 config_host_data.set('HAVE_BROKEN_SIZE_MAX', not cc.compiles('''
     #include <stdint.h>
     #include <stdio.h>
@@ -2604,9 +2379,6 @@ config_host_data.set('HAVE_BROKEN_SIZE_MAX', not cc.compiles('''
         return printf("%zu", SIZE_MAX);
     }''', args: ['-Werror']))
 
-# See if 64-bit atomic operations are supported.
-# Note that without __atomic builtins, we can only
-# assume atomic loads/stores max at pointer size.
 config_host_data.set('CONFIG_ATOMIC64', cc.links('''
   #include <stdint.h>
   int main(void)
@@ -2638,12 +2410,6 @@ has_int128 = has_int128_type and cc.links('''
 config_host_data.set('CONFIG_INT128', has_int128)
 
 if has_int128_type
-  # "do we have 128-bit atomics which are handled inline and specifically not
-  # via libatomic". The reason we can't use libatomic is documented in the
-  # comment starting "GCC is a house divided" in include/qemu/atomic128.h.
-  # We only care about these operations on 16-byte aligned pointers, so
-  # force 16-byte alignment of the pointer, which may be greater than
-  # __alignof(unsigned __int128) for the host.
   atomic_test_128 = '''
     int main(int ac, char **av) {
       __uint128_t *p = __builtin_assume_aligned(av[ac - 1], 16);
@@ -2657,10 +2423,6 @@ if has_int128_type
   config_host_data.set('CONFIG_ATOMIC128', has_atomic128)
 
   if not has_atomic128
-    # Even with __builtin_assume_aligned, the above test may have failed
-    # without optimization enabled.  Try again with optimizations locally
-    # enabled for the function.  See
-    #   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=107389
     has_atomic128_opt = cc.links('__attribute__((optimize("O1")))' + atomic_test_128,
                                  args: qemu_isa_flags)
     config_host_data.set('CONFIG_ATOMIC128_OPT', has_atomic128_opt)
@@ -2736,8 +2498,6 @@ have_cpuid_h = cc.links('''
   }''')
 config_host_data.set('CONFIG_CPUID_H', have_cpuid_h)
 
-# Don't bother to advertise asm/hwprobe.h for old versions that do
-# not contain RISCV_HWPROBE_EXT_ZBA.
 config_host_data.set('CONFIG_ASM_HWPROBE_H',
                      cc.has_header_symbol('asm/hwprobe.h',
                                           'RISCV_HWPROBE_EXT_ZBA'))
@@ -2767,7 +2527,6 @@ config_host_data.set('CONFIG_AVX512BW_OPT', get_option('avx512bw') \
     int main(int argc, char *argv[]) { return bar(argv[0]); }
   '''), error_message: 'AVX512BW not available').allowed())
 
-# For both AArch64 and AArch32, detect if builtins are available.
 config_host_data.set('CONFIG_ARM_AES_BUILTIN', cc.compiles('''
     #include <arm_neon.h>
     #ifndef __ARM_FEATURE_AES
@@ -2824,8 +2583,6 @@ if host_os == 'windows' and 'cpp' in all_languages
 endif
 config_host_data.set('HAVE_VSS_SDK', have_vss_sdk)
 
-# Older versions of MinGW do not import _lock_file and _unlock_file properly.
-# This was fixed for v6.0.0 with commit b48e3ac8969d.
 if host_os == 'windows'
   config_host_data.set('HAVE__LOCK_FILE', cc.links('''
     #include <stdio.h>
@@ -2857,12 +2614,8 @@ if host_os == 'windows'
   endif
 endif
 
-# Detect host pointer size for the target configuration loop.
 host_long_bits = cc.sizeof('void *') * 8
 
-########################
-# Target configuration #
-########################
 
 minikconf = find_program('scripts/minikconf.py')
 
@@ -2954,7 +2707,6 @@ foreach target : target_dirs
 
   target_kconfig = []
   foreach sym: accelerators
-    # Disallow 64-bit on 32-bit emulation and virtualization
     if host_long_bits < config_target['TARGET_LONG_BITS'].to_int()
       continue
     endif
@@ -2982,7 +2734,6 @@ foreach target : target_dirs
 
   actual_target_dirs += target
 
-  # Add default keys
   config_target += { 'TARGET_' + config_target['TARGET_ARCH'].to_upper(): 'y' }
   if 'TARGET_BASE_ARCH' not in config_target
     config_target += {'TARGET_BASE_ARCH': config_target['TARGET_ARCH']}
@@ -3005,12 +2756,8 @@ foreach target : target_dirs
   config_target_data = configuration_data()
   foreach k, v: config_target
     if not k.startswith('TARGET_') and not k.startswith('CONFIG_')
-      # do nothing
     elif ignored.contains(k)
-      # do nothing
     elif k == 'TARGET_BASE_ARCH'
-      # Note that TARGET_BASE_ARCH ends up in config-target.h but it is
-      # not used to select files from sourcesets.
       config_target_data.set('TARGET_' + v.to_upper(), 1)
     elif k == 'TARGET_NAME' or k == 'CONFIG_QEMU_INTERP_PREFIX'
       config_target_data.set_quoted(k, v)
@@ -3074,15 +2821,9 @@ if fdt_required.length() > 0
   error('fdt disabled but required by targets ' + ', '.join(fdt_required))
 endif
 
-###############
-# Subprojects #
-###############
 
 vhost_user = not_found
 
-#####################
-# Generated sources #
-#####################
 
 config_host_h = configure_file(output: 'config-host.h', configuration: config_host_data)
 genh += config_host_h
@@ -3162,12 +2903,7 @@ foreach d : hx_headers
 endforeach
 genh += hxdep
 
-###############
-# Trace files #
-###############
 
-# TODO: add each directory to the subdirs from its own meson.build, once
-# we have those
 trace_events_subdirs = [
   'crypto',
   'qapi',
@@ -3228,9 +2964,6 @@ if have_system or have_user
   endif
 endif
 
-###################
-# Collect sources #
-###################
 
 authz_ss = ss.source_set()
 blockdev_ss = ss.source_set()
@@ -3251,7 +2984,6 @@ trace_ss = ss.source_set()
 user_ss = ss.source_set()
 util_ss = ss.source_set()
 
-# accel modules
 qtest_module_ss = ss.source_set()
 
 modules = {}
@@ -3262,8 +2994,6 @@ target_arch = {}
 target_system_arch = {}
 target_user_arch = {}
 
-# NOTE: the trace/ subdirectory needs the qapi_trace_events variable
-# that is filled in by qapi/.
 subdir('qapi')
 subdir('qobject')
 subdir('stubs')
@@ -3350,13 +3080,6 @@ specific_ss.add(files('cpu-target.c'))
 
 subdir('system')
 
-# Work around a gcc bug/misfeature wherein constant propagation looks
-# through an alias:
-#   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=99696
-# to guess that a const variable is always zero.  Without lto, this is
-# impossible, as the alias is restricted to page-vary-common.c.  Indeed,
-# without lto, not even the alias is required -- we simply use different
-# declarations in different compilation units.
 pagevary = files('page-vary-common.c')
 if get_option('b_lto')
   pagevary_flags = ['-fno-lto']
@@ -3398,12 +3121,8 @@ endif
 
 
 
-# accel modules
 target_modules += { 'accel' : { 'qtest': qtest_module_ss }}
 
-##############################################
-# Internal static_libraries and dependencies #
-##############################################
 
 modinfo_collect = find_program('scripts/modinfo-collect.py')
 modinfo_generate = find_program('scripts/modinfo-generate.py')
@@ -3435,11 +3154,6 @@ foreach d, list : modules
                     install: true,
                     install_dir: qemu_moddir)
       if module_ss.sources() != []
-        # FIXME: Should use sl.extract_all_objects(recursive: true) as
-        # input. Sources can be used multiple times but objects are
-        # unique when it comes to lookup in compile_commands.json.
-        # Depnds on a mesion version with
-        # https://github.com/mesonbuild/meson/pull/8900
         modinfo_files += custom_target(d + '-' + m + '.modinfo',
                                        output: d + '-' + m + '.modinfo',
                                        input: module_ss.sources() + genh,
@@ -3483,7 +3197,6 @@ foreach d, list : target_modules
                     dependencies: target_module_ss.dependencies(),
                     install: true,
                     install_dir: qemu_moddir)
-            # FIXME: Should use sl.extract_all_objects(recursive: true) too.
             modinfo_files += custom_target(module_name + '.modinfo',
                                            output: module_name + '.modinfo',
                                            input: target_module_ss.sources() + genh,
@@ -3601,9 +3314,6 @@ libhwcore = static_library('hwcore', sources: hwcore_ss.sources() + genh,
 hwcore = declare_dependency(objects: libhwcore.extract_all_objects(recursive: false))
 common_ss.add(hwcore)
 
-###########
-# Targets #
-###########
 
 system_ss.add(authz, blockdev, chardev, crypto, io, qmp)
 common_ss.add(qom, qemuutil)
@@ -3611,9 +3321,6 @@ common_ss.add(qom, qemuutil)
 common_ss.add_all(when: 'CONFIG_SYSTEM_ONLY', if_true: [system_ss])
 common_ss.add_all(when: 'CONFIG_USER_ONLY', if_true: user_ss)
 
-# Note that this library is never used directly (only through extract_objects)
-# and is not built by default; therefore, source files not used by the build
-# configuration will be in build.ninja, but are never built by default.
 common_all = static_library('common',
                             build_by_default: false,
                             sources: common_ss.all_sources() + genh,
@@ -3622,9 +3329,6 @@ common_all = static_library('common',
                             dependencies: common_ss.all_dependencies())
 
 if have_rust
-  # We would like to use --generate-cstr, but it is only available
-  # starting with bindgen 0.66.0.  The oldest supported versions
-  # is 0.60.x (Debian 12 has 0.60.1) which introduces --allowlist-file.
   bindgen_args = [
     '--disable-header-comment',
     '--raw-line', '// @generated',
@@ -3650,7 +3354,6 @@ if have_rust
     bindgen_args += ['--rust-target', '1.59']
   endif
   if bindgen.version().version_compare('<0.61.0')
-    # default in 0.61+
     bindgen_args += ['--size_t-is-usize']
   else
     bindgen_args += ['--merge-extern-blocks']
@@ -3679,13 +3382,6 @@ if have_rust
     bindgen_args += ['--bitfield-enum', enum]
   endforeach
 
-  # TODO: Remove this comment when the clang/libclang mismatch issue is solved.
-  #
-  # Rust bindings generation with `bindgen` might fail in some cases where the
-  # detected `libclang` does not match the expected `clang` version/target. In
-  # this case you must pass the path to `clang` and `libclang` to your build
-  # command invocation using the environment variables CLANG_PATH and
-  # LIBCLANG_PATH
   bindings_rs = rust.bindgen(
     input: 'rust/wrapper.h',
     dependencies: common_ss.all_dependencies(),
@@ -3807,9 +3503,6 @@ foreach target : target_dirs
     endif
   endif
 
-  # allow using headers from the dependencies but do not include the sources,
-  # because this emulator only needs those in "objects".  For external
-  # dependencies, the full dependency is included below in the executable.
   lib_deps = []
   foreach dep : arch_deps
     lib_deps += dep.partial_dependency(compile_args: true, includes: true)
@@ -3898,13 +3591,10 @@ foreach target : target_dirs
   endforeach
 endforeach
 
-# Other build targets
 
 if get_option('plugins')
   install_headers('include/qemu/qemu-plugin.h')
   if host_os == 'windows'
-    # On windows, we want to deliver the qemu_plugin_api.lib file in the qemu installer,
-    # so that plugin authors can compile against it.
     install_data(win32_qemu_plugin_api_lib, install_dir: 'lib')
   endif
 endif
@@ -3913,8 +3603,6 @@ if have_ga
   subdir('qga')
 endif
 
-# Don't build qemu-keymap if xkbcommon is not explicitly enabled
-# when we don't build tools or system
 qemu_keymap = []
 
 if have_tools
@@ -3948,8 +3636,6 @@ if stap.found()
 endif
 
 subdir('scripts')
-# vectras android: disable test
-#subdir('tests')
 if host_machine.system() == 'windows'
   nsis_cmd = [
     find_program('scripts/nsis.py'),
@@ -3972,25 +3658,16 @@ if host_machine.system() == 'windows'
   alias_target('installer', nsis)
 endif
 
-#########################
-# Configuration summary #
-#########################
 
-# Build environment
 summary_info = {}
 summary_info += {'Build directory':   meson.current_build_dir()}
 summary_info += {'Source path':       meson.current_source_dir()}
 summary_info += {'Download dependencies': get_option('wrap_mode') != 'nodownload'}
 summary(summary_info, bool_yn: true, section: 'Build environment')
 
-# Host binaries
 summary_info = {}
 summary_info += {'python':            '@0@ (version: @1@)'.format(python.full_path(), python.language_version())}
 
-# FIXME: the [binaries] section of machine files, which can be probed
-# with find_program(), would be great for passing gdb and genisoimage
-# paths from configure to Meson.  However, there seems to be no way to
-# hide a program (for example if gdb is too old).
 if config_host.has_key('GDB')
   summary_info += {'gdb':             config_host['GDB']}
 endif
@@ -4004,7 +3681,6 @@ if slirp.found() and have_system
 endif
 summary(summary_info, bool_yn: true, section: 'Host binaries')
 
-# Compilation information
 summary_info = {}
 summary_info += {'host CPU':          cpu}
 summary_info += {'host endianness':   build_machine.endian()}
@@ -4073,7 +3749,6 @@ summary_info += {'sparse':            sparse}
 summary_info += {'mingw32 support':   host_os == 'windows'}
 summary(summary_info, bool_yn: true, section: 'Compilation')
 
-# Targets and accelerators
 summary_info = {}
 if have_system
   summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GH')}
@@ -4103,7 +3778,6 @@ if have_system
 endif
 summary(summary_info, bool_yn: true, section: 'Targets and accelerators')
 
-# Block layer
 summary_info = {}
 summary_info += {'coroutine backend': coroutine_backend}
 summary_info += {'coroutine pool':    have_coroutine_pool}
@@ -4127,7 +3801,6 @@ if have_block
 endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
 
-# Network backends
 summary_info = {}
 if host_os == 'darwin'
   summary_info += {'vmnet.framework support': vmnet}
@@ -4138,7 +3811,6 @@ summary_info += {'netmap support':    have_netmap}
 summary_info += {'l2tpv3 support':    have_l2tpv3}
 summary(summary_info, bool_yn: true, section: 'Network backends')
 
-# UI
 summary_info = {}
 if host_os == 'darwin'
   summary_info += {'Cocoa support':           cocoa}
@@ -4155,12 +3827,10 @@ summary_info += {'curses support':    curses}
 summary_info += {'brlapi support':    brlapi}
 summary(summary_info, bool_yn: true, section: 'User interface')
 
-# Graphics backends
 summary_info = {}
 summary_info += {'VirGL support':     virgl}
 summary(summary_info, bool_yn: true, section: 'Graphics backends')
 
-# Audio backends
 summary_info = {}
 if host_os not in ['darwin', 'haiku', 'windows']
   summary_info += {'OSS support':     oss}
@@ -4178,7 +3848,6 @@ summary_info += {'PipeWire support':  pipewire}
 summary_info += {'JACK support':      jack}
 summary(summary_info, bool_yn: true, section: 'Audio backends')
 
-# Crypto
 summary_info = {}
 summary_info += {'TLS priority':      get_option('tls_priority')}
 summary_info += {'GNUTLS support':    gnutls}
@@ -4198,7 +3867,6 @@ summary_info += {'Linux keyring':     have_keyring}
 summary_info += {'Linux keyutils':    keyutils}
 summary(summary_info, bool_yn: true, section: 'Crypto')
 
-# Libraries
 summary_info = {}
 summary_info += {'libtasn1':          tasn1}
 summary_info += {'PAM':               pam}
@@ -4253,7 +3921,6 @@ if host_os == 'darwin'
 endif
 summary(summary_info, bool_yn: true, section: 'Dependencies')
 
-# Configurable features
 summary_info = {}
 summary_info += {'Documentation':     get_option('docs').enabled()}
 summary_info += {'system-mode emulation': have_system}
@@ -4284,7 +3951,6 @@ summary_info += {'vhost-vdpa support': have_vhost_vdpa}
 summary_info += {'build guest agent': have_ga}
 summary(summary_info, bool_yn: true, section: 'Configurable features')
 
-# Directories
 summary_info = {}
 summary_info += {'Install prefix':    get_option('prefix')}
 summary_info += {'BIOS directory':    qemu_datadir}
@@ -4348,7 +4014,6 @@ if host_arch == 'unknown' or not supported_oses.contains(host_os)
 endif
 
 actually_reloc = get_option('relocatable')
-# check if get_relocated_path() is actually able to relocate paths
 if get_option('relocatable') and \
   not (get_option('prefix') / get_option('bindir')).startswith(get_option('prefix') / '')
   message()

@@ -1,17 +1,11 @@
 #ifndef QEMU_LOG_H
 #define QEMU_LOG_H
 
-/* A small part of this API is split into its own header */
 #include "qemu/log-for-trace.h"
 
-/* 
- * The new API:
- */
 
-/* Returns true if qemu_log() will really write somewhere. */
 bool qemu_log_enabled(void);
 
-/* Returns true if qemu_log() will write somewhere other than stderr. */
 bool qemu_log_separate(void);
 
 #define CPU_LOG_TB_OUT_ASM (1 << 0)
@@ -28,29 +22,20 @@ bool qemu_log_separate(void);
 #define CPU_LOG_MMU        (1 << 12)
 #define CPU_LOG_TB_NOCHAIN (1 << 13)
 #define CPU_LOG_PAGE       (1 << 14)
-/* LOG_TRACE (1 << 15) is defined in log-for-trace.h */
 #define CPU_LOG_TB_OP_IND  (1 << 16)
 #define CPU_LOG_TB_FPU     (1 << 17)
 #define CPU_LOG_PLUGIN     (1 << 18)
-/* LOG_STRACE is used for user-mode strace logging. */
 #define LOG_STRACE         (1 << 19)
 #define LOG_PER_THREAD     (1 << 20)
 #define CPU_LOG_TB_VPU     (1 << 21)
 #define LOG_TB_OP_PLUGIN   (1 << 22)
 #define LOG_INVALID_MEM    (1 << 23)
 
-/* Lock/unlock output. */
 
 FILE *qemu_log_trylock(void) G_GNUC_WARN_UNUSED_RESULT;
 void qemu_log_unlock(FILE *fd);
 
-/* Logging functions: */
 
-/* log only if a bit is set on the current loglevel mask:
- * @mask: bit to check in the mask
- * @fmt: printf-style format string
- * @args: optional arguments for format string
- */
 #define qemu_log_mask(MASK, FMT, ...)                   \
     do {                                                \
         if (unlikely(qemu_loglevel_mask(MASK))) {       \
@@ -58,13 +43,6 @@ void qemu_log_unlock(FILE *fd);
         }                                               \
     } while (0)
 
-/* log only if a bit is set on the current loglevel mask
- * and we are in the address range we care about:
- * @mask: bit to check in the mask
- * @addr: address to check in dfilter
- * @fmt: printf-style format string
- * @args: optional arguments for format string
- */
 #define qemu_log_mask_and_addr(MASK, ADDR, FMT, ...)    \
     do {                                                \
         if (unlikely(qemu_loglevel_mask(MASK)) &&       \
@@ -73,9 +51,7 @@ void qemu_log_unlock(FILE *fd);
         }                                               \
     } while (0)
 
-/* Maintenance: */
 
-/* define log items */
 typedef struct QEMULogItem {
     int mask;
     const char *name;
@@ -91,9 +67,6 @@ void qemu_set_dfilter_ranges(const char *ranges, Error **errp);
 bool qemu_log_in_addr_range(uint64_t addr);
 int qemu_str_to_log_mask(const char *str);
 
-/* Print a usage message listing all the valid logging categories
- * to the specified FILE*.
- */
 void qemu_print_log_usage(FILE *f);
 
 #endif

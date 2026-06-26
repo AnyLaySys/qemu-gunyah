@@ -40,7 +40,6 @@ struct QemuThread {
     unsigned tid;
 };
 
-/* Only valid for joinable threads.  */
 HANDLE qemu_thread_get_handle(struct QemuThread *thread);
 
 #endif

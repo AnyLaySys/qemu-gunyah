@@ -1,26 +1,3 @@
-/*
- * QEMU PCI bus manager
- *
- * Copyright (c) 2004 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/datadir.h"
@@ -52,7 +29,6 @@
 #include "qemu/cutils.h"
 #include "pci-internal.h"
 
-//#define DEBUG_PCI
 #ifdef DEBUG_PCI
 # define PCI_DPRINTF(format, ...)       printf(format, ## __VA_ARGS__)
 #else
@@ -177,10 +153,6 @@ static void pcie_bus_realize(BusState *qbus, Error **errp)
         return;
     }
 
-    /*
-     * A PCI-E bus can support extended config space if it's the root
-     * bus, or if the bus/bridge above it does as well
-     */
     if (pci_bus_is_root(bus)) {
         bus->flags |= PCI_BUS_EXTENDED_CONFIG_SPACE;
     } else {
@@ -241,7 +213,6 @@ static GByteArray *pci_bus_fw_cfg_gen_data(Object *obj, Error **errp)
     }
 
     QLIST_FOREACH(bus, &bus->child, sibling) {
-        /* look for expander root buses */
         if (pci_bus_is_root(bus)) {
             extra_hosts++;
         }
@@ -340,7 +311,6 @@ int pci_bar(PCIDevice *d, int reg)
 {
     uint8_t type;
 
-    /* PCIe virtual functions do not have their own BARs */
     assert(!pci_is_vf(d));
 
     if (reg != PCI_ROM_SLOT)
@@ -394,8 +364,6 @@ int pci_bus_get_irq_level(PCIBus *bus, int irq_num)
     return !!bus->irq_count[irq_num];
 }
 
-/* Update interrupt status bit in config space on interrupt
- * state change. */
 static void pci_update_irq_status(PCIDevice *dev)
 {
     if (dev->irq_state) {
@@ -422,12 +390,6 @@ static void pci_msi_trigger(PCIDevice *dev, MSIMessage msg)
                          attrs, NULL);
 }
 
-/*
- * Register and track a PM capability.  If wmask is also enabled for the power
- * state field of the pmcsr register, guest writes may change the device PM
- * state.  BAR access is only enabled while the device is in the D0 state.
- * Return the capability offset or negative error code.
- */
 int pci_pm_init(PCIDevice *d, uint8_t offset, Error **errp)
 {
     int cap = pci_add_capability(d, PCI_CAP_ID_PM, offset, PCI_PM_SIZEOF, errp);
@@ -455,12 +417,6 @@ static uint8_t pci_pm_state(PCIDevice *d)
     return pmcsr & PCI_PM_CTRL_STATE_MASK;
 }
 
-/*
- * Update the PM capability state based on the new value stored in config
- * space respective to the old, pre-write state provided.  If the new value
- * is rejected (unsupported or invalid transition) restore the old value.
- * Return the resulting PM state.
- */
 static uint8_t pci_pm_update(PCIDevice *d, uint32_t addr, int l, uint8_t old)
 {
     uint16_t pmc;
@@ -478,10 +434,6 @@ static uint8_t pci_pm_update(PCIDevice *d, uint32_t addr, int l, uint8_t old)
 
     pmc = pci_get_word(d->config + d->pm_cap + PCI_PM_PMC);
 
-    /*
-     * Transitions to D1 & D2 are only allowed if supported.  Devices may
-     * only transition to higher D-states or to D0.
-     */
     if ((!(pmc & PCI_PM_CAP_D1) && new == 1) ||
         (!(pmc & PCI_PM_CAP_D2) && new == 2) ||
         (old && new && new < old)) {
@@ -527,19 +479,16 @@ static void pci_do_device_reset(PCIDevice *dev)
     pci_device_deassert_intx(dev);
     assert(dev->irq_state == 0);
 
-    /* Clear all writable bits */
     pci_word_test_and_clear_mask(dev->config + PCI_COMMAND,
                                  pci_get_word(dev->wmask + PCI_COMMAND) |
                                  pci_get_word(dev->w1cmask + PCI_COMMAND));
     pci_word_test_and_clear_mask(dev->config + PCI_STATUS,
                                  pci_get_word(dev->wmask + PCI_STATUS) |
                                  pci_get_word(dev->w1cmask + PCI_STATUS));
-    /* Some devices make bits of PCI_INTERRUPT_LINE read only */
     pci_byte_test_and_clear_mask(dev->config + PCI_INTERRUPT_LINE,
                               pci_get_word(dev->wmask + PCI_INTERRUPT_LINE) |
                               pci_get_word(dev->w1cmask + PCI_INTERRUPT_LINE));
     dev->config[PCI_CACHE_LINE_SIZE] = 0x0;
-    /* Default PM state is D0 */
     if (dev->cap_present & QEMU_PCI_CAP_PM) {
         pci_word_test_and_clear_mask(dev->config + dev->pm_cap + PCI_PM_CTRL,
                                      PCI_PM_CTRL_STATE_MASK);
@@ -552,21 +501,12 @@ static void pci_do_device_reset(PCIDevice *dev)
     pcie_sriov_pf_reset(dev);
 }
 
-/*
- * This function is called on #RST and FLR.
- * FLR if PCI_EXP_DEVCTL_BCR_FLR is set
- */
 void pci_device_reset(PCIDevice *dev)
 {
     device_cold_reset(&dev->qdev);
     pci_do_device_reset(dev);
 }
 
-/*
- * Trigger pci bus reset under a given bus.
- * Called via bus_cold_reset on RST# assert, after the devices
- * have been reset device_cold_reset-ed already.
- */
 static void pcibus_reset_hold(Object *obj, ResetType type)
 {
     PCIBus *bus = PCI_BUS(obj);
@@ -653,7 +593,6 @@ static void pci_root_bus_internal_init(PCIBus *bus, DeviceState *parent,
     bus->address_space_io = io;
     bus->flags |= PCI_BUS_IS_ROOT;
 
-    /* host bridge */
     QLIST_INIT(&bus->child);
 
     pci_host_bus_register(parent);
@@ -692,7 +631,6 @@ PCIBus *pci_root_bus_new(DeviceState *parent, const char *name,
 void pci_root_bus_cleanup(PCIBus *bus)
 {
     pci_bus_uninit(bus);
-    /* the caller of the unplug hotplug handler will delete this device */
     qbus_unrealize(BUS(bus));
 }
 
@@ -747,7 +685,6 @@ int pci_bus_num(PCIBus *s)
     return PCI_BUS_GET_CLASS(s)->bus_num(s);
 }
 
-/* Returns the min and max bus numbers of a PCI bus hierarchy */
 void pci_bus_range(PCIBus *bus, int *min_bus, int *max_bus)
 {
     int i;
@@ -805,7 +742,6 @@ static int get_pci_config_device(QEMUFile *f, void *pv, size_t size,
     return 0;
 }
 
-/* just put buffer */
 static int put_pci_config_device(QEMUFile *f, void *pv, size_t size,
                                  const VMStateField *field, JSONWriter *vmdesc)
 {
@@ -904,13 +840,8 @@ const VMStateDescription vmstate_pci_device = {
 
 void pci_device_save(PCIDevice *s, QEMUFile *f)
 {
-    /* Clear interrupt status bit: it is implicit
-     * in irq_state which we are saving.
-     * This makes us compatible with old devices
-     * which never set or clear this bit. */
     s->config[PCI_STATUS] &= ~PCI_STATUS_INTERRUPT;
     vmstate_save_state(f, &vmstate_pci_device, s, NULL);
-    /* Restore the interrupt status bit. */
     pci_update_irq_status(s);
 }
 
@@ -918,7 +849,6 @@ int pci_device_load(PCIDevice *s, QEMUFile *f)
 {
     int ret;
     ret = vmstate_load_state(f, &vmstate_pci_device, s, s->version_id);
-    /* Restore the interrupt status bit. */
     pci_update_irq_status(s);
     return ret;
 }
@@ -931,10 +861,6 @@ static void pci_set_default_subsystem_id(PCIDevice *pci_dev)
                  pci_default_sub_device_id);
 }
 
-/*
- * Parse [[<domain>:]<bus>:]<slot>, return -1 on error if funcp == NULL
- *       [[<domain>:]<bus>:]<slot>.<func>, return -1 on error
- */
 static int pci_parse_devaddr(const char *addr, int *domp, int *busp,
                              unsigned int *slotp, unsigned int *funcp)
 {
@@ -979,7 +905,6 @@ static int pci_parse_devaddr(const char *addr, int *domp, int *busp,
         func = val;
     }
 
-    /* if funcp == NULL func is 0 */
     if (dom > 0xffff || bus > 0xff || slot > 0x1f || func > 7)
         return -1;
 
@@ -1023,10 +948,6 @@ static void pci_init_wmask(PCIDevice *dev)
 
 static void pci_init_w1cmask(PCIDevice *dev)
 {
-    /*
-     * Note: It's okay to set w1cmask even for readonly bits as
-     * long as their value is hardwired to 0.
-     */
     pci_set_word(dev->w1cmask + PCI_STATUS,
                  PCI_STATUS_PARITY | PCI_STATUS_SIG_TARGET_ABORT |
                  PCI_STATUS_REC_TARGET_ABORT | PCI_STATUS_REC_MASTER_ABORT |
@@ -1035,11 +956,8 @@ static void pci_init_w1cmask(PCIDevice *dev)
 
 static void pci_init_mask_bridge(PCIDevice *d)
 {
-    /* PCI_PRIMARY_BUS, PCI_SECONDARY_BUS, PCI_SUBORDINATE_BUS and
-       PCI_SEC_LATENCY_TIMER */
     memset(d->wmask + PCI_PRIMARY_BUS, 0xff, 4);
 
-    /* base and limit */
     d->wmask[PCI_IO_BASE] = PCI_IO_RANGE_MASK & 0xff;
     d->wmask[PCI_IO_LIMIT] = PCI_IO_RANGE_MASK & 0xff;
     pci_set_word(d->wmask + PCI_MEMORY_BASE,
@@ -1051,10 +969,8 @@ static void pci_init_mask_bridge(PCIDevice *d)
     pci_set_word(d->wmask + PCI_PREF_MEMORY_LIMIT,
                  PCI_PREF_RANGE_MASK & 0xffff);
 
-    /* PCI_PREF_BASE_UPPER32 and PCI_PREF_LIMIT_UPPER32 */
     memset(d->wmask + PCI_PREF_BASE_UPPER32, 0xff, 8);
 
-    /* Supported memory and i/o types */
     d->config[PCI_IO_BASE] |= PCI_IO_RANGE_TYPE_16;
     d->config[PCI_IO_LIMIT] |= PCI_IO_RANGE_TYPE_16;
     pci_word_test_and_set_mask(d->config + PCI_PREF_MEMORY_BASE,
@@ -1062,10 +978,6 @@ static void pci_init_mask_bridge(PCIDevice *d)
     pci_word_test_and_set_mask(d->config + PCI_PREF_MEMORY_LIMIT,
                                PCI_PREF_RANGE_TYPE_64);
 
-    /*
-     * TODO: Bridges default to 10-bit VGA decoding but we currently only
-     * implement 16-bit decoding (no alias support).
-     */
     pci_set_word(d->wmask + PCI_BRIDGE_CONTROL,
                  PCI_BRIDGE_CTL_PARITY |
                  PCI_BRIDGE_CTL_SERR |
@@ -1078,8 +990,6 @@ static void pci_init_mask_bridge(PCIDevice *d)
                  PCI_BRIDGE_CTL_DISCARD |
                  PCI_BRIDGE_CTL_SEC_DISCARD |
                  PCI_BRIDGE_CTL_DISCARD_SERR);
-    /* Below does not do anything as we never set this bit, put here for
-     * completeness. */
     pci_set_word(d->w1cmask + PCI_BRIDGE_CONTROL,
                  PCI_BRIDGE_CTL_DISCARD_STATUS);
     d->cmask[PCI_IO_BASE] |= PCI_IO_RANGE_TYPE_MASK;
@@ -1099,33 +1009,14 @@ static void pci_init_multifunction(PCIBus *bus, PCIDevice *dev, Error **errp)
         dev->config[PCI_HEADER_TYPE] |= PCI_HEADER_TYPE_MULTI_FUNCTION;
     }
 
-    /*
-     * With SR/IOV and ARI, a device at function 0 need not be a multifunction
-     * device, as it may just be a VF that ended up with function 0 in
-     * the legacy PCI interpretation. Avoid failing in such cases:
-     */
     if (pci_is_vf(dev) &&
         dev->exp.sriov_vf.pf->cap_present & QEMU_PCI_CAP_MULTIFUNCTION) {
         return;
     }
 
-    /*
-     * multifunction bit is interpreted in two ways as follows.
-     *   - all functions must set the bit to 1.
-     *     Example: Intel X53
-     *   - function 0 must set the bit, but the rest function (> 0)
-     *     is allowed to leave the bit to 0.
-     *     Example: PIIX3(also in qemu), PIIX4(also in qemu), ICH10,
-     *
-     * So OS (at least Linux) checks the bit of only function 0,
-     * and doesn't see the bit of function > 0.
-     *
-     * The below check allows both interpretation.
-     */
     if (PCI_FUNC(dev->devfn)) {
         PCIDevice *f0 = bus->devices[PCI_DEVFN(slot, 0)];
         if (f0 && !(f0->cap_present & QEMU_PCI_CAP_MULTIFUNCTION)) {
-            /* function 0 should set multifunction bit */
             error_setg(errp, "PCI: single function device can't be populated "
                        "in function %x.%x", slot, PCI_FUNC(dev->devfn));
             return;
@@ -1136,7 +1027,6 @@ static void pci_init_multifunction(PCIBus *bus, PCIDevice *dev, Error **errp)
     if (dev->cap_present & QEMU_PCI_CAP_MULTIFUNCTION) {
         return;
     }
-    /* function 0 indicates single function, so function > 0 must be NULL */
     for (func = 1; func < PCI_FUNC_MAX; ++func) {
         if (bus->devices[PCI_DEVFN(slot, func)]) {
             error_setg(errp, "PCI: %x.0 indicates single function, "
@@ -1179,7 +1069,6 @@ static void do_pci_unregister_device(PCIDevice *pci_dev)
     address_space_destroy(&pci_dev->bus_master_as);
 }
 
-/* Extract PCIReqIDCache into BDF format */
 static uint16_t pci_req_id_cache_extract(PCIReqIDCache *cache)
 {
     uint8_t bus_n;
@@ -1203,15 +1092,6 @@ static uint16_t pci_req_id_cache_extract(PCIReqIDCache *cache)
     return result;
 }
 
-/* Parse bridges up to the root complex and return requester ID
- * cache for specific device.  For full PCIe topology, the cache
- * result would be exactly the same as getting BDF of the device.
- * However, several tricks are required when system mixed up with
- * legacy PCI devices and PCIe-to-PCI bridges.
- *
- * Here we cache the proxy device (and type) not requester ID since
- * bus number might change from time to time.
- */
 static PCIReqIDCache pci_req_id_cache_get(PCIDevice *dev)
 {
     PCIDevice *parent;
@@ -1221,25 +1101,13 @@ static PCIReqIDCache pci_req_id_cache_get(PCIDevice *dev)
     };
 
     while (!pci_bus_is_root(pci_get_bus(dev))) {
-        /* We are under PCI/PCIe bridges */
         parent = pci_get_bus(dev)->parent_dev;
         if (pci_is_express(parent)) {
             if (pcie_cap_get_type(parent) == PCI_EXP_TYPE_PCI_BRIDGE) {
-                /* When we pass through PCIe-to-PCI/PCIX bridges, we
-                 * override the requester ID using secondary bus
-                 * number of parent bridge with zeroed devfn
-                 * (pcie-to-pci bridge spec chap 2.3). */
                 cache.type = PCI_REQ_ID_SECONDARY_BUS;
                 cache.dev = dev;
             }
         } else {
-            /* Legacy PCI, override requester ID with the bridge's
-             * BDF upstream.  When the root complex connects to
-             * legacy PCI devices (including buses), it can only
-             * obtain requester ID info from directly attached
-             * devices.  If devices are attached under bridges, only
-             * the requester ID of the bridge that is directly
-             * attached to the root complex can be recognized. */
             cache.type = PCI_REQ_ID_BDF;
             cache.dev = parent;
         }
@@ -1279,7 +1147,6 @@ void pci_bus_clear_slot_reserved_mask(PCIBus *bus, uint32_t mask)
     bus->slot_reserved_mask &= ~mask;
 }
 
-/* -1 for devfn means auto assign */
 static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
                                          const char *name, int devfn,
                                          Error **errp)
@@ -1292,7 +1159,6 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
     PCIBus *bus = pci_get_bus(pci_dev);
     bool is_bridge = IS_PCI_BRIDGE(pci_dev);
 
-    /* Only pci bridges can be attached to extra PCI root buses */
     if (pci_bus_is_root(bus) && bus->parent_dev && !is_bridge) {
         error_setg(errp,
                    "PCI: Only PCI/PCIe bridges can be plugged into %s",
@@ -1325,11 +1191,6 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
         return NULL;
     }
 
-    /*
-     * Populating function 0 triggers a scan from the guest that
-     * exposes other non-zero functions. Hence we need to ensure that
-     * function 0 wasn't added yet.
-     */
     if (dev->hotplugged && !pci_is_vf(pci_dev) &&
         pci_get_function_0(pci_dev)) {
         error_setg(errp, "PCI: slot %d function 0 already occupied by %s,"
@@ -1373,7 +1234,6 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
             pci_set_default_subsystem_id(pci_dev);
         }
     } else {
-        /* subsystem_vendor_id/subsystem_id are only for header type 0 */
         assert(!pc->subsystem_vendor_id);
         assert(!pc->subsystem_id);
     }
@@ -1433,9 +1293,6 @@ static void pci_qdev_unrealize(DeviceState *dev)
 
     pci_dev->msi_trigger = NULL;
 
-    /*
-     * clean up acpi-index so it could reused by another device
-     */
     if (pci_dev->acpi_index) {
         GSequence *used_indexes = pci_acpi_index_list();
 
@@ -1459,7 +1316,6 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
     assert(region_num < PCI_NUM_REGIONS);
     assert(is_power_of_2(size));
 
-    /* A PCI bridge device (with Type 1 header) may only have at most 2 BARs */
     hdr_type =
         pci_dev->config[PCI_HEADER_TYPE] & ~PCI_HEADER_TYPE_MULTI_FUNCTION;
     assert(hdr_type != PCI_HEADER_TYPE_BRIDGE || region_num < 2);
@@ -1476,7 +1332,6 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
 
     wmask = ~(size - 1);
     if (region_num == PCI_ROM_SLOT) {
-        /* ROM enable bit is writable */
         wmask |= PCI_ROM_ADDRESS_ENABLE;
     }
 
@@ -1587,7 +1442,6 @@ static pcibus_t pci_config_get_bar_addr(PCIDevice *d, int reg,
         }
         new_addr += vf_num * size;
     }
-    /* The ROM slot has a specific enable bit, keep it intact */
     if (reg != PCI_ROM_SLOT) {
         new_addr &= ~(size - 1);
     }
@@ -1608,9 +1462,6 @@ pcibus_t pci_bar_address(PCIDevice *d,
         }
         new_addr = pci_config_get_bar_addr(d, reg, type, size);
         last_addr = new_addr + size - 1;
-        /* Check if 32 bit BAR wraps around explicitly.
-         * TODO: make priorities correct and remove this work around.
-         */
         if (last_addr <= new_addr || last_addr >= UINT32_MAX ||
             (!allow_0_address && new_addr == 0)) {
             return PCI_BAR_UNMAPPED;
@@ -1622,36 +1473,20 @@ pcibus_t pci_bar_address(PCIDevice *d,
         return PCI_BAR_UNMAPPED;
     }
     new_addr = pci_config_get_bar_addr(d, reg, type, size);
-    /* the ROM slot has a specific enable bit */
     if (reg == PCI_ROM_SLOT && !(new_addr & PCI_ROM_ADDRESS_ENABLE)) {
         return PCI_BAR_UNMAPPED;
     }
     new_addr &= ~(size - 1);
     last_addr = new_addr + size - 1;
-    /* NOTE: we do not support wrapping */
-    /* XXX: as we cannot support really dynamic
-       mappings, we handle specific values as invalid
-       mappings. */
     if (last_addr <= new_addr || last_addr == PCI_BAR_UNMAPPED ||
         (!allow_0_address && new_addr == 0)) {
         return PCI_BAR_UNMAPPED;
     }
 
-    /* Now pcibus_t is 64bit.
-     * Check if 32 bit BAR wraps around explicitly.
-     * Without this, PC ide doesn't work well.
-     * TODO: remove this work around.
-     */
     if  (!(type & PCI_BASE_ADDRESS_MEM_TYPE_64) && last_addr >= UINT32_MAX) {
         return PCI_BAR_UNMAPPED;
     }
 
-    /*
-     * OS is allowed to set BAR beyond its addressable
-     * bits. For example, 32 bit OS can set 64bit bar
-     * to >4G. Check it. TODO: we might need to support
-     * it in the future for e.g. PAE.
-     */
     if (last_addr >= HWADDR_MAX) {
         return PCI_BAR_UNMAPPED;
     }
@@ -1668,7 +1503,6 @@ static void pci_update_mappings(PCIDevice *d)
     for(i = 0; i < PCI_NUM_REGIONS; i++) {
         r = &d->io_regions[i];
 
-        /* this region isn't registered */
         if (!r->size)
             continue;
 
@@ -1677,11 +1511,9 @@ static void pci_update_mappings(PCIDevice *d)
             new_addr = PCI_BAR_UNMAPPED;
         }
 
-        /* This bar isn't changed */
         if (new_addr == r->addr)
             continue;
 
-        /* now do the real mapping */
         if (r->addr != PCI_BAR_UNMAPPED) {
             trace_pci_update_mappings_del(d->name, pci_dev_bus_num(d),
                                           PCI_SLOT(d->devfn),
@@ -1708,9 +1540,6 @@ static inline int pci_irq_disabled(PCIDevice *d)
     return pci_get_word(d->config + PCI_COMMAND) & PCI_COMMAND_INTX_DISABLE;
 }
 
-/* Called after interrupt disabled field update in config space,
- * assert/deassert interrupts if necessary.
- * Gets original interrupt disable bit value (before update). */
 static void pci_update_irq_disabled(PCIDevice *d, int was_irq_disabled)
 {
     int i, disabled = pci_irq_disabled(d);
@@ -1775,10 +1604,7 @@ void pci_default_write_config(PCIDevice *d, uint32_t addr, uint32_t val_in, int 
     pcie_sriov_config_write(d, addr, val_in, l);
 }
 
-/***********************************************************/
-/* generic PCI irq support */
 
-/* 0 <= irq_num <= 3. level must be 0 or 1 */
 static void pci_irq_handler(void *opaque, int irq_num, int level)
 {
     PCIDevice *pci_dev = opaque;
@@ -1811,7 +1637,6 @@ void pci_set_irq(PCIDevice *pci_dev, int level)
     pci_irq_handler(pci_dev, intx, level);
 }
 
-/* Special hooks used by device assignment */
 void pci_bus_set_route_irq_fn(PCIBus *bus, pci_route_irq_fn route_intx_to_irq)
 {
     assert(pci_bus_is_root(bus));
@@ -1870,26 +1695,11 @@ void pci_device_set_intx_routing_notifier(PCIDevice *dev,
     dev->intx_routing_notifier = notifier;
 }
 
-/*
- * PCI-to-PCI bridge specification
- * 9.1: Interrupt routing. Table 9-1
- *
- * the PCI Express Base Specification, Revision 2.1
- * 2.2.8.1: INTx interrupt signaling - Rules
- *          the Implementation Note
- *          Table 2-20
- */
-/*
- * 0 <= pin <= 3 0 = INTA, 1 = INTB, 2 = INTC, 3 = INTD
- * 0-origin unlike PCI interrupt pin register.
- */
 int pci_swizzle_map_irq_fn(PCIDevice *pci_dev, int pin)
 {
     return pci_swizzle(PCI_SLOT(pci_dev->devfn), pin);
 }
 
-/***********************************************************/
-/* monitor info on PCI */
 
 static const pci_class_desc pci_class_descriptions[] =
 {
@@ -2060,8 +1870,6 @@ PCIDevice *pci_vga_init(PCIBus *bus)
     return NULL;
 }
 
-/* Whether a given bus number is in range of the secondary
- * bus of the given bridge device. */
 static bool pci_secondary_bus_in_range(PCIDevice *dev, int bus_num)
 {
     return !(pci_get_word(dev->config + PCI_BRIDGE_CONTROL) &
@@ -2070,7 +1878,6 @@ static bool pci_secondary_bus_in_range(PCIDevice *dev, int bus_num)
         bus_num <= dev->config[PCI_SUBORDINATE_BUS];
 }
 
-/* Whether a given bus number is in a range of a root bus */
 static bool pci_root_bus_in_range(PCIBus *bus, int bus_num)
 {
     int i;
@@ -2100,19 +1907,16 @@ PCIBus *pci_find_bus_nr(PCIBus *bus, int bus_num)
         return bus;
     }
 
-    /* Consider all bus numbers in range for the host pci bridge. */
     if (!pci_bus_is_root(bus) &&
         !pci_secondary_bus_in_range(bus->parent_dev, bus_num)) {
         return NULL;
     }
 
-    /* try child bus */
     for (; bus; bus = sec) {
         QLIST_FOREACH(sec, &bus->child, sibling) {
             if (pci_bus_num(sec) == bus_num) {
                 return sec;
             }
-            /* PXB buses assumed to be children of bus 0 */
             if (pci_bus_is_root(sec)) {
                 if (pci_root_bus_in_range(sec, bus_num)) {
                     break;
@@ -2175,20 +1979,12 @@ static void pci_qdev_realize(DeviceState *qdev, Error **errp)
     bool is_default_rom;
     uint16_t class_id;
 
-    /*
-     * capped by systemd (see: udev-builtin-net_id.c)
-     * as it's the only known user honor it to avoid users
-     * misconfigure QEMU and then wonder why acpi-index doesn't work
-     */
     if (pci_dev->acpi_index > ONBOARD_INDEX_MAX) {
         error_setg(errp, "acpi-index should be less or equal to %u",
                    ONBOARD_INDEX_MAX);
         return;
     }
 
-    /*
-     * make sure that acpi-index is unique across all present PCI devices
-     */
     if (pci_dev->acpi_index) {
         GSequence *used_indexes = pci_acpi_index_list();
 
@@ -2209,9 +2005,6 @@ static void pci_qdev_realize(DeviceState *qdev, Error **errp)
         return;
     }
 
-    /* initialize cap_present for pci_is_express() and pci_config_size(),
-     * Note that hybrid PCIs are not set automatically and need to manage
-     * QEMU_PCI_CAP_EXPRESS manually */
     if (object_class_dynamic_cast(klass, INTERFACE_PCIE_DEVICE) &&
        !object_class_dynamic_cast(klass, INTERFACE_CONVENTIONAL_PCI_DEVICE)) {
         pci_dev->cap_present |= QEMU_PCI_CAP_EXPRESS;
@@ -2236,16 +2029,6 @@ static void pci_qdev_realize(DeviceState *qdev, Error **errp)
         }
     }
 
-    /*
-     * A PCIe Downstream Port that do not have ARI Forwarding enabled must
-     * associate only Device 0 with the device attached to the bus
-     * representing the Link from the Port (PCIe base spec rev 4.0 ver 0.3,
-     * sec 7.3.1).
-     * With ARI, PCI_SLOT() can return non-zero value as the traditional
-     * 5-bit Device Number and 3-bit Function Number fields in its associated
-     * Routing IDs, Requester IDs and Completer IDs are interpreted as a
-     * single 8-bit Function Number. Hence, ignore ARI capable devices.
-     */
     if (pci_is_express(pci_dev) &&
         !pcie_find_capability(pci_dev, PCI_EXT_CAP_ID_ARI) &&
         pcie_has_upstream_port(pci_dev) &&
@@ -2279,7 +2062,6 @@ static void pci_qdev_realize(DeviceState *qdev, Error **errp)
         qdev->allow_unplug_during_migration = true;
     }
 
-    /* rom loading */
     is_default_rom = false;
     if (pci_dev->romfile == NULL && pc->romfile != NULL) {
         pci_dev->romfile = g_strdup(pc->romfile);
@@ -2389,8 +2171,6 @@ static uint8_t pci_find_capability_at_offset(PCIDevice *pdev, uint8_t offset)
     return found;
 }
 
-/* Patch the PCI vendor and device ids in a PCI rom image if necessary.
-   This is needed for an option rom which is used for more than one device. */
 static void pci_patch_ids(PCIDevice *pdev, uint8_t *ptr, uint32_t size)
 {
     uint16_t vendor_id;
@@ -2401,10 +2181,7 @@ static void pci_patch_ids(PCIDevice *pdev, uint8_t *ptr, uint32_t size)
     uint16_t pcir_offset;
     uint8_t checksum;
 
-    /* Words in rom data are little endian (like in PCI configuration),
-       so they can be read / written with pci_get_word / pci_set_word. */
 
-    /* Only a valid rom will be patched. */
     rom_magic = pci_get_word(ptr);
     if (rom_magic != 0xaa55) {
         PCI_DPRINTF("Bad ROM magic %04x\n", rom_magic);
@@ -2427,7 +2204,6 @@ static void pci_patch_ids(PCIDevice *pdev, uint8_t *ptr, uint32_t size)
     checksum = ptr[6];
 
     if (vendor_id != rom_vendor_id) {
-        /* Patch vendor id and checksum (at offset 6 for etherboot roms). */
         checksum += (uint8_t)rom_vendor_id + (uint8_t)(rom_vendor_id >> 8);
         checksum -= (uint8_t)vendor_id + (uint8_t)(vendor_id >> 8);
         PCI_DPRINTF("ROM checksum %02x / %02x\n", ptr[6], checksum);
@@ -2436,7 +2212,6 @@ static void pci_patch_ids(PCIDevice *pdev, uint8_t *ptr, uint32_t size)
     }
 
     if (device_id != rom_device_id) {
-        /* Patch device id and checksum (at offset 6 for etherboot roms). */
         checksum += (uint8_t)rom_device_id + (uint8_t)(rom_device_id >> 8);
         checksum -= (uint8_t)device_id + (uint8_t)(device_id >> 8);
         PCI_DPRINTF("ROM checksum %02x / %02x\n", ptr[6], checksum);
@@ -2445,7 +2220,6 @@ static void pci_patch_ids(PCIDevice *pdev, uint8_t *ptr, uint32_t size)
     }
 }
 
-/* Add an option rom for the device */
 static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
                                Error **errp)
 {
@@ -2454,11 +2228,6 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
     char name[32];
     const VMStateDescription *vmsd;
 
-    /*
-     * In case of incoming migration ROM will come with migration stream, no
-     * reason to load the file.  Neither we want to fail if local ROM file
-     * mismatches with specified romsize.
-     */
     bool load_file = !runstate_check(RUN_STATE_INMIGRATE);
 
     if (!pdev->romfile || !strlen(pdev->romfile)) {
@@ -2466,16 +2235,8 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
     }
 
     if (!pdev->rom_bar) {
-        /*
-         * Load rom via fw_cfg instead of creating a rom bar,
-         * for 0.11 compatibility.
-         */
         int class = pci_get_word(pdev->config + PCI_CLASS_DEVICE);
 
-        /*
-         * Hot-plugged devices can't use the option ROM
-         * if the rom bar is disabled.
-         */
         if (DEVICE(pdev)->hotplugged) {
             error_setg(errp, "Hot-plugged device without ROM bar"
                        " can't have an option ROM");
@@ -2538,7 +2299,6 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
         }
 
         if (is_default_rom) {
-            /* Only the default rom images will be patched (if needed). */
             pci_patch_ids(pdev, ptr, size);
         }
     }
@@ -2555,12 +2315,6 @@ static void pci_del_option_rom(PCIDevice *pdev)
     pdev->has_rom = false;
 }
 
-/*
- * On success, pci_add_capability() returns a positive value
- * that the offset of the pci capability.
- * On failure, it sets an error and returns a negative error
- * code.
- */
 int pci_add_capability(PCIDevice *pdev, uint8_t cap_id,
                        uint8_t offset, uint8_t size,
                        Error **errp)
@@ -2570,13 +2324,8 @@ int pci_add_capability(PCIDevice *pdev, uint8_t cap_id,
 
     if (!offset) {
         offset = pci_find_space(pdev, size);
-        /* out of PCI config space is programming error */
         assert(offset);
     } else {
-        /* Verify that capabilities don't overlap.  Note: device assignment
-         * depends on this check to verify that the device is not broken.
-         * Should never trigger for emulated devices, but it's helpful
-         * for debugging these. */
         for (i = offset; i < offset + size; i++) {
             overlapping_cap = pci_find_capability_at_offset(pdev, i);
             if (overlapping_cap) {
@@ -2597,24 +2346,19 @@ int pci_add_capability(PCIDevice *pdev, uint8_t cap_id,
     pdev->config[PCI_CAPABILITY_LIST] = offset;
     pdev->config[PCI_STATUS] |= PCI_STATUS_CAP_LIST;
     memset(pdev->used + offset, 0xFF, QEMU_ALIGN_UP(size, 4));
-    /* Make capability read-only by default */
     memset(pdev->wmask + offset, 0, size);
-    /* Check capability by default */
     memset(pdev->cmask + offset, 0xFF, size);
     return offset;
 }
 
-/* Unlink capability from the pci config space. */
 void pci_del_capability(PCIDevice *pdev, uint8_t cap_id, uint8_t size)
 {
     uint8_t prev, offset = pci_find_capability_list(pdev, cap_id, &prev);
     if (!offset)
         return;
     pdev->config[prev] = pdev->config[offset + PCI_CAP_LIST_NEXT];
-    /* Make capability writable again */
     memset(pdev->wmask + offset, 0xff, size);
     memset(pdev->w1cmask + offset, 0, size);
-    /* Clear cmask as device-specific registers can't be checked */
     memset(pdev->cmask + offset, 0, size);
     memset(pdev->used + offset, 0, QEMU_ALIGN_UP(size, 4));
 
@@ -2674,11 +2418,6 @@ static char *pcibus_get_dev_path(DeviceState *dev)
     PCIDevice *d = container_of(dev, PCIDevice, qdev);
     PCIDevice *t;
     int slot_depth;
-    /* Path format: Domain:00:Slot.Function:Slot.Function....:Slot.Function.
-     * 00 is added here to make this format compatible with
-     * domain:Bus:Slot.Func for systems without nested PCI bridges.
-     * Slot.Function list specifies the slot and function numbers for all
-     * devices on the path from root to the specific device. */
     const char *root_bus_path;
     int root_bus_len;
     char slot[] = ":SS.F";
@@ -2698,14 +2437,11 @@ static char *pcibus_get_dev_path(DeviceState *dev)
 
     path_len = root_bus_len + slot_len * slot_depth;
 
-    /* Allocate memory, fill in the terminating null byte. */
     path = g_malloc(path_len + 1 /* For '\0' */);
     path[path_len] = '\0';
 
     memcpy(path, root_bus_path, root_bus_len);
 
-    /* Fill in slot numbers. We walk up from device to root, so need to print
-     * them in the reverse order, last to first. */
     p = path + path_len;
     for (t = d; t; t = pci_get_bus(t)->parent_dev) {
         p -= slot_len;
@@ -2726,7 +2462,6 @@ static int pci_qdev_find_recursive(PCIBus *bus,
         return -ENODEV;
     }
 
-    /* roughly check if given qdev is pci device */
     if (object_dynamic_cast(OBJECT(qdev), TYPE_PCI_DEVICE)) {
         *pdev = PCI_DEVICE(qdev);
         return 0;
@@ -2790,19 +2525,6 @@ static void pci_device_class_base_init(ObjectClass *klass, void *data)
     }
 }
 
-/*
- * Get IOMMU root bus, aliased bus and devfn of a PCI device
- *
- * IOMMU root bus is needed by all call sites to call into iommu_ops.
- * For call sites which don't need aliased BDF, passing NULL to
- * aliased_[bus|devfn] is allowed.
- *
- * @piommu_bus: return root #PCIBus backed by an IOMMU for the PCI device.
- *
- * @aliased_bus: return aliased #PCIBus of the PCI device, optional.
- *
- * @aliased_devfn: return aliased devfn of the PCI device, optional.
- */
 static void pci_device_get_iommu_bus_devfn(PCIDevice *dev,
                                            PCIBus **piommu_bus,
                                            PCIBus **aliased_bus,
@@ -2815,27 +2537,6 @@ static void pci_device_get_iommu_bus_devfn(PCIDevice *dev,
     while (iommu_bus && !iommu_bus->iommu_ops && iommu_bus->parent_dev) {
         PCIBus *parent_bus = pci_get_bus(iommu_bus->parent_dev);
 
-        /*
-         * The requester ID of the provided device may be aliased, as seen from
-         * the IOMMU, due to topology limitations.  The IOMMU relies on a
-         * requester ID to provide a unique AddressSpace for devices, but
-         * conventional PCI buses pre-date such concepts.  Instead, the PCIe-
-         * to-PCI bridge creates and accepts transactions on behalf of down-
-         * stream devices.  When doing so, all downstream devices are masked
-         * (aliased) behind a single requester ID.  The requester ID used
-         * depends on the format of the bridge devices.  Proper PCIe-to-PCI
-         * bridges, with a PCIe capability indicating such, follow the
-         * guidelines of chapter 2.3 of the PCIe-to-PCI/X bridge specification,
-         * where the bridge uses the seconary bus as the bridge portion of the
-         * requester ID and devfn of 00.0.  For other bridges, typically those
-         * found on the root complex such as the dmi-to-pci-bridge, we follow
-         * the convention of typical bare-metal hardware, which uses the
-         * requester ID of the bridge itself.  There are device specific
-         * exceptions to these rules, but these are the defaults that the
-         * Linux kernel uses when determining DMA aliases itself and believed
-         * to be true for the bare metal equivalents of the devices emulated
-         * in QEMU.
-         */
         if (!pci_bus_is_express(iommu_bus)) {
             PCIDevice *parent = iommu_bus->parent_dev;
 
@@ -2890,7 +2591,6 @@ bool pci_device_set_iommu_device(PCIDevice *dev, HostIOMMUDevice *hiod,
     PCIBus *iommu_bus, *aliased_bus;
     int aliased_devfn;
 
-    /* set_iommu_device requires device's direct BDF instead of aliased BDF */
     pci_device_get_iommu_bus_devfn(dev, &iommu_bus,
                                    &aliased_bus, &aliased_devfn);
     if (iommu_bus && iommu_bus->iommu_ops->set_iommu_device) {
@@ -2917,10 +2617,6 @@ void pci_device_unset_iommu_device(PCIDevice *dev)
 
 void pci_setup_iommu(PCIBus *bus, const PCIIOMMUOps *ops, void *opaque)
 {
-    /*
-     * If called, pci_setup_iommu() should provide a minimum set of
-     * useful callbacks for the bus.
-     */
     assert(ops);
     assert(ops->get_address_space);
 
@@ -2986,11 +2682,6 @@ static bool pcie_has_upstream_port(PCIDevice *dev)
 {
     PCIDevice *parent_dev = pci_bridge_get_device(pci_get_bus(dev));
 
-    /* Device associated with an upstream port.
-     * As there are several types of these, it's easier to check the
-     * parent device: upstream ports are always connected to
-     * root or downstream ports.
-     */
     return parent_dev &&
         pci_is_express(parent_dev) &&
         parent_dev->exp.exp_cap &&
@@ -3003,10 +2694,8 @@ PCIDevice *pci_get_function_0(PCIDevice *pci_dev)
     PCIBus *bus = pci_get_bus(pci_dev);
 
     if(pcie_has_upstream_port(pci_dev)) {
-        /* With an upstream PCIe port, we only support 1 device at slot 0 */
         return bus->devices[0];
     } else {
-        /* Other bus types might support multiple devices at slots 0-31 */
         return bus->devices[PCI_DEVFN(PCI_SLOT(pci_dev->devfn), 0)];
     }
 }
@@ -3019,7 +2708,6 @@ MSIMessage pci_get_msi_message(PCIDevice *dev, int vector)
     } else if (msi_enabled(dev)) {
         msg = msi_get_message(dev, vector);
     } else {
-        /* Should never happen */
         error_report("%s: unknown interrupt type", __func__);
         abort();
     }
@@ -3028,14 +2716,6 @@ MSIMessage pci_get_msi_message(PCIDevice *dev, int vector)
 
 void pci_set_power(PCIDevice *d, bool state)
 {
-    /*
-     * Don't change the enabled state of VFs when powering on/off the device.
-     *
-     * When powering on, VFs must not be enabled immediately but they must
-     * wait until the guest configures SR-IOV.
-     * When powering off, their corresponding PFs will be reset and disable
-     * VFs.
-     */
     if (!pci_is_vf(d)) {
         pci_set_enabled(d, state);
     }

@@ -1,8 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -85,7 +80,6 @@ static void input_linux_toggle_grab(InputLinux *il)
     }
     QTAILQ_FOREACH(item, &inputs, next) {
         if (item == il || item->grab_all) {
-            /* avoid endless loops */
             continue;
         }
         if (item->grab_active != il->grab_active) {
@@ -122,7 +116,6 @@ static bool input_linux_check_toggle(InputLinux *il)
             il->keydown[KEY_SCROLLLOCK];
 
     case GRAB_TOGGLE_KEYS__MAX:
-        /* avoid gcc error */
         break;
     }
     return false;
@@ -141,21 +134,12 @@ static void input_linux_handle_keyboard(InputLinux *il,
 {
     if (event->type == EV_KEY) {
         if (event->value > 2 || (event->value > 1 && !il->repeat)) {
-            /*
-             * ignore autorepeat + unknown key events
-             * 0 == up, 1 == down, 2 == autorepeat, other == undefined
-             */
             return;
         }
         if (event->code >= KEY_CNT) {
-            /*
-             * Should not happen.  But better safe than sorry,
-             * and we make Coverity happy too.
-             */
             return;
         }
 
-        /* keep track of key state */
         if (!il->keydown[event->code] && event->value) {
             il->keydown[event->code] = true;
             il->keycount++;
@@ -165,22 +149,15 @@ static void input_linux_handle_keyboard(InputLinux *il,
             il->keycount--;
         }
 
-        /* send event to guest when grab is active */
         if (il->grab_active && !input_linux_should_skip(il, event)) {
             int qcode = qemu_input_linux_to_qcode(event->code);
             qemu_input_event_send_key_qcode(NULL, qcode, event->value);
         }
 
-        /* hotkey -> record switch request ... */
         if (input_linux_check_toggle(il)) {
             il->grab_request = true;
         }
 
-        /*
-         * ... and do the switch when all keys are lifted, so we
-         * confuse neither guest nor host with keys which seem to
-         * be stuck due to missing key-up events.
-         */
         if (il->grab_request && !il->keycount) {
             il->grab_request = false;
             input_linux_toggle_grab(il);
@@ -398,7 +375,6 @@ static void input_linux_complete(UserCreatable *uc, Error **errp)
 
     qemu_set_fd_handler(il->fd, input_linux_event, NULL, il);
     if (il->keycount) {
-        /* delay grab until all keys are released */
         il->grab_request = true;
     } else {
         input_linux_toggle_grab(il);

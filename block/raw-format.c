@@ -1,30 +1,3 @@
-/* BlockDriver implementation for "raw" format driver
- *
- * Copyright (C) 2010-2016 Red Hat, Inc.
- * Copyright (C) 2010, Blue Swirl <blauwirbel@gmail.com>
- * Copyright (C) 2009, Anthony Liguori <aliguori@us.ibm.com>
- *
- * Author:
- *   Laszlo Ersek <lersek@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to
- * deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "block/block-io.h"
@@ -107,7 +80,6 @@ raw_apply_options(BlockDriverState *bs, BDRVRawState *s, uint64_t offset,
         return real_size;
     }
 
-    /* Check size and offset */
     if (offset > real_size) {
         error_setg(errp, "Offset (%" PRIu64 ") cannot be greater than "
                    "size of the containing file (%" PRId64 ")",
@@ -123,8 +95,6 @@ raw_apply_options(BlockDriverState *bs, BDRVRawState *s, uint64_t offset,
         return -EINVAL;
     }
 
-    /* Make sure size is multiple of BDRV_SECTOR_SIZE to prevent rounding
-     * up and leaking out of the specified area. */
     if (has_size && !QEMU_IS_ALIGNED(size, BDRV_SECTOR_SIZE)) {
         error_setg(errp, "Specified size is not multiple of %llu",
                    BDRV_SECTOR_SIZE);
@@ -185,16 +155,12 @@ static void raw_reopen_abort(BDRVReopenState *state)
     state->opaque = NULL;
 }
 
-/* Check and adjust the offset, against 'offset' and 'size' options. */
 static inline int raw_adjust_offset(BlockDriverState *bs, int64_t *offset,
                                     int64_t bytes, bool is_write)
 {
     BDRVRawState *s = bs->opaque;
 
     if (s->has_size && (*offset > s->size || bytes > (s->size - *offset))) {
-        /* There's not enough space for the write, or the read request is
-         * out-of-range. Don't read/write anything to prevent leaking out of
-         * the size specified in options. */
         return is_write ? -ENOSPC : -EINVAL;
     }
 
@@ -231,9 +197,6 @@ raw_co_pwritev(BlockDriverState *bs, int64_t offset, int64_t bytes,
     int ret;
 
     if (bs->probed && offset < BLOCK_PROBE_BUF_SIZE && bytes) {
-        /* Handling partial writes would be a pain - so we just
-         * require that guests have 512-byte request alignment if
-         * probing occurred */
         QEMU_BUILD_BUG_ON(BLOCK_PROBE_BUF_SIZE != 512);
         QEMU_BUILD_BUG_ON(BDRV_SECTOR_SIZE != 512);
         assert(offset == 0 && bytes >= BLOCK_PROBE_BUF_SIZE);
@@ -256,8 +219,6 @@ raw_co_pwritev(BlockDriverState *bs, int64_t offset, int64_t bytes,
             goto fail;
         }
 
-        /* Use the checked buffer, a malicious guest might be overwriting its
-         * original buffer in the background. */
         qemu_iovec_init(&local_qiov, qiov->niov + 1);
         qemu_iovec_add(&local_qiov, buf, 512);
         qemu_iovec_concat(&local_qiov, qiov, 512, qiov->size - 512);
@@ -347,8 +308,6 @@ raw_co_getlength(BlockDriverState *bs)
     int64_t len;
     BDRVRawState *s = bs->opaque;
 
-    /* Update size. It should not change unless the file was externally
-     * modified. */
     len = bdrv_co_getlength(bs->file->bs);
     if (len < 0) {
         return len;
@@ -358,7 +317,6 @@ raw_co_getlength(BlockDriverState *bs)
         s->size = 0;
     } else {
         if (s->has_size) {
-            /* Try to honour the size */
             s->size = MIN(s->size, len - s->offset);
         } else {
             s->size = len - s->offset;
@@ -388,7 +346,6 @@ static BlockMeasureInfo *raw_measure(QemuOpts *opts, BlockDriverState *in_bs,
     info = g_new0(BlockMeasureInfo, 1);
     info->required = required;
 
-    /* Unallocated sectors count towards the file size in raw images */
     info->fully_allocated = info->required;
     return info;
 }
@@ -404,9 +361,6 @@ static void GRAPH_RDLOCK raw_refresh_limits(BlockDriverState *bs, Error **errp)
     bs->bl.has_variable_length = bs->file->bs->bl.has_variable_length;
 
     if (bs->probed) {
-        /* To make it easier to protect the first sector, any probed
-         * image is restricted to read-modify-write on sub-sector
-         * operations. */
         bs->bl.request_alignment = BDRV_SECTOR_SIZE;
     }
 }
@@ -482,10 +436,6 @@ static int raw_open(BlockDriverState *bs, QDict *options, int flags,
         return ret;
     }
 
-    /*
-     * Without offset and a size limit, this driver behaves very much
-     * like a filter.  With any such limit, it does not.
-     */
     if (offset || has_size) {
         file_role = BDRV_CHILD_DATA | BDRV_CHILD_PRIMARY;
     } else {
@@ -536,9 +486,6 @@ static int raw_open(BlockDriverState *bs, QDict *options, int flags,
 
 static int raw_probe(const uint8_t *buf, int buf_size, const char *filename)
 {
-    /* smallest possible positive score so that raw is used if and only if no
-     * other block driver works
-     */
     return 1;
 }
 
@@ -625,12 +572,6 @@ static void raw_child_perm(BlockDriverState *bs, BdrvChild *c,
     bdrv_default_perms(bs, c, role, reopen_queue, parent_perm,
                        parent_shared, nperm, nshared);
 
-    /*
-     * bdrv_default_perms() may add WRITE and/or RESIZE (see comment in
-     * bdrv_default_perms_for_storage() for an explanation) but we only need
-     * them if they are in parent_perm. Drop WRITE and RESIZE whenever possible
-     * to avoid permission conflicts.
-     */
     *nperm &= ~(BLK_PERM_WRITE | BLK_PERM_RESIZE);
     *nperm |= parent_perm & (BLK_PERM_WRITE | BLK_PERM_RESIZE);
 }

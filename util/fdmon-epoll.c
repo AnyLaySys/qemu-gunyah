@@ -1,7 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * epoll(7) file descriptor monitoring
- */
 
 #include "qemu/osdep.h"
 #include <sys/epoll.h>
@@ -9,7 +5,6 @@
 #include "qemu/rcu_queue.h"
 #include "aio-posix.h"
 
-/* The fd number threshold to switch to epoll */
 #define EPOLL_ENABLE_THRESHOLD 64
 
 void fdmon_epoll_disable(AioContext *ctx)
@@ -19,7 +14,6 @@ void fdmon_epoll_disable(AioContext *ctx)
         ctx->epollfd = -1;
     }
 
-    /* Switch back */
     ctx->fdmon_ops = &fdmon_poll_ops;
 }
 
@@ -133,7 +127,6 @@ bool fdmon_epoll_try_upgrade(AioContext *ctx, unsigned npfd)
         return false;
     }
 
-    /* The list must not change while we add fds to epoll */
     if (!qemu_lockcnt_dec_if_lock(&ctx->list_lock)) {
         return false;
     }

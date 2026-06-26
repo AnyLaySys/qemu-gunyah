@@ -1,96 +1,13 @@
-# -*- Mode: Python -*-
-# vim: filetype=python
-#
 
-##
-# = Net devices
-##
 
-##
-# @set_link:
-#
-# Sets the link status of a virtual network adapter.
-#
-# @name: the device name of the virtual network adapter
-#
-# @up: true to set the link status to be up
-#
-# Errors:
-#     - If @name is not a valid network device, DeviceNotFound
-#
-# Since: 0.14
-#
-# .. note:: Not all network adapters support setting link status.
-#    This command will succeed even if the network adapter does not
-#    support link status notification.
-#
-# .. qmp-example::
-#
-#     -> { "execute": "set_link",
-#          "arguments": { "name": "e1000.0", "up": false } }
-#     <- { "return": {} }
-##
 { 'command': 'set_link', 'data': {'name': 'str', 'up': 'bool'} }
 
-##
-# @netdev_add:
-#
-# Add a network backend.
-#
-# Additional arguments depend on the type.
-#
-# Since: 0.14
-#
-# Errors:
-#     - If @type is not a valid network backend, DeviceNotFound
-#
-# .. qmp-example::
-#
-#     -> { "execute": "netdev_add",
-#          "arguments": { "type": "user", "id": "netdev1",
-#                         "dnssearch": [ { "str": "example.org" } ] } }
-#     <- { "return": {} }
-##
 { 'command': 'netdev_add', 'data': 'Netdev', 'boxed': true,
   'allow-preconfig': true }
 
-##
-# @netdev_del:
-#
-# Remove a network backend.
-#
-# @id: the name of the network backend to remove
-#
-# Errors:
-#     - If @id is not a valid network backend, DeviceNotFound
-#
-# Since: 0.14
-#
-# .. qmp-example::
-#
-#     -> { "execute": "netdev_del", "arguments": { "id": "netdev1" } }
-#     <- { "return": {} }
-##
 { 'command': 'netdev_del', 'data': {'id': 'str'},
   'allow-preconfig': true }
 
-##
-# @NetLegacyNicOptions:
-#
-# Create a new Network Interface Card.
-#
-# @netdev: id of -netdev to connect to
-#
-# @macaddr: MAC address
-#
-# @model: device model (e1000, rtl8139, virtio etc.)
-#
-# @addr: PCI device address
-#
-# @vectors: number of MSI-x vectors, 0 to disable MSI-X
-#
-# Since: 1.2
-##
 { 'struct': 'NetLegacyNicOptions',
   'data': {
     '*netdev':  'str',
@@ -99,80 +16,10 @@
     '*addr':    'str',
     '*vectors': 'uint32' } }
 
-##
-# @String:
-#
-# A fat type wrapping 'str', to be embedded in lists.
-#
-# Since: 1.2
-##
 { 'struct': 'String',
   'data': {
     'str': 'str' } }
 
-##
-# @NetdevUserOptions:
-#
-# Use the user mode network stack which requires no administrator
-# privilege to run.
-#
-# @hostname: client hostname reported by the builtin DHCP server
-#
-# @restrict: isolate the guest from the host
-#
-# @ipv4: whether to support IPv4, default true for enabled (since 2.6)
-#
-# @ipv6: whether to support IPv6, default true for enabled (since 2.6)
-#
-# @ip: legacy parameter, use net= instead
-#
-# @net: IP network address that the guest will see, in the form
-#     addr[/netmask] The netmask is optional, and can be either in the
-#     form a.b.c.d or as a number of valid top-most bits.  Default is
-#     10.0.2.0/24.
-#
-# @host: guest-visible address of the host
-#
-# @tftp: root directory of the built-in TFTP server
-#
-# @bootfile: BOOTP filename, for use with tftp=
-#
-# @dhcpstart: the first of the 16 IPs the built-in DHCP server can
-#     assign
-#
-# @dns: guest-visible address of the virtual nameserver
-#
-# @dnssearch: list of DNS suffixes to search, passed as DHCP option to
-#     the guest
-#
-# @domainname: guest-visible domain name of the virtual nameserver
-#     (since 3.0)
-#
-# @ipv6-prefix: IPv6 network prefix (default is fec0::) (since 2.6).
-#     The network prefix is given in the usual hexadecimal IPv6
-#     address notation.
-#
-# @ipv6-prefixlen: IPv6 network prefix length (default is 64) (since
-#     2.6)
-#
-# @ipv6-host: guest-visible IPv6 address of the host (since 2.6)
-#
-# @ipv6-dns: guest-visible IPv6 address of the virtual nameserver
-#     (since 2.6)
-#
-# @smb: root directory of the built-in SMB server
-#
-# @smbserver: IP address of the built-in SMB server
-#
-# @hostfwd: redirect incoming TCP or UDP host connections to guest
-#     endpoints
-#
-# @guestfwd: forward guest TCP connections
-#
-# @tftp-server-name: RFC2132 "TFTP server name" string (Since 3.1)
-#
-# Since: 1.2
-##
 { 'struct': 'NetdevUserOptions',
   'data': {
     '*hostname':  'str',
@@ -198,27 +45,9 @@
     '*guestfwd':  ['String'],
     '*tftp-server-name': 'str' } }
 
-##
-# @NetClientDriver:
-#
-# Available netdev drivers.
-#
-# Since: 2.7
-##
 { 'enum': 'NetClientDriver',
   'data': [ 'none', 'nic', 'user' ] }
 
-##
-# @Netdev:
-#
-# Captures the configuration of a network device.
-#
-# @id: identifier for monitor commands.
-#
-# @type: Specify the driver used for interpreting remaining arguments.
-#
-# Since: 1.2
-##
 { 'union': 'Netdev',
   'base': { 'id': 'str', 'type': 'NetClientDriver' },
   'discriminator': 'type',
@@ -226,52 +55,8 @@
     'nic':      'NetLegacyNicOptions',
     'user':     'NetdevUserOptions' } }
 
-##
-# @RxState:
-#
-# Packets receiving state
-#
-# @normal: filter assigned packets according to the mac-table
-#
-# @none: don't receive any assigned packet
-#
-# @all: receive all assigned packets
-#
-# Since: 1.6
-##
 { 'enum': 'RxState', 'data': [ 'normal', 'none', 'all' ] }
 
-##
-# @RxFilterInfo:
-#
-# Rx-filter information for a NIC.
-#
-# @name: net client name
-#
-# @promiscuous: whether promiscuous mode is enabled
-#
-# @multicast: multicast receive state
-#
-# @unicast: unicast receive state
-#
-# @vlan: vlan receive state (Since 2.0)
-#
-# @broadcast-allowed: whether to receive broadcast
-#
-# @multicast-overflow: multicast table is overflowed or not
-#
-# @unicast-overflow: unicast table is overflowed or not
-#
-# @main-mac: the main macaddr string
-#
-# @vlan-table: a list of active vlan id
-#
-# @unicast-table: a list of unicast macaddr string
-#
-# @multicast-table: a list of multicast macaddr string
-#
-# Since: 1.6
-##
 { 'struct': 'RxFilterInfo',
   'data': {
     'name':               'str',
@@ -287,100 +72,13 @@
     'unicast-table':      ['str'],
     'multicast-table':    ['str'] }}
 
-##
-# @query-rx-filter:
-#
-# Return rx-filter information for all NICs (or for the given NIC).
-#
-# @name: net client name
-#
-# Returns: list of @RxFilterInfo for all NICs (or for the given NIC).
-#
-# Errors:
-#     - if the given @name doesn't exist
-#     - if the given NIC doesn't support rx-filter querying
-#     - if the given net client isn't a NIC
-#
-# Since: 1.6
-#
-# .. qmp-example::
-#
-#     -> { "execute": "query-rx-filter", "arguments": { "name": "vnet0" } }
-#     <- { "return": [
-#             {
-#                 "promiscuous": true,
-#                 "name": "vnet0",
-#                 "main-mac": "52:54:00:12:34:56",
-#                 "unicast": "normal",
-#                 "vlan": "normal",
-#                 "vlan-table": [
-#                     4,
-#                     0
-#                 ],
-#                 "unicast-table": [
-#                 ],
-#                 "multicast": "normal",
-#                 "multicast-overflow": false,
-#                 "unicast-overflow": false,
-#                 "multicast-table": [
-#                     "01:00:5e:00:00:01",
-#                     "33:33:00:00:00:01",
-#                     "33:33:ff:12:34:56"
-#                 ],
-#                 "broadcast-allowed": false
-#             }
-#           ]
-#        }
-##
 { 'command': 'query-rx-filter',
   'data': { '*name': 'str' },
   'returns': ['RxFilterInfo'] }
 
-##
-# @NIC_RX_FILTER_CHANGED:
-#
-# Emitted once until the 'query-rx-filter' command is executed, the
-# first event will always be emitted
-#
-# @name: net client name
-#
-# @path: device path
-#
-# Since: 1.6
-#
-# .. qmp-example::
-#
-#     <- { "event": "NIC_RX_FILTER_CHANGED",
-#          "data": { "name": "vnet0",
-#                    "path": "/machine/peripheral/vnet0/virtio-backend" },
-#          "timestamp": { "seconds": 1368697518, "microseconds": 326866 } }
-##
 { 'event': 'NIC_RX_FILTER_CHANGED',
   'data': { '*name': 'str', 'path': 'str' } }
 
-##
-# @AnnounceParameters:
-#
-# Parameters for self-announce timers
-#
-# @initial: Initial delay (in ms) before sending the first GARP/RARP
-#     announcement
-#
-# @max: Maximum delay (in ms) between GARP/RARP announcement packets
-#
-# @rounds: Number of self-announcement attempts
-#
-# @step: Delay increase (in ms) after each self-announcement attempt
-#
-# @interfaces: An optional list of interface names, which restricts
-#     the announcement to the listed interfaces.  (Since 4.1)
-#
-# @id: A name to be used to identify an instance of announce-timers
-#     and to allow it to modified later.  Not for use as part of the
-#     migration parameters.  (Since 4.1)
-#
-# Since: 4.0
-##
 
 { 'struct': 'AnnounceParameters',
   'data': { 'initial': 'int',
@@ -390,45 +88,8 @@
             '*interfaces': ['str'],
             '*id' : 'str' } }
 
-##
-# @announce-self:
-#
-# Trigger generation of broadcast RARP frames to update network
-# switches.  This can be useful when network bonds fail-over the
-# active slave.
-#
-# TODO: This line is a hack to separate the example from the body
-#
-# .. qmp-example::
-#
-#     -> { "execute": "announce-self",
-#          "arguments": {
-#              "initial": 50, "max": 550, "rounds": 10, "step": 50,
-#              "interfaces": ["vn2", "vn3"], "id": "bob" } }
-#     <- { "return": {} }
-#
-# Since: 4.0
-##
 { 'command': 'announce-self', 'boxed': true,
   'data' : 'AnnounceParameters'}
 
-##
-# @FAILOVER_NEGOTIATED:
-#
-# Emitted when VIRTIO_NET_F_STANDBY was enabled during feature
-# negotiation.  Failover primary devices which were hidden (not
-# hotplugged when requested) before will now be hotplugged by the
-# virtio-net standby device.
-#
-# @device-id: QEMU device id of the unplugged device
-#
-# Since: 4.2
-#
-# .. qmp-example::
-#
-#     <- { "event": "FAILOVER_NEGOTIATED",
-#          "data": { "device-id": "net1" },
-#          "timestamp": { "seconds": 1368697518, "microseconds": 326866 } }
-##
 { 'event': 'FAILOVER_NEGOTIATED',
   'data': {'device-id': 'str'} }

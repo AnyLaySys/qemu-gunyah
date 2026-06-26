@@ -1,8 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 #include "qemu/osdep.h"
 #include "qemu/bitmap.h"
 #include "ui/console.h"
@@ -43,21 +38,9 @@ void qkbd_state_key_event(QKbdState *kbd, QKeyCode qcode, bool down)
 
     if (down == false  /* got key-up event   */ &&
         state == false /* key is not pressed */) {
-        /*
-         * Filter out suspicious key-up events.
-         *
-         * This allows simply sending along all key-up events, and
-         * this function will filter out everything where the
-         * corresponding key-down event wasn't sent to the guest, for
-         * example due to being a host hotkey.
-         *
-         * Note that key-down events on already pressed keys are *not*
-         * suspicious, those are keyboard autorepeat events.
-         */
         return;
     }
 
-    /* update key and modifier state */
     if (down) {
         set_bit(qcode, kbd->keys);
     } else {
@@ -93,11 +76,9 @@ void qkbd_state_key_event(QKbdState *kbd, QKeyCode qcode, bool down)
         }
         break;
     default:
-        /* keep gcc happy */
         break;
     }
 
-    /* send to guest */
     if (qemu_console_is_graphic(kbd->con)) {
         qemu_input_event_send_key_qcode(kbd->con, qcode, down);
         if (kbd->key_delay_ms) {

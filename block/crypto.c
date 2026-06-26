@@ -1,22 +1,3 @@
-/*
- * QEMU block full disk encryption
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 
@@ -139,10 +120,6 @@ block_crypto_create_init_func(QCryptoBlock *block, size_t headerlen,
         goto error;
     }
 
-    /* User provided size should reflect amount of space made
-     * available to the guest, so we must take account of that
-     * which will be used by the crypto header
-     */
     ret = blk_truncate(data->blk, data->size + headerlen, false,
                        data->prealloc, 0, &local_error);
 
@@ -152,7 +129,6 @@ block_crypto_create_init_func(QCryptoBlock *block, size_t headerlen,
 
 error:
     if (ret == -EFBIG) {
-        /* Replace the error message with a better one */
         error_free(local_error);
         error_setg(errp, "The requested file size is too large");
     } else {
@@ -191,7 +167,6 @@ block_crypto_co_format_luks_payload(BlockdevCreateOptionsLUKS *luks_opts,
                        luks_opts->preallocation, 0, &local_error);
     if (ret < 0) {
         if (ret == -EFBIG) {
-            /* Replace the error message with a better one */
             error_free(local_error);
             error_setg(errp, "The requested file size is too large");
         }
@@ -456,14 +431,9 @@ static void block_crypto_close(BlockDriverState *bs)
 static int block_crypto_reopen_prepare(BDRVReopenState *state,
                                        BlockReopenQueue *queue, Error **errp)
 {
-    /* nothing needs checking */
     return 0;
 }
 
-/*
- * 1 MB bounce buffer gives good performance / memory tradeoff
- * when using cache=none|directsync.
- */
 #define BLOCK_CRYPTO_MAX_IO_SIZE (1024 * 1024)
 
 static int coroutine_fn GRAPH_RDLOCK
@@ -485,9 +455,6 @@ block_crypto_co_preadv(BlockDriverState *bs, int64_t offset, int64_t bytes,
 
     qemu_iovec_init(&hd_qiov, qiov->niov);
 
-    /* Bounce buffer because we don't wish to expose cipher text
-     * in qiov which points to guest memory.
-     */
     cipher_data =
         qemu_try_blockalign(bs->file->bs, MIN(BLOCK_CRYPTO_MAX_IO_SIZE,
                                               qiov->size));
@@ -549,9 +516,6 @@ block_crypto_co_pwritev(BlockDriverState *bs, int64_t offset, int64_t bytes,
 
     qemu_iovec_init(&hd_qiov, qiov->niov);
 
-    /* Bounce buffer because we're not permitted to touch
-     * contents of qiov - it points to guest memory.
-     */
     cipher_data =
         qemu_try_blockalign(bs->file->bs, MIN(BLOCK_CRYPTO_MAX_IO_SIZE,
                                               qiov->size));
@@ -629,10 +593,6 @@ static BlockMeasureInfo *block_crypto_measure(QemuOpts *opts,
     size_t luks_payload_size;
     QDict *cryptoopts;
 
-    /*
-     * Preallocation mode doesn't affect size requirements but we must consume
-     * the option.
-     */
     g_free(qemu_opt_get_del(opts, BLOCK_OPT_PREALLOC));
 
     size = qemu_opt_get_size_del(opts, BLOCK_OPT_SIZE, 0);
@@ -664,10 +624,6 @@ static BlockMeasureInfo *block_crypto_measure(QemuOpts *opts,
         goto err;
     }
 
-    /*
-     * Unallocated blocks are still encrypted so allocation status makes no
-     * difference to the file size.
-     */
     info = g_new0(BlockMeasureInfo, 1);
     info->fully_allocated = luks_payload_size + size;
     info->required = luks_payload_size + size;
@@ -733,7 +689,6 @@ block_crypto_co_create_luks(BlockdevCreateOptions *create_options, Error **errp)
     }
 
     if (luks_opts->header) {
-        /* LUKS volume with detached header */
         hdr_bs = bdrv_co_open_blockdev_ref(luks_opts->header, errp);
         if (hdr_bs == NULL) {
             return -EIO;
@@ -741,14 +696,12 @@ block_crypto_co_create_luks(BlockdevCreateOptions *create_options, Error **errp)
 
         cflags |= QCRYPTO_BLOCK_CREATE_DETACHED;
 
-        /* Format the LUKS header node */
         ret = block_crypto_co_create_generic(hdr_bs, 0, &create_opts,
                                              PREALLOC_MODE_OFF, cflags, errp);
         if (ret < 0) {
             goto fail;
         }
 
-        /* Format the LUKS payload node */
         if (luks_opts->file) {
             ret = block_crypto_co_format_luks_payload(luks_opts, errp);
             if (ret < 0) {
@@ -756,7 +709,6 @@ block_crypto_co_create_luks(BlockdevCreateOptions *create_options, Error **errp)
             }
         }
     } else if (luks_opts->file) {
-        /* LUKS volume with none-detached header */
         bs = bdrv_co_open_blockdev_ref(luks_opts->file, errp);
         if (bs == NULL) {
             return -EIO;
@@ -797,7 +749,6 @@ block_crypto_co_create_opts_luks(BlockDriver *drv, const char *filename,
     int ret;
     Error *local_err = NULL;
 
-    /* Parse options */
     size = qemu_opt_get_size_del(opts, BLOCK_OPT_SIZE, 0);
 
     buf = qemu_opt_get_del(opts, BLOCK_OPT_PREALLOC);
@@ -820,7 +771,6 @@ block_crypto_co_create_opts_luks(BlockDriver *drv, const char *filename,
         goto fail;
     }
 
-    /* Create protocol layer */
     ret = bdrv_co_create_file(filename, opts, errp);
     if (ret < 0) {
         goto fail;
@@ -837,7 +787,6 @@ block_crypto_co_create_opts_luks(BlockDriver *drv, const char *filename,
         cflags |= QCRYPTO_BLOCK_CREATE_DETACHED;
     }
 
-    /* Create format layer */
     ret = block_crypto_co_create_generic(bs, size, create_opts,
                                          prealloc, cflags, errp);
     if (ret < 0) {
@@ -846,10 +795,6 @@ block_crypto_co_create_opts_luks(BlockDriver *drv, const char *filename,
 
     ret = 0;
 fail:
-    /*
-     * If an error occurred, delete 'filename'. Even if the file existed
-     * beforehand, it has been truncated and corrupted in the process.
-     */
     if (ret) {
         bdrv_graph_co_rdlock();
         bdrv_co_delete_file_noerr(bs);
@@ -896,7 +841,6 @@ block_crypto_get_specific_info_luks(BlockDriverState *bs, Error **errp)
     spec_info->u.luks.data = g_new(QCryptoBlockInfoLUKS, 1);
     *spec_info->u.luks.data = info->u.luks;
 
-    /* Blank out pointers we've just stolen to avoid double free */
     memset(&info->u.luks, 0, sizeof(info->u.luks));
 
     qapi_free_QCryptoBlockInfo(info);
@@ -910,11 +854,9 @@ block_crypto_amend_prepare(BlockDriverState *bs, Error **errp)
     BlockCrypto *crypto = bs->opaque;
     int ret;
 
-    /* apply for exclusive read/write permissions to the underlying file */
     crypto->updating_keys = true;
     ret = bdrv_child_refresh_perms(bs, bs->file, errp);
     if (ret < 0) {
-        /* Well, in this case we will not be updating any keys */
         crypto->updating_keys = false;
     }
     return ret;
@@ -926,7 +868,6 @@ block_crypto_amend_cleanup(BlockDriverState *bs)
     BlockCrypto *crypto = bs->opaque;
     Error *errp = NULL;
 
-    /* release exclusive read/write permissions to the underlying file */
     crypto->updating_keys = false;
     bdrv_child_refresh_perms(bs, bs->file, &errp);
 
@@ -1021,35 +962,12 @@ block_crypto_child_perms(BlockDriverState *bs, BdrvChild *c,
 
     bdrv_default_perms(bs, c, role, reopen_queue, perm, shared, nperm, nshared);
 
-    /*
-     * For backward compatibility, manually share the write
-     * and resize permission
-     */
     *nshared |= shared & (BLK_PERM_WRITE | BLK_PERM_RESIZE);
-    /*
-     * Since we are not fully a format driver, don't always request
-     * the read/resize permission but only when explicitly
-     * requested
-     */
     *nperm &= ~(BLK_PERM_WRITE | BLK_PERM_RESIZE);
     *nperm |= perm & (BLK_PERM_WRITE | BLK_PERM_RESIZE);
 
-    /*
-     * This driver doesn't modify LUKS metadata except
-     * when updating the encryption slots.
-     * Thus unlike a proper format driver we don't ask for
-     * shared write/read permission. However we need it
-     * when we are updating the keys, to ensure that only we
-     * have access to the device.
-     *
-     * Encryption update will set the crypto->updating_keys
-     * during that period and refresh permissions
-     *
-     */
     if (crypto->updating_keys) {
-        /* need exclusive write access for header update */
         *nperm |= BLK_PERM_WRITE;
-        /* unshare read and write permission */
         *nshared &= ~(BLK_PERM_CONSISTENT_READ | BLK_PERM_WRITE);
     }
 }

@@ -30,7 +30,6 @@ OBJECT_DECLARE_SIMPLE_TYPE(QemuFixedTextConsole, QEMU_FIXED_TEXT_CONSOLE)
 #define QEMU_IS_FIXED_TEXT_CONSOLE(c) \
     object_dynamic_cast(OBJECT(c), TYPE_QEMU_FIXED_TEXT_CONSOLE)
 
-/* keyboard/mouse support */
 
 #define MOUSE_EVENT_LBUTTON 0x01
 #define MOUSE_EVENT_RBUTTON 0x02
@@ -38,16 +37,13 @@ OBJECT_DECLARE_SIMPLE_TYPE(QemuFixedTextConsole, QEMU_FIXED_TEXT_CONSOLE)
 #define MOUSE_EVENT_WHEELUP 0x08
 #define MOUSE_EVENT_WHEELDN 0x10
 
-/* identical to the ps/2 keyboard bits */
 #define QEMU_SCROLL_LOCK_LED (1 << 0)
 #define QEMU_NUM_LOCK_LED    (1 << 1)
 #define QEMU_CAPS_LOCK_LED   (1 << 2)
 
-/* in ms */
 #define GUI_REFRESH_INTERVAL_DEFAULT    30
 #define GUI_REFRESH_INTERVAL_IDLE     3000
 
-/* Color number is match to standard vga palette */
 enum qemu_color_names {
     QEMU_COLOR_BLACK   = 0,
     QEMU_COLOR_BLUE    = 1,
@@ -58,7 +54,6 @@ enum qemu_color_names {
     QEMU_COLOR_YELLOW  = 6,
     QEMU_COLOR_WHITE   = 7
 };
-/* Convert to curses char attributes */
 #define ATTR2CHTYPE(c, fg, bg, bold) \
     ((bold) << 21 | (bg) << 11 | (fg) << 8 | (c))
 
@@ -83,8 +78,6 @@ void kbd_put_ledstate(int ledstate);
 
 bool qemu_mouse_set(int index, Error **errp);
 
-/* keysym is a unicode code except for special keys (see QEMU_KEY_xxx
-   constants) */
 #define QEMU_KEY_ESC1(c) ((c) | 0xe100)
 #define QEMU_KEY_TAB        0x0009
 #define QEMU_KEY_BACKSPACE  0x007f
@@ -111,7 +104,6 @@ void qemu_text_console_put_keysym(QemuTextConsole *s, int keysym);
 bool qemu_text_console_put_qcode(QemuTextConsole *s, int qcode, bool ctrl);
 void qemu_text_console_put_string(QemuTextConsole *s, const char *str, int len);
 
-/* Touch devices */
 typedef struct touch_slot {
     int x;
     int y;
@@ -125,7 +117,6 @@ void console_handle_touch_event(QemuConsole *con,
                                 double x, double y,
                                 InputMultiTouchType type,
                                 Error **errp);
-/* consoles */
 
 struct QemuConsoleClass {
     ObjectClass parent_class;
@@ -144,10 +135,8 @@ typedef struct ScanoutTexture {
 } ScanoutTexture;
 
 typedef struct QemuUIInfo {
-    /* physical dimension */
     uint16_t width_mm;
     uint16_t height_mm;
-    /* geometry */
     int       xoff;
     int       yoff;
     uint32_t  width;
@@ -155,7 +144,6 @@ typedef struct QemuUIInfo {
     uint32_t  refresh_rate;
 } QemuUIInfo;
 
-/* cursor data format is 32bit RGBA */
 typedef struct QEMUCursor {
     uint16_t            width, height;
     int                 hot_x, hot_y;
@@ -193,7 +181,6 @@ enum display_scanout {
 typedef struct DisplayScanout {
     enum display_scanout kind;
     union {
-        /* DisplaySurface *surface; is kept in QemuConsole */
         ScanoutTexture texture;
         QemuDmaBuf *dmabuf;
     };
@@ -205,39 +192,28 @@ typedef struct DisplayGLCtx DisplayGLCtx;
 typedef struct DisplayChangeListenerOps {
     const char *dpy_name;
 
-    /* optional */
     void (*dpy_refresh)(DisplayChangeListener *dcl);
 
-    /* optional */
     void (*dpy_gfx_update)(DisplayChangeListener *dcl,
                            int x, int y, int w, int h);
-    /* optional */
     void (*dpy_gfx_switch)(DisplayChangeListener *dcl,
                            struct DisplaySurface *new_surface);
-    /* optional */
     bool (*dpy_gfx_check_format)(DisplayChangeListener *dcl,
                                  pixman_format_code_t format);
 
-    /* optional */
     void (*dpy_text_cursor)(DisplayChangeListener *dcl,
                             int x, int y);
-    /* optional */
     void (*dpy_text_resize)(DisplayChangeListener *dcl,
                             int w, int h);
-    /* optional */
     void (*dpy_text_update)(DisplayChangeListener *dcl,
                             int x, int y, int w, int h);
 
-    /* optional */
     void (*dpy_mouse_set)(DisplayChangeListener *dcl,
                           int x, int y, bool on);
-    /* optional */
     void (*dpy_cursor_define)(DisplayChangeListener *dcl,
                               QEMUCursor *cursor);
 
-    /* required if GL */
     void (*dpy_gl_scanout_disable)(DisplayChangeListener *dcl);
-    /* required if GL */
     void (*dpy_gl_scanout_texture)(DisplayChangeListener *dcl,
                                    uint32_t backing_id,
                                    bool backing_y_0_top,
@@ -246,22 +222,16 @@ typedef struct DisplayChangeListenerOps {
                                    uint32_t x, uint32_t y,
                                    uint32_t w, uint32_t h,
                                    void *d3d_tex2d);
-    /* optional (default to true if has dpy_gl_scanout_dmabuf) */
     bool (*dpy_has_dmabuf)(DisplayChangeListener *dcl);
-    /* optional */
     void (*dpy_gl_scanout_dmabuf)(DisplayChangeListener *dcl,
                                   QemuDmaBuf *dmabuf);
-    /* optional */
     void (*dpy_gl_cursor_dmabuf)(DisplayChangeListener *dcl,
                                  QemuDmaBuf *dmabuf, bool have_hot,
                                  uint32_t hot_x, uint32_t hot_y);
-    /* optional */
     void (*dpy_gl_cursor_position)(DisplayChangeListener *dcl,
                                    uint32_t pos_x, uint32_t pos_y);
-    /* optional */
     void (*dpy_gl_release_dmabuf)(DisplayChangeListener *dcl,
                                   QemuDmaBuf *dmabuf);
-    /* required if GL */
     void (*dpy_gl_update)(DisplayChangeListener *dcl,
                           uint32_t x, uint32_t y, uint32_t w, uint32_t h);
 
@@ -357,9 +327,7 @@ static inline void console_write_ch(console_ch_t *dest, uint32_t ch)
 
 enum {
     GRAPHIC_FLAGS_NONE     = 0,
-    /* require a console/display with GL callbacks */
     GRAPHIC_FLAGS_GL       = 1 << 0,
-    /* require a console/display with DMABUF import */
     GRAPHIC_FLAGS_DMABUF   = 1 << 1,
 };
 
@@ -406,9 +374,7 @@ int qemu_console_get_index(QemuConsole *con);
 uint32_t qemu_console_get_head(QemuConsole *con);
 int qemu_console_get_width(QemuConsole *con, int fallback);
 int qemu_console_get_height(QemuConsole *con, int fallback);
-/* Return the low-level window id for the console */
 int qemu_console_get_window_id(QemuConsole *con);
-/* Set the low-level window id for the console */
 void qemu_console_set_window_id(QemuConsole *con, int window_id);
 
 void qemu_console_resize(QemuConsole *con, int width, int height);
@@ -416,7 +382,6 @@ DisplaySurface *qemu_console_surface(QemuConsole *con);
 void coroutine_fn qemu_console_co_wait_update(QemuConsole *con);
 int qemu_invalidate_text_consoles(void);
 
-/* console-gl.c */
 #ifdef CONFIG_OPENGL
 bool console_gl_check_format(DisplayChangeListener *dcl,
                              pixman_format_code_t format);
@@ -450,15 +415,12 @@ void qemu_display_init(DisplayState *ds, DisplayOptions *opts);
 const char *qemu_display_get_vc(DisplayOptions *opts);
 void qemu_display_help(void);
 
-/* input.c */
 int index_from_key(const char *key, size_t key_length);
 
 #ifdef CONFIG_LINUX
-/* udmabuf.c */
 int udmabuf_fd(void);
 #endif
 
-/* util.c */
 bool qemu_console_fill_device_address(QemuConsole *con,
                                       char *device_address,
                                       size_t size,

@@ -73,7 +73,6 @@ qapi_nonmodule_outputs = [
   'qapi-emit-events.c', 'qapi-emit-events.h',
 ]
 
-# First build all sources
 qapi_util_outputs = [
   'qapi-builtin-types.c', 'qapi-builtin-visit.c',
   'qapi-builtin-types.h', 'qapi-builtin-visit.h',
@@ -111,8 +110,6 @@ qapi_files = custom_target('shared QAPI source files',
   command: [ qapi_gen, '-o', 'qapi', '-b', '@INPUT0@' ],
   depend_files: [ qapi_inputs, qapi_gen_depends ])
 
-# Now go through all the outputs and add them to the right sourceset.
-# These loops must be synchronized with the output of the above custom target.
 
 i = 0
 foreach output : qapi_util_outputs

@@ -1,14 +1,3 @@
-/*
- * Print to stream or current monitor
- *
- * Copyright (C) 2019 Red Hat Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #ifndef QEMU_PRINT_H
 #define QEMU_PRINT_H

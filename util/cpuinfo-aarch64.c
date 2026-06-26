@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Host specific cpu identification for AArch64.
- */
 
 #include "qemu/osdep.h"
 #include "host/cpuinfo.h"
@@ -42,18 +38,11 @@ static bool sysctl_for_bool(const char *name)
         return val != 0;
     }
 
-    /*
-     * We might in the future ask for properties not present in older kernels,
-     * but we're only asking about static properties, all of which should be
-     * 'int'.  So we shouldn't see ENOMEM (val too small), or any of the other
-     * more exotic errors.
-     */
     assert(errno == ENOENT);
     return false;
 }
 #endif
 
-/* Called both as constructor and (possibly) via other constructors. */
 unsigned __attribute__((constructor)) cpuinfo_init(void)
 {
     unsigned info = cpuinfo;

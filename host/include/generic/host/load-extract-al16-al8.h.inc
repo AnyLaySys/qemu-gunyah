@@ -1,22 +1,7 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Atomic extract 64 from 128-bit, generic version.
- *
- * Copyright (C) 2023 Linaro, Ltd.
- */
 
 #ifndef HOST_LOAD_EXTRACT_AL16_AL8_H
 #define HOST_LOAD_EXTRACT_AL16_AL8_H
 
-/**
- * load_atom_extract_al16_or_al8:
- * @pv: host address
- * @s: object size in bytes, @s <= 8.
- *
- * Load @s bytes from @pv, when pv % s != 0.  If [p, p+s-1] does not
- * cross an 16-byte boundary then the access must be 16-byte atomic,
- * otherwise the access must be 8-byte atomic.
- */
 static inline uint64_t ATTRIBUTE_ATOMIC128_OPT
 load_atom_extract_al16_or_al8(void *pv, int s)
 {

@@ -66,7 +66,6 @@ typedef target_long abi_long __attribute__((aligned(ABI_LONG_ALIGNMENT)));
 #define TARGET_ABI_FMT_lx TARGET_FMT_lx
 #define TARGET_ABI_FMT_ld TARGET_FMT_ld
 #define TARGET_ABI_FMT_lu TARGET_FMT_lu
-/* for consistency, define ABI32 too */
 #if TARGET_ABI_BITS == 32
 #define TARGET_ABI32 1
 #endif

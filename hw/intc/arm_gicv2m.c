@@ -1,29 +1,4 @@
-/*
- *  GICv2m extension for MSI/MSI-x support with a GICv2-based system
- *
- * Copyright (C) 2015 Linaro, All rights reserved.
- *
- * Author: Christoffer Dall <christoffer.dall@linaro.org>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
-/* This file implements an emulated GICv2m widget as described in the ARM
- * Server Base System Architecture (SBSA) specification Version 2.2
- * (ARM-DEN-0029 v2.2) pages 35-39 without any optional implementation defined
- * identification registers and with a single non-secure MSI register frame.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -82,15 +57,8 @@ static uint64_t gicv2m_read(void *opaque, hwaddr offset,
         val |= s->num_spi;
         return val;
     case V2M_MSI_IIDR:
-        /* We don't have any valid implementor so we leave that field as zero
-         * and we return 0 in the arch revision as per the spec.
-         */
         return (PRODUCT_ID_QEMU << 20);
     case V2M_IIDR0 ... V2M_IIDR11:
-        /* We do not implement any optional identification registers and the
-         * mandatory MSI_PIDR2 register reads as 0x0, so we capture all
-         * implementation defined registers here.
-         */
         return 0;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,

@@ -3,15 +3,6 @@
 
 #include "hw/qdev-core.h"
 
-/**
- * Property:
- * @set_default: true if the default value should be set from @defval,
- *    in which case @info->set_default_value must not be NULL
- *    (if false then no default value is set by the property system
- *     and the field retains whatever value it was given by instance_init).
- * @defval: default value for the property. This is used only if @set_default
- *     is true.
- */
 struct Property {
     const char   *name;
     const PropertyInfo *info;
@@ -44,7 +35,6 @@ struct PropertyInfo {
 };
 
 
-/*** qdev-properties.c ***/
 
 extern const PropertyInfo qdev_prop_bit;
 extern const PropertyInfo qdev_prop_bit64;
@@ -105,38 +95,11 @@ extern const PropertyInfo qdev_prop_link;
                 .set_default = true,                         \
                 .defval.u    = (bool)_defval)
 
-/**
- * The DEFINE_PROP_UINT64_CHECKMASK macro checks a user-supplied value
- * against corresponding bitmask, rejects the value if it violates.
- * The default value is set in instance_init().
- */
 #define DEFINE_PROP_UINT64_CHECKMASK(_name, _state, _field, _bitmask)   \
     DEFINE_PROP(_name, _state, _field, qdev_prop_uint64_checkmask, uint64_t, \
                 .bitmask    = (_bitmask),                     \
                 .set_default = false)
 
-/**
- * DEFINE_PROP_ARRAY:
- * @_name: name of the array
- * @_state: name of the device state structure type
- * @_field: uint32_t field in @_state to hold the array length
- * @_arrayfield: field in @_state (of type '@_arraytype *') which
- *               will point to the array
- * @_arrayprop: PropertyInfo defining what property the array elements have
- * @_arraytype: C type of the array elements
- *
- * Define device properties for a variable-length array _name.  The array is
- * represented as a list in the visitor interface.
- *
- * @_arraytype is required to be movable with memcpy().
- *
- * When the array property is set, the @_field member of the device
- * struct is set to the array length, and @_arrayfield is set to point
- * to the memory allocated for the array.
- *
- * It is the responsibility of the device deinit code to free the
- * @_arrayfield memory.
- */
 #define DEFINE_PROP_ARRAY(_name, _state, _field,                        \
                           _arrayfield, _arrayprop, _arraytype)          \
     DEFINE_PROP(_name, _state, _field, qdev_prop_array, uint32_t,       \
@@ -171,18 +134,9 @@ extern const PropertyInfo qdev_prop_link;
 #define DEFINE_PROP_SIZE32(_n, _s, _f, _d)                       \
     DEFINE_PROP_UNSIGNED(_n, _s, _f, _d, qdev_prop_size32, uint32_t)
 
-/*
- * Set properties between creation and realization.
- *
- * Returns: %true on success, %false on error.
- */
 bool qdev_prop_set_drive_err(DeviceState *dev, const char *name,
                              BlockBackend *value, Error **errp);
 
-/*
- * Set properties between creation and realization.
- * @value must be valid.  Each property may be set at most once.
- */
 void qdev_prop_set_bit(DeviceState *dev, const char *name, bool value);
 void qdev_prop_set_uint8(DeviceState *dev, const char *name, uint8_t value);
 void qdev_prop_set_uint16(DeviceState *dev, const char *name, uint16_t value);
@@ -198,7 +152,6 @@ void qdev_prop_set_macaddr(DeviceState *dev, const char *name,
                            const uint8_t *value);
 void qdev_prop_set_enum(DeviceState *dev, const char *name, int value);
 
-/* Takes ownership of @values */
 void qdev_prop_set_array(DeviceState *dev, const char *name, QList *values);
 
 void *object_field_prop_ptr(Object *obj, const Property *prop);
@@ -211,52 +164,13 @@ void qdev_prop_set_globals(DeviceState *dev);
 void error_set_from_qdev_prop_error(Error **errp, int ret, Object *obj,
                                     const char *name, const char *value);
 
-/**
- * qdev_property_add_static:
- * @dev: Device to add the property to.
- * @prop: The qdev property definition.
- *
- * Add a static QOM property to @dev for qdev property @prop.
- * On error, store error in @errp.  Static properties access data in a struct.
- * The type of the QOM property is derived from prop->info.
- */
 void qdev_property_add_static(DeviceState *dev, const Property *prop);
 
-/**
- * qdev_alias_all_properties: Create aliases on source for all target properties
- * @target: Device which has properties to be aliased
- * @source: Object to add alias properties to
- *
- * Add alias properties to the @source object for all properties on the @target
- * DeviceState.
- *
- * This is useful when @target is an internal implementation object
- * owned by @source, and you want to expose all the properties of that
- * implementation object as properties on the @source object so that users
- * of @source can set them.
- */
 void qdev_alias_all_properties(DeviceState *target, Object *source);
 
-/**
- * @qdev_prop_set_after_realize:
- * @dev: device
- * @name: name of property
- * @errp: indirect pointer to Error to be set
- * Set the Error object to report that an attempt was made to set a property
- * on a device after it has already been realized. This is a utility function
- * which allows property-setter functions to easily report the error in
- * a friendly format identifying both the device and the property.
- */
 void qdev_prop_set_after_realize(DeviceState *dev, const char *name,
                                  Error **errp);
 
-/**
- * qdev_prop_allow_set_link_before_realize:
- *
- * Set the #Error object if an attempt is made to set the link after realize.
- * This function should be used as the check() argument to
- * object_property_add_link().
- */
 void qdev_prop_allow_set_link_before_realize(const Object *obj,
                                              const char *name,
                                              Object *val, Error **errp);

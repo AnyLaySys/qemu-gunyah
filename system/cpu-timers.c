@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -36,7 +13,6 @@
 #include "system/cpu-timers.h"
 #include "system/cpu-timers-internal.h"
 
-/* clock and ticks */
 
 static int64_t cpu_get_ticks_locked(void)
 {
@@ -46,7 +22,6 @@ static int64_t cpu_get_ticks_locked(void)
     }
 
     if (timers_state.cpu_ticks_prev > ticks) {
-        /* Non increasing ticks may happen if the host uses software suspend. */
         timers_state.cpu_ticks_offset += timers_state.cpu_ticks_prev - ticks;
         ticks = timers_state.cpu_ticks_prev;
     }
@@ -55,10 +30,6 @@ static int64_t cpu_get_ticks_locked(void)
     return ticks;
 }
 
-/*
- * return the time elapsed in VM between vm_start and vm_stop.
- * cpu_get_ticks() uses units of the host CPU cycle counter.
- */
 int64_t cpu_get_ticks(void)
 {
     int64_t ticks;
@@ -81,10 +52,6 @@ int64_t cpu_get_clock_locked(void)
     return time;
 }
 
-/*
- * Return the monotonic time elapsed in VM, i.e.,
- * the time between vm_start and vm_stop
- */
 int64_t cpu_get_clock(void)
 {
     int64_t ti;
@@ -98,10 +65,6 @@ int64_t cpu_get_clock(void)
     return ti;
 }
 
-/*
- * enable cpu_get_ticks()
- * Caller must hold BQL which serves as mutex for vm_clock_seqlock.
- */
 void cpu_enable_ticks(void)
 {
     seqlock_write_lock(&timers_state.vm_clock_seqlock,
@@ -115,11 +78,6 @@ void cpu_enable_ticks(void)
                        &timers_state.vm_clock_lock);
 }
 
-/*
- * disable cpu_get_ticks() : the clock is stopped. You must not call
- * cpu_get_ticks() after that.
- * Caller must hold BQL which serves as mutex for vm_clock_seqlock.
- */
 void cpu_disable_ticks(void)
 {
     seqlock_write_lock(&timers_state.vm_clock_seqlock,
@@ -152,7 +110,6 @@ void qemu_timer_notify_cb(void *opaque, QEMUClockType type)
 
 TimersState timers_state;
 
-/* initialize timers state and the cpu throttle for convenience */
 void cpu_timers_init(void)
 {
     seqlock_init(&timers_state.vm_clock_seqlock);

@@ -1,14 +1,3 @@
-/*
- * QDict Module
- *
- * Copyright (C) 2009 Red Hat Inc.
- *
- * Authors:
- *  Luiz Capitulino <lcapitulino@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- */
 
 #ifndef QDICT_H
 #define QDICT_H
@@ -34,7 +23,6 @@ void qdict_unref(QDict *q);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(QDict, qdict_unref)
 
-/* Object API */
 QDict *qdict_new(void);
 const char *qdict_entry_key(const QDictEntry *entry);
 QObject *qdict_entry_value(const QDictEntry *entry);
@@ -46,7 +34,6 @@ QObject *qdict_get(const QDict *qdict, const char *key);
 const QDictEntry *qdict_first(const QDict *qdict);
 const QDictEntry *qdict_next(const QDict *qdict, const QDictEntry *entry);
 
-/* Helper to qdict_put_obj(), accepts any object */
 #define qdict_put(qdict, key, obj) \
         qdict_put_obj(qdict, key, QOBJECT(obj))
 

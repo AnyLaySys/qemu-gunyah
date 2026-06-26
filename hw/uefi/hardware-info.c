@@ -1,10 +1,3 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * pass hardware information to uefi
- *
- * see OvmfPkg/Library/HardwareInfoLib/ in edk2
- */
 
 #include "qemu/osdep.h"
 

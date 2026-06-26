@@ -1,22 +1,3 @@
-/*
- * pcie_port.h
- *
- * Copyright (c) 2010 Isaku Yamahata <yamahata at valinux co jp>
- *                    VA Linux Systems Japan K.K.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef QEMU_PCIE_PORT_H
 #define QEMU_PCIE_PORT_H
@@ -30,11 +11,8 @@
 OBJECT_DECLARE_SIMPLE_TYPE(PCIEPort, PCIE_PORT)
 
 struct PCIEPort {
-    /*< private >*/
     PCIBridge   parent_obj;
-    /*< public >*/
 
-    /* pci express switch port */
     uint8_t     port;
 };
 
@@ -48,24 +26,18 @@ int pcie_count_ds_ports(PCIBus *bus);
 OBJECT_DECLARE_SIMPLE_TYPE(PCIESlot, PCIE_SLOT)
 
 struct PCIESlot {
-    /*< private >*/
     PCIEPort    parent_obj;
-    /*< public >*/
 
-    /* pci express switch port with slot */
     uint8_t     chassis;
     uint16_t    slot;
 
     PCIExpLinkSpeed speed;
     PCIExpLinkWidth width;
 
-    /* Disable ACS (really for a pcie_root_port) */
     bool        disable_acs;
 
-    /* Indicates whether any type of hot-plug is allowed on the slot */
     bool        hotplug;
 
-    /* broken ACPI hotplug compat knob to preserve 6.1 ABI intact */
     bool        hide_native_hotplug_cap;
 
     QLIST_ENTRY(PCIESlot) next;

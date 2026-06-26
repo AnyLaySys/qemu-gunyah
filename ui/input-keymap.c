@@ -69,7 +69,6 @@ int qemu_input_key_value_to_scancode(const KeyValue *value, bool down,
 
     if (value->type == KEY_VALUE_KIND_QCODE &&
         value->u.qcode.data == Q_KEY_CODE_PAUSE) {
-        /* specific case */
         int v = down ? 0 : 0x80;
         codes[count++] = 0xe1;
         codes[count++] = 0x1d | v;

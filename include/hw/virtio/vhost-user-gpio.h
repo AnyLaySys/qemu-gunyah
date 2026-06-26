@@ -1,10 +1,3 @@
-/*
- * Vhost-user GPIO virtio device
- *
- * Copyright (c) 2021 Viresh Kumar <viresh.kumar@linaro.org>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef _QEMU_VHOST_USER_GPIO_H
 #define _QEMU_VHOST_USER_GPIO_H

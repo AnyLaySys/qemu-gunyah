@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -49,8 +48,6 @@ def generate(name, lines, enabled):
             elif kind == 'arch':
                 arch = data;
             elif kind == 'kconfig':
-                # don't add a module which dependency is not enabled
-                # in kconfig
                 if data.strip() not in enabled:
                     print("    /* module {} isn't enabled in Kconfig. */"
                           .format(data.strip()))
@@ -85,7 +82,6 @@ def main(args):
               'config-device.mak [modinfo files]', file=sys.stderr)
         exit(1)
 
-    # get all devices enabled in kconfig, from *-config-device.mak
     enabled = set()
     with open(args[1]) as file:
         for line in file.readlines():

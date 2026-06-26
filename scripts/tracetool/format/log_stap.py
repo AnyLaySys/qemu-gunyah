@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Generate .stp file that printfs log messages (DTrace with SystemTAP only).
@@ -78,11 +77,6 @@ def c_fmt_to_stap(fmt):
     elif state == STATE_LITERAL:
         bits.append(literal)
 
-    # All variables in systemtap are 64-bit in size
-    # The "%l" integer size qualifier is thus redundant
-    # and "%ll" is not valid at all. Similarly the size_t
-    # based "%z" size qualifier is not valid. We just
-    # strip all size qualifiers for sanity.
     fmt = re.sub(r"%(\d*)(l+|z)(x|u|d)", r"%\1\3", "".join(bits))
     return fmt
 
@@ -99,7 +93,6 @@ def generate(events, backend, group):
             probeprefix=probeprefix(),
             name=e.name)
 
-        # Get references to userspace strings
         for type_, name in e.args:
             name = stap_escape(name)
             if is_string(type_):
@@ -109,7 +102,6 @@ def generate(events, backend, group):
                     '    } catch {}',
                     name=name)
 
-        # Determine systemtap's view of variable names
         fields = ["pid()", "gettimeofday_ns()"]
         for type_, name in e.args:
             name = stap_escape(name)
@@ -118,7 +110,6 @@ def generate(events, backend, group):
             else:
                 fields.append(name)
 
-        # Emit the entire record in a single SystemTap printf()
         arg_str = ', '.join(arg for arg in fields)
         fmt_str = "%d@%d " + e.name + " " + c_fmt_to_stap(e.fmt) + "\\n"
         out('    printf("%(fmt_str)s", %(arg_str)s)',

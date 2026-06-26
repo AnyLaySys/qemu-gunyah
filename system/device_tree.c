@@ -1,15 +1,3 @@
-/*
- * Functions to help device tree manipulation using libfdt.
- * It also provides functions to read entries from device tree proc
- * interface.
- *
- * Copyright 2008 IBM Corporation.
- * Authors: Jerone Young <jyoung5@us.ibm.com>
- *          Hollis Blanchard <hollisb@us.ibm.com>
- *
- * This work is licensed under the GNU GPL license version 2 or later.
- *
- */
 
 #include "qemu/osdep.h"
 
@@ -94,10 +82,8 @@ void *load_device_tree(const char *filename_path, int *sizep)
         goto fail;
     }
 
-    /* Expand to 2x size to give enough room for manipulation.  */
     dt_size += 10000;
     dt_size *= 2;
-    /* First allocate space in qemu for device tree */
     fdt = g_malloc0(dt_size);
 
     dt_file_load_size = load_image_size(filename_path, fdt, dt_size);
@@ -114,7 +100,6 @@ void *load_device_tree(const char *filename_path, int *sizep)
         goto fail;
     }
 
-    /* Check sanity of device tree */
     if (fdt_check_header(fdt)) {
         error_report("Device tree file loaded into memory is invalid: %s",
                      filename_path);
@@ -132,15 +117,6 @@ fail:
 
 #define SYSFS_DT_BASEDIR "/proc/device-tree"
 
-/**
- * read_fstree: this function is inspired from dtc read_fstree
- * @fdt: preallocated fdt blob buffer, to be populated
- * @dirname: directory to scan under SYSFS_DT_BASEDIR
- * the search is recursive and the tree is searched down to the
- * leaves (property files).
- *
- * the function asserts in case of error
- */
 static void read_fstree(void *fdt, const char *dirname)
 {
     DIR *d;
@@ -210,7 +186,6 @@ static void read_fstree(void *fdt, const char *dirname)
     closedir(d);
 }
 
-/* load_device_tree_from_sysfs: extract the dt blob from host sysfs */
 void *load_device_tree_from_sysfs(void)
 {
     void *host_fdt;
@@ -403,11 +378,6 @@ int qemu_fdt_setprop_string(void *fdt, const char *node_path,
     return r;
 }
 
-/*
- * libfdt doesn't allow us to add string arrays directly but they are
- * test a series of null terminated strings with a length. We build
- * the string up here so we can calculate the final length.
- */
 int qemu_fdt_setprop_string_array(void *fdt, const char *node_path,
                                   const char *prop, char **array, int len)
 {
@@ -492,19 +462,11 @@ uint32_t qemu_fdt_alloc_phandle(void *fdt)
 {
     static int phandle = 0x0;
 
-    /*
-     * We need to find out if the user gave us special instruction at
-     * which phandle id to start allocating phandles.
-     */
     if (!phandle) {
         phandle = machine_phandle_start(current_machine);
     }
 
     if (!phandle) {
-        /*
-         * None or invalid phandle given on the command line, so fall back to
-         * default starting point.
-         */
         phandle = 0x8000;
     }
 
@@ -555,10 +517,6 @@ int qemu_fdt_add_subnode(void *fdt, const char *name)
     return retval;
 }
 
-/*
- * qemu_fdt_add_path: Like qemu_fdt_add_subnode(), but will add
- * all missing subnodes from the given path.
- */
 int qemu_fdt_add_path(void *fdt, const char *path)
 {
     const char *name;

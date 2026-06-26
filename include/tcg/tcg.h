@@ -1,26 +1,3 @@
-/*
- * Tiny Code Generator for QEMU
- *
- * Copyright (c) 2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef TCG_H
 #define TCG_H
@@ -36,7 +13,6 @@
 #include "tcg/tcg-cond.h"
 #include "tcg/debug-assert.h"
 
-/* XXX: make safe guess about sizes */
 #define MAX_OP_PER_INSTR 266
 
 #define CPU_TEMP_BUF_NLONGS 128
@@ -86,7 +62,6 @@ typedef uint32_t tcg_insn_unit;
 #elif TCG_TARGET_INSN_UNIT_SIZE == 8
 typedef uint64_t tcg_insn_unit;
 #else
-/* The port better have done this.  */
 #endif
 
 typedef struct TCGRelocation TCGRelocation;
@@ -129,8 +104,6 @@ typedef struct TCGPool {
 #define TCG_MAX_TEMPS 512
 #define TCG_MAX_INSNS 512
 
-/* when the size of the arguments of a called function is smaller than
-   this value, they are statically allocated in the TB stack frame */
 #define TCG_STATIC_CALL_ARGS_SIZE 128
 
 typedef enum TCGType {
@@ -142,17 +115,14 @@ typedef enum TCGType {
     TCG_TYPE_V128,
     TCG_TYPE_V256,
 
-    /* Number of different types (integer not enum) */
 #define TCG_TYPE_COUNT  (TCG_TYPE_V256 + 1)
 
-    /* An alias for the size of the host register.  */
 #if TCG_TARGET_REG_BITS == 32
     TCG_TYPE_REG = TCG_TYPE_I32,
 #else
     TCG_TYPE_REG = TCG_TYPE_I64,
 #endif
 
-    /* An alias for the size of the native pointer.  */
 #if UINTPTR_MAX == UINT32_MAX
     TCG_TYPE_PTR = TCG_TYPE_I32,
 #else
@@ -160,12 +130,6 @@ typedef enum TCGType {
 #endif
 } TCGType;
 
-/**
- * tcg_type_size
- * @t: type
- *
- * Return the size of the type in bytes.
- */
 static inline int tcg_type_size(TCGType t)
 {
     unsigned i = t;
@@ -178,36 +142,6 @@ static inline int tcg_type_size(TCGType t)
 
 typedef tcg_target_ulong TCGArg;
 
-/* Define type and accessor macros for TCG variables.
-
-   TCG variables are the inputs and outputs of TCG ops, as described
-   in tcg/README. Target CPU front-end code uses these types to deal
-   with TCG variables as it emits TCG code via the tcg_gen_* functions.
-   They come in several flavours:
-    * TCGv_i32  : 32 bit integer type
-    * TCGv_i64  : 64 bit integer type
-    * TCGv_i128 : 128 bit integer type
-    * TCGv_ptr  : a host pointer type
-    * TCGv_vec  : a host vector type; the exact size is not exposed
-                  to the CPU front-end code.
-    * TCGv      : an integer type the same size as target_ulong
-                  (an alias for either TCGv_i32 or TCGv_i64)
-   The compiler's type checking will complain if you mix them
-   up and pass the wrong sized TCGv to a function.
-
-   Users of tcg_gen_* don't need to know about any of the internal
-   details of these, and should treat them as opaque types.
-   You won't be able to look inside them in a debugger either.
-
-   Internal implementation details follow:
-
-   Note that there is no definition of the structs TCGv_i32_d etc anywhere.
-   This is deliberate, because the values we store in variables of type
-   TCGv_i32 are not really pointers-to-structures. They're just small
-   integers, but keeping them in pointer types like this means that the
-   compiler will complain if you accidentally pass a TCGv_i32 to a
-   function which takes a TCGv_i64, and so on. Only the internals of
-   TCG need to care about the actual contents of the types.  */
 
 typedef struct TCGv_i32_d *TCGv_i32;
 typedef struct TCGv_i64_d *TCGv_i64;
@@ -216,30 +150,17 @@ typedef struct TCGv_ptr_d *TCGv_ptr;
 typedef struct TCGv_vec_d *TCGv_vec;
 typedef TCGv_ptr TCGv_env;
 
-/* call flags */
-/* Helper does not read globals (either directly or through an exception). It
-   implies TCG_CALL_NO_WRITE_GLOBALS. */
 #define TCG_CALL_NO_READ_GLOBALS    0x0001
-/* Helper does not write globals */
 #define TCG_CALL_NO_WRITE_GLOBALS   0x0002
-/* Helper can be safely suppressed if the return value is not used. */
 #define TCG_CALL_NO_SIDE_EFFECTS    0x0004
-/* Helper is G_NORETURN.  */
 #define TCG_CALL_NO_RETURN          0x0008
 
-/* convenience version of most used call flags */
 #define TCG_CALL_NO_RWG         TCG_CALL_NO_READ_GLOBALS
 #define TCG_CALL_NO_WG          TCG_CALL_NO_WRITE_GLOBALS
 #define TCG_CALL_NO_SE          TCG_CALL_NO_SIDE_EFFECTS
 #define TCG_CALL_NO_RWG_SE      (TCG_CALL_NO_RWG | TCG_CALL_NO_SE)
 #define TCG_CALL_NO_WG_SE       (TCG_CALL_NO_WG | TCG_CALL_NO_SE)
 
-/*
- * Flags for the bswap opcodes.
- * If IZ, the input is zero-extended, otherwise unknown.
- * If OZ or OS, the output is zero- or sign-extended respectively,
- * otherwise the high bits are undefined.
- */
 enum {
     TCG_BSWAP_IZ = 1,
     TCG_BSWAP_OZ = 2,
@@ -254,19 +175,10 @@ typedef enum TCGTempVal {
 } TCGTempVal;
 
 typedef enum TCGTempKind {
-    /*
-     * Temp is dead at the end of the extended basic block (EBB),
-     * the single-entry multiple-exit region that falls through
-     * conditional branches.
-     */
     TEMP_EBB,
-    /* Temp is live across the entire translation block, but dead at end. */
     TEMP_TB,
-    /* Temp is live across the entire translation block, and between them. */
     TEMP_GLOBAL,
-    /* Temp is in a fixed register. */
     TEMP_FIXED,
-    /* Temp is a fixed constant. */
     TEMP_CONST,
 } TCGTempKind;
 
@@ -288,9 +200,6 @@ typedef struct TCGTemp {
     intptr_t mem_offset;
     const char *name;
 
-    /* Pass-specific information that can be stored for a temporary.
-       One word worth of integer data, and one pointer to data
-       allocated separately.  */
     uintptr_t state;
     void *state_ptr;
 } TCGTemp;
@@ -301,11 +210,6 @@ typedef struct TCGTempSet {
     unsigned long l[BITS_TO_LONGS(TCG_MAX_TEMPS)];
 } TCGTempSet;
 
-/*
- * With 1 128-bit output, a 32-bit host requires 4 output parameters,
- * which leaves a maximum of 28 other slots.  Which is enough for 7
- * 128-bit operands.
- */
 #define DEAD_ARG  (1 << 4)
 #define SYNC_ARG  (1 << 0)
 typedef uint32_t TCGLifeData;
@@ -314,20 +218,15 @@ struct TCGOp {
     TCGOpcode opc   : 8;
     unsigned nargs  : 8;
 
-    /* Parameters for this opcode.  See below.  */
     unsigned param1 : 8;
     unsigned param2 : 8;
 
-    /* Lifetime data of the operands.  */
     TCGLifeData life;
 
-    /* Next and previous opcodes.  */
     QTAILQ_ENTRY(TCGOp) link;
 
-    /* Register preferences for the output(s).  */
     TCGRegSet output_pref[2];
 
-    /* Arguments for the opcode.  */
     TCGArg args[];
 };
 
@@ -338,7 +237,6 @@ struct TCGOp {
 #define TCGOP_FLAGS(X)    (X)->param2
 #define TCGOP_VECE(X)     (X)->param2
 
-/* Make sure operands fit in the bitfields above.  */
 QEMU_BUILD_BUG_ON(NB_OPS > (1 << 8));
 
 static inline TCGRegSet output_pref(const TCGOp *op, unsigned i)
@@ -377,43 +275,27 @@ struct TCGContext {
     const TCGOpcode *vecop_list;
 #endif
 
-    /* Code generation.  Note that we specifically do not use tcg_insn_unit
-       here, because there's too much arithmetic throughout that relies
-       on addition and subtraction working on bytes.  Rely on the GCC
-       extension that allows arithmetic on void*.  */
     void *code_gen_buffer;
     size_t code_gen_buffer_size;
     void *code_gen_ptr;
     void *data_gen_ptr;
 
-    /* Threshold to flush the translated code buffer.  */
     void *code_gen_highwater;
 
-    /* Track which vCPU triggers events */
     CPUState *cpu;                      /* *_trans */
 
-    /* These structures are private to tcg-target.c.inc.  */
     QSIMPLEQ_HEAD(, TCGLabelQemuLdst) ldst_labels;
     struct TCGLabelPoolData *pool_labels;
 
     TCGLabel *exitreq_label;
 
 #ifdef CONFIG_PLUGIN
-    /*
-     * We keep one plugin_tb struct per TCGContext. Note that on every TB
-     * translation we clear but do not free its contents; this way we
-     * avoid a lot of malloc/free churn, since after a few TB's it's
-     * unlikely that we'll need to allocate either more instructions or more
-     * space for instructions (for variable-instruction-length ISAs).
-     */
     struct qemu_plugin_tb *plugin_tb;
     const struct DisasContextBase *plugin_db;
 
-    /* descriptor of the instruction being translated */
     struct qemu_plugin_insn *plugin_insn;
 #endif
 
-    /* For host-specific values. */
 #ifdef __riscv
     MemOp riscv_cur_vsew;
     TCGType riscv_cur_type;
@@ -426,20 +308,13 @@ struct TCGContext {
     QTAILQ_HEAD(, TCGOp) ops, free_ops;
     QSIMPLEQ_HEAD(, TCGLabel) labels;
 
-    /*
-     * When clear, new ops are added to the tail of @ops.
-     * When set, new ops are added in front of @emit_before_op.
-     */
     TCGOp *emit_before_op;
 
-    /* Tells which temporary holds a given register.
-       It does not take into account fixed registers */
     TCGTemp *reg_to_temp[TCG_TARGET_NB_REGS];
 
     uint16_t gen_insn_end_off[TCG_MAX_INSNS];
     uint64_t *gen_insn_data;
 
-    /* Exit to translator on overflow. */
     sigjmp_buf jmp_trans;
 };
 
@@ -500,11 +375,6 @@ static inline size_t temp_idx(TCGTemp *ts)
     return ts - tcg_ctx->temps;
 }
 
-/*
- * Using the offset of a temporary, relative to TCGContext, rather than
- * its index means that we don't use 0.  That leaves offset 0 free for
- * a NULL representation without having to leave index 0 unused.
- */
 static inline TCGTemp *tcgv_i32_temp(TCGv_i32 v)
 {
     return (void *)tcg_ctx + (uintptr_t)v;
@@ -612,28 +482,17 @@ static inline void tcg_set_insn_start_param(TCGOp *op, int arg, uint64_t v)
     }
 }
 
-/* The last op that was emitted.  */
 static inline TCGOp *tcg_last_op(void)
 {
     return QTAILQ_LAST(&tcg_ctx->ops);
 }
 
-/* Test for whether to terminate the TB for using too many opcodes.  */
 static inline bool tcg_op_buf_full(void)
 {
-    /* This is not a hard limit, it merely stops translation when
-     * we have produced "enough" opcodes.  We want to limit TB size
-     * such that a RISC host can reasonably use a 16-bit signed
-     * branch within the TB.  We also need to be mindful of the
-     * 16-bit unsigned offsets, TranslationBlock.jmp_reset_offset[]
-     * and TCGContext.gen_insn_end_off[].
-     */
     return tcg_ctx->nb_ops >= 4000;
 }
 
-/* pool based memory allocation */
 
-/* user-mode: mmap_lock must be held for tcg_malloc_internal. */
 void *tcg_malloc_internal(TCGContext *s, int size);
 void tcg_pool_reset(TCGContext *s);
 TranslationBlock *tcg_tb_alloc(TCGContext *s);
@@ -643,60 +502,21 @@ void tcg_region_reset_all(void);
 size_t tcg_code_size(void);
 size_t tcg_code_capacity(void);
 
-/**
- * tcg_tb_insert:
- * @tb: translation block to insert
- *
- * Insert @tb into the region trees.
- */
 void tcg_tb_insert(TranslationBlock *tb);
 
-/**
- * tcg_tb_remove:
- * @tb: translation block to remove
- *
- * Remove @tb from the region trees.
- */
 void tcg_tb_remove(TranslationBlock *tb);
 
-/**
- * tcg_tb_lookup:
- * @tc_ptr: host PC to look up
- *
- * Look up a translation block inside the region trees by @tc_ptr. This is
- * useful for exception handling, but must not be used for the purposes of
- * executing the returned translation block. See struct tb_tc for more
- * information.
- *
- * Returns: a translation block previously inserted into the region trees,
- * such that @tc_ptr points anywhere inside the code generated for it, or
- * NULL.
- */
 TranslationBlock *tcg_tb_lookup(uintptr_t tc_ptr);
 
-/**
- * tcg_tb_foreach:
- * @func: callback
- * @user_data: opaque value to pass to @callback
- *
- * Call @func for each translation block inserted into the region trees.
- */
 void tcg_tb_foreach(GTraverseFunc func, gpointer user_data);
 
-/**
- * tcg_nb_tbs:
- *
- * Returns: the number of translation blocks inserted into the region trees.
- */
 size_t tcg_nb_tbs(void);
 
-/* user-mode: Called with mmap_lock held.  */
 static inline void *tcg_malloc(int size)
 {
     TCGContext *s = tcg_ctx;
     uint8_t *ptr, *ptr_end;
 
-    /* ??? This is a weak placeholder for minimum malloc alignment.  */
     size = QEMU_ALIGN_UP(size, 8);
 
     ptr = s->pool_cur;
@@ -735,23 +555,13 @@ typedef struct TCGArgConstraint {
 
 #define TCG_MAX_OP_ARGS 16
 
-/* Bits for TCGOpDef->flags, 8 bits available, all used.  */
 enum {
-    /* Instruction exits the translation block.  */
     TCG_OPF_BB_EXIT      = 0x01,
-    /* Instruction defines the end of a basic block.  */
     TCG_OPF_BB_END       = 0x02,
-    /* Instruction clobbers call registers and potentially update globals.  */
     TCG_OPF_CALL_CLOBBER = 0x04,
-    /* Instruction has side effects: it cannot be removed if its outputs
-       are not used, and might trigger exceptions.  */
     TCG_OPF_SIDE_EFFECTS = 0x08,
-    /* Instruction is optional and not implemented by the host, or insn
-       is generic and should not be implemented by the host.  */
     TCG_OPF_NOT_PRESENT  = 0x20,
-    /* Instruction operands are vectors.  */
     TCG_OPF_VECTOR       = 0x40,
-    /* Instruction is a conditional branch. */
     TCG_OPF_COND_BRANCH  = 0x80
 };
 
@@ -764,17 +574,7 @@ typedef struct TCGOpDef {
 extern const TCGOpDef tcg_op_defs[];
 extern const size_t tcg_op_defs_max;
 
-/*
- * tcg_op_supported:
- * Query if @op, for @type and @flags, is supported by the host
- * on which we are currently executing.
- */
 bool tcg_op_supported(TCGOpcode op, TCGType type, unsigned flags);
-/*
- * tcg_op_deposit_valid:
- * Query if a deposit into (ofs, len) is supported for @type by
- * the host on which we are currently executing.
- */
 bool tcg_op_deposit_valid(TCGType type, unsigned ofs, unsigned len);
 
 void tcg_gen_call0(void *func, TCGHelperInfo *, TCGTemp *ret);
@@ -797,148 +597,47 @@ void tcg_gen_call7(void *func, TCGHelperInfo *, TCGTemp *ret,
 TCGOp *tcg_emit_op(TCGOpcode opc, unsigned nargs);
 void tcg_op_remove(TCGContext *s, TCGOp *op);
 
-/**
- * tcg_remove_ops_after:
- * @op: target operation
- *
- * Discard any opcodes emitted since @op.  Expected usage is to save
- * a starting point with tcg_last_op(), speculatively emit opcodes,
- * then decide whether or not to keep those opcodes after the fact.
- */
 void tcg_remove_ops_after(TCGOp *op);
 
 void tcg_optimize(TCGContext *s);
 
 TCGLabel *gen_new_label(void);
 
-/**
- * label_arg
- * @l: label
- *
- * Encode a label for storage in the TCG opcode stream.
- */
 
 static inline TCGArg label_arg(TCGLabel *l)
 {
     return (uintptr_t)l;
 }
 
-/**
- * arg_label
- * @i: value
- *
- * The opposite of label_arg.  Retrieve a label from the
- * encoding of the TCG opcode stream.
- */
 
 static inline TCGLabel *arg_label(TCGArg i)
 {
     return (TCGLabel *)(uintptr_t)i;
 }
 
-/**
- * tcg_ptr_byte_diff
- * @a, @b: addresses to be differenced
- *
- * There are many places within the TCG backends where we need a byte
- * difference between two pointers.  While this can be accomplished
- * with local casting, it's easy to get wrong -- especially if one is
- * concerned with the signedness of the result.
- *
- * This version relies on GCC's void pointer arithmetic to get the
- * correct result.
- */
 
 static inline ptrdiff_t tcg_ptr_byte_diff(const void *a, const void *b)
 {
     return a - b;
 }
 
-/**
- * tcg_pcrel_diff
- * @s: the tcg context
- * @target: address of the target
- *
- * Produce a pc-relative difference, from the current code_ptr
- * to the destination address.
- */
 
 static inline ptrdiff_t tcg_pcrel_diff(TCGContext *s, const void *target)
 {
     return tcg_ptr_byte_diff(target, tcg_splitwx_to_rx(s->code_ptr));
 }
 
-/**
- * tcg_tbrel_diff
- * @s: the tcg context
- * @target: address of the target
- *
- * Produce a difference, from the beginning of the current TB code
- * to the destination address.
- */
 static inline ptrdiff_t tcg_tbrel_diff(TCGContext *s, const void *target)
 {
     return tcg_ptr_byte_diff(target, tcg_splitwx_to_rx(s->code_buf));
 }
 
-/**
- * tcg_current_code_size
- * @s: the tcg context
- *
- * Compute the current code size within the translation block.
- * This is used to fill in qemu's data structures for goto_tb.
- */
 
 static inline size_t tcg_current_code_size(TCGContext *s)
 {
     return tcg_ptr_byte_diff(s->code_ptr, s->code_buf);
 }
 
-/**
- * tcg_qemu_tb_exec:
- * @env: pointer to CPUArchState for the CPU
- * @tb_ptr: address of generated code for the TB to execute
- *
- * Start executing code from a given translation block.
- * Where translation blocks have been linked, execution
- * may proceed from the given TB into successive ones.
- * Control eventually returns only when some action is needed
- * from the top-level loop: either control must pass to a TB
- * which has not yet been directly linked, or an asynchronous
- * event such as an interrupt needs handling.
- *
- * Return: The return value is the value passed to the corresponding
- * tcg_gen_exit_tb() at translation time of the last TB attempted to execute.
- * The value is either zero or a 4-byte aligned pointer to that TB combined
- * with additional information in its two least significant bits. The
- * additional information is encoded as follows:
- *  0, 1: the link between this TB and the next is via the specified
- *        TB index (0 or 1). That is, we left the TB via (the equivalent
- *        of) "goto_tb <index>". The main loop uses this to determine
- *        how to link the TB just executed to the next.
- *  2:    we are using instruction counting code generation, and we
- *        did not start executing this TB because the instruction counter
- *        would hit zero midway through it. In this case the pointer
- *        returned is the TB we were about to execute, and the caller must
- *        arrange to execute the remaining count of instructions.
- *  3:    we stopped because the CPU's exit_request flag was set
- *        (usually meaning that there is an interrupt that needs to be
- *        handled). The pointer returned is the TB we were about to execute
- *        when we noticed the pending exit request.
- *
- * If the bottom two bits indicate an exit-via-index then the CPU
- * state is correctly synchronised and ready for execution of the next
- * TB (and in particular the guest PC is the address to execute next).
- * Otherwise, we gave up on execution of this TB before it started, and
- * the caller must fix up the CPU state by calling the CPU's
- * synchronize_from_tb() method with the TB pointer we return (falling
- * back to calling the CPU's set_pc method with tb->pb if no
- * synchronize_from_tb() method exists).
- *
- * Note that TCG targets may use a different definition of tcg_qemu_tb_exec
- * to this default (which just calls the prologue.code emitted by
- * tcg_target_qemu_prologue()).
- */
 #define TB_EXIT_MASK      3
 #define TB_EXIT_IDX0      0
 #define TB_EXIT_IDX1      1
@@ -954,15 +653,10 @@ extern tcg_prologue_fn *tcg_qemu_tb_exec;
 
 void tcg_register_jit(const void *buf, size_t buf_size);
 
-/* Return zero if the tuple (opc, type, vece) is unsupportable;
-   return > 0 if it is directly supportable;
-   return < 0 if we must call tcg_expand_vec_op.  */
 int tcg_can_emit_vec_op(TCGOpcode, TCGType, unsigned);
 
-/* Expand the tuple (opc, type, vece) on the given arguments.  */
 void tcg_expand_vec_op(TCGOpcode, TCGType, unsigned, TCGArg, ...);
 
-/* Replicate a constant C according to the log2 of the element size.  */
 uint64_t dup_const(unsigned vece, uint64_t c);
 
 #define dup_const(VECE, C)                                         \

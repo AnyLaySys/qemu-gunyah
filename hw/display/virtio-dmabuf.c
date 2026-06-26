@@ -1,14 +1,3 @@
-/*
- * Virtio Shared dma-buf
- *
- * Copyright Red Hat, Inc. 2023
- *
- * Authors:
- *     Albert Esteve <aesteve@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 
@@ -18,10 +7,6 @@
 static GMutex lock;
 static GHashTable *resource_uuids;
 
-/*
- * uuid_equal_func: wrapper for UUID is_equal function to
- * satisfy g_hash_table_new expected parameters signatures.
- */
 static int uuid_equal_func(const void *lhv, const void *rhv)
 {
     return qemu_uuid_is_equal(lhv, rhv);
@@ -140,7 +125,6 @@ void virtio_free_resources(void)
 {
     g_mutex_lock(&lock);
     g_hash_table_destroy(resource_uuids);
-    /* Reference count shall be 0 after the implicit unref on destroy */
     resource_uuids = NULL;
     g_mutex_unlock(&lock);
 }

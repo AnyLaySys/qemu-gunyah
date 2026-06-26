@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2014-2016 Broadcom Corporation
- * Copyright (c) 2017 Red Hat, Inc.
- * Written by Prem Mallappa, Eric Auger
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef HW_ARM_SMMUV3_H
 #define HW_ARM_SMMUV3_H
@@ -73,9 +56,7 @@ typedef enum {
 } SMMUIrq;
 
 struct SMMUv3Class {
-    /*< private >*/
     SMMUBaseClass smmu_base_class;
-    /*< public >*/
 
     DeviceRealize parent_realize;
     ResettablePhases parent_phases;

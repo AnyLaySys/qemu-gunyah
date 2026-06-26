@@ -10,16 +10,10 @@ typedef struct PCIDeviceClass PCIDeviceClass;
 DECLARE_OBJ_CHECKERS(PCIDevice, PCIDeviceClass,
                      PCI_DEVICE, TYPE_PCI_DEVICE)
 
-/*
- * Implemented by devices that can be plugged on CXL buses. In the spec, this is
- * actually a "CXL Component, but we name it device to match the PCI naming.
- */
 #define INTERFACE_CXL_DEVICE "cxl-device"
 
-/* Implemented by devices that can be plugged on PCI Express buses */
 #define INTERFACE_PCIE_DEVICE "pci-express-device"
 
-/* Implemented by devices that can be plugged on Conventional PCI buses */
 #define INTERFACE_CONVENTIONAL_PCI_DEVICE "conventional-pci-device"
 
 struct PCIDeviceClass {
@@ -59,31 +53,17 @@ struct PCIDevice {
     bool partially_hotplugged;
     bool enabled;
 
-    /* PCI config space */
     uint8_t *config;
 
-    /*
-     * Used to enable config checks on load. Note that writable bits are
-     * never checked even if set in cmask.
-     */
     uint8_t *cmask;
 
-    /* Used to implement R/W bytes */
     uint8_t *wmask;
 
-    /* Used to implement RW1C(Write 1 to Clear) bytes */
     uint8_t *w1cmask;
 
-    /* Used to allocate config space for capabilities. */
     uint8_t *used;
 
-    /* the following fields are read only */
     int32_t devfn;
-    /*
-     * Cached device to fetch requester ID from, to avoid the PCI tree
-     * walking every time we invoke PCI request (e.g., MSI). For
-     * conventional PCI root complex, this field is meaningless.
-     */
     PCIReqIDCache requester_id_cache;
     char name[64];
     PCIIORegion io_regions[PCI_NUM_REGIONS];
@@ -91,91 +71,63 @@ struct PCIDevice {
     MemoryRegion bus_master_container_region;
     MemoryRegion bus_master_enable_region;
 
-    /* do not access the following fields */
     PCIConfigReadFunc *config_read;
     PCIConfigWriteFunc *config_write;
 
-    /* Legacy PCI VGA regions */
     MemoryRegion *vga_regions[QEMU_PCI_VGA_NUM_REGIONS];
     bool has_vga;
 
-    /* Current IRQ levels.  Used internally by the generic PCI code.  */
     uint8_t irq_state;
 
-    /* Capability bits */
     uint32_t cap_present;
 
-    /* Offset of PM capability in config space */
     uint8_t pm_cap;
 
-    /* Offset of MSI-X capability in config space */
     uint8_t msix_cap;
 
-    /* MSI-X entries */
     int msix_entries_nr;
 
-    /* Space to store MSIX table & pending bit array */
     uint8_t *msix_table;
     uint8_t *msix_pba;
 
-    /* May be used by INTx or MSI during interrupt notification */
     void *irq_opaque;
 
     MSITriggerFunc *msi_trigger;
     MSIPrepareMessageFunc *msi_prepare_message;
     MSIxPrepareMessageFunc *msix_prepare_message;
 
-    /* MemoryRegion container for msix exclusive BAR setup */
     MemoryRegion msix_exclusive_bar;
-    /* Memory Regions for MSIX table and pending bit entries. */
     MemoryRegion msix_table_mmio;
     MemoryRegion msix_pba_mmio;
-    /* Reference-count for entries actually in use by driver. */
     unsigned *msix_entry_used;
-    /* MSIX function mask set or MSIX disabled */
     bool msix_function_masked;
-    /* Version id needed for VMState */
     int32_t version_id;
 
-    /* Offset of MSI capability in config space */
     uint8_t msi_cap;
 
-    /* PCI Express */
     PCIExpressDevice exp;
 
-    /* SHPC */
     SHPCDevice *shpc;
 
-    /* Location of option rom */
     char *romfile;
     uint32_t romsize;
     bool has_rom;
     MemoryRegion rom;
     int32_t rom_bar;
 
-    /* INTx routing notifier */
     PCIINTxRoutingNotifier intx_routing_notifier;
 
-    /* MSI-X notifiers */
     MSIVectorUseNotifier msix_vector_use_notifier;
     MSIVectorReleaseNotifier msix_vector_release_notifier;
     MSIVectorPollNotifier msix_vector_poll_notifier;
 
-    /* SPDM */
     uint16_t spdm_port;
 
-    /* DOE */
     DOECap doe_spdm;
 
-    /* ID of standby device in net_failover pair */
     char *failover_pair_id;
     uint32_t acpi_index;
 
-    /*
-     * Indirect DMA region bounce buffer size as configured for the device. This
-     * is a configuration parameter that is reflected into bus_master_as when
-     * realizing the device.
-     */
     uint32_t max_bounce_buffer_size;
 };
 
@@ -224,25 +176,11 @@ static inline uint16_t pci_get_bdf(PCIDevice *dev)
 
 uint16_t pci_requester_id(PCIDevice *dev);
 
-/* DMA access functions */
 static inline AddressSpace *pci_get_address_space(PCIDevice *dev)
 {
     return &dev->bus_master_as;
 }
 
-/**
- * pci_dma_rw: Read from or write to an address space from PCI device.
- *
- * Return a MemTxResult indicating whether the operation succeeded
- * or failed (eg unassigned memory, device rejected the transaction,
- * IOMMU fault).
- *
- * @dev: #PCIDevice doing the memory access
- * @addr: address within the #PCIDevice address space
- * @buf: buffer with the data transferred
- * @len: the number of bytes to read or write
- * @dir: indicates the transfer direction
- */
 static inline MemTxResult pci_dma_rw(PCIDevice *dev, dma_addr_t addr,
                                      void *buf, dma_addr_t len,
                                      DMADirection dir, MemTxAttrs attrs)
@@ -251,18 +189,6 @@ static inline MemTxResult pci_dma_rw(PCIDevice *dev, dma_addr_t addr,
                          dir, attrs);
 }
 
-/**
- * pci_dma_read: Read from an address space from PCI device.
- *
- * Return a MemTxResult indicating whether the operation succeeded
- * or failed (eg unassigned memory, device rejected the transaction,
- * IOMMU fault).  Called within RCU critical section.
- *
- * @dev: #PCIDevice doing the memory access
- * @addr: address within the #PCIDevice address space
- * @buf: buffer with the data transferred
- * @len: length of the data transferred
- */
 static inline MemTxResult pci_dma_read(PCIDevice *dev, dma_addr_t addr,
                                        void *buf, dma_addr_t len)
 {
@@ -270,18 +196,6 @@ static inline MemTxResult pci_dma_read(PCIDevice *dev, dma_addr_t addr,
                       DMA_DIRECTION_TO_DEVICE, MEMTXATTRS_UNSPECIFIED);
 }
 
-/**
- * pci_dma_write: Write to address space from PCI device.
- *
- * Return a MemTxResult indicating whether the operation succeeded
- * or failed (eg unassigned memory, device rejected the transaction,
- * IOMMU fault).
- *
- * @dev: #PCIDevice doing the memory access
- * @addr: address within the #PCIDevice address space
- * @buf: buffer with the data transferred
- * @len: the number of bytes to write
- */
 static inline MemTxResult pci_dma_write(PCIDevice *dev, dma_addr_t addr,
                                         const void *buf, dma_addr_t len)
 {
@@ -315,18 +229,6 @@ PCI_DMA_DEFINE_LDST(q_be, q_be, 64);
 
 #undef PCI_DMA_DEFINE_LDST
 
-/**
- * pci_dma_map: Map device PCI address space range into host virtual address
- * @dev: #PCIDevice to be accessed
- * @addr: address within that device's address space
- * @plen: pointer to length of buffer; updated on return to indicate
- *        if only a subset of the requested range has been mapped
- * @dir: indicates the transfer direction
- *
- * Return: A host pointer, or %NULL if the resources needed to
- *         perform the mapping are exhausted (in that case *@plen
- *         is set to zero).
- */
 static inline void *pci_dma_map(PCIDevice *dev, dma_addr_t addr,
                                 dma_addr_t *plen, DMADirection dir)
 {

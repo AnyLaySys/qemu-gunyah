@@ -1,10 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * Helper file for declaring TCG helper functions.
- * This one expands generation functions for tcg opcodes.
- * Define HELPER_H for the header file to be expanded,
- * and static inline to change from global file scope.
- */
 
 #include "tcg/tcg.h"
 #include "tcg/helper-info.h"

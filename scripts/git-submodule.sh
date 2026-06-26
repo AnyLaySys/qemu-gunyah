@@ -1,7 +1,4 @@
 #!/bin/sh
-#
-# This code is licensed under the GPL version 2 or later.  See
-# the COPYING file in the top-level directory.
 
 substat=".git-submodule-status"
 
@@ -84,7 +81,6 @@ status|validate)
         if is_git; then
             check_updated $module || validate_error "$command"
         elif ! (set xyz "$module"/* && test -e "$2"); then
-            # The directory does not exist or it contains no files
             echo "$0: sources not available for $module and $no_git_error"
             validate_error "$command"
         fi

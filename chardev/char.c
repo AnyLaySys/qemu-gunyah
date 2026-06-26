@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -42,8 +19,6 @@
 
 #include "chardev-internal.h"
 
-/***********************************************************/
-/* character device */
 
 Object *get_chardevs_root(void)
 {
@@ -63,7 +38,6 @@ static void chr_be_event(Chardev *s, QEMUChrEvent event)
 
 void qemu_chr_be_event(Chardev *s, QEMUChrEvent event)
 {
-    /* Keep track if the char device is open */
     switch (event) {
         case CHR_EVENT_OPENED:
             s->be_open = 1;
@@ -74,15 +48,12 @@ void qemu_chr_be_event(Chardev *s, QEMUChrEvent event)
     case CHR_EVENT_BREAK:
     case CHR_EVENT_MUX_IN:
     case CHR_EVENT_MUX_OUT:
-        /* Ignore */
         break;
     }
 
     CHARDEV_GET_CLASS(s)->chr_be_event(s, event);
 }
 
-/* Not reporting errors from writing to logfile, as logs are
- * defined to be "best effort" only */
 static void qemu_chr_write_log(Chardev *s, const uint8_t *buf, size_t len)
 {
     size_t done = 0;
@@ -138,19 +109,8 @@ static int qemu_chr_write_buffer(Chardev *s,
         }
     }
     if (*offset > 0) {
-        /*
-         * If some data was written by backend, we should
-         * only log what was actually written. This method
-         * may be invoked again to write the remaining
-         * method, thus we'll log the remainder at that time.
-         */
         qemu_chr_write_log(s, buf, *offset);
     } else if (res < 0) {
-        /*
-         * If a fatal error was reported by the backend,
-         * assume this method won't be invoked again with
-         * this buffer, so log it all right away.
-         */
         qemu_chr_write_log(s, buf, len);
     }
     qemu_mutex_unlock(&s->chr_write_lock);
@@ -219,7 +179,6 @@ static void qemu_char_open(Chardev *chr, ChardevBackend *backend,
                            bool *be_opened, Error **errp)
 {
     ChardevClass *cc = CHARDEV_GET_CLASS(chr);
-    /* Any ChardevCommon member would work */
     ChardevCommon *common = backend ? backend->u.null.data : NULL;
 
     if (common && common->logfile) {
@@ -249,10 +208,6 @@ static void char_init(Object *obj)
     chr->logfd = -1;
     qemu_mutex_init(&chr->chr_write_lock);
 
-    /*
-     * Assume if chr_update_read_handler is implemented it will
-     * take the updated gcontext into account.
-     */
     if (CHARDEV_GET_CLASS(chr)->chr_update_read_handler) {
         qemu_chr_set_feature(chr, QEMU_CHAR_FEATURE_GCONTEXT);
     }
@@ -342,11 +297,6 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
         filename = p;
         qemu_opt_set(opts, "mux", "on", &error_abort);
         if (strcmp(filename, "stdio") == 0) {
-            /* Monitor is muxed to stdio: do not exit on Ctrl+C by default
-             * but pass it to the guest.  Handle this only for compat syntax,
-             * for -chardev syntax we have special option for this.
-             * This is what -nographic did, redirecting+muxing serial+monitor
-             * to stdio causing Ctrl+C to be passed to guest. */
             qemu_opt_set(opts, "signal", "off", &error_abort);
         }
     }
@@ -362,11 +312,9 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
         qemu_opt_set(opts, "backend", "vc", &error_abort);
         if (*p == ':') {
             if (sscanf(p+1, "%7[0-9]x%7[0-9]", width, height) == 2) {
-                /* pixels */
                 qemu_opt_set(opts, "width", width, &error_abort);
                 qemu_opt_set(opts, "height", height, &error_abort);
             } else if (sscanf(p+1, "%7[0-9]Cx%7[0-9]C", width, height) == 2) {
-                /* chars */
                 qemu_opt_set(opts, "cols", width, &error_abort);
                 qemu_opt_set(opts, "rows", height, &error_abort);
             } else {
@@ -875,10 +823,6 @@ QemuOptsList qemu_chardev_opts = {
             .name = "chardev",
             .type = QEMU_OPT_STRING,
         },
-        /*
-         * Multiplexer options. Follows QAPI array syntax.
-         * See MAX_HUB macro to obtain array capacity.
-         */
         {
             .name = "chardevs.0",
             .type = QEMU_OPT_STRING,
@@ -1063,7 +1007,6 @@ ChardevReturn *qmp_chardev_change(const char *id, ChardevBackend *backend,
 
     be = chr->be;
     if (!be) {
-        /* easy case */
         object_unparent(OBJECT(chr));
         return qmp_chardev_add(id, backend, errp);
     }
@@ -1079,10 +1022,6 @@ ChardevReturn *qmp_chardev_change(const char *id, ChardevBackend *backend,
         return NULL;
     }
 
-    /*
-     * The new chardev should not register a yank instance if the current
-     * chardev has registered one already.
-     */
     handover_yank_instance = cc->supports_yank && cc_new->supports_yank;
 
     chr_new = chardev_new(id, object_class_get_name(OBJECT_CLASS(cc_new)),
@@ -1110,13 +1049,8 @@ ChardevReturn *qmp_chardev_change(const char *id, ChardevBackend *backend,
         return NULL;
     }
 
-    /* change successful, clean up */
     chr_new->handover_yank_instance = false;
 
-    /*
-     * When the old chardev is freed, it should not unregister the yank
-     * instance if the new chardev needs it.
-     */
     chr->handover_yank_instance = handover_yank_instance;
 
     object_unparent(OBJECT(chr));
@@ -1177,12 +1111,6 @@ bool qmp_add_client_char(int fd, bool has_skipauth, bool skipauth,
     return true;
 }
 
-/*
- * Add a timeout callback for the chardev (in milliseconds), return
- * the GSource object created. Please use this to add timeout hook for
- * chardev instead of g_timeout_add() and g_timeout_add_seconds(), to
- * make sure the gcontext that the task bound to is correct.
- */
 GSource *qemu_chr_timeout_add_ms(Chardev *chr, guint ms,
                                  GSourceFunc func, void *private)
 {

@@ -1,30 +1,3 @@
-/*
- * coroutine queues and locks
- *
- * Copyright (c) 2011 Kevin Wolf <kwolf@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * The lock-free mutex implementation is based on OSv
- * (core/lfmutex.cc, include/lockfree/mutex.hh).
- * Copyright (C) 2013 Cloudius Systems, Ltd.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/coroutine_int.h"
@@ -52,20 +25,9 @@ void coroutine_fn qemu_co_queue_wait_impl(CoQueue *queue, QemuLockable *lock,
         qemu_lockable_unlock(lock);
     }
 
-    /* There is no race condition here.  Other threads will call
-     * aio_co_schedule on our AioContext, which can reenter this
-     * coroutine but only after this yield and after the main loop
-     * has gone through the next iteration.
-     */
     qemu_coroutine_yield();
     assert(qemu_in_coroutine());
 
-    /* TODO: OSv implements wait morphing here, where the wakeup
-     * primitive automatically places the woken coroutine on the
-     * mutex's queue.  This avoids the thundering herd effect.
-     * This could be implemented for CoMutexes, but not really for
-     * other cases of QemuLockable.
-     */
     if (lock) {
         qemu_lockable_lock(lock);
     }
@@ -93,20 +55,17 @@ bool qemu_co_enter_next_impl(CoQueue *queue, QemuLockable *lock)
 
 bool coroutine_fn qemu_co_queue_next(CoQueue *queue)
 {
-    /* No unlock/lock needed in coroutine context.  */
     return qemu_co_enter_next_impl(queue, NULL);
 }
 
 void qemu_co_enter_all_impl(CoQueue *queue, QemuLockable *lock)
 {
     while (qemu_co_enter_next_impl(queue, lock)) {
-        /* just loop */
     }
 }
 
 void coroutine_fn qemu_co_queue_restart_all(CoQueue *queue)
 {
-    /* No unlock/lock needed in coroutine context.  */
     qemu_co_enter_all_impl(queue, NULL);
 }
 
@@ -115,25 +74,6 @@ bool qemu_co_queue_empty(CoQueue *queue)
     return QSIMPLEQ_FIRST(&queue->entries) == NULL;
 }
 
-/* The wait records are handled with a multiple-producer, single-consumer
- * lock-free queue.  There cannot be two concurrent pop_waiter() calls
- * because pop_waiter() can only be called while mutex->handoff is zero.
- * This can happen in three cases:
- * - in qemu_co_mutex_unlock, before the hand-off protocol has started.
- *   In this case, qemu_co_mutex_lock will see mutex->handoff == 0 and
- *   not take part in the handoff.
- * - in qemu_co_mutex_lock, if it steals the hand-off responsibility from
- *   qemu_co_mutex_unlock.  In this case, qemu_co_mutex_unlock will fail
- *   the cmpxchg (it will see either 0 or the next sequence value) and
- *   exit.  The next hand-off cannot begin until qemu_co_mutex_lock has
- *   woken up someone.
- * - in qemu_co_mutex_unlock, if it takes the hand-off token itself.
- *   In this case another iteration starts with mutex->handoff == 0;
- *   a concurrent qemu_co_mutex_lock will fail the cmpxchg, and
- *   qemu_co_mutex_unlock will go back to case (1).
- *
- * The following functions manage this queue.
- */
 typedef struct CoWaitRecord {
     Coroutine *co;
     QSLIST_ENTRY(CoWaitRecord) next;
@@ -183,9 +123,6 @@ void qemu_co_mutex_init(CoMutex *mutex)
 
 static void coroutine_fn qemu_co_mutex_wake(CoMutex *mutex, Coroutine *co)
 {
-    /* Read co before co->ctx; pairs with smp_wmb() in
-     * qemu_coroutine_enter().
-     */
     smp_read_barrier_depends();
     mutex->ctx = co->ctx;
     aio_co_wake(co);
@@ -201,26 +138,15 @@ static void coroutine_fn qemu_co_mutex_lock_slowpath(AioContext *ctx,
     trace_qemu_co_mutex_lock_entry(mutex, self);
     push_waiter(mutex, &w);
 
-    /*
-     * Add waiter before reading mutex->handoff.  Pairs with qatomic_set_mb
-     * in qemu_co_mutex_unlock.
-     */
     smp_mb__after_rmw();
 
-    /* This is the "Responsibility Hand-Off" protocol; a lock() picks from
-     * a concurrent unlock() the responsibility of waking somebody up.
-     */
     old_handoff = qatomic_read(&mutex->handoff);
     if (old_handoff &&
         has_waiters(mutex) &&
         qatomic_cmpxchg(&mutex->handoff, old_handoff, 0) == old_handoff) {
-        /* There can be no concurrent pops, because there can be only
-         * one active handoff at a time.
-         */
         CoWaitRecord *to_wake = pop_waiter(mutex);
         Coroutine *co = to_wake->co;
         if (co == self) {
-            /* We got the lock ourselves!  */
             assert(to_wake == &w);
             mutex->ctx = ctx;
             return;
@@ -239,13 +165,6 @@ void coroutine_fn qemu_co_mutex_lock(CoMutex *mutex)
     Coroutine *self = qemu_coroutine_self();
     int waiters, i;
 
-    /* Running a very small critical section on pthread_mutex_t and CoMutex
-     * shows that pthread_mutex_t is much faster because it doesn't actually
-     * go to sleep.  What happens is that the critical section is shorter
-     * than the latency of entering the kernel and thus FUTEX_WAIT always
-     * fails.  With CoMutex there is no such latency but you still want to
-     * avoid wait and wakeup.  So introduce it artificially.
-     */
     i = 0;
 retry_fast_path:
     waiters = qatomic_cmpxchg(&mutex->locked, 0, 1);
@@ -263,7 +182,6 @@ retry_fast_path:
     }
 
     if (waiters == 0) {
-        /* Uncontended.  */
         trace_qemu_co_mutex_lock_uncontended(mutex, self);
         mutex->ctx = ctx;
     } else {
@@ -287,7 +205,6 @@ void coroutine_fn qemu_co_mutex_unlock(CoMutex *mutex)
     mutex->holder = NULL;
     self->locks_held--;
     if (qatomic_fetch_dec(&mutex->locked) == 1) {
-        /* No waiting qemu_co_mutex_lock().  Pfew, that was easy!  */
         return;
     }
 
@@ -300,27 +217,16 @@ void coroutine_fn qemu_co_mutex_unlock(CoMutex *mutex)
             break;
         }
 
-        /* Some concurrent lock() is in progress (we know this because
-         * mutex->locked was >1) but it hasn't yet put itself on the wait
-         * queue.  Pick a sequence number for the handoff protocol (not 0).
-         */
         if (++mutex->sequence == 0) {
             mutex->sequence = 1;
         }
 
         our_handoff = mutex->sequence;
-        /* Set handoff before checking for waiters.  */
         qatomic_set_mb(&mutex->handoff, our_handoff);
         if (!has_waiters(mutex)) {
-            /* The concurrent lock has not added itself yet, so it
-             * will be able to pick our handoff.
-             */
             break;
         }
 
-        /* Try to do the handoff protocol ourselves; if somebody else has
-         * already taken it, however, we're done and they're responsible.
-         */
         if (qatomic_cmpxchg(&mutex->handoff, our_handoff, 0) != our_handoff) {
             break;
         }
@@ -342,16 +248,11 @@ void qemu_co_rwlock_init(CoRwlock *lock)
     QSIMPLEQ_INIT(&lock->tickets);
 }
 
-/* Releases the internal CoMutex.  */
 static void coroutine_fn qemu_co_rwlock_maybe_wake_one(CoRwlock *lock)
 {
     CoRwTicket *tkt = QSIMPLEQ_FIRST(&lock->tickets);
     Coroutine *co = NULL;
 
-    /*
-     * Setting lock->owners here prevents rdlock and wrlock from
-     * sneaking in between unlock and wake.
-     */
 
     if (tkt) {
         if (tkt->read) {
@@ -381,7 +282,6 @@ void coroutine_fn qemu_co_rwlock_rdlock(CoRwlock *lock)
     Coroutine *self = qemu_coroutine_self();
 
     qemu_co_mutex_lock(&lock->mutex);
-    /* For fairness, wait if a writer is in line.  */
     if (lock->owners == 0 || (lock->owners > 0 && QSIMPLEQ_EMPTY(&lock->tickets))) {
         lock->owners++;
         qemu_co_mutex_unlock(&lock->mutex);
@@ -393,7 +293,6 @@ void coroutine_fn qemu_co_rwlock_rdlock(CoRwlock *lock)
         qemu_coroutine_yield();
         assert(lock->owners >= 1);
 
-        /* Possibly wake another reader, which will wake the next in line.  */
         qemu_co_mutex_lock(&lock->mutex);
         qemu_co_rwlock_maybe_wake_one(lock);
     }
@@ -425,7 +324,6 @@ void coroutine_fn qemu_co_rwlock_downgrade(CoRwlock *lock)
     assert(lock->owners == -1);
     lock->owners = 1;
 
-    /* Possibly wake another reader, which will wake the next in line.  */
     qemu_co_rwlock_maybe_wake_one(lock);
 }
 
@@ -453,7 +351,6 @@ void coroutine_fn qemu_co_rwlock_upgrade(CoRwlock *lock)
 {
     qemu_co_mutex_lock(&lock->mutex);
     assert(lock->owners > 0);
-    /* For fairness, wait if a writer is in line.  */
     if (lock->owners == 1 && QSIMPLEQ_EMPTY(&lock->tickets)) {
         lock->owners = -1;
         qemu_co_mutex_unlock(&lock->mutex);

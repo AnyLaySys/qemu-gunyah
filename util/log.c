@@ -1,21 +1,3 @@
-/*
- * Logging support
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -37,11 +19,9 @@ typedef struct RCUCloseFILE {
     FILE *fd;
 } RCUCloseFILE;
 
-/* Mutex covering the other global_* variables. */
 static QemuMutex global_mutex;
 static char *global_filename;
 static FILE *global_file;
-/* Android: __thread in dlopen'd .so corrupts TLS block */
 static FILE *thread_file;
 static Notifier qemu_log_thread_cleanup_notifier;
 
@@ -49,13 +29,11 @@ int qemu_loglevel;
 static bool log_per_thread;
 static GArray *debug_regions;
 
-/* Returns true if qemu_log() will really write somewhere. */
 bool qemu_log_enabled(void)
 {
     return log_per_thread || qatomic_read(&global_file) != NULL;
 }
 
-/* Returns true if qemu_log() will write somewhere other than stderr. */
 bool qemu_log_separate(void)
 {
     if (log_per_thread) {
@@ -86,7 +64,6 @@ static void qemu_log_thread_cleanup(Notifier *n, void *unused)
     }
 }
 
-/* Lock/unlock output. */
 
 static FILE *qemu_log_trylock_with_err(Error **errp)
 {
@@ -109,13 +86,6 @@ static FILE *qemu_log_trylock_with_err(Error **errp)
             qemu_thread_atexit_add(&qemu_log_thread_cleanup_notifier);
         } else {
             rcu_read_lock();
-            /*
-             * FIXME: typeof_strip_qual, as used by qatomic_rcu_read,
-             * does not work with pointers to undefined structures,
-             * such as we have with struct _IO_FILE and musl libc.
-             * Since all we want is a read of a pointer, cast to void**,
-             * which does work with typeof_strip_qual.
-             */
             logfile = qatomic_rcu_read((void **)&global_file);
             if (!logfile) {
                 rcu_read_unlock();
@@ -168,12 +138,6 @@ static void rcu_close_file(RCUCloseFILE *r)
     g_free(r);
 }
 
-/**
- * valid_filename_template:
- *
- * Validate the filename template.  Require %d if per_thread, allow it
- * otherwise; require no other % within the template.
- */
 
 typedef enum {
     vft_error,
@@ -189,7 +153,6 @@ valid_filename_template(const char *filename, bool per_thread, Error **errp)
         char *pidstr = strstr(filename, "%");
 
         if (pidstr) {
-            /* We only accept one %d, no other format strings */
             if (pidstr[1] != 'd' || strchr(pidstr + 2, '%')) {
                 error_setg(errp, "Bad logfile template: %s", filename);
                 return 0;
@@ -204,7 +167,6 @@ valid_filename_template(const char *filename, bool per_thread, Error **errp)
     return filename ? vft_strdup : vft_stderr;
 }
 
-/* enable or disable low levels log */
 static bool qemu_set_log_internal(const char *filename, bool changed_name,
                                   int log_flags, Error **errp)
 {
@@ -216,7 +178,6 @@ static bool qemu_set_log_internal(const char *filename, bool changed_name,
     QEMU_LOCK_GUARD(&global_mutex);
     logfile = global_file;
 
-    /* The per-thread flag is immutable. */
     if (log_per_thread) {
         log_flags |= LOG_PER_THREAD;
     } else {
@@ -230,12 +191,6 @@ static bool qemu_set_log_internal(const char *filename, bool changed_name,
     if (changed_name) {
         char *newname = NULL;
 
-        /*
-         * Once threads start opening their own log files, we have no
-         * easy mechanism to tell them all to close and re-open.
-         * There seems little cause to do so either -- this option
-         * will most often be used at user-only startup.
-         */
         if (log_per_thread) {
             error_setg(errp, "Cannot change log filename after setting 'tid'");
             return false;
@@ -265,11 +220,9 @@ static bool qemu_set_log_internal(const char *filename, bool changed_name,
         }
     }
 
-    /* Once the per-thread flag is set, it cannot be unset. */
     if (per_thread) {
         log_per_thread = true;
     }
-    /* The flag itself is not relevant for need_to_open_file. */
     log_flags &= ~LOG_PER_THREAD;
 #ifdef CONFIG_TRACE_LOG
     log_flags |= LOG_TRACE;
@@ -279,16 +232,8 @@ static bool qemu_set_log_internal(const char *filename, bool changed_name,
     daemonized = is_daemonized();
     need_to_open_file = false;
     if (!daemonized) {
-        /*
-         * If not daemonized we only log if qemu_loglevel is set, either to
-         * stderr or to a file (if there is a filename).
-         * If per-thread, open the file for each thread in qemu_log_trylock().
-         */
         need_to_open_file = qemu_loglevel && !log_per_thread;
     } else {
-        /*
-         * If we are daemonized, we will only log if there is a filename.
-         */
         need_to_open_file = filename != NULL;
     }
 
@@ -325,18 +270,12 @@ static bool qemu_set_log_internal(const char *filename, bool changed_name,
                     return false;
                 }
             }
-            /* In case we are a daemon redirect stderr to logfile */
             if (daemonized) {
                 dup2(fileno(logfile), STDERR_FILENO);
                 fclose(logfile);
-                /*
-                 * This will skip closing logfile in rcu_close_file()
-                 * or qemu_log_thread_cleanup().
-                 */
                 logfile = stderr;
             }
         } else {
-            /* Default to stderr if no log file specified */
             assert(!daemonized);
             logfile = stderr;
         }
@@ -365,8 +304,6 @@ bool qemu_set_log_filename_flags(const char *name, int flags, Error **errp)
     return qemu_set_log_internal(name, true, flags, errp);
 }
 
-/* Returns true if addr is in our debug filter or no filter defined
- */
 bool qemu_log_in_addr_range(uint64_t addr)
 {
     if (debug_regions) {
@@ -509,7 +446,6 @@ const QEMULogItem qemu_log_items[] = {
     { 0, NULL, NULL },
 };
 
-/* takes a comma separated list of log masks. Return 0 if error. */
 int qemu_str_to_log_mask(const char *str)
 {
     const QEMULogItem *item;

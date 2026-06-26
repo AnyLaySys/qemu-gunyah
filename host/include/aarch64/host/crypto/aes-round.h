@@ -1,7 +1,3 @@
-/*
- * AArch64 specific aes acceleration.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef AARCH64_HOST_CRYPTO_AES_ROUND_H
 #define AARCH64_HOST_CRYPTO_AES_ROUND_H
@@ -62,7 +58,6 @@ static inline uint8x16_t aes_accel_aesimc(uint8x16_t d)
     return d;
 }
 
-/* Most CPUs fuse AESD+AESIMC in the execution pipeline. */
 static inline uint8x16_t aes_accel_aesd_imc(uint8x16_t d, uint8x16_t k)
 {
     asm(".arch_extension aes\n\t"
@@ -71,7 +66,6 @@ static inline uint8x16_t aes_accel_aesd_imc(uint8x16_t d, uint8x16_t k)
     return d;
 }
 
-/* Most CPUs fuse AESE+AESMC in the execution pipeline. */
 static inline uint8x16_t aes_accel_aese_mc(uint8x16_t d, uint8x16_t k)
 {
     asm(".arch_extension aes\n\t"

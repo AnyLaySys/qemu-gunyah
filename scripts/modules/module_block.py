@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-#
-# Module information generator
-#
-# Copyright Red Hat, Inc. 2015 - 2016
-#
-# Authors:
-#  Marc Mari <markmb@redhat.com>
-#
-# This work is licensed under the terms of the GNU GPL, version 2.
-# See the COPYING file in the top-level directory.
 
 import sys
 import os
@@ -16,9 +6,6 @@ import os
 def get_string_struct(line):
     data = line.split()
 
-    # data[0] -> struct element name
-    # data[1] -> =
-    # data[2] -> value
 
     return data[2].replace('"', '')[:-1]
 
@@ -34,7 +21,6 @@ def add_module(fheader, library, format_name, protocol_name):
     fheader.write('\n    {\n        ' + text + '\n    },')
 
 def process_file(fheader, filename):
-    # This parser assumes the coding style rules are being followed
     with open(filename, "r") as cfile:
         found_start = False
         library, _ = os.path.splitext(os.path.basename(filename))
@@ -81,8 +67,6 @@ def print_bottom(fheader):
 ''')
 
 if __name__ == '__main__':
-    # First argument: output file
-    # All other arguments: modules source files (.c)
     output_file = sys.argv[1]
     with open(output_file, 'w') as fheader:
         print_top(fheader)

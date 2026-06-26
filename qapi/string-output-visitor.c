@@ -1,14 +1,3 @@
-/*
- * String printing Visitor
- *
- * Copyright Red Hat, Inc. 2012-2016
- *
- * Author: Paolo Bonzini <pbonzini@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -78,7 +67,6 @@ static void string_output_set(StringOutputVisitor *sov, char *string)
     switch (sov->list_mode) {
     case LM_STARTED:
         sov->list_mode = LM_IN_PROGRESS;
-        /* fall through */
     case LM_NONE:
         if (sov->string) {
             g_string_free(sov->string, true);
@@ -224,7 +212,6 @@ static bool print_type_int64(Visitor *v, const char *name, int64_t *obj,
 static bool print_type_uint64(Visitor *v, const char *name, uint64_t *obj,
                              Error **errp)
 {
-    /* FIXME: print_type_int64 mishandles values over INT64_MAX */
     int64_t i = *obj;
     return print_type_int64(v, name, &i, errp);
 }
@@ -336,7 +323,6 @@ static void end_struct(Visitor *v, void **obj)
         return;
     }
 
-    /* TODO actually print struct fields */
     string_output_set(sov, g_strdup("<omitted>"));
 }
 
@@ -350,12 +336,9 @@ start_list(Visitor *v, const char *name, GenericList **list, size_t size,
         return true;
     }
 
-    /* we can't traverse a list in a list */
     assert(sov->list_mode == LM_NONE);
-    /* We don't support visits without a list */
     assert(list);
     sov->list = list;
-    /* List handling is only needed if there are at least two elements */
     if (*list && (*list)->next) {
         sov->list_mode = LM_STARTED;
     }

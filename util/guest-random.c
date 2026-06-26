@@ -1,13 +1,3 @@
-/*
- * QEMU guest-visible random functions
- *
- * Copyright 2019 Linaro, Ltd.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
@@ -53,7 +43,6 @@ static int glib_random_bytes(void *buf, size_t len)
     uint32_t x;
 
     if (unlikely(rand == NULL)) {
-        /* Thread not initialized for a cpu, or main w/o -seed.  */
         rand = g_rand_new();
         set_thread_rand(rand);
     }
@@ -72,10 +61,8 @@ static int glib_random_bytes(void *buf, size_t len)
 int qemu_guest_getrandom(void *buf, size_t len, Error **errp)
 {
     if (unlikely(deterministic)) {
-        /* Deterministic implementation using Glib's Mersenne Twister.  */
         return glib_random_bytes(buf, len);
     }
-    /* Non-deterministic implementation using crypto routines.  */
     return qcrypto_random_bytes(buf, len, errp);
 }
 

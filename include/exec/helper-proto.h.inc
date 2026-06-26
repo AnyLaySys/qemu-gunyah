@@ -1,23 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * Helper file for declaring TCG helper functions.
- * This one expands prototypes for the helper functions.
- * Define HELPER_H for the header file to be expanded.
- */
 
 #include "exec/helper-head.h.inc"
 
-/*
- * Work around an issue with --enable-lto, in which GCC's ipa-split pass
- * decides to split out the noreturn code paths that raise an exception,
- * taking the __builtin_return_address() along into the new function,
- * where it no longer computes a value that returns to TCG generated code.
- * Despite the name, the noinline attribute affects splitter, so this
- * prevents the optimization in question.  Given that helpers should not
- * otherwise be called directly, this should not have any other visible effect.
- *
- * See https://gitlab.com/qemu-project/qemu/-/issues/1454
- */
 #define DEF_HELPER_ATTR  __attribute__((noinline))
 
 #define DEF_HELPER_FLAGS_0(name, flags, ret) \

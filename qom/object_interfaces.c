@@ -331,7 +331,6 @@ bool user_creatable_add_from_str(const char *str, Error **errp)
 void user_creatable_process_cmdline(const char *cmdline)
 {
     if (!user_creatable_add_from_str(cmdline, &error_fatal)) {
-        /* Help was printed */
         exit(EXIT_SUCCESS);
     }
 }
@@ -354,10 +353,6 @@ bool user_creatable_del(const char *id, Error **errp)
         return false;
     }
 
-    /*
-     * if object was defined on the command-line, remove its corresponding
-     * option group entry
-     */
     opts_list = qemu_find_opts_err("object", NULL);
     if (opts_list) {
         qemu_opts_del(qemu_opts_find(opts_list, id));

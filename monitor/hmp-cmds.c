@@ -1,17 +1,3 @@
-/*
- * Human Monitor Interface commands
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "exec/address-spaces.h"
@@ -37,10 +23,6 @@ bool hmp_handle_error(Monitor *mon, Error *err)
     return false;
 }
 
-/*
- * Split @str at comma.
- * A null @str defaults to "".
- */
 strList *hmp_split_at_comma(const char *str)
 {
     char **split = g_strsplit(str ?: "", ",", -1);
@@ -128,8 +110,6 @@ void hmp_cpu(Monitor *mon, const QDict *qdict)
 {
     int64_t cpu_index;
 
-    /* XXX: drop the monitor_set_cpu() usage when all HMP commands that
-            use it are converted to the QAPI */
     cpu_index = qdict_get_int(qdict, "index");
     if (monitor_set_cpu(mon, cpu_index) < 0) {
         monitor_printf(mon, "invalid CPU index\n");
@@ -306,7 +286,6 @@ void hmp_sum(Monitor *mon, const QDict *qdict)
     for(addr = start; addr < (start + size); addr++) {
         uint8_t val = address_space_ldub(&address_space_memory, addr,
                                          MEMTXATTRS_UNSPECIFIED, NULL);
-        /* BSD sum algorithm ('sum' Unix command) */
         sum = (sum >> 1) | (sum << 15);
         sum += val;
     }

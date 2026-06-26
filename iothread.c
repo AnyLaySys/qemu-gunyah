@@ -1,15 +1,3 @@
-/*
- * Event loop thread
- *
- * Copyright Red Hat Inc., 2013, 2020
- *
- * Authors:
- *  Stefan Hajnoczi   <stefanha@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qom/object.h"
@@ -27,10 +15,6 @@
 
 
 #ifdef CONFIG_POSIX
-/* Benchmark results from 2016 on NVMe SSD drives show max polling times around
- * 16-32 microseconds yield IOPS improvements for both iodepth=1 and iodepth=32
- * workloads.
- */
 #define IOTHREAD_POLL_MAX_NS_DEFAULT 32768ULL
 #else
 #define IOTHREAD_POLL_MAX_NS_DEFAULT 0ULL
@@ -41,31 +25,14 @@ static void *iothread_run(void *opaque)
     IOThread *iothread = opaque;
 
     rcu_register_thread();
-    /*
-     * g_main_context_push_thread_default() must be called before anything
-     * in this new thread uses glib.
-     */
     g_main_context_push_thread_default(iothread->worker_context);
     qemu_set_current_aio_context(iothread->ctx);
     iothread->thread_id = qemu_get_thread_id();
     qemu_sem_post(&iothread->init_done_sem);
 
     while (iothread->running) {
-        /*
-         * Note: from functional-wise the g_main_loop_run() below can
-         * already cover the aio_poll() events, but we can't run the
-         * main loop unconditionally because explicit aio_poll() here
-         * is faster than g_main_loop_run() when we do not need the
-         * gcontext at all (e.g., pure block layer iothreads).  In
-         * other words, when we want to run the gcontext with the
-         * iothread we need to pay some performance for functionality.
-         */
         aio_poll(iothread->ctx, true);
 
-        /*
-         * We must check the running state again in case it was
-         * changed in previous aio_poll()
-         */
         if (iothread->running && qatomic_read(&iothread->run_gcontext)) {
             g_main_loop_run(iothread->main_loop);
         }
@@ -76,7 +43,6 @@ static void *iothread_run(void *opaque)
     return NULL;
 }
 
-/* Runs in iothread_run() thread */
 static void iothread_stop_bh(void *opaque)
 {
     IOThread *iothread = opaque;
@@ -105,7 +71,6 @@ static void iothread_instance_init(Object *obj)
     iothread->poll_max_ns = IOTHREAD_POLL_MAX_NS_DEFAULT;
     iothread->thread_id = -1;
     qemu_sem_init(&iothread->init_done_sem, 0);
-    /* By default, we don't run gcontext */
     qatomic_set(&iothread->run_gcontext, 0);
 }
 
@@ -115,16 +80,6 @@ static void iothread_instance_finalize(Object *obj)
 
     iothread_stop(iothread);
 
-    /*
-     * Before glib2 2.33.10, there is a glib2 bug that GSource context
-     * pointer may not be cleared even if the context has already been
-     * destroyed (while it should).  Here let's free the AIO context
-     * earlier to bypass that glib bug.
-     *
-     * We can remove this comment after the minimum supported glib2
-     * version boosts to 2.33.10.  Before that, let's free the
-     * GSources first before destroying any GMainContext.
-     */
     if (iothread->ctx) {
         aio_context_unref(iothread->ctx);
         iothread->ctx = NULL;
@@ -193,10 +148,6 @@ static void iothread_init(EventLoopBase *base, Error **errp)
     thread_name = g_strdup_printf("IO %s",
                         object_get_canonical_path_component(OBJECT(base)));
 
-    /*
-     * Init one GMainContext for the iothread unconditionally, even if
-     * it's not used
-     */
     iothread_init_gcontext(iothread, thread_name);
 
     iothread_set_aio_context_params(base, &local_error);
@@ -207,13 +158,9 @@ static void iothread_init(EventLoopBase *base, Error **errp)
         return;
     }
 
-    /* This assumes we are called from a thread with useful CPU affinity for us
-     * to inherit.
-     */
     qemu_thread_create(&iothread->thread, thread_name, iothread_run,
                        iothread, QEMU_THREAD_JOINABLE);
 
-    /* Wait for initialization to complete */
     while (iothread->thread_id == -1) {
         qemu_sem_wait(&iothread->init_done_sem);
     }
@@ -395,8 +342,6 @@ void iothread_destroy(IOThread *iothread)
     object_unparent(OBJECT(iothread));
 }
 
-/* Lookup IOThread by its id.  Only finds user-created objects, not internal
- * iothread_create() objects. */
 IOThread *iothread_by_id(const char *id)
 {
     return IOTHREAD(object_resolve_path_type(id, TYPE_IOTHREAD, NULL));

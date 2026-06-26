@@ -1,8 +1,3 @@
-/*
- * Definitions used internally in the disassembly code
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef DISAS_INTERNAL_H
 #define DISAS_INTERNAL_H

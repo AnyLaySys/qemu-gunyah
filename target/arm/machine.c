@@ -18,26 +18,6 @@ static bool vfp_needed(void *opaque)
 
 static bool vfp_fpcr_fpsr_needed(void *opaque)
 {
-    /*
-     * If either the FPCR or the FPSR include set bits that are not
-     * visible in the AArch32 FPSCR view of floating point control/status
-     * then we must send the FPCR and FPSR as two separate fields in the
-     * cpu/vfp/fpcr_fpsr subsection, and we will send a 0 for the old
-     * FPSCR field in cpu/vfp.
-     *
-     * If all the set bits are representable in an AArch32 FPSCR then we
-     * send that value as the cpu/vfp FPSCR field, and don't send the
-     * cpu/vfp/fpcr_fpsr subsection.
-     *
-     * On incoming migration, if the cpu/vfp FPSCR field is non-zero we
-     * use it, and if the fpcr_fpsr subsection is present we use that.
-     * (The subsection will never be present with a non-zero FPSCR field,
-     * and if FPSCR is zero and the subsection is not present that means
-     * that FPSCR/FPSR/FPCR are zero.)
-     *
-     * This preserves migration compatibility with older QEMU versions,
-     * in both directions.
-     */
     ARMCPU *cpu = opaque;
     CPUARMState *env = &cpu->env;
 
@@ -53,7 +33,6 @@ static int get_fpscr(QEMUFile *f, void *opaque, size_t size,
     uint32_t val = qemu_get_be32(f);
 
     if (val) {
-        /* 0 means we might have the data in the fpcr_fpsr subsection */
         vfp_set_fpscr(env, val);
     }
     return 0;
@@ -162,7 +141,6 @@ static const VMStateDescription vmstate_vfp = {
     .minimum_version_id = 3,
     .needed = vfp_needed,
     .fields = (const VMStateField[]) {
-        /* For compatibility, store Qn out of Zn here.  */
         VMSTATE_UINT64_SUB_ARRAY(env.vfp.zregs[0].d, ARMCPU, 0, 2),
         VMSTATE_UINT64_SUB_ARRAY(env.vfp.zregs[1].d, ARMCPU, 0, 2),
         VMSTATE_UINT64_SUB_ARRAY(env.vfp.zregs[2].d, ARMCPU, 0, 2),
@@ -196,10 +174,6 @@ static const VMStateDescription vmstate_vfp = {
         VMSTATE_UINT64_SUB_ARRAY(env.vfp.zregs[30].d, ARMCPU, 0, 2),
         VMSTATE_UINT64_SUB_ARRAY(env.vfp.zregs[31].d, ARMCPU, 0, 2),
 
-        /* The xregs array is a little awkward because element 1 (FPSCR)
-         * requires a specific accessor, so we have to split it up in
-         * the vmstate:
-         */
         VMSTATE_UINT32(env.vfp.xregs[0], ARMCPU),
         VMSTATE_UINT32_SUB_ARRAY(env.vfp.xregs, ARMCPU, 2, 14),
         {
@@ -239,10 +213,6 @@ static const VMStateDescription vmstate_iwmmxt = {
 };
 
 #ifdef TARGET_AARCH64
-/* The expression ARM_MAX_VQ - 2 is 0 for pure AArch32 build,
- * and ARMPredicateReg is actively empty.  This triggers errors
- * in the expansion of the VMSTATE macros.
- */
 
 static bool sve_needed(void *opaque)
 {
@@ -251,7 +221,6 @@ static bool sve_needed(void *opaque)
     return cpu_isar_feature(aa64_sve, cpu);
 }
 
-/* The first two words of each Zreg is stored in VFP state.  */
 static const VMStateDescription vmstate_zreg_hi_reg = {
     .name = "cpu/sve/zreg_hi",
     .version_id = 1,
@@ -300,10 +269,6 @@ static bool za_needed(void *opaque)
 {
     ARMCPU *cpu = opaque;
 
-    /*
-     * When ZA storage is disabled, its contents are discarded.
-     * It will be zeroed when ZA storage is re-enabled.
-     */
     return FIELD_EX64(cpu->env.svcr, SVCR, ZA);
 }
 
@@ -361,7 +326,6 @@ static bool wfxt_timer_needed(void *opaque)
 {
     ARMCPU *cpu = opaque;
 
-    /* We'll only have the timer object if FEAT_WFxT is implemented */
     return cpu->wfxt_timer;
 }
 
@@ -396,14 +360,6 @@ static const VMStateDescription vmstate_m_faultmask_primask = {
     }
 };
 
-/* CSSELR is in a subsection because we didn't implement it previously.
- * Migration from an old implementation will leave it at zero, which
- * is OK since the only CPUs in the old implementation make the
- * register RAZ/WI.
- * Since there was no version of QEMU which implemented the CSSELR for
- * just non-secure, we transfer both banks here rather than putting
- * the secure banked version in the m-security subsection.
- */
 static bool csselr_vmstate_validate(void *opaque, int version_id)
 {
     ARMCPU *cpu = opaque;
@@ -597,10 +553,6 @@ static bool pmsav7_rnr_needed(void *opaque)
     ARMCPU *cpu = opaque;
     CPUARMState *env = &cpu->env;
 
-    /* For R profile cores pmsav7.rnr is migrated via the cpreg
-     * "RGNR" definition in helper.h. For M profile we have to
-     * migrate it separately.
-     */
     return arm_feature(env, ARM_FEATURE_M);
 }
 
@@ -726,9 +678,6 @@ static const VMStateDescription vmstate_m_security = {
         VMSTATE_VALIDATE("SAU_RNR is valid", sau_rnr_vmstate_validate),
         VMSTATE_UINT32(env.sau.ctrl, ARMCPU),
         VMSTATE_UINT32(env.v7m.scr[M_REG_S], ARMCPU),
-        /* AIRCR is not secure-only, but our implementation is R/O if the
-         * security extension is unimplemented, so we migrate it here.
-         */
         VMSTATE_UINT32(env.v7m.aircr, ARMCPU),
         VMSTATE_END_OF_LIST()
     }
@@ -743,16 +692,6 @@ static int get_cpsr(QEMUFile *f, void *opaque, size_t size,
 
     if (arm_feature(env, ARM_FEATURE_M)) {
         if (val & XPSR_EXCP) {
-            /* This is a CPSR format value from an older QEMU. (We can tell
-             * because values transferred in XPSR format always have zero
-             * for the EXCP field, and CPSR format will always have bit 4
-             * set in CPSR_M.) Rearrange it into XPSR format. The significant
-             * differences are that the T bit is not in the same place, the
-             * primask/faultmask info may be in the CPSR I and F bits, and
-             * we do not want the mode bits.
-             * We know that this cleanup happened before v8M, so there
-             * is no complication with banked primask/faultmask.
-             */
             uint32_t newval = val;
 
             assert(!arm_feature(env, ARM_FEATURE_M_SECURITY));
@@ -761,11 +700,6 @@ static int get_cpsr(QEMUFile *f, void *opaque, size_t size,
             if (val & CPSR_T) {
                 newval |= XPSR_T;
             }
-            /* If the I or F bits are set then this is a migration from
-             * an old QEMU which still stored the M profile FAULTMASK
-             * and PRIMASK in env->daif. For a new QEMU, the data is
-             * transferred using the vmstate_m_faultmask_primask subsection.
-             */
             if (val & CPSR_F) {
                 env->v7m.faultmask[M_REG_NS] = 1;
             }
@@ -774,7 +708,6 @@ static int get_cpsr(QEMUFile *f, void *opaque, size_t size,
             }
             val = newval;
         }
-        /* Ignore the low bits, they are handled by vmstate_m. */
         xpsr_write(env, val, ~XPSR_EXCP);
         return 0;
     }
@@ -798,7 +731,6 @@ static int put_cpsr(QEMUFile *f, void *opaque, size_t size,
     uint32_t val;
 
     if (arm_feature(env, ARM_FEATURE_M)) {
-        /* The low 9 bits are v7m.exception, which is handled by vmstate_m. */
         val = xpsr_read(env) & ~XPSR_EXCP;
     } else if (is_a64(env)) {
         val = pstate_read(env);
@@ -830,7 +762,6 @@ static int put_power(QEMUFile *f, void *opaque, size_t size,
 {
     ARMCPU *cpu = opaque;
 
-    /* Migration should never happen while we transition power states */
 
     if (cpu->power_state == PSCI_ON ||
         cpu->power_state == PSCI_OFF) {
@@ -879,25 +810,8 @@ static int cpu_pre_load(void *opaque)
     ARMCPU *cpu = opaque;
     CPUARMState *env = &cpu->env;
 
-    /*
-     * In an inbound migration where on the source FPSCR/FPSR/FPCR are 0,
-     * there will be no fpcr_fpsr subsection so we won't call vfp_set_fpcr()
-     * and vfp_set_fpsr() from get_fpcr() and get_fpsr(); also the get_fpscr()
-     * function will not call vfp_set_fpscr() because it will see a 0 in the
-     * inbound data. Ensure that in this case we have a correctly set up
-     * zero FPSCR/FPCR/FPSR.
-     *
-     * This is not strictly needed because FPSCR is zero out of reset, but
-     * it avoids the possibility of future confusing migration bugs if some
-     * future architecture change makes the reset value non-zero.
-     */
     vfp_set_fpscr(env, 0);
 
-    /*
-     * Pre-initialize irq_line_state to a value that's never valid as
-     * real data, so cpu_post_load() can tell whether we've seen the
-     * irq-line-state subsection in the incoming migration state.
-     */
     env->irq_line_state = UINT32_MAX;
 
     pmu_op_start(env);
@@ -911,15 +825,6 @@ static int cpu_post_load(void *opaque, int version_id)
     CPUARMState *env = &cpu->env;
     int i, v;
 
-    /*
-     * Handle migration compatibility from old QEMU which didn't
-     * send the irq-line-state subsection. A QEMU without it did not
-     * implement the HCR_EL2.{VI,VF} bits as generating interrupts,
-     * so for TCG the line state matches the bits set in cs->interrupt_request.
-     * For KVM the line state is not stored in cs->interrupt_request
-     * and so this will leave irq_line_state as 0, but this is OK because
-     * we only need to care about it for TCG.
-     */
     if (env->irq_line_state == UINT32_MAX) {
         CPUState *cs = CPU(cpu);
 
@@ -928,26 +833,15 @@ static int cpu_post_load(void *opaque, int version_id)
              CPU_INTERRUPT_VIRQ | CPU_INTERRUPT_VFIQ);
     }
 
-    /* Update the values list from the incoming migration data.
-     * Anything in the incoming data which we don't know about is
-     * a migration failure; anything we know about but the incoming
-     * data doesn't specify retains its current (reset) value.
-     * The indexes list remains untouched -- we only inspect the
-     * incoming migration index list so we can match the values array
-     * entries with the right slots in our own values array.
-     */
 
     for (i = 0, v = 0; i < cpu->cpreg_array_len
              && v < cpu->cpreg_vmstate_array_len; i++) {
         if (cpu->cpreg_vmstate_indexes[v] > cpu->cpreg_indexes[i]) {
-            /* register in our list but not incoming : skip it */
             continue;
         }
         if (cpu->cpreg_vmstate_indexes[v] < cpu->cpreg_indexes[i]) {
-            /* register in their list but not ours: fail migration */
             return -1;
         }
-        /* matching register, copy the value over */
         cpu->cpreg_values[i] = cpu->cpreg_vmstate_values[v];
         v++;
     }
@@ -956,11 +850,6 @@ static int cpu_post_load(void *opaque, int version_id)
         return -1;
     }
 
-    /*
-     * Misaligned thumb pc is architecturally impossible. Fail the
-     * incoming migration. For TCG it would trigger the assert in
-     * thumb_tr_translate_insn().
-     */
     if (!is_a64(env) && env->thumb && (env->regs[15] & 1)) {
         return -1;
     }
@@ -970,11 +859,6 @@ static int cpu_post_load(void *opaque, int version_id)
         hw_watchpoint_update_all(cpu);
     }
 
-    /*
-     * TCG gen_update_fp_context() relies on the invariant that
-     * FPDSCR.LTPSIZE is constant 4 for M-profile with the LOB extension;
-     * forbid bogus incoming data with some other value.
-     */
     if (arm_feature(env, ARM_FEATURE_M) && cpu_isar_feature(aa32_lob, cpu)) {
         if (extract32(env->v7m.fpdscr[M_REG_NS],
                       FPCR_LTPSIZE_SHIFT, FPCR_LTPSIZE_LENGTH) != 4 ||
@@ -1021,9 +905,6 @@ const VMStateDescription vmstate_arm_cpu = {
         VMSTATE_UINT32_ARRAY(env.fiq_regs, ARMCPU, 5),
         VMSTATE_UINT64_ARRAY(env.elr_el, ARMCPU, 4),
         VMSTATE_UINT64_ARRAY(env.sp_el, ARMCPU, 4),
-        /* The length-check must come before the arrays to avoid
-         * incoming data possibly overflowing the array.
-         */
         VMSTATE_INT32_POSITIVE_LE(cpreg_vmstate_array_len, ARMCPU),
         VMSTATE_VARRAY_INT32(cpreg_vmstate_indexes, ARMCPU,
                              cpreg_vmstate_array_len,
@@ -1055,10 +936,6 @@ const VMStateDescription vmstate_arm_cpu = {
         &vmstate_iwmmxt,
         &vmstate_m,
         &vmstate_thumb2ee,
-        /* pmsav7_rnr must come before pmsav7 so that we have the
-         * region number before we test it in the VMSTATE_VALIDATE
-         * in vmstate_pmsav7.
-         */
         &vmstate_pmsav7_rnr,
         &vmstate_pmsav7,
         &vmstate_pmsav8,

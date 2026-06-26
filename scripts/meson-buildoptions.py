@@ -1,39 +1,16 @@
 #! /usr/bin/env python3
 
-# Generate configure command line options handling code, based on Meson's
-# user build options introspection data
-#
-# Copyright (C) 2021 Red Hat, Inc.
-#
-# Author: Paolo Bonzini <pbonzini@redhat.com>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
 import textwrap
 import shlex
 import sys
 
-# Options with nonstandard names (e.g. --with/--without) or OS-dependent
-# defaults.  Try not to add any.
 SKIP_OPTIONS = {
     "default_devices",
     "fuzzing_engine",
 }
 
-# Options whose name doesn't match the option for backwards compatibility
-# reasons, because Meson gives them a funny name, or both
 OPTION_NAMES = {
     "b_coverage": "gcov",
     "b_lto": "lto",
@@ -47,16 +24,11 @@ OPTION_NAMES = {
     "trace_file": "with-trace-file",
 }
 
-# Options that configure autodetects, even though meson defines them as boolean
 AUTO_OPTIONS = {
     "plugins",
     "werror",
 }
 
-# Builtin options that should be definable via configure.  Some of the others
-# we really do not want (e.g. c_args is defined via the native file, not
-# via -D, because it's a mix of CFLAGS and --extra-cflags); for specific
-# cases "../configure -D" can be used as an escape hatch.
 BUILTIN_OPTIONS = {
     "b_coverage",
     "b_lto",
@@ -78,8 +50,6 @@ BUILTIN_OPTIONS = {
 LINE_WIDTH = 76
 
 
-# Convert the default value of an option to the string used in
-# the help message
 def get_help(opt):
     if opt["name"] == "libdir":
         return 'system default'
@@ -120,10 +90,6 @@ def help_line(left, opt, indent, long):
         sh_print(x)
 
 
-# Return whether the option (a dictionary) can be used with
-# arguments.  Booleans can never be used with arguments;
-# combos allow an argument only if they accept other values
-# than "auto", "enabled", and "disabled".
 def allow_arg(opt):
     if opt["type"] == "boolean":
         return False
@@ -132,10 +98,6 @@ def allow_arg(opt):
     return not (set(opt["choices"]) <= {"auto", "disabled", "enabled"})
 
 
-# Return whether the option (a dictionary) can be used without
-# arguments.  Booleans can only be used without arguments;
-# combos require an argument if they accept neither "enabled"
-# nor "disabled"
 def require_arg(opt):
     if opt["type"] == "boolean":
         return False
@@ -187,8 +149,6 @@ def print_help(options):
     feature_opts = []
     for opt in sorted(options, key=cli_help_key):
         key = cli_help_key(opt)
-        # The first section includes options that have an arguments,
-        # and booleans (i.e., only one of enable/disable makes sense)
         if require_arg(opt):
             metavar = cli_metavar(opt)
             left = f"--{key}={metavar}"

@@ -1,20 +1,3 @@
-/*
- * SMBIOS Support
- *
- * Copyright (C) 2009 Hewlett-Packard Development Company, L.P.
- * Copyright (C) 2013 Red Hat, Inc.
- * Copyright (c) 2015,2016 Corey Minyard, MontaVista Software, LLC
- *
- * Authors:
- *  Alex Williamson <alex.williamson@hp.com>
- *  Markus Armbruster <armbru@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #ifndef QEMU_SMBIOS_BUILD_H
 #define QEMU_SMBIOS_BUILD_H
@@ -102,7 +85,6 @@ extern unsigned smbios_table_cnt;
         smbios_table_cnt++;                                               \
     } while (0)
 
-/* IPMI SMBIOS firmware handling */
 void smbios_build_type_38_table(void);
 
 #endif /* QEMU_SMBIOS_BUILD_H */

@@ -1,15 +1,3 @@
-/*
- * QEMU Confidential Guest support
- *
- * Copyright Red Hat.
- *
- * Authors:
- *  David Gibson <david@gibson.dropbear.id.au>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 

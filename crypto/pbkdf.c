@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto PBKDF support (Password-Based Key Derivation Function)
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/thread.h"
@@ -48,7 +29,6 @@ static int qcrypto_pbkdf2_get_thread_cpu(unsigned long long *val_ms,
     thread_time.LowPart = user_time.dwLowDateTime;
     thread_time.HighPart = user_time.dwHighDateTime;
 
-    /* QuadPart is units of 100ns and we want ms as unit */
     *val_ms = thread_time.QuadPart / 10000ll;
     return 0;
 #elif defined(CONFIG_DARWIN)
@@ -131,15 +111,6 @@ static void *threaded_qcrypto_pbkdf2_count_iters(void *data)
 
         delta_ms = end_ms - start_ms;
 
-        /*
-         * For very small 'iterations' values, CPU (or crypto
-         * accelerator) might be fast enough that the scheduler
-         * hasn't incremented getrusage() data, or incremented
-         * it by a very small amount, resulting in delta_ms == 0.
-         * Once we've scaled 'iterations' x10, 5 times, we really
-         * should be seeing delta_ms != 0, so sanity check at
-         * that point.
-         */
         if (scaled > 5 &&
             delta_ms == 0) { /* sanity check */
             error_setg(errp, "Unable to get accurate CPU usage");

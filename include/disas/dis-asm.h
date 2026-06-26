@@ -1,10 +1,3 @@
-/* Interface between the opcode library and its callers.
-   Written by Cygnus Support, 1993.
-
-   The opcode library (libopcodes.a) provides instruction decoders for
-   a large variety of instruction sets, callable with an identical
-   interface, for making instruction-processing programs more independent
-   of the instruction set being processed.  */
 
 #ifndef DISAS_DIS_ASM_H
 #define DISAS_DIS_ASM_H
@@ -66,13 +59,6 @@ enum bfd_architecture
 #define bfd_mach_mcf548x   18
   bfd_arch_vax,        /* DEC Vax */
   bfd_arch_i960,       /* Intel 960 */
-     /* The order of the following is important.
-       lower number indicates a machine type that
-       only accepts a subset of the instructions
-       available to machines with higher numbers.
-       The exception is the "ca", which is
-       incompatible with all other machines except
-       "core". */
 
 #define bfd_mach_i960_core      1
 #define bfd_mach_i960_ka_sa     2
@@ -86,7 +72,6 @@ enum bfd_architecture
   bfd_arch_a29k,       /* AMD 29000 */
   bfd_arch_sparc,      /* SPARC */
 #define bfd_mach_sparc                 1
-/* The difference between v8plus and v9 is that v9 is a true 64 bit env.  */
 #define bfd_mach_sparc_sparclet        2
 #define bfd_mach_sparc_sparclite       3
 #define bfd_mach_sparc_v8plus          4
@@ -96,7 +81,6 @@ enum bfd_architecture
 #define bfd_mach_sparc_v9a             8 /* with ultrasparc add'ns.  */
 #define bfd_mach_sparc_v8plusb         9 /* with cheetah add'ns.  */
 #define bfd_mach_sparc_v9b             10 /* with cheetah add'ns.  */
-/* Nonzero if MACH has the v9 instruction set.  */
 #define bfd_mach_sparc_v9_p(mach) \
   ((mach) >= bfd_mach_sparc_v8plus && (mach) <= bfd_mach_sparc_v9b \
    && (mach) != bfd_mach_sparc_sparclite_le)
@@ -271,110 +255,49 @@ enum dis_insn_type {
   dis_dref2             /* Two data references in instruction */
 };
 
-/* This struct is passed into the instruction decoding routine,
-   and is passed back out into each callback.  The various fields are used
-   for conveying information from your main routine into your callbacks,
-   for passing information into the instruction decoders (such as the
-   addresses of the callback functions), or for passing information
-   back from the instruction decoders to their callers.
-
-   It must be initialized before it is first passed; this can be done
-   by hand, or using one of the initialization macros below.  */
 
 typedef struct disassemble_info {
   fprintf_function fprintf_func;
   FILE *stream;
   PTR application_data;
 
-  /* Target description.  We could replace this with a pointer to the bfd,
-     but that would require one.  There currently isn't any such requirement
-     so to avoid introducing one we record these explicitly.  */
-  /* The bfd_flavour.  This can be bfd_target_unknown_flavour.  */
   enum bfd_flavour flavour;
-  /* The bfd_arch value.  */
   enum bfd_architecture arch;
-  /* The bfd_mach value.  */
   unsigned long mach;
-  /* Endianness (for bi-endian cpus).  Mono-endian cpus can ignore this.  */
   enum bfd_endian endian;
 
-  /* An array of pointers to symbols either at the location being disassembled
-     or at the start of the function being disassembled.  The array is sorted
-     so that the first symbol is intended to be the one used.  The others are
-     present for any misc. purposes.  This is not set reliably, but if it is
-     not NULL, it is correct.  */
   asymbol **symbols;
-  /* Number of symbols in array.  */
   int num_symbols;
 
-  /* For use by the disassembler.
-     The top 16 bits are reserved for public use (and are documented here).
-     The bottom 16 bits are for the internal use of the disassembler.  */
   unsigned long flags;
 #define INSN_HAS_RELOC  0x80000000
 #define INSN_ARM_BE32   0x00010000
   PTR private_data;
 
-  /* Function used to get bytes to disassemble.  MEMADDR is the
-     address of the stuff to be disassembled, MYADDR is the address to
-     put the bytes in, and LENGTH is the number of bytes to read.
-     INFO is a pointer to this struct.
-     Returns an errno value or 0 for success.  */
   int (*read_memory_func)
     (bfd_vma memaddr, bfd_byte *myaddr, int length,
         struct disassemble_info *info);
 
-  /* Function which should be called if we get an error that we can't
-     recover from.  STATUS is the errno value from read_memory_func and
-     MEMADDR is the address that we were trying to read.  INFO is a
-     pointer to this struct.  */
   void (*memory_error_func)
     (int status, bfd_vma memaddr, struct disassemble_info *info);
 
-  /* Function called to print ADDR.  */
   void (*print_address_func)
     (bfd_vma addr, struct disassemble_info *info);
 
-    /* Function called to print an instruction. The function is architecture
-     * specific.
-     */
     int (*print_insn)(bfd_vma addr, struct disassemble_info *info);
 
-  /* Function called to determine if there is a symbol at the given ADDR.
-     If there is, the function returns 1, otherwise it returns 0.
-     This is used by ports which support an overlay manager where
-     the overlay number is held in the top part of an address.  In
-     some circumstances we want to include the overlay number in the
-     address, (normally because there is a symbol associated with
-     that address), but sometimes we want to mask out the overlay bits.  */
   int (* symbol_at_address_func)
     (bfd_vma addr, struct disassemble_info * info);
 
-  /* These are for buffer_read_memory.  */
   const bfd_byte *buffer;
   bfd_vma buffer_vma;
   int buffer_length;
 
-  /* This variable may be set by the instruction decoder.  It suggests
-      the number of bytes objdump should display on a single line.  If
-      the instruction decoder sets this, it should always set it to
-      the same value in order to get reasonable looking output.  */
   int bytes_per_line;
 
-  /* the next two variables control the way objdump displays the raw data */
-  /* For example, if bytes_per_line is 8 and bytes_per_chunk is 4, the */
-  /* output will look like this:
-     00:   00000000 00000000
-     with the chunks displayed according to "display_endian". */
   int bytes_per_chunk;
   enum bfd_endian display_endian;
 
-  /* Results from instruction decoders.  Not all decoders yet support
-     this information.  This info is set each time an instruction is
-     decoded, and is only valid for the last such instruction.
-
-     To determine whether this decoder supports this information, set
-     insn_info_valid to 0, decode an instruction, then check it.  */
 
   char insn_info_valid;         /* Branch info has been set. */
   char branch_delay_insns;      /* How many sequential insn's will run before
@@ -385,21 +308,12 @@ typedef struct disassemble_info {
                                    zero if unknown.  */
   bfd_vma target2;              /* Second target address for dref2 */
 
-  /* Command line options specific to the target disassembler.  */
   char * disassembler_options;
 
-  /*
-   * When true instruct the disassembler it may preface the
-   * disassembly with the opcodes values if it wants to. This is
-   * mainly for the benefit of the plugin interface which doesn't want
-   * that.
-   */
   bool show_opcodes;
 
-  /* Field intended to be used by targets in any way they deem suitable.  */
   void *target_info;
 
-  /* Options for Capstone disassembly.  */
   int cap_arch;
   int cap_mode;
   int cap_insn_unit;
@@ -407,8 +321,6 @@ typedef struct disassemble_info {
 
 } disassemble_info;
 
-/* Standard disassemblers.  Disassemble one instruction at the given
-   target address.  Return number of bytes processed.  */
 typedef int (*disassembler_ftype) (bfd_vma, disassemble_info *);
 
 int print_insn_tci(bfd_vma, disassemble_info*);
@@ -470,7 +382,6 @@ bool cap_disas_plugin(disassemble_info *info, uint64_t pc, size_t size);
 #define ATTRIBUTE_UNUSED __attribute__((unused))
 #endif
 
-/* from libbfd */
 
 static inline bfd_vma bfd_getl64(const bfd_byte *addr)
 {

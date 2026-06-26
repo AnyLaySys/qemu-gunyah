@@ -1,27 +1,3 @@
-/*
- * Commandline option parsing functions
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- * Copyright (c) 2009 Kevin Wolf <kwolf@redhat.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 
@@ -37,30 +13,12 @@
 #include "qemu/id.h"
 #include "qemu/help_option.h"
 
-/*
- * Extracts the name of an option from the parameter string (@p points at the
- * first byte of the option name)
- *
- * The option name is @len characters long and is copied into @option. The
- * caller is responsible for free'ing @option when no longer required.
- *
- * The return value is the position of the delimiter/zero byte after the option
- * name in @p.
- */
 static const char *get_opt_name(const char *p, char **option, size_t len)
 {
     *option = g_strndup(p, len);
     return p + len;
 }
 
-/*
- * Extracts the value of an option from the parameter string p (p points at the
- * first byte of the option value)
- *
- * This function is comparable to get_opt_name with the difference that the
- * delimiter is fixed to be comma which starts a new option. To specify an
- * option value that contains commas, double each comma.
- */
 const char *get_opt_value(const char *p, char **value)
 {
     size_t capacity = 0, length;
@@ -169,13 +127,6 @@ static const char *opt_type_to_string(enum QemuOptType type)
     g_assert_not_reached();
 }
 
-/**
- * Print the list of options available in the given list.  If
- * @print_caption is true, a caption (including the list name, if it
- * exists) is printed.  The options itself will be indented, so
- * @print_caption should only be set to false if the caller prints its
- * own custom caption (so that the indentation makes sense).
- */
 void qemu_opts_print_help(QemuOptsList *list, bool print_caption)
 {
     QemuOptDesc *desc;
@@ -219,7 +170,6 @@ void qemu_opts_print_help(QemuOptsList *list, bool print_caption)
     g_ptr_array_free(array, true);
 
 }
-/* ------------------------------------------------------------------ */
 
 QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name)
 {
@@ -241,9 +191,6 @@ static void qemu_opt_del(QemuOpt *opt)
     g_free(opt);
 }
 
-/* qemu_opt_set allows many settings for the same option.
- * This function deletes all settings for an option.
- */
 static void qemu_opt_del_all(QemuOpts *opts, const char *name)
 {
     QemuOpt *opt, *next_opt;
@@ -290,10 +237,6 @@ const char *qemu_opt_iter_next(QemuOptsIter *iter)
     return ret ? ret->str : NULL;
 }
 
-/* Get a known option (or its default) and remove it from the list
- * all in one action. Return a malloced string of the option value.
- * Result must be freed by caller with g_free().
- */
 char *qemu_opt_get_del(QemuOpts *opts, const char *name)
 {
     QemuOpt *opt;
@@ -445,7 +388,6 @@ static bool qemu_opt_parse(QemuOpt *opt, Error **errp)
 
     switch (opt->desc->type) {
     case QEMU_OPT_STRING:
-        /* nothing */
         return true;
     case QEMU_OPT_BOOL:
         return qapi_bool_parse(opt->name, opt->str, &opt->value.boolean, errp);
@@ -568,12 +510,6 @@ bool qemu_opt_set_number(QemuOpts *opts, const char *name, int64_t val,
     return true;
 }
 
-/**
- * For each member of @opts, call @func(@opaque, name, value, @errp).
- * @func() may store an Error through @errp, but must return non-zero then.
- * When @func() returns non-zero, break the loop and return that value.
- * Return zero when the loop completes.
- */
 int qemu_opt_foreach(QemuOpts *opts, qemu_opt_loopfunc func, void *opaque,
                      Error **errp)
 {
@@ -662,7 +598,6 @@ const char *qemu_opts_id(QemuOpts *opts)
     return opts->id;
 }
 
-/* The id string will be g_free()d by qemu_opts_del */
 void qemu_opts_set_id(QemuOpts *opts, char *id)
 {
     opts->id = id;
@@ -687,7 +622,6 @@ void qemu_opts_del(QemuOpts *opts)
     g_free(opts);
 }
 
-/* print value, escaping any commas in value */
 static void escaped_print(const char *value)
 {
     const char *ptr;
@@ -753,13 +687,10 @@ static const char *get_opt_name_value(const char *params,
 
     len = strcspn(params, "=,");
     if (params[len] != '=') {
-        /* found "foo,more" */
         if (firstname) {
-            /* implicitly named first option */
             *name = g_strdup(firstname);
             p = get_opt_value(params, value);
         } else {
-            /* option without value, must be a flag */
             p = get_opt_name(params, name, len);
             if (strncmp(*name, "no", 2) == 0) {
                 memmove(*name, *name + 2, strlen(*name + 2) + 1);
@@ -779,7 +710,6 @@ static const char *get_opt_name_value(const char *params,
             }
         }
     } else {
-        /* found "foo=bar,more" */
         p = get_opt_name(params, name, len);
         assert(*p == '=');
         p++;
@@ -866,12 +796,6 @@ bool has_help_option(const char *params)
     return false;
 }
 
-/**
- * Store options parsed from @params into @opts.
- * If @firstname is non-null, the first key=value in @params may omit
- * key=, and is treated as if key was @firstname.
- * On error, store an error object through @errp if non-null.
- */
 bool qemu_opts_do_parse(QemuOpts *opts, const char *params,
                        const char *firstname, Error **errp)
 {
@@ -904,27 +828,12 @@ static QemuOpts *opts_parse(QemuOptsList *list, const char *params,
     return opts;
 }
 
-/**
- * Create a QemuOpts in @list and with options parsed from @params.
- * If @permit_abbrev, the first key=value in @params may omit key=,
- * and is treated as if key was @list->implied_opt_name.
- * On error, store an error object through @errp if non-null.
- * Return the new QemuOpts on success, null pointer on error.
- */
 QemuOpts *qemu_opts_parse(QemuOptsList *list, const char *params,
                           bool permit_abbrev, Error **errp)
 {
     return opts_parse(list, params, permit_abbrev, false, NULL, errp);
 }
 
-/**
- * Create a QemuOpts in @list and with options parsed from @params.
- * If @permit_abbrev, the first key=value in @params may omit key=,
- * and is treated as if key was @list->implied_opt_name.
- * Report errors with error_report_err().  This is inappropriate in
- * QMP context.  Do not use this function there!
- * Return the new QemuOpts on success, null pointer on error.
- */
 QemuOpts *qemu_opts_parse_noisily(QemuOptsList *list, const char *params,
                                   bool permit_abbrev)
 {
@@ -980,12 +889,6 @@ static bool qemu_opts_from_qdict_entry(QemuOpts *opts,
     return qemu_opt_set(opts, key, value, errp);
 }
 
-/*
- * Create QemuOpts from a QDict.
- * Use value of key "id" as ID if it exists and is a QString.  Only
- * QStrings, QNums and QBools are copied.  Entries with other types
- * are silently ignored.
- */
 QemuOpts *qemu_opts_from_qdict(QemuOptsList *list, const QDict *qdict,
                                Error **errp)
 {
@@ -1009,11 +912,6 @@ QemuOpts *qemu_opts_from_qdict(QemuOptsList *list, const QDict *qdict,
     return opts;
 }
 
-/*
- * Adds all QDict entries to the QemuOpts that can be added and removes them
- * from the QDict. When this function returns, the QDict contains only those
- * entries that couldn't be added to the QemuOpts.
- */
 bool qemu_opts_absorb_qdict(QemuOpts *opts, QDict *qdict, Error **errp)
 {
     const QDictEntry *entry, *next;
@@ -1037,20 +935,6 @@ bool qemu_opts_absorb_qdict(QemuOpts *opts, QDict *qdict, Error **errp)
     return true;
 }
 
-/*
- * Convert from QemuOpts to QDict. The QDict values are of type QString.
- *
- * If @list is given, only add those options to the QDict that are contained in
- * the list. If @del is true, any options added to the QDict are removed from
- * the QemuOpts, otherwise they remain there.
- *
- * If two options in @opts have the same name, they are processed in order
- * so that the last one wins (consistent with the reverse iteration in
- * qemu_opt_find()), but all of them are deleted if @del is true.
- *
- * TODO We'll want to use types appropriate for opt->desc->type, but
- * this is enough for now.
- */
 QDict *qemu_opts_to_qdict_filtered(QemuOpts *opts, QDict *qdict,
                                    QemuOptsList *list, bool del)
 {
@@ -1084,16 +968,11 @@ QDict *qemu_opts_to_qdict_filtered(QemuOpts *opts, QDict *qdict,
     return qdict;
 }
 
-/* Copy all options in a QemuOpts to the given QDict. See
- * qemu_opts_to_qdict_filtered() for details. */
 QDict *qemu_opts_to_qdict(QemuOpts *opts, QDict *qdict)
 {
     return qemu_opts_to_qdict_filtered(opts, qdict, NULL, false);
 }
 
-/* Validate parsed opts against descriptions where no
- * descriptions were provided in the QemuOptsList.
- */
 bool qemu_opts_validate(QemuOpts *opts, const QemuOptDesc *desc, Error **errp)
 {
     QemuOpt *opt;
@@ -1115,13 +994,6 @@ bool qemu_opts_validate(QemuOpts *opts, const QemuOptDesc *desc, Error **errp)
     return true;
 }
 
-/**
- * For each member of @list, call @func(@opaque, member, @errp).
- * Call it with the current location temporarily set to the member's.
- * @func() may store an Error through @errp, but must return non-zero then.
- * When @func() returns non-zero, break the loop and return that value.
- * Return zero when the loop completes.
- */
 int qemu_opts_foreach(QemuOptsList *list, qemu_opts_loopfunc func,
                       void *opaque, Error **errp)
 {
@@ -1165,11 +1037,6 @@ void qemu_opts_free(QemuOptsList *list)
     g_free(list);
 }
 
-/* Realloc dst option list and append options from an option list (list)
- * to it. dst could be NULL or a malloced list.
- * The lifetime of dst must be shorter than the input list because the
- * QemuOptDesc->name, ->help, and ->def_value_str strings are shared.
- */
 QemuOptsList *qemu_opts_append(QemuOptsList *dst,
                                QemuOptsList *list)
 {
@@ -1182,16 +1049,10 @@ QemuOptsList *qemu_opts_append(QemuOptsList *dst,
         return dst;
     }
 
-    /* If dst is NULL, after realloc, some area of dst should be initialized
-     * before adding options to it.
-     */
     if (!dst) {
         need_init = true;
         need_head_update = true;
     } else {
-        /* Moreover, even if dst is not NULL, the realloc may move it to a
-         * different address in which case we may get a stale tail pointer
-         * in dst->head. */
         need_head_update = QTAILQ_EMPTY(&dst->head);
     }
 
@@ -1210,7 +1071,6 @@ QemuOptsList *qemu_opts_append(QemuOptsList *dst,
     }
     dst->desc[num_dst_opts].name = NULL;
 
-    /* append list->desc to dst->desc */
     if (list) {
         desc = list->desc;
         while (desc && desc->name) {

@@ -1,14 +1,3 @@
-/*
- * Device Container
- *
- * Copyright IBM, Corp. 2012
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qom/object.h"

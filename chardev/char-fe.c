@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 #include "qemu/osdep.h"
 #include "qemu/error-report.h"
 #include "qapi/error.h"
@@ -149,15 +126,12 @@ void qemu_chr_fe_printf(CharBackend *be, const char *fmt, ...)
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
-    /* XXX this blocks entire thread. Rewrite to use
-     * qemu_chr_fe_write and background I/O callbacks */
     qemu_chr_fe_write_all(be, (uint8_t *)buf, strlen(buf));
     va_end(ap);
 }
 
 Chardev *qemu_chr_fe_get_driver(CharBackend *be)
 {
-    /* this is unsafe for the users that support chardev hotswap */
     assert(be->chr_be_change == NULL);
     return be->chr;
 }
@@ -260,8 +234,6 @@ void qemu_chr_fe_set_handlers_full(CharBackend *b,
 
     if (fe_open) {
         qemu_chr_fe_take_focus(b);
-        /* We're connecting to an already opened device, so let's make sure we
-           also get the open event */
         if (sync_state && s->be_open) {
             qemu_chr_be_event(s, CHR_EVENT_OPENED);
         }

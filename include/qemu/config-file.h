@@ -18,13 +18,10 @@ int qemu_global_option(const char *str);
 int qemu_config_parse(FILE *fp, QemuOptsList **lists, const char *fname,
                       Error **errp);
 
-/* A default callback for qemu_read_config_file().  */
 void qemu_config_do_parse(const char *group, QDict *qdict, void *opaque, Error **errp);
 
 int qemu_read_config_file(const char *filename, QEMUConfigCB *f, Error **errp);
 
-/* Parse QDict options as a replacement for a config file (allowing multiple
-   enumerated (0..(n-1)) configuration "sections") */
 bool qemu_config_parse_qdict(QDict *options, QemuOptsList **lists,
                              Error **errp);
 

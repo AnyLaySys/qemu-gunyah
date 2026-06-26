@@ -1,26 +1,3 @@
-/*
- * QEMU monitor
- *
- * Copyright (c) 2003-2004 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include <dirent.h>
@@ -65,7 +42,6 @@ int monitor_read_password(MonitorHMP *mon, ReadLineFunc *readline_func,
 {
     if (mon->rs) {
         readline_start(mon->rs, "Password: ", 1, readline_func, opaque);
-        /* prompt is printed on return from the command handler */
         return 0;
     } else {
         monitor_printf(&mon->common,
@@ -154,19 +130,6 @@ static void free_cmdline_args(char **args, int nb_args)
 
 }
 
-/*
- * Parse the command line to get valid args.
- * @cmdline: command line to be parsed.
- * @pnb_args: location to store the number of args, must NOT be NULL.
- * @args: location to store the args, which should be freed by caller, must
- *        NOT be NULL.
- *
- * Returns 0 on success, negative on failure.
- *
- * NOTE: this parser is an approximate form of the real command parser. Number
- *       of args have a limit of MAX_ARGS. If cmdline contains more, it will
- *       return with failure.
- */
 static int parse_cmdline(const char *cmdline,
                          int *pnb_args, char **args)
 {
@@ -201,9 +164,6 @@ static int parse_cmdline(const char *cmdline,
     return -1;
 }
 
-/*
- * Can command @cmd be executed in preconfig state?
- */
 static bool cmd_can_preconfig(const HMPCommand *cmd)
 {
     if (!cmd->flags) {
@@ -235,14 +195,12 @@ static void help_cmd_dump_one(Monitor *mon,
     monitor_printf(mon, "%s %s -- %s\n", cmd->name, cmd->params, cmd->help);
 }
 
-/* @args[@arg_index] is the valid command need to find in @cmds */
 static void help_cmd_dump(Monitor *mon, const HMPCommand *cmds,
                           char **args, int nb_args, int arg_index)
 {
     const HMPCommand *cmd;
     size_t i;
 
-    /* No valid arg need to compare with, dump all in *cmds */
     if (arg_index >= nb_args) {
         for (cmd = cmds; cmd->name != NULL; cmd++) {
             help_cmd_dump_one(mon, cmd, args, arg_index);
@@ -250,12 +208,10 @@ static void help_cmd_dump(Monitor *mon, const HMPCommand *cmds,
         return;
     }
 
-    /* Find one entry to dump */
     for (cmd = cmds; cmd->name != NULL; cmd++) {
         if (hmp_compare_cmd(args[arg_index], cmd->name) &&
             cmd_available(cmd)) {
             if (cmd->sub_table) {
-                /* continue with next arg */
                 help_cmd_dump(mon, cmd->sub_table,
                               args, nb_args, arg_index + 1);
             } else {
@@ -265,7 +221,6 @@ static void help_cmd_dump(Monitor *mon, const HMPCommand *cmds,
         }
     }
 
-    /* Command not found */
     monitor_printf(mon, "unknown command: '");
     for (i = 0; i <= arg_index; i++) {
         monitor_printf(mon, "%s%s", args[i], i == arg_index ? "'\n" : " ");
@@ -277,9 +232,7 @@ void hmp_help_cmd(Monitor *mon, const char *name)
     char *args[MAX_ARGS];
     int nb_args = 0;
 
-    /* 1. parse user input */
     if (name) {
-        /* special case for log, directly dump and return */
         if (!strcmp(name, "log")) {
             const QEMULogItem *item;
             monitor_printf(mon, "Log items (comma separated):\n");
@@ -300,13 +253,11 @@ void hmp_help_cmd(Monitor *mon, const char *name)
         }
     }
 
-    /* 2. dump the contents according to parsed args */
     help_cmd_dump(mon, hmp_cmds, args, nb_args, 0);
 
     free_cmdline_args(args, nb_args);
 }
 
-/*******************************************************************/
 
 static const char *pch;
 static sigjmp_buf expr_env;
@@ -534,7 +485,6 @@ static int get_double(Monitor *mon, double *pval, const char **pp)
         return -1;
     }
     if (d != d || d - d != 0) {
-        /* NaN or infinity */
         monitor_printf(mon, "Bad number\n");
         return -1;
     }
@@ -543,10 +493,6 @@ static int get_double(Monitor *mon, double *pval, const char **pp)
     return 0;
 }
 
-/*
- * Store the command-name in cmdname, and return a pointer to
- * the remaining of the command string.
- */
 static const char *get_command_name(const char *cmdline,
                                     char *cmdname, size_t nlen)
 {
@@ -573,10 +519,6 @@ static const char *get_command_name(const char *cmdline,
     return p;
 }
 
-/**
- * Read key of 'type' into 'key' and return the current
- * 'type' pointer.
- */
 static char *key_get_info(const char *type, char **key)
 {
     size_t len;
@@ -630,16 +572,6 @@ static const HMPCommand *search_dispatch_table(const HMPCommand *disp_table,
     return NULL;
 }
 
-/*
- * Parse command name from @cmdp according to command table @table.
- * If blank, return NULL.
- * Else, if no valid command can be found, report to @mon, and return
- * NULL.
- * Else, change @cmdp to point right behind the name, and return its
- * command table entry.
- * Do not assume the return value points into @table!  It doesn't when
- * the command is found in a sub-command table.
- */
 static const HMPCommand *monitor_parse_command(MonitorHMP *hmp_mon,
                                                const char *cmdp_start,
                                                const char **cmdp,
@@ -650,7 +582,6 @@ static const HMPCommand *monitor_parse_command(MonitorHMP *hmp_mon,
     const HMPCommand *cmd;
     char cmdname[256];
 
-    /* extract the command name */
     p = get_command_name(*cmdp, cmdname, sizeof(cmdname));
     if (!p) {
         return NULL;
@@ -669,13 +600,11 @@ static const HMPCommand *monitor_parse_command(MonitorHMP *hmp_mon,
         return NULL;
     }
 
-    /* filter out following useless space */
     while (qemu_isspace(*p)) {
         p++;
     }
 
     *cmdp = p;
-    /* search sub command */
     if (cmd->sub_table != NULL && *p != '\0') {
         return monitor_parse_command(hmp_mon, cmdp_start, cmdp, cmd->sub_table);
     }
@@ -683,12 +612,6 @@ static const HMPCommand *monitor_parse_command(MonitorHMP *hmp_mon,
     return cmd;
 }
 
-/*
- * Parse arguments for @cmd.
- * If it can't be parsed, report to @mon, and return NULL.
- * Else, insert command arguments into a QDict, and return it.
- * Note: On success, caller has to free the QDict structure.
- */
 static QDict *monitor_parse_arguments(Monitor *mon,
                                       const char **endp,
                                       const HMPCommand *cmd)
@@ -700,7 +623,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
     char buf[1024];
     QDict *qdict = qdict_new();
 
-    /* parse the parameters */
     typestr = cmd->args_type;
     for (;;) {
         typestr = key_get_info(typestr, &key);
@@ -722,7 +644,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                 if (*typestr == '?') {
                     typestr++;
                     if (*p == '\0') {
-                        /* no optional string: NULL argument */
                         break;
                     }
                 }
@@ -780,7 +701,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                     p++;
                 }
                 if (*p == '/') {
-                    /* format found */
                     p++;
                     count = 1;
                     if (qemu_isdigit(*p)) {
@@ -833,7 +753,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                         format = default_fmt_format;
                     }
                     if (format != 'i') {
-                        /* for 'i', not specifying a size gives -1 as size */
                         if (size < 0) {
                             size = default_fmt_size;
                         }
@@ -885,7 +804,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                 if (get_expr(mon, &val, &p)) {
                     goto fail;
                 }
-                /* Check if 'i' is greater than 32-bit */
                 if ((c == 'i') && ((val >> 32) & 0xffffffff)) {
                     monitor_printf(mon, "\'%s\' has failed: ", cmd->name);
                     monitor_printf(mon, "integer is for 32-bit values\n");
@@ -985,7 +903,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                 const char *tmp = p;
                 int skip_key = 0;
                 int ret;
-                /* option */
 
                 c = *typestr++;
                 if (c == '\0') {
@@ -1008,7 +925,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                     if (skip_key) {
                         p = tmp;
                     } else if (*typestr == 's') {
-                        /* has option with string value */
                         typestr++;
                         tmp = p++;
                         while (qemu_isspace(*p)) {
@@ -1022,7 +938,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                         }
                         qdict_put_str(qdict, key, buf);
                     } else {
-                        /* has boolean option */
                         p++;
                         qdict_put_bool(qdict, key, true);
                     }
@@ -1033,7 +948,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
             break;
         case 'S':
             {
-                /* package all remaining string */
                 int len;
 
                 while (qemu_isspace(*p)) {
@@ -1042,7 +956,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
                 if (*typestr == '?') {
                     typestr++;
                     if (*p == '\0') {
-                        /* no remaining string: NULL argument */
                         break;
                     }
                 }
@@ -1064,7 +977,6 @@ static QDict *monitor_parse_arguments(Monitor *mon,
         g_free(key);
         key = NULL;
     }
-    /* check that all arguments were parsed */
     while (qemu_isspace(*p)) {
         p++;
     }
@@ -1136,7 +1048,6 @@ void handle_hmp_command(MonitorHMP *mon, const char *cmdline)
     }
 
     if (!cmd->cmd && !cmd->cmd_info_hrt) {
-        /* FIXME: is it useful to try autoload modules here ??? */
         monitor_printf(&mon->common, "Command \"%.*s\" is not available.\n",
                        (int)(cmdline - cmd_start), cmd_start);
         return;
@@ -1153,7 +1064,6 @@ void handle_hmp_command(MonitorHMP *mon, const char *cmdline)
     }
 
     if (!cmd->coroutine) {
-        /* old_mon is non-NULL when called from qmp_human_monitor_command() */
         Monitor *old_mon = monitor_set_cur(qemu_coroutine_self(), &mon->common);
         handle_hmp_command_exec(&mon->common, cmd, qdict);
         monitor_set_cur(qemu_coroutine_self(), old_mon);
@@ -1242,10 +1152,6 @@ static void file_completion(MonitorHMP *mon, const char *input)
                 pstrcpy(file + input_path_len, sizeof(file) - input_path_len,
                         d->d_name);
             }
-            /*
-             * stat the file to find out if it's a directory.
-             * In that case add a slash to speed up typing long paths
-             */
             if (stat(file, &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 pstrcat(file, sizeof(file), "/");
             }
@@ -1273,7 +1179,6 @@ static void monitor_find_completion_by_table(MonitorHMP *mon,
     BlockBackend *blk = NULL;
 
     if (nb_args <= 1) {
-        /* command completion */
         if (nb_args == 0) {
             cmdname = "";
         } else {
@@ -1286,7 +1191,6 @@ static void monitor_find_completion_by_table(MonitorHMP *mon,
             }
         }
     } else {
-        /* find the command */
         for (cmd = cmd_table; cmd->name != NULL; cmd++) {
             if (hmp_compare_cmd(args[0], cmd->name) &&
                 cmd_available(cmd)) {
@@ -1298,7 +1202,6 @@ static void monitor_find_completion_by_table(MonitorHMP *mon,
         }
 
         if (cmd->sub_table) {
-            /* do the job again */
             monitor_find_completion_by_table(mon, cmd->sub_table,
                                              &args[1], nb_args - 1);
             return;
@@ -1325,12 +1228,10 @@ static void monitor_find_completion_by_table(MonitorHMP *mon,
         }
         switch (*ptype) {
         case 'F':
-            /* file completion */
             readline_set_completion_index(mon->rs, strlen(str));
             file_completion(mon, str);
             break;
         case 'B':
-            /* block device name completion */
             readline_set_completion_index(mon->rs, strlen(str));
             while ((blk = blk_next(blk)) != NULL) {
                 readline_add_completion_of(mon->rs, str, blk_name(blk));
@@ -1356,15 +1257,10 @@ static void monitor_find_completion(void *opaque,
     char *args[MAX_ARGS];
     int nb_args, len;
 
-    /* 1. parse the cmdline */
     if (parse_cmdline(cmdline, &nb_args, args) < 0) {
         return;
     }
 
-    /*
-     * if the line ends with a space, it means we want to complete the
-     * next arg
-     */
     len = strlen(cmdline);
     if (len > 0 && qemu_isspace(cmdline[len - 1])) {
         if (nb_args >= MAX_ARGS) {
@@ -1373,7 +1269,6 @@ static void monitor_find_completion(void *opaque,
         args[nb_args++] = g_strdup("");
     }
 
-    /* 2. auto complete according to args */
     monitor_find_completion_by_table(mon, hmp_cmds, args, nb_args);
 
 cleanup:
@@ -1432,7 +1327,6 @@ static void monitor_event(void *opaque, QEMUChrEvent event)
         qemu_mutex_lock(&mon->mon_lock);
         mon->reset_seen = 1;
         if (!mon->mux_out) {
-            /* Suspend-resume forces the prompt to be printed.  */
             monitor_suspend(mon);
             monitor_resume(mon);
         }
@@ -1444,16 +1338,11 @@ static void monitor_event(void *opaque, QEMUChrEvent event)
         break;
 
     case CHR_EVENT_BREAK:
-        /* Ignored */
         break;
     }
 }
 
 
-/*
- * These functions just adapt the readline interface in a typesafe way.  We
- * could cast function pointers but that discards compiler checks.
- */
 static void G_GNUC_PRINTF(2, 3) monitor_readline_printf(void *opaque,
                                                        const char *fmt, ...)
 {

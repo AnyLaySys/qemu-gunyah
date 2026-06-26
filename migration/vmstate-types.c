@@ -1,14 +1,3 @@
-/*
- * VMStateInfo's for basic typse
- *
- * Copyright (c) 2009-2017 Red Hat Inc
- *
- * Authors:
- *  Juan Quintela <quintela@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/cpu-float.h"
@@ -18,7 +7,6 @@
 #include "qemu/queue.h"
 #include "trace.h"
 
-/* bool */
 
 static int get_bool(QEMUFile *f, void *pv, size_t size,
                     const VMStateField *field)
@@ -42,7 +30,6 @@ const VMStateInfo vmstate_info_bool = {
     .put  = put_bool,
 };
 
-/* 8 bit int */
 
 static int get_int8(QEMUFile *f, void *pv, size_t size,
                     const VMStateField *field)
@@ -66,7 +53,6 @@ const VMStateInfo vmstate_info_int8 = {
     .put  = put_int8,
 };
 
-/* 16 bit int */
 
 static int get_int16(QEMUFile *f, void *pv, size_t size,
                      const VMStateField *field)
@@ -90,7 +76,6 @@ const VMStateInfo vmstate_info_int16 = {
     .put  = put_int16,
 };
 
-/* 32 bit int */
 
 static int get_int32(QEMUFile *f, void *pv, size_t size,
                      const VMStateField *field)
@@ -114,8 +99,6 @@ const VMStateInfo vmstate_info_int32 = {
     .put  = put_int32,
 };
 
-/* 32 bit int. See that the received value is the same than the one
-   in the field */
 
 static int get_int32_equal(QEMUFile *f, void *pv, size_t size,
                            const VMStateField *field)
@@ -140,9 +123,6 @@ const VMStateInfo vmstate_info_int32_equal = {
     .put  = put_int32,
 };
 
-/* 32 bit int. Check that the received value is non-negative
- * and less than or equal to the one in the field.
- */
 
 static int get_int32_le(QEMUFile *f, void *pv, size_t size,
                         const VMStateField *field)
@@ -167,7 +147,6 @@ const VMStateInfo vmstate_info_int32_le = {
     .put  = put_int32,
 };
 
-/* 64 bit int */
 
 static int get_int64(QEMUFile *f, void *pv, size_t size,
                      const VMStateField *field)
@@ -191,7 +170,6 @@ const VMStateInfo vmstate_info_int64 = {
     .put  = put_int64,
 };
 
-/* 8 bit unsigned int */
 
 static int get_uint8(QEMUFile *f, void *pv, size_t size,
                      const VMStateField *field)
@@ -215,7 +193,6 @@ const VMStateInfo vmstate_info_uint8 = {
     .put  = put_uint8,
 };
 
-/* 16 bit unsigned int */
 
 static int get_uint16(QEMUFile *f, void *pv, size_t size,
                       const VMStateField *field)
@@ -239,7 +216,6 @@ const VMStateInfo vmstate_info_uint16 = {
     .put  = put_uint16,
 };
 
-/* 32 bit unsigned int */
 
 static int get_uint32(QEMUFile *f, void *pv, size_t size,
                       const VMStateField *field)
@@ -263,8 +239,6 @@ const VMStateInfo vmstate_info_uint32 = {
     .put  = put_uint32,
 };
 
-/* 32 bit uint. See that the received value is the same than the one
-   in the field */
 
 static int get_uint32_equal(QEMUFile *f, void *pv, size_t size,
                             const VMStateField *field)
@@ -289,7 +263,6 @@ const VMStateInfo vmstate_info_uint32_equal = {
     .put  = put_uint32,
 };
 
-/* 64 bit unsigned int */
 
 static int get_uint64(QEMUFile *f, void *pv, size_t size,
                       const VMStateField *field)
@@ -313,7 +286,6 @@ const VMStateInfo vmstate_info_uint64 = {
     .put  = put_uint64,
 };
 
-/* File descriptor communicated via SCM_RIGHTS */
 
 static int get_fd(QEMUFile *f, void *pv, size_t size,
                   const VMStateField *field)
@@ -365,8 +337,6 @@ const VMStateInfo vmstate_info_nullptr = {
     .put  = put_nullptr,
 };
 
-/* 64 bit unsigned int. See that the received value is the same than the one
-   in the field */
 
 static int get_uint64_equal(QEMUFile *f, void *pv, size_t size,
                             const VMStateField *field)
@@ -391,8 +361,6 @@ const VMStateInfo vmstate_info_uint64_equal = {
     .put  = put_uint64,
 };
 
-/* 8 bit int. See that the received value is the same than the one
-   in the field */
 
 static int get_uint8_equal(QEMUFile *f, void *pv, size_t size,
                            const VMStateField *field)
@@ -417,8 +385,6 @@ const VMStateInfo vmstate_info_uint8_equal = {
     .put  = put_uint8,
 };
 
-/* 16 bit unsigned int int. See that the received value is the same than the one
-   in the field */
 
 static int get_uint16_equal(QEMUFile *f, void *pv, size_t size,
                             const VMStateField *field)
@@ -443,7 +409,6 @@ const VMStateInfo vmstate_info_uint16_equal = {
     .put  = put_uint16,
 };
 
-/* CPU_DoubleU type */
 
 static int get_cpudouble(QEMUFile *f, void *pv, size_t size,
                          const VMStateField *field)
@@ -469,7 +434,6 @@ const VMStateInfo vmstate_info_cpudouble = {
     .put  = put_cpudouble,
 };
 
-/* uint8_t buffers */
 
 static int get_buffer(QEMUFile *f, void *pv, size_t size,
                       const VMStateField *field)
@@ -493,8 +457,6 @@ const VMStateInfo vmstate_info_buffer = {
     .put  = put_buffer,
 };
 
-/* unused buffers: space that was used for some fields that are
-   not useful anymore */
 
 static int get_unused_buffer(QEMUFile *f, void *pv, size_t size,
                              const VMStateField *field)
@@ -531,12 +493,6 @@ const VMStateInfo vmstate_info_unused_buffer = {
     .put  = put_unused_buffer,
 };
 
-/* vmstate_info_tmp, see VMSTATE_WITH_TMP, the idea is that we allocate
- * a temporary buffer and the pre_load/pre_save methods in the child vmsd
- * copy stuff from the parent into the child and do calculations to fill
- * in fields that don't really exist in the parent but need to be in the
- * stream.
- */
 static int get_tmp(QEMUFile *f, void *pv, size_t size,
                    const VMStateField *field)
 {
@@ -545,7 +501,6 @@ static int get_tmp(QEMUFile *f, void *pv, size_t size,
     int version_id = field->version_id;
     void *tmp = g_malloc(size);
 
-    /* Writes the parent field which is at the start of the tmp */
     *(void **)tmp = pv;
     ret = vmstate_load_state(f, vmsd, tmp, version_id);
     g_free(tmp);
@@ -559,7 +514,6 @@ static int put_tmp(QEMUFile *f, void *pv, size_t size,
     void *tmp = g_malloc(size);
     int ret;
 
-    /* Writes the parent field which is at the start of the tmp */
     *(void **)tmp = pv;
     ret = vmstate_save_state(f, vmsd, tmp, vmdesc);
     g_free(tmp);
@@ -573,12 +527,6 @@ const VMStateInfo vmstate_info_tmp = {
     .put = put_tmp,
 };
 
-/* bitmaps (as defined by bitmap.h). Note that size here is the size
- * of the bitmap in bits. The on-the-wire format of a bitmap is 64
- * bit words with the bits in big endian order. The in-memory format
- * is an array of 'unsigned long', which may be either 32 or 64 bits.
- */
-/* This is the number of 64 bit words sent over the wire */
 #define BITS_TO_U64S(nr) DIV_ROUND_UP(nr, 64)
 static int get_bitmap(QEMUFile *f, void *pv, size_t size,
                       const VMStateField *field)
@@ -617,17 +565,12 @@ const VMStateInfo vmstate_info_bitmap = {
     .put = put_bitmap,
 };
 
-/* get for QTAILQ
- * meta data about the QTAILQ is encoded in a VMStateField structure
- */
 static int get_qtailq(QEMUFile *f, void *pv, size_t unused_size,
                       const VMStateField *field)
 {
     int ret = 0;
     const VMStateDescription *vmsd = field->vmsd;
-    /* size of a QTAILQ element */
     size_t size = field->size;
-    /* offset of the QTAILQ entry in a QTAILQ element */
     size_t entry_offset = field->start;
     int version_id = field->version_id;
     void *elm;
@@ -658,12 +601,10 @@ static int get_qtailq(QEMUFile *f, void *pv, size_t unused_size,
     return ret;
 }
 
-/* put for QTAILQ */
 static int put_qtailq(QEMUFile *f, void *pv, size_t unused_size,
                       const VMStateField *field, JSONWriter *vmdesc)
 {
     const VMStateDescription *vmsd = field->vmsd;
-    /* offset of the QTAILQ entry in a QTAILQ element*/
     size_t entry_offset = field->start;
     void *elm;
     int ret;
@@ -705,7 +646,6 @@ static gboolean put_gtree_elem(gpointer key, gpointer value, gpointer data)
 
     qemu_put_byte(f, true);
 
-    /* put the key */
     if (!capsule->key_vmsd) {
         qemu_put_be64(f, (uint64_t)(uintptr_t)(key)); /* direct key */
     } else {
@@ -716,7 +656,6 @@ static gboolean put_gtree_elem(gpointer key, gpointer value, gpointer data)
         }
     }
 
-    /* put the data */
     ret = vmstate_save_state(f, capsule->val_vmsd, value, capsule->vmdesc);
     if (ret) {
         capsule->ret = ret;
@@ -771,7 +710,6 @@ static int get_gtree(QEMUFile *f, void *pv, size_t unused_size,
     void *key, *val;
     int ret = 0;
 
-    /* in case of direct key, the key vmsd can be {}, ie. check fields */
     if (!direct_key && version_id > key_vmsd->version_id) {
         error_report("%s %s",  key_vmsd->name, "too new");
         return -EINVAL;
@@ -845,7 +783,6 @@ static int put_qlist(QEMUFile *f, void *pv, size_t unused_size,
                      const VMStateField *field, JSONWriter *vmdesc)
 {
     const VMStateDescription *vmsd = field->vmsd;
-    /* offset of the QTAILQ entry in a QTAILQ element*/
     size_t entry_offset = field->start;
     void *elm;
     int ret;
@@ -871,9 +808,7 @@ static int get_qlist(QEMUFile *f, void *pv, size_t unused_size,
 {
     int ret = 0;
     const VMStateDescription *vmsd = field->vmsd;
-    /* size of a QLIST element */
     size_t size = field->size;
-    /* offset of the QLIST entry in a QLIST element */
     size_t entry_offset = field->start;
     int version_id = field->version_id;
     void *elm, *prev = NULL;

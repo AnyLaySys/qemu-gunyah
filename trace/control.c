@@ -1,11 +1,3 @@
-/*
- * Interface for configuring and controlling the state of tracing events.
- *
- * Copyright (C) 2011-2016 Lluís Vilanova <vilanova@ac.upc.edu>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "trace/control.h"
@@ -173,7 +165,6 @@ static void do_trace_enable_events(const char *line_buf)
             continue;
         }
 
-        /* start tracing */
         trace_event_set_state_dynamic(ev, enable);
         if (!is_pattern) {
             return;
@@ -243,12 +234,6 @@ void trace_init_file(void)
         st_set_trace_file_enabled(true);
     }
 #elif defined CONFIG_TRACE_LOG
-    /*
-     * If both the simple and the log backends are enabled, "--trace file"
-     * only applies to the simple backend; use "-D" for the log
-     * backend. However we should only override -D if we actually have
-     * something to override it with.
-     */
     if (trace_opts_file) {
         qemu_set_log_filename(trace_opts_file, &error_fatal);
     }

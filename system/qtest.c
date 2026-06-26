@@ -1,15 +1,3 @@
-/*
- * Test Server
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -61,196 +49,6 @@ static void *qtest_server_send_opaque;
 
 #define FMT_timeval "%.06f"
 
-/**
- * DOC: QTest Protocol
- *
- * Line based protocol, request/response based.  Server can send async messages
- * so clients should always handle many async messages before the response
- * comes in.
- *
- * Valid requests
- * ^^^^^^^^^^^^^^
- *
- * Clock management:
- * """""""""""""""""
- *
- * The qtest client is completely in charge of the QEMU_CLOCK_VIRTUAL.  qtest commands
- * let you adjust the value of the clock (monotonically).  All the commands
- * return the current value of the clock in nanoseconds.
- *
- * If the commands FAIL then time wasn't advanced which is likely
- * because the machine was in a paused state or no timer events exist
- * in the future. This will cause qtest to abort and the test will
- * need to check its assumptions.
- *
- * .. code-block:: none
- *
- *  > clock_step
- *  < OK VALUE
- *
- * Advance the clock to the next deadline.  Useful when waiting for
- * asynchronous events.
- *
- * .. code-block:: none
- *
- *  > clock_step NS
- *  < OK VALUE
- *
- * Advance the clock by NS nanoseconds.
- *
- * .. code-block:: none
- *
- *  > clock_set NS
- *  < OK VALUE
- *
- * Advance the clock to NS nanoseconds (do nothing if it's already past).
- *
- * PIO and memory access:
- * """"""""""""""""""""""
- *
- * .. code-block:: none
- *
- *  > outb ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > outw ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > outl ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > inb ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > inw ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > inl ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > writeb ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > writew ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > writel ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > writeq ADDR VALUE
- *  < OK
- *
- * .. code-block:: none
- *
- *  > readb ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > readw ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > readl ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > readq ADDR
- *  < OK VALUE
- *
- * .. code-block:: none
- *
- *  > read ADDR SIZE
- *  < OK DATA
- *
- * .. code-block:: none
- *
- *  > write ADDR SIZE DATA
- *  < OK
- *
- * .. code-block:: none
- *
- *  > b64read ADDR SIZE
- *  < OK B64_DATA
- *
- * .. code-block:: none
- *
- *  > b64write ADDR SIZE B64_DATA
- *  < OK
- *
- * .. code-block:: none
- *
- *  > memset ADDR SIZE VALUE
- *  < OK
- *
- * ADDR, SIZE, VALUE are all integers parsed with strtoul() with a base of 0.
- * For 'memset' a zero size is permitted and does nothing.
- *
- * DATA is an arbitrarily long hex number prefixed with '0x'.  If it's smaller
- * than the expected size, the value will be zero filled at the end of the data
- * sequence.
- *
- * B64_DATA is an arbitrarily long base64 encoded string.
- * If the sizes do not match, the data will be truncated.
- *
- * IRQ management:
- * """""""""""""""
- *
- * .. code-block:: none
- *
- *  > irq_intercept_in QOM-PATH
- *  < OK
- *
- * .. code-block:: none
- *
- *  > irq_intercept_out QOM-PATH
- *  < OK
- *
- * Attach to the gpio-in (resp. gpio-out) pins exported by the device at
- * QOM-PATH.  When the pin is triggered, one of the following async messages
- * will be printed to the qtest stream::
- *
- *  IRQ raise NUM
- *  IRQ lower NUM
- *
- * where NUM is an IRQ number.  For the PC, interrupts can be intercepted
- * simply with "irq_intercept_in ioapic" (note that IRQ0 comes out with
- * NUM=0 even though it is remapped to GSI 2).
- *
- * Setting interrupt level:
- * """"""""""""""""""""""""
- *
- * .. code-block:: none
- *
- *  > set_irq_in QOM-PATH NAME NUM LEVEL
- *  < OK
- *
- * where NAME is the name of the irq/gpio list, NUM is an IRQ number and
- * LEVEL is an signed integer IRQ level.
- *
- * Forcibly set the given interrupt pin to the given level.
- *
- */
 
 static int hex2nib(char ch)
 {
@@ -399,9 +197,7 @@ static void qtest_process_command(CharBackend *chr, gchar **words)
         }
 
         QLIST_FOREACH(ngl, &dev->gpios, node) {
-            /* We don't support inbound interception of named GPIOs yet */
             if (is_outbound) {
-                /* NULL is valid and matchable, for "unnamed GPIO" */
                 if (g_strcmp0(ngl->name, words[2]) == 0) {
                     int i;
                     for (i = 0; i < ngl->num_out; ++i) {
@@ -574,7 +370,6 @@ static void qtest_process_command(CharBackend *chr, gchar **words)
         g_assert(ret == 0);
         ret = qemu_strtou64(words[2], NULL, 0, &len);
         g_assert(ret == 0);
-        /* We'd send garbage to libqtest if len is 0 */
         g_assert(len);
 
         data = g_malloc(len);
@@ -746,16 +541,11 @@ static void qtest_process_command(CharBackend *chr, gchar **words)
         qtest_sendf(chr, "%s %"PRIi64"\n",
                     new_ns == ns ? "OK" : "FAIL", new_ns);
     } else if (process_command_cb && process_command_cb(chr, words)) {
-        /* Command got consumed by the callback handler */
     } else {
         qtest_sendf(chr, "FAIL Unknown command '%s'\n", words[0]);
     }
 }
 
-/*
- * Process as much of @inbuf as we can in newline terminated chunks.
- * Remove the processed commands from @inbuf as we go.
- */
 static void qtest_process_inbuf(CharBackend *chr, GString *inbuf)
 {
     char *end;
@@ -789,12 +579,6 @@ static void qtest_event(void *opaque, QEMUChrEvent event)
 
     switch (event) {
     case CHR_EVENT_OPENED:
-        /*
-         * We used to call qemu_system_reset() here, hoping we could
-         * use the same process for multiple tests that way.  Never
-         * used.  Injects an extra reset even when it's not used, and
-         * that can mess up tests, e.g. -boot once.
-         */
         for (i = 0; i < ARRAY_SIZE(irq_levels); i++) {
             irq_levels[i] = 0;
         }
@@ -915,7 +699,6 @@ static void qtest_complete(UserCreatable *uc, Error **errp)
         q->has_machine_link = true;
         object_property_add_const_link(qdev_get_machine(), "qtest", OBJECT(uc));
     } else {
-        /* -qtest was used.  */
     }
 
     qtest_server_start(q, errp);

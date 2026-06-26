@@ -1,35 +1,16 @@
 #!/usr/bin/env python3
-# coding: utf-8
-#
-# Probe gdb for supported architectures.
-#
-# This is required to support testing of the gdbstub as its hard to
-# handle errors gracefully during the test. Instead this script when
-# passed a GDB binary will probe its architecture support and return a
-# string of supported arches, stripped of guff.
-#
-# Copyright 2023 Linaro Ltd
-#
-# Author: Alex Bennée <alex.bennee@linaro.org>
-#
-# This work is licensed under the terms of the GNU GPL, version 2 or later.
-# See the COPYING file in the top-level directory.
-#
-# SPDX-License-Identifier: GPL-2.0-or-later
 
 import argparse
 import re
 from subprocess import check_output, STDOUT, CalledProcessError
 import sys
 
-# Mappings from gdb arch to QEMU target
 MAP = {
     "alpha" : ["alpha"],
     "aarch64" : ["aarch64", "aarch64_be"],
     "armv7": ["arm"],
     "armv8-a" : ["aarch64", "aarch64_be"],
     "avr" : ["avr"],
-    # no hexagon in upstream gdb
     "hppa1.0" : ["hppa"],
     "i386" : ["i386"],
     "i386:x86-64" : ["x86_64"],
@@ -47,7 +28,6 @@ MAP = {
     "sparc": ["sparc"],
     "sparc:v8plus": ["sparc32plus"],
     "sparc:v9a" : ["sparc64"],
-    # no tricore in upstream gdb
     "xtensa" : ["xtensa", "xtensaeb"]
 }
 
@@ -71,7 +51,6 @@ def do_probe(gdb):
 
         targets = {target for arch in mapped_gdb_archs for target in MAP[arch]}
 
-    # QEMU targets
     return targets
 
 

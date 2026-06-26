@@ -1,15 +1,3 @@
-/*
- * Virtio video device
- *
- * Copyright Red Hat
- *
- * Authors:
- *  Dave Airlie
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"

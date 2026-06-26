@@ -90,7 +90,6 @@ void qemu_add_opts(QemuOptsList *list)
     abort();
 }
 
-/* Returns number of config groups on success, -errno on error */
 static int qemu_config_foreach(FILE *fp, QEMUConfigCB *cb, void *opaque,
                                const char *fname, Error **errp)
 {
@@ -105,11 +104,9 @@ static int qemu_config_foreach(FILE *fp, QEMUConfigCB *cb, void *opaque,
     while (fgets(line, sizeof(line), fp) != NULL) {
         ++lno;
         if (line[0] == '\n') {
-            /* skip empty lines */
             continue;
         }
         if (line[0] == '#') {
-            /* comment */
             continue;
         }
         if (line[0] == '[') {
@@ -138,7 +135,6 @@ static int qemu_config_foreach(FILE *fp, QEMUConfigCB *cb, void *opaque,
         value[0] = '\0';
         if (sscanf(line, " %63s = \"%1023[^\"]\"", arg, value) == 2 ||
             sscanf(line, " %63s = \"\"", arg) == 1) {
-            /* arg = value */
             if (qdict == NULL) {
                 error_setg(errp, "no group defined");
                 goto out;
@@ -232,11 +228,9 @@ static bool config_parse_qdict_section(QDict *options, QemuOptsList *opts,
     }
 
     if (enum_size) {
-        /* Multiple, enumerated sections */
         QListEntry *list_entry;
         unsigned i = 0;
 
-        /* Not required anymore */
         qemu_opts_del(subopts);
 
         qdict_array_split(subqdict, &list);

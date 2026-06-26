@@ -1,8 +1,3 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
-/*
- * Declaration of guest_base.
- *  Copyright (c) 2003 Fabrice Bellard
- */
 
 #ifndef USER_GUEST_BASE_H
 #define USER_GUEST_BASE_H

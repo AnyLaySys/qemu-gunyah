@@ -43,32 +43,12 @@ from .schema import (
 from .source import QAPISourceInfo
 
 
-# This module constructs a tree data structure that is used to
-# generate the introspection information for QEMU. It is shaped
-# like a JSON value.
-#
-# A complexity over JSON is that our values may or may not be annotated.
-#
-# Un-annotated values may be:
-#     Scalar: str, bool, None.
-#     Non-scalar: List, Dict
-# _value = Union[str, bool, None, Dict[str, JSONValue], List[JSONValue]]
-#
-# With optional annotations, the type of all values is:
-# JSONValue = Union[_Value, Annotated[_Value]]
-#
-# Sadly, mypy does not support recursive types; so the _Stub alias is used to
-# mark the imprecision in the type model where we'd otherwise use JSONValue.
 _Stub = Any
 _Scalar = Union[str, bool, None]
 _NonScalar = Union[Dict[str, _Stub], List[_Stub]]
 _Value = Union[_Scalar, _NonScalar]
 JSONValue = Union[_Value, 'Annotated[_Value]']
 
-# These types are based on structures defined in QEMU's schema, so we
-# lack precise types for them here. Python 3.6 does not offer
-# TypedDict constructs, so they are broadly typed here as simple
-# Python Dicts.
 SchemaInfo = Dict[str, object]
 SchemaInfoEnumMember = Dict[str, object]
 SchemaInfoObject = Dict[str, object]
@@ -109,9 +89,6 @@ def _tree_to_qlit(obj: JSONValue,
         return level * 4 * ' '
 
     if isinstance(obj, Annotated):
-        # NB: _tree_to_qlit is called recursively on the values of a
-        # key:value pair; those values can't be decorated with
-        # comments or conditionals.
         msg = "dict values cannot have attached comments or if-conditionals."
         assert not dict_value, msg
 
@@ -129,7 +106,6 @@ def _tree_to_qlit(obj: JSONValue,
     if not dict_value:
         ret += indent(level)
 
-    # Scalars:
     if obj is None:
         ret += 'QLIT_QNULL'
     elif isinstance(obj, str):
@@ -137,7 +113,6 @@ def _tree_to_qlit(obj: JSONValue,
     elif isinstance(obj, bool):
         ret += f"QLIT_QBOOL({str(obj).lower()})"
 
-    # Non-scalars:
     elif isinstance(obj, list):
         ret += 'QLIT_QLIST(((QLitObject[]) {\n'
         for value in obj:
@@ -189,10 +164,8 @@ class QAPISchemaGenIntrospectVisitor(QAPISchemaMonolithicCVisitor):
         self._schema = schema
 
     def visit_end(self) -> None:
-        # visit the types that are actually used
         for typ in self._used_types:
             typ.visit(self)
-        # generate C
         name = c_name(self._prefix, protect=False) + 'qmp_schema_qlit'
         self._genh.add(mcgen('''
 #include "qobject/qlit.h"
@@ -211,7 +184,6 @@ const QLitObject %(c_name)s = %(c_string)s;
         self._name_map = {}
 
     def visit_needed(self, entity: QAPISchemaEntity) -> bool:
-        # Ignore types on first pass; visit_end() will pick up used types
         return not isinstance(entity, QAPISchemaType)
 
     def _name(self, name: str) -> str:
@@ -224,7 +196,6 @@ const QLitObject %(c_name)s = %(c_string)s;
     def _use_type(self, typ: QAPISchemaType) -> str:
         assert self._schema is not None
 
-        # Map the various integer types to plain int
         if typ.json_type() == 'int':
             type_int = self._schema.lookup_type('int')
             assert type_int
@@ -234,12 +205,8 @@ const QLitObject %(c_name)s = %(c_string)s;
             type_intlist = self._schema.lookup_type('intList')
             assert type_intlist
             typ = type_intlist
-        # Add type to work queue if new
         if typ not in self._used_types:
             self._used_types.append(typ)
-        # Clients should examine commands and events, not types.  Hide
-        # type names as integers to reduce the temptation.  Also, it
-        # saves a few characters on the wire.
         if isinstance(typ, QAPISchemaBuiltinType):
             return typ.name
         if isinstance(typ, QAPISchemaArrayType):
@@ -268,8 +235,6 @@ const QLitObject %(c_name)s = %(c_string)s;
         comment: Optional[str] = None
         if mtype not in ('command', 'event', 'builtin', 'array'):
             if not self._unmask:
-                # Output a comment to make it easy to map masked names
-                # back to the source when reading the generated output.
                 comment = f'"{self._name(name)}" = {name}'
             name = self._name(name)
         obj['name'] = name

@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto block device encryption LUKS format
- *
- * Copyright (c) 2015-2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -35,16 +16,6 @@
 #include "qemu/bitmap.h"
 #include "qemu/range.h"
 
-/*
- * Reference for the LUKS format implemented here is
- *
- *   docs/on-disk-format.pdf
- *
- * in 'cryptsetup' package source code
- *
- * This file implements the 1.2.1 specification, dated
- * Oct 16, 2011.
- */
 
 typedef struct QCryptoBlockLUKS QCryptoBlockLUKS;
 
@@ -122,28 +93,18 @@ QEMU_BUILD_BUG_ON(sizeof(struct QCryptoBlockLUKSHeader) != 592);
 struct QCryptoBlockLUKS {
     QCryptoBlockLUKSHeader header;
 
-    /* Main encryption algorithm used for encryption*/
     QCryptoCipherAlgo cipher_alg;
 
-    /* Mode of encryption for the selected encryption algorithm */
     QCryptoCipherMode cipher_mode;
 
-    /* Initialization vector generation algorithm */
     QCryptoIVGenAlgo ivgen_alg;
 
-    /* Hash algorithm used for IV generation*/
     QCryptoHashAlgo ivgen_hash_alg;
 
-    /*
-     * Encryption algorithm used for IV generation.
-     * Usually the same as main encryption algorithm
-     */
     QCryptoCipherAlgo ivgen_cipher_alg;
 
-    /* Hash algorithm used in pbkdf2 function */
     QCryptoHashAlgo hash_alg;
 
-    /* Name of the secret that was used to open the image */
     char *secret;
 };
 
@@ -199,8 +160,6 @@ qcrypto_block_luks_cipher_alg_lookup(QCryptoCipherAlgo alg,
     return NULL;
 }
 
-/* XXX replace with qapi_enum_parse() in future, when we can
- * make that function emit a more friendly error message */
 static int qcrypto_block_luks_name_lookup(const char *name,
                                           const QEnumLookup *map,
                                           const char *type,
@@ -251,17 +210,6 @@ qcrypto_block_luks_has_format(const uint8_t *buf,
 }
 
 
-/**
- * Deal with a quirk of dm-crypt usage of ESSIV.
- *
- * When calculating ESSIV IVs, the cipher length used by ESSIV
- * may be different from the cipher length used for the block
- * encryption, because dm-crypt uses the hash digest length
- * as the key size. ie, if you have AES 128 as the block cipher
- * and SHA 256 as ESSIV hash, then ESSIV will use AES 256 as
- * the cipher since that gets a key length matching the digest
- * size, not AES 128 with truncated digest as might be imagined
- */
 static QCryptoCipherAlgo
 qcrypto_block_luks_essiv_cipher(QCryptoCipherAlgo cipher,
                                 QCryptoHashAlgo hash,
@@ -335,27 +283,17 @@ qcrypto_block_luks_essiv_cipher(QCryptoCipherAlgo cipher,
     }
 }
 
-/*
- * Returns number of sectors needed to store the key material
- * given number of anti forensic stripes
- */
 static int
 qcrypto_block_luks_splitkeylen_sectors(const QCryptoBlockLUKS *luks,
                                        unsigned int header_sectors,
                                        unsigned int stripes)
 {
-    /*
-     * This calculation doesn't match that shown in the spec,
-     * but instead follows the cryptsetup implementation.
-     */
 
     size_t splitkeylen = luks->header.master_key_len * stripes;
 
-    /* First align the key material size to block size*/
     size_t splitkeylen_sectors =
         DIV_ROUND_UP(splitkeylen, QCRYPTO_BLOCK_LUKS_SECTOR_SIZE);
 
-    /* Then also align the key material size to the size of the header */
     return ROUND_UP(splitkeylen_sectors, header_sectors);
 }
 
@@ -365,10 +303,6 @@ qcrypto_block_luks_to_disk_endian(QCryptoBlockLUKSHeader *hdr)
 {
     size_t i;
 
-    /*
-     * Everything on disk uses Big Endian (tm), so flip header fields
-     * before writing them
-     */
     cpu_to_be16s(&hdr->version);
     cpu_to_be32s(&hdr->payload_offset_sector);
     cpu_to_be32s(&hdr->master_key_len);
@@ -387,10 +321,6 @@ qcrypto_block_luks_from_disk_endian(QCryptoBlockLUKSHeader *hdr)
 {
     size_t i;
 
-    /*
-     * The header is always stored in big-endian format, so
-     * convert everything to native
-     */
     be16_to_cpus(&hdr->version);
     be32_to_cpus(&hdr->payload_offset_sector);
     be32_to_cpus(&hdr->master_key_len);
@@ -404,9 +334,6 @@ qcrypto_block_luks_from_disk_endian(QCryptoBlockLUKSHeader *hdr)
     }
 }
 
-/*
- * Stores the main LUKS header, taking care of endianness
- */
 static int
 qcrypto_block_luks_store_header(QCryptoBlock *block,
                                 QCryptoBlockWriteFunc writefunc,
@@ -417,13 +344,11 @@ qcrypto_block_luks_store_header(QCryptoBlock *block,
     Error *local_err = NULL;
     g_autofree QCryptoBlockLUKSHeader *hdr_copy = NULL;
 
-    /* Create a copy of the header */
     hdr_copy = g_new0(QCryptoBlockLUKSHeader, 1);
     memcpy(hdr_copy, &luks->header, sizeof(QCryptoBlockLUKSHeader));
 
     qcrypto_block_luks_to_disk_endian(hdr_copy);
 
-    /* Write out the partition header and key slot headers */
     writefunc(block, 0, (const uint8_t *)hdr_copy, sizeof(*hdr_copy),
               opaque, &local_err);
 
@@ -434,10 +359,6 @@ qcrypto_block_luks_store_header(QCryptoBlock *block,
     return 0;
 }
 
-/*
- * Loads the main LUKS header, and byteswaps it to native endianness
- * And run basic sanity checks on it
- */
 static int
 qcrypto_block_luks_load_header(QCryptoBlock *block,
                                 QCryptoBlockReadFunc readfunc,
@@ -447,10 +368,6 @@ qcrypto_block_luks_load_header(QCryptoBlock *block,
     int rv;
     QCryptoBlockLUKS *luks = block->opaque;
 
-    /*
-     * Read the entire LUKS header, minus the key material from
-     * the underlying device
-     */
     rv = readfunc(block, 0,
                   (uint8_t *)&luks->header,
                   sizeof(luks->header),
@@ -465,9 +382,6 @@ qcrypto_block_luks_load_header(QCryptoBlock *block,
     return 0;
 }
 
-/*
- * Does basic sanity checks on the LUKS header
- */
 static int
 qcrypto_block_luks_check_header(const QCryptoBlockLUKS *luks,
                                 unsigned int flags,
@@ -521,7 +435,6 @@ qcrypto_block_luks_check_header(const QCryptoBlockLUKS *luks,
         return -1;
     }
 
-    /* Check all keyslots for corruption  */
     for (i = 0 ; i < QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS ; i++) {
 
         const QCryptoBlockLUKSKeySlot *slot1 = &luks->header.key_slots[i];
@@ -585,9 +498,6 @@ qcrypto_block_luks_check_header(const QCryptoBlockLUKS *luks,
     return 0;
 }
 
-/*
- * Parses the crypto parameters that are stored in the LUKS header
- */
 
 static int
 qcrypto_block_luks_parse_header(QCryptoBlockLUKS *luks, Error **errp)
@@ -596,14 +506,6 @@ qcrypto_block_luks_parse_header(QCryptoBlockLUKS *luks, Error **errp)
     char *ivgen_name, *ivhash_name;
     Error *local_err = NULL;
 
-    /*
-     * The cipher_mode header contains a string that we have
-     * to further parse, of the format
-     *
-     *    <cipher-mode>-<iv-generator>[:<iv-hash>]
-     *
-     * eg  cbc-essiv:sha256, cbc-plain64
-     */
     ivgen_name = strchr(cipher_mode, '-');
     if (!ivgen_name) {
         error_setg(errp, "Unexpected cipher mode string format '%s'",
@@ -675,29 +577,11 @@ qcrypto_block_luks_parse_header(QCryptoBlockLUKS *luks, Error **errp)
         }
     } else {
 
-        /*
-         * Note we parsed the ivhash_name earlier in the cipher_mode
-         * spec string even with plain/plain64 ivgens, but we
-         * will ignore it, since it is irrelevant for these ivgens.
-         * This is for compat with dm-crypt which will silently
-         * ignore hash names with these ivgens rather than report
-         * an error about the invalid usage
-         */
         luks->ivgen_cipher_alg = luks->cipher_alg;
     }
     return 0;
 }
 
-/*
- * Given a key slot,  user password, and the master key,
- * will store the encrypted master key there, and update the
- * in-memory header. User must then write the in-memory header
- *
- * Returns:
- *    0 if the keyslot was written successfully
- *      with the provided password
- *   -1 if a fatal error occurred while storing the key
- */
 static int
 qcrypto_block_luks_store_key(QCryptoBlock *block,
                              unsigned int slot_idx,
@@ -729,11 +613,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         goto cleanup;
     }
 
-    /*
-     * Determine how many iterations are required to
-     * hash the user password while consuming 1 second of compute
-     * time
-     */
     iters = qcrypto_pbkdf2_count_iters(luks->hash_alg,
                                        (uint8_t *)password, strlen(password),
                                        slot->salt,
@@ -752,7 +631,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         goto cleanup;
     }
 
-    /* iter_time was in millis, but count_iters reported for secs */
     iters = iters * iter_time / 1000;
 
     if (iters > UINT32_MAX) {
@@ -766,10 +644,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         MAX(iters, QCRYPTO_BLOCK_LUKS_MIN_SLOT_KEY_ITERS);
 
 
-    /*
-     * Generate a key that we'll use to encrypt the master
-     * key, from the user's password
-     */
     slotkey = g_new0(uint8_t, luks->header.master_key_len);
     if (qcrypto_pbkdf2(luks->hash_alg,
                        (uint8_t *)password, strlen(password),
@@ -782,10 +656,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
     }
 
 
-    /*
-     * Setup the encryption objects needed to encrypt the
-     * master key material
-     */
     cipher = qcrypto_cipher_new(luks->cipher_alg,
                                 luks->cipher_mode,
                                 slotkey, luks->header.master_key_len,
@@ -803,11 +673,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         goto cleanup;
     }
 
-    /*
-     * Before storing the master key, we need to vastly
-     * increase its size, as protection against forensic
-     * disk data recovery
-     */
     splitkey = g_new0(uint8_t, splitkeylen);
 
     if (qcrypto_afsplit_encode(luks->hash_alg,
@@ -819,10 +684,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         goto cleanup;
     }
 
-    /*
-     * Now we encrypt the split master key with the key generated
-     * from the user's password, before storing it
-     */
     if (qcrypto_block_cipher_encrypt_helper(cipher, block->niv, ivgen,
                                             QCRYPTO_BLOCK_LUKS_SECTOR_SIZE,
                                             0,
@@ -832,7 +693,6 @@ qcrypto_block_luks_store_key(QCryptoBlock *block,
         goto cleanup;
     }
 
-    /* Write out the slot's master key material. */
     if (writefunc(block,
                   slot->key_offset_sector *
                   QCRYPTO_BLOCK_LUKS_SECTOR_SIZE,
@@ -860,17 +720,6 @@ cleanup:
     return ret;
 }
 
-/*
- * Given a key slot, and user password, this will attempt to unlock
- * the master encryption key from the key slot.
- *
- * Returns:
- *    0 if the key slot is disabled, or key could not be decrypted
- *      with the provided password
- *    1 if the key slot is enabled, and key decrypted successfully
- *      with the provided password
- *   -1 if a fatal error occurred loading the key
- */
 static int
 qcrypto_block_luks_load_key(QCryptoBlock *block,
                             size_t slot_idx,
@@ -901,13 +750,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
     splitkey = g_new0(uint8_t, splitkeylen);
     possiblekey = g_new0(uint8_t, luks->header.master_key_len);
 
-    /*
-     * The user password is used to generate a (possible)
-     * decryption key. This may or may not successfully
-     * decrypt the master key - we just blindly assume
-     * the key is correct and validate the results of
-     * decryption later.
-     */
     if (qcrypto_pbkdf2(luks->hash_alg,
                        (const uint8_t *)password, strlen(password),
                        slot->salt, QCRYPTO_BLOCK_LUKS_SALT_LEN,
@@ -917,13 +759,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
         return -1;
     }
 
-    /*
-     * We need to read the master key material from the
-     * LUKS key material header. What we're reading is
-     * not the raw master key, but rather the data after
-     * it has been passed through AFSplit and the result
-     * then encrypted.
-     */
     rv = readfunc(block,
                   slot->key_offset_sector * QCRYPTO_BLOCK_LUKS_SECTOR_SIZE,
                   splitkey, splitkeylen,
@@ -934,8 +769,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
     }
 
 
-    /* Setup the cipher/ivgen that we'll use to try to decrypt
-     * the split master key material */
     cipher = qcrypto_cipher_new(luks->cipher_alg,
                                 luks->cipher_mode,
                                 possiblekey,
@@ -959,13 +792,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
     }
 
 
-    /*
-     * The master key needs to be decrypted in the same
-     * way that the block device payload will be decrypted
-     * later. In particular we'll be using the IV generator
-     * to reset the encryption cipher every time the master
-     * key crosses a sector boundary.
-     */
     if (qcrypto_block_cipher_decrypt_helper(cipher,
                                             niv,
                                             ivgen,
@@ -977,10 +803,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
         return -1;
     }
 
-    /*
-     * Now we've decrypted the split master key, join
-     * it back together to get the actual master key.
-     */
     if (qcrypto_afsplit_decode(luks->hash_alg,
                                luks->header.master_key_len,
                                slot->stripes,
@@ -991,14 +813,6 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
     }
 
 
-    /*
-     * We still don't know that the masterkey we got is valid,
-     * because we just blindly assumed the user's password
-     * was correct. This is where we now verify it. We are
-     * creating a hash of the master key using PBKDF and
-     * then comparing that to the hash stored in the key slot
-     * header
-     */
     if (qcrypto_pbkdf2(luks->hash_alg,
                        masterkey,
                        luks->header.master_key_len,
@@ -1013,23 +827,13 @@ qcrypto_block_luks_load_key(QCryptoBlock *block,
 
     if (memcmp(keydigest, luks->header.master_key_digest,
                QCRYPTO_BLOCK_LUKS_DIGEST_LEN) == 0) {
-        /* Success, we got the right master key */
         return 1;
     }
 
-    /* Fail, user's password was not valid for this key slot,
-     * tell caller to try another slot */
     return 0;
 }
 
 
-/*
- * Given a user password, this will iterate over all key
- * slots and try to unlock each active key slot using the
- * password until it successfully obtains a master key.
- *
- * Returns 0 if a key was loaded, -1 if no keys could be loaded
- */
 static int
 qcrypto_block_luks_find_key(QCryptoBlock *block,
                             const char *password,
@@ -1062,10 +866,6 @@ qcrypto_block_luks_find_key(QCryptoBlock *block,
     return -1;
 }
 
-/*
- * Returns true if a slot i is marked as active
- * (contains encrypted copy of the master key)
- */
 static bool
 qcrypto_block_luks_slot_active(const QCryptoBlockLUKS *luks,
                                unsigned int slot_idx)
@@ -1077,10 +877,6 @@ qcrypto_block_luks_slot_active(const QCryptoBlockLUKS *luks,
     return val == QCRYPTO_BLOCK_LUKS_KEY_SLOT_ENABLED;
 }
 
-/*
- * Returns the number of slots that are marked as active
- * (slots that contain encrypted copy of the master key)
- */
 static unsigned int
 qcrypto_block_luks_count_active_slots(const QCryptoBlockLUKS *luks)
 {
@@ -1095,10 +891,6 @@ qcrypto_block_luks_count_active_slots(const QCryptoBlockLUKS *luks)
     return ret;
 }
 
-/*
- * Finds first key slot which is not active
- * Returns the key slot index, or -1 if it doesn't exist
- */
 static int
 qcrypto_block_luks_find_free_keyslot(const QCryptoBlockLUKS *luks)
 {
@@ -1112,13 +904,6 @@ qcrypto_block_luks_find_free_keyslot(const QCryptoBlockLUKS *luks)
     return -1;
 }
 
-/*
- * Erases an keyslot given its index
- * Returns:
- *    0 if the keyslot was erased successfully
- *   -1 if a error occurred while erasing the keyslot
- *
- */
 static int
 qcrypto_block_luks_erase_key(QCryptoBlock *block,
                              unsigned int slot_idx,
@@ -1142,7 +927,6 @@ qcrypto_block_luks_erase_key(QCryptoBlock *block,
 
     garbagesplitkey = g_new0(uint8_t, splitkeylen);
 
-    /* Reset the key slot header */
     memset(slot->salt, 0, QCRYPTO_BLOCK_LUKS_SALT_LEN);
     slot->iterations = 0;
     slot->active = QCRYPTO_BLOCK_LUKS_KEY_SLOT_DISABLED;
@@ -1153,17 +937,9 @@ qcrypto_block_luks_erase_key(QCryptoBlock *block,
     if (ret < 0) {
         error_propagate(errp, local_err);
     }
-    /*
-     * Now try to erase the key material, even if the header
-     * update failed
-     */
     for (i = 0; i < QCRYPTO_BLOCK_LUKS_ERASE_ITERATIONS; i++) {
         if (qcrypto_random_bytes(garbagesplitkey,
                                  splitkeylen, &local_err) < 0) {
-            /*
-             * If we failed to get the random data, still write
-             * at least zeros to the key slot at least once
-             */
             error_propagate(errp, local_err);
 
             if (i > 0) {
@@ -1226,9 +1002,6 @@ qcrypto_block_luks_open(QCryptoBlock *block,
     }
 
     if (!(flags & QCRYPTO_BLOCK_OPEN_NO_IO)) {
-        /* Try to find which key slot our password is valid for
-         * and unlock the master key from that slot.
-         */
 
         masterkey = g_new0(uint8_t, luks->header.master_key_len);
 
@@ -1240,9 +1013,6 @@ qcrypto_block_luks_open(QCryptoBlock *block,
             goto fail;
         }
 
-        /* We have a valid master key now, so can setup the
-         * block device payload decryption objects
-         */
         block->kdfhash = luks->hash_alg;
         block->niv = qcrypto_cipher_get_iv_len(luks->cipher_alg,
                                                luks->cipher_mode);
@@ -1350,9 +1120,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     luks->hash_alg = luks_opts.hash_alg;
 
 
-    /* Note we're allowing ivgen_hash_alg to be set even for
-     * non-essiv iv generators that don't need a hash. It will
-     * be silently ignored, for compatibility with dm-crypt */
 
     if (!options->u.luks.key_secret) {
         error_setg(errp, "Parameter '%skey-secret' is required for cipher",
@@ -1370,10 +1137,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     memcpy(luks->header.magic, qcrypto_block_luks_magic,
            QCRYPTO_BLOCK_LUKS_MAGIC_LEN);
 
-    /* We populate the header in native endianness initially and
-     * then convert everything to big endian just before writing
-     * it out to disk
-     */
     luks->header.version = QCRYPTO_BLOCK_LUKS_VERSION;
     qcrypto_block_luks_uuid_gen(luks->header.uuid);
 
@@ -1435,16 +1198,12 @@ qcrypto_block_luks_create(QCryptoBlock *block,
         luks->header.master_key_len *= 2;
     }
 
-    /* Generate the salt used for hashing the master key
-     * with PBKDF later
-     */
     if (qcrypto_random_bytes(luks->header.master_key_salt,
                              QCRYPTO_BLOCK_LUKS_SALT_LEN,
                              errp) < 0) {
         goto error;
     }
 
-    /* Generate random master key */
     masterkey = g_new0(uint8_t, luks->header.master_key_len);
     if (qcrypto_random_bytes(masterkey,
                              luks->header.master_key_len, errp) < 0) {
@@ -1452,7 +1211,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     }
 
 
-    /* Setup the block device payload encryption objects */
     if (qcrypto_block_init_cipher(block, luks_opts.cipher_alg,
                                   luks_opts.cipher_mode, masterkey,
                                   luks->header.master_key_len, errp) < 0) {
@@ -1473,9 +1231,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     }
 
 
-    /* Determine how many iterations we need to hash the master
-     * key, in order to have 1 second of compute time used
-     */
     iters = qcrypto_pbkdf2_count_iters(luks_opts.hash_alg,
                                        masterkey, luks->header.master_key_len,
                                        luks->header.master_key_salt,
@@ -1494,13 +1249,8 @@ qcrypto_block_luks_create(QCryptoBlock *block,
         goto error;
     }
 
-    /* iter_time was in millis, but count_iters reported for secs */
     iters = iters * luks_opts.iter_time / 1000;
 
-    /* Why /= 8 ?  That matches cryptsetup, but there's no
-     * explanation why they chose /= 8... Probably so that
-     * if all 8 keyslots are active we only spend 1 second
-     * in total time to check all keys */
     iters /= 8;
     if (iters > UINT32_MAX) {
         error_setg_errno(errp, ERANGE,
@@ -1511,11 +1261,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     iters = MAX(iters, QCRYPTO_BLOCK_LUKS_MIN_MASTER_KEY_ITERS);
     luks->header.master_key_iterations = iters;
 
-    /* Hash the master key, saving the result in the LUKS
-     * header. This hash is used when opening the encrypted
-     * device to verify that the user password unlocked a
-     * valid master key
-     */
     if (qcrypto_pbkdf2(luks_opts.hash_alg,
                        masterkey, luks->header.master_key_len,
                        luks->header.master_key_salt,
@@ -1527,7 +1272,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
         goto error;
     }
 
-    /* start with the sector that follows the header*/
     header_sectors = QCRYPTO_BLOCK_LUKS_KEY_SLOT_OFFSET /
         QCRYPTO_BLOCK_LUKS_SECTOR_SIZE;
 
@@ -1545,18 +1289,8 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     }
 
     if (block->detached_header) {
-        /*
-         * For a detached LUKS header image, set the payload_offset_sector
-         * to 0 to specify the starting point for read/write
-         */
         luks->header.payload_offset_sector = 0;
     } else {
-        /*
-         * The total size of the LUKS headers is the partition header + key
-         * slot headers, rounded up to the nearest sector, combined with
-         * the size of each master key material region, also rounded up
-         * to the nearest sector
-         */
         luks->header.payload_offset_sector = header_sectors +
                 QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS * split_key_sectors;
     }
@@ -1568,7 +1302,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
         (header_sectors + QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS *
          split_key_sectors) * block->sector_size;
 
-    /* Reserve header space to match payload offset */
     initfunc(block, detached_header_size, opaque, &local_err);
     if (local_err) {
         error_propagate(errp, local_err);
@@ -1576,8 +1309,6 @@ qcrypto_block_luks_create(QCryptoBlock *block,
     }
 
 
-    /* populate the slot 0 with the password encrypted master key*/
-    /* This will also store the header */
     if (qcrypto_block_luks_store_key(block,
                                      0,
                                      password,
@@ -1661,13 +1392,11 @@ qcrypto_block_luks_amend_add_keyslot(QCryptoBlock *block,
         return -1;
     }
 
-    /* Locate the password that will be used to retrieve the master key */
     old_password = qcrypto_secret_lookup_as_utf8(secret, errp);
     if (!old_password) {
         return -1;
     }
 
-    /* Retrieve the master key */
     master_key = g_new0(uint8_t, luks->header.master_key_len);
 
     if (qcrypto_block_luks_find_key(block, old_password, master_key,
@@ -1676,13 +1405,11 @@ qcrypto_block_luks_amend_add_keyslot(QCryptoBlock *block,
         return -1;
     }
 
-    /* Locate the new password*/
     new_password = qcrypto_secret_lookup_as_utf8(opts_luks->new_secret, errp);
     if (!new_password) {
         return -1;
     }
 
-    /* Now set the new keyslots */
     if (qcrypto_block_luks_store_key(block, keyslot, new_password, master_key,
                                      iter_time, writefunc, opaque, errp)) {
         error_append_hint(errp, "Failed to write to keyslot %i", keyslot);
@@ -1720,7 +1447,6 @@ qcrypto_block_luks_amend_erase_keyslots(QCryptoBlock *block,
         return -1;
     }
 
-    /* Load the old password if given */
     if (opts_luks->old_secret) {
         old_password = qcrypto_secret_lookup_as_utf8(opts_luks->old_secret,
                                                      errp);
@@ -1728,14 +1454,9 @@ qcrypto_block_luks_amend_erase_keyslots(QCryptoBlock *block,
             return -1;
         }
 
-        /*
-         * Allocate a temporary key buffer that we will need when
-         * checking if slot matches the given old password
-         */
         tmpkey = g_new0(uint8_t, luks->header.master_key_len);
     }
 
-    /* Erase an explicitly given keyslot */
     if (opts_luks->has_keyslot) {
         int keyslot = opts_luks->keyslot;
 
@@ -1787,7 +1508,6 @@ qcrypto_block_luks_amend_erase_keyslots(QCryptoBlock *block,
             return -1;
         }
 
-    /* Erase all keyslots that match the given old password */
     } else if (opts_luks->old_secret) {
 
         unsigned long slots_to_erase_bitmap = 0;
@@ -1829,7 +1549,6 @@ qcrypto_block_luks_amend_erase_keyslots(QCryptoBlock *block,
             return -1;
         }
 
-        /* Now apply the update */
         for (i = 0; i < QCRYPTO_BLOCK_LUKS_NUM_KEY_SLOTS; i++) {
             if (!test_bit(i, &slots_to_erase_bitmap)) {
                 continue;

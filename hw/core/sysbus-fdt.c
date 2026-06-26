@@ -1,25 +1,3 @@
-/*
- * ARM Platform Bus device tree generation helpers
- *
- * Copyright (c) 2014 Linaro Limited
- *
- * Authors:
- *  Alex Graf <agraf@suse.de>
- *  Eric Auger <eric.auger@linaro.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2 or later, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -32,10 +10,6 @@
 #include "hw/display/ramfb.h"
 #include "hw/arm/fdt.h"
 
-/*
- * internal struct that contains the information to create dynamic
- * sysbus device node
- */
 typedef struct PlatformBusFDTData {
     void *fdt; /* device tree handle */
     int irq_start; /* index of the first IRQ usable by platform bus devices */
@@ -43,7 +17,6 @@ typedef struct PlatformBusFDTData {
     PlatformBusDevice *pbus;
 } PlatformBusFDTData;
 
-/* struct that allows to match a device and create its FDT node */
 typedef struct BindingEntry {
     const char *typename;
     const char *compat;
@@ -52,13 +25,6 @@ typedef struct BindingEntry {
 } BindingEntry;
 
 #ifdef CONFIG_TPM
-/*
- * add_tpm_tis_fdt_node: Create a DT node for TPM TIS
- *
- * See kernel documentation:
- * Documentation/devicetree/bindings/security/tpm/tpm_tis_mmio.txt
- * Optional interrupt for command completion is not exposed
- */
 static int add_tpm_tis_fdt_node(SysBusDevice *sbdev, void *opaque)
 {
     PlatformBusFDTData *data = opaque;
@@ -89,7 +55,6 @@ static int no_fdt_node(SysBusDevice *sbdev, void *opaque)
     return 0;
 }
 
-/* Device type based matching */
 static bool type_match(SysBusDevice *sbdev, const BindingEntry *entry)
 {
     return !strcmp(object_get_typename(OBJECT(sbdev)), entry->typename);
@@ -97,7 +62,6 @@ static bool type_match(SysBusDevice *sbdev, const BindingEntry *entry)
 
 #define TYPE_BINDING(type, add_fn) {(type), NULL, (add_fn), NULL}
 
-/* list of supported dynamic sysbus bindings */
 static const BindingEntry bindings[] = {
 #ifdef CONFIG_TPM
     TYPE_BINDING(TYPE_TPM_TIS_SYSBUS, add_tpm_tis_fdt_node),
@@ -106,18 +70,7 @@ static const BindingEntry bindings[] = {
     TYPE_BINDING("", NULL), /* last element */
 };
 
-/* Generic Code */
 
-/**
- * add_fdt_node - add the device tree node of a dynamic sysbus device
- *
- * @sbdev: handle to the sysbus device
- * @opaque: handle to the PlatformBusFDTData
- *
- * Checks the sysbus type belongs to the list of device types that
- * are dynamically instantiable and if so call the node creation
- * function.
- */
 static void add_fdt_node(SysBusDevice *sbdev, void *opaque)
 {
     int i, ret;
@@ -150,13 +103,9 @@ void platform_bus_add_all_fdt_nodes(void *fdt, const char *intc, hwaddr addr,
 
     node = g_strdup_printf("/platform-bus@%"PRIx64, addr);
 
-    /* Create a /platform node that we can put all devices into */
     qemu_fdt_add_subnode(fdt, node);
     qemu_fdt_setprop(fdt, node, "compatible", platcomp, sizeof(platcomp));
 
-    /* Our platform bus region is less than 32bits, so 1 cell is enough for
-     * address and size
-     */
     qemu_fdt_setprop_cells(fdt, node, "#size-cells", 1);
     qemu_fdt_setprop_cells(fdt, node, "#address-cells", 1);
     qemu_fdt_setprop_cells(fdt, node, "ranges", 0, addr >> 32, addr, bus_size);
@@ -173,7 +122,6 @@ void platform_bus_add_all_fdt_nodes(void *fdt, const char *intc, hwaddr addr,
         .pbus = pbus,
     };
 
-    /* Loop through all dynamic sysbus devices and create their node */
     foreach_dynamic_sysbus_device(add_fdt_node, &data);
 
     g_free(node);

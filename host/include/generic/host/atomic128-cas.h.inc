@@ -1,12 +1,3 @@
-/*
- * SPDX-License-Identifier: GPL-2.0-or-later
- * Compare-and-swap for 128-bit atomic operations, generic version.
- *
- * Copyright (C) 2018, 2023 Linaro, Ltd.
- *
- * See docs/devel/atomics.rst for discussion about the guarantees each
- * atomic primitive is meant to provide.
- */
 
 #ifndef HOST_ATOMIC128_CAS_H
 #define HOST_ATOMIC128_CAS_H
@@ -38,7 +29,6 @@ atomic16_cmpxchg(Int128 *ptr, Int128 cmp, Int128 new)
 }
 # define HAVE_CMPXCHG128 1
 #else
-/* Fallback definition that must be optimized away, or error.  */
 Int128 QEMU_ERROR("unsupported atomic")
     atomic16_cmpxchg(Int128 *ptr, Int128 cmp, Int128 new);
 # define HAVE_CMPXCHG128 0

@@ -1,11 +1,3 @@
-/*
- * PCIe Data Object Exchange
- *
- * Copyright (C) 2021 Avery Design Systems, Inc.
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -40,7 +32,6 @@ static bool pcie_doe_discovery(DOECap *doe_cap)
     uint8_t index = req->index;
     DOEProtocol *prot;
 
-    /* Discard request if length does not match DoeDiscoveryReq */
     if (pcie_doe_get_obj_len(req) <
         DIV_ROUND_UP(sizeof(DoeDiscoveryReq), DWORD_BYTE)) {
         return false;
@@ -52,7 +43,6 @@ static bool pcie_doe_discovery(DOECap *doe_cap)
         .length = DIV_ROUND_UP(sizeof(DoeDiscoveryRsp), DWORD_BYTE),
     };
 
-    /* Point to the requested protocol, index 0 must be Discovery */
     if (index == 0) {
         rsp.vendor_id = PCI_VENDOR_ID_PCI_SIG;
         rsp.data_obj_type = PCI_SIG_DOE_DISCOVERY;
@@ -113,7 +103,6 @@ void pcie_doe_init(PCIDevice *dev, DOECap *doe_cap, uint16_t offset,
     }
     assert(doe_cap->protocol_num < PCI_DOE_PROTOCOL_NUM_MAX);
 
-    /* Increment to allow for the discovery protocol */
     doe_cap->protocol_num++;
 }
 
@@ -134,11 +123,6 @@ void *pcie_doe_get_write_mbox_ptr(DOECap *doe_cap)
     return doe_cap->write_mbox;
 }
 
-/*
- * Copy the response to read mailbox buffer
- * This might be called in self-defined handle_request() if a DOE response is
- * required in the corresponding protocol
- */
 void pcie_doe_set_rsp(DOECap *doe_cap, void *rsp)
 {
     uint32_t len = pcie_doe_get_obj_len(rsp);
@@ -155,10 +139,8 @@ uint32_t pcie_doe_get_obj_len(void *obj)
         return 0;
     }
 
-    /* Only lower 18 bits are valid */
     len = DATA_OBJ_LEN_MASK(((DOEHeader *)obj)->length);
 
-    /* PCIe r6.0 Table 6.29: a value of 00000h indicates 2^18 DW */
     return (len) ? len : PCI_DOE_DW_SIZE_MAX;
 }
 
@@ -198,9 +180,6 @@ static void pcie_doe_set_error(DOECap *doe_cap, bool err)
     }
 }
 
-/*
- * Check incoming request in write_mbox for protocol format
- */
 static void pcie_doe_prepare_rsp(DOECap *doe_cap)
 {
     bool success = false;
@@ -224,12 +203,6 @@ static void pcie_doe_prepare_rsp(DOECap *doe_cap)
         }
     }
 
-    /*
-     * PCIe r6 DOE 6.30.1:
-     * If the number of DW transferred does not match the
-     * indicated Length for a data object, then the
-     * data object must be silently discarded.
-     */
     if (handle_request && (doe_cap->write_mbox_len ==
         pcie_doe_get_obj_len(pcie_doe_get_write_mbox_ptr(doe_cap)))) {
         success = handle_request(doe_cap);
@@ -242,10 +215,6 @@ static void pcie_doe_prepare_rsp(DOECap *doe_cap)
     }
 }
 
-/*
- * Read from DOE config space.
- * Return false if the address not within DOE_CAP range.
- */
 bool pcie_doe_read_config(DOECap *doe_cap, uint32_t addr, int size,
                           uint32_t *buf)
 {
@@ -266,7 +235,6 @@ bool pcie_doe_read_config(DOECap *doe_cap, uint32_t addr, int size,
         *buf = FIELD_DP32(*buf, PCI_DOE_CAP_REG, DOE_INTR_MSG_NUM,
                           doe_cap->cap.vec);
     } else if (range_covers_byte(PCI_EXP_DOE_CTRL, DWORD_BYTE, addr)) {
-        /* Must return ABORT=0 and GO=0 */
         *buf = FIELD_DP32(*buf, PCI_DOE_CAP_CONTROL, DOE_INTR_EN,
                           doe_cap->ctrl.intr);
     } else if (range_covers_byte(PCI_EXP_DOE_STATUS, DWORD_BYTE, addr)) {
@@ -278,24 +246,18 @@ bool pcie_doe_read_config(DOECap *doe_cap, uint32_t addr, int size,
                           doe_cap->status.error);
         *buf = FIELD_DP32(*buf, PCI_DOE_CAP_STATUS, DATA_OBJ_RDY,
                           doe_cap->status.ready);
-    /* Mailbox should be DW accessed */
     } else if (addr == PCI_EXP_DOE_RD_DATA_MBOX && size == DWORD_BYTE) {
         if (doe_cap->status.ready && !doe_cap->status.error) {
             *buf = doe_cap->read_mbox[doe_cap->read_mbox_idx];
         }
     }
 
-    /* Process Alignment */
     shift = addr % DWORD_BYTE;
     *buf = extract32(*buf, shift * 8, size * 8);
 
     return true;
 }
 
-/*
- * Write to DOE config space.
- * Return if the address not within DOE_CAP range or receives an abort
- */
 void pcie_doe_write_config(DOECap *doe_cap,
                            uint32_t addr, uint32_t val, int size)
 {
@@ -307,7 +269,6 @@ void pcie_doe_write_config(DOECap *doe_cap,
         return;
     }
 
-    /* Process Alignment */
     shift = addr % DWORD_BYTE;
     addr -= (doe_offset + shift);
     val = deposit32(val, shift * 8, size * 8, val);
@@ -327,7 +288,6 @@ void pcie_doe_write_config(DOECap *doe_cap,
 
         if (FIELD_EX32(val, PCI_DOE_CAP_CONTROL, DOE_INTR_EN)) {
             doe_cap->ctrl.intr = 1;
-        /* Clear interrupt bit located within the first byte */
         } else if (shift == 0) {
             doe_cap->ctrl.intr = 0;
         }
@@ -338,7 +298,6 @@ void pcie_doe_write_config(DOECap *doe_cap,
         }
         break;
     case PCI_EXP_DOE_RD_DATA_MBOX:
-        /* Mailbox should be DW accessed */
         if (size != DWORD_BYTE) {
             return;
         }
@@ -347,12 +306,10 @@ void pcie_doe_write_config(DOECap *doe_cap,
             pcie_doe_reset_mbox(doe_cap);
             pcie_doe_set_ready(doe_cap, 0);
         } else if (doe_cap->read_mbox_idx > doe_cap->read_mbox_len) {
-            /* Underflow */
             pcie_doe_set_error(doe_cap, 1);
         }
         break;
     case PCI_EXP_DOE_WR_DATA_MBOX:
-        /* Mailbox should be DW accessed */
         if (size != DWORD_BYTE) {
             return;
         }
@@ -360,7 +317,6 @@ void pcie_doe_write_config(DOECap *doe_cap,
         doe_cap->write_mbox_len++;
         break;
     case PCI_EXP_DOE_CAP:
-        /* fallthrough */
     default:
         break;
     }

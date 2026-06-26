@@ -9,7 +9,6 @@
 
 #else
 
-/* Just enough to allow backends to init without ifdefs.  */
 
 #define CS_ARCH_ARM     -1
 #define CS_ARCH_ARM64   -1

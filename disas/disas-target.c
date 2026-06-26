@@ -1,7 +1,3 @@
-/*
- * Routines for target instruction disassembly.
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "disas/disas.h"
@@ -62,14 +58,8 @@ void target_disas(FILE *out, CPUState *cpu, const struct DisasContextBase *db)
 #ifdef CONFIG_PLUGIN
 static void plugin_print_address(bfd_vma addr, struct disassemble_info *info)
 {
-    /* does nothing */
 }
 
-/*
- * We should only be dissembling one instruction at a time here. If
- * there is left over it usually indicates the front end has read more
- * bytes than it needed.
- */
 char *plugin_disas(CPUState *cpu, const DisasContextBase *db,
                    uint64_t addr, size_t size)
 {
@@ -93,7 +83,6 @@ char *plugin_disas(CPUState *cpu, const DisasContextBase *db,
         ; /* cannot disassemble -- return empty string */
     }
 
-    /* Return the buffer, freeing the GString container.  */
     return g_string_free(ds, false);
 }
 #endif /* CONFIG_PLUGIN */

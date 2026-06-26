@@ -1,17 +1,3 @@
-/*
- * Declarations for AIO in the raw protocol
- *
- * Copyright IBM, Corp. 2008
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #ifndef QEMU_RAW_AIO_H
 #define QEMU_RAW_AIO_H
@@ -20,7 +6,6 @@
 #include "block/block-common.h"
 #include "qemu/iov.h"
 
-/* AIO request types */
 #define QEMU_AIO_READ         0x0001
 #define QEMU_AIO_WRITE        0x0002
 #define QEMU_AIO_IOCTL        0x0004
@@ -45,19 +30,16 @@
          QEMU_AIO_ZONE_MGMT | \
          QEMU_AIO_ZONE_APPEND)
 
-/* AIO flags */
 #define QEMU_AIO_MISALIGNED   0x1000
 #define QEMU_AIO_BLKDEV       0x2000
 #define QEMU_AIO_NO_FALLBACK  0x4000
 
 
-/* linux-aio.c - Linux native implementation */
 #ifdef CONFIG_LINUX_AIO
 typedef struct LinuxAioState LinuxAioState;
 LinuxAioState *laio_init(Error **errp);
 void laio_cleanup(LinuxAioState *s);
 
-/* laio_co_submit: submit I/O requests in the thread's current AioContext. */
 int coroutine_fn laio_co_submit(int fd, uint64_t offset, QEMUIOVector *qiov,
                                 int type, BdrvRequestFlags flags,
                                 uint64_t dev_max_batch);
@@ -72,12 +54,10 @@ static inline bool laio_has_fua(void)
     return false;
 }
 #endif
-/* io_uring.c - Linux io_uring implementation */
 #ifdef CONFIG_LINUX_IO_URING
 LuringState *luring_init(Error **errp);
 void luring_cleanup(LuringState *s);
 
-/* luring_co_submit: submit I/O requests in the thread's current AioContext. */
 int coroutine_fn luring_co_submit(BlockDriverState *bs, int fd, uint64_t offset,
                                   QEMUIOVector *qiov, int type,
                                   BdrvRequestFlags flags);

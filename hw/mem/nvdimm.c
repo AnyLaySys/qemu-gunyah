@@ -1,26 +1,3 @@
-/*
- * Non-Volatile Dual In-line Memory Module Virtualization Implementation
- *
- * Copyright(C) 2015 Intel Corporation.
- *
- * Author:
- *  Xiao Guangrong <guangrong.xiao@linux.intel.com>
- *
- * Currently, it only supports PMEM Virtualization.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>
- */
 
 #include "qemu/osdep.h"
 #include "qemu/module.h"
@@ -205,10 +182,6 @@ static void nvdimm_unrealize(PCDIMMDevice *dimm)
     }
 }
 
-/*
- * the caller should check the input parameters before calling
- * label read/write functions.
- */
 static void nvdimm_validate_rw_label_data(NVDIMMDevice *nvdimm, uint64_t size,
                                         uint64_t offset, bool is_write)
 {

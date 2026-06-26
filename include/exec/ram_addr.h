@@ -1,20 +1,4 @@
-/*
- * Declarations for cpu physical memory functions
- *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates
- *
- * Authors:
- *  Avi Kivity <avi@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- *
- */
 
-/*
- * This header is for use by exec.c and memory.c ONLY.  Do not include it.
- * The functions declared here will be removed soon.
- */
 
 #ifndef RAM_ADDR_H
 #define RAM_ADDR_H
@@ -33,29 +17,11 @@
 
 extern uint64_t total_dirty_pages;
 
-/**
- * clear_bmap_size: calculate clear bitmap size
- *
- * @pages: number of guest pages
- * @shift: guest page number shift
- *
- * Returns: number of bits for the clear bitmap
- */
 static inline long clear_bmap_size(uint64_t pages, uint8_t shift)
 {
     return DIV_ROUND_UP(pages, 1UL << shift);
 }
 
-/**
- * clear_bmap_set: set clear bitmap for the page range.  Must be with
- * bitmap_mutex held.
- *
- * @rb: the ramblock to operate on
- * @start: the start page number
- * @size: number of pages to set in the bitmap
- *
- * Returns: None
- */
 static inline void clear_bmap_set(RAMBlock *rb, uint64_t start,
                                   uint64_t npages)
 {
@@ -64,15 +30,6 @@ static inline void clear_bmap_set(RAMBlock *rb, uint64_t start,
     bitmap_set(rb->clear_bmap, start >> shift, clear_bmap_size(npages, shift));
 }
 
-/**
- * clear_bmap_test_and_clear: test clear bitmap for the page, clear if set.
- * Must be with bitmap_mutex held.
- *
- * @rb: the ramblock to operate on
- * @page: the page number to check
- *
- * Returns: true if the bit was set, false otherwise
- */
 static inline bool clear_bmap_test_and_clear(RAMBlock *rb, uint64_t page)
 {
     uint8_t shift = rb->clear_bmap_shift;
@@ -101,28 +58,6 @@ static inline unsigned long int ramblock_recv_bitmap_offset(void *host_addr,
 
 bool ramblock_is_pmem(RAMBlock *rb);
 
-/**
- * qemu_ram_alloc_from_file,
- * qemu_ram_alloc_from_fd:  Allocate a ram block from the specified backing
- *                          file or device
- *
- * Parameters:
- *  @size: the size in bytes of the ram block
- *  @max_size: the maximum size of the block after resizing
- *  @mr: the memory region where the ram block is
- *  @resized: callback after calls to qemu_ram_resize
- *  @ram_flags: RamBlock flags. Supported flags: RAM_SHARED, RAM_PMEM,
- *              RAM_NORESERVE, RAM_PROTECTED, RAM_NAMED_FILE, RAM_READONLY,
- *              RAM_READONLY_FD, RAM_GUEST_MEMFD
- *  @mem_path or @fd: specify the backing file or device
- *  @offset: Offset into target file
- *  @grow: extend file if necessary (but an empty file is always extended).
- *  @errp: pointer to Error*, to store an error if it happens
- *
- * Return:
- *  On success, return a pointer to the ram block.
- *  On failure, return NULL.
- */
 typedef void (*qemu_ram_resize_cb)(const char *, uint64_t length, void *host);
 
 RAMBlock *qemu_ram_alloc_from_file(ram_addr_t size, MemoryRegion *mr,
@@ -147,7 +82,6 @@ int qemu_ram_resize(RAMBlock *block, ram_addr_t newsize, Error **errp);
 
 void qemu_ram_msync(RAMBlock *block, ram_addr_t start, ram_addr_t length);
 
-/* Clear whole block of mem */
 static inline void qemu_ram_block_writeback(RAMBlock *block)
 {
     qemu_ram_msync(block, 0, block->used_length);
@@ -340,12 +274,6 @@ static inline void cpu_physical_memory_set_dirty_range(ram_addr_t start,
 
 #if !defined(_WIN32)
 
-/*
- * Contrary to cpu_physical_memory_sync_dirty_bitmap() this function returns
- * the number of dirty pages in @bitmap passed as argument. On the other hand,
- * cpu_physical_memory_sync_dirty_bitmap() returns newly dirtied pages that
- * weren't set in the global migration bitmap.
- */
 static inline
 uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
                                                 ram_addr_t start,
@@ -360,7 +288,6 @@ uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
     unsigned long hpratio = qemu_real_host_page_size() / TARGET_PAGE_SIZE;
     unsigned long page = BIT_WORD(start >> TARGET_PAGE_BITS);
 
-    /* start address is aligned at the start of a word? */
     if ((((page * BITS_PER_LONG) << TARGET_PAGE_BITS) == start) &&
         (hpratio == 1)) {
         unsigned long **blocks[DIRTY_MEMORY_NUM];
@@ -417,10 +344,6 @@ uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
             clients &= ~(1 << DIRTY_MEMORY_MIGRATION);
         }
 
-        /*
-         * bitmap-traveling is faster than memory-traveling (for addr...)
-         * especially when most of the memory is not dirty.
-         */
         for (i = 0; i < len; i++) {
             if (bitmap[i] != 0) {
                 c = leul_to_cpu(bitmap[i]);
@@ -474,7 +397,6 @@ static inline void cpu_physical_memory_clear_dirty_range(ram_addr_t start,
 }
 
 
-/* Called with RCU critical section */
 static inline
 uint64_t cpu_physical_memory_sync_dirty_bitmap(RAMBlock *rb,
                                                ram_addr_t start,
@@ -485,7 +407,6 @@ uint64_t cpu_physical_memory_sync_dirty_bitmap(RAMBlock *rb,
     uint64_t num_dirty = 0;
     unsigned long *dest = rb->bmap;
 
-    /* start address and length is aligned at the start of a word? */
     if (((word * BITS_PER_LONG) << TARGET_PAGE_BITS) ==
          (start + rb->offset) &&
         !(length & ((BITS_PER_LONG << TARGET_PAGE_BITS) - 1))) {
@@ -520,15 +441,9 @@ uint64_t cpu_physical_memory_sync_dirty_bitmap(RAMBlock *rb,
         }
 
         if (rb->clear_bmap) {
-            /*
-             * Postpone the dirty bitmap clear to the point before we
-             * really send the pages, also we will split the clear
-             * dirty procedure into smaller chunks.
-             */
             clear_bmap_set(rb, start >> TARGET_PAGE_BITS,
                            length >> TARGET_PAGE_BITS);
         } else {
-            /* Slow path - still do that in a huge chunk */
             memory_region_clear_dirty_bitmap(rb->mr, start, length);
         }
     } else {

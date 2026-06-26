@@ -1,15 +1,3 @@
-/*
- * Core Definitions for QAPI/QMP Dispatch
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #ifndef QAPI_QMP_DISPATCH_H
 #define QAPI_QMP_DISPATCH_H
@@ -30,7 +18,6 @@ typedef enum QmpCommandOptions
 typedef struct QmpCommand
 {
     const char *name;
-    /* Runs in coroutine context if QCO_COROUTINE is set */
     QmpCommandFunc *fn;
     QmpCommandOptions options;
     uint64_t features;

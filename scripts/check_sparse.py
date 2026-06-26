@@ -1,8 +1,5 @@
 #! /usr/bin/env python3
 
-# Invoke sparse based on the contents of compile_commands.json,
-# also working around several deficiencies in cgcc's command line
-# parsing
 
 import json
 import subprocess
@@ -11,7 +8,6 @@ import sys
 import shlex
 
 def cmdline_for_sparse(sparse, cmdline):
-    # Do not include the C compiler executable
     skip = True
     arg = False
     out = sparse + ['-no-compile']
@@ -23,14 +19,11 @@ def cmdline_for_sparse(sparse, cmdline):
         if skip:
             skip = False
             continue
-        # prevent sparse from treating output files as inputs
         if x == '-MF' or x == '-MQ' or x == '-o':
             skip = True
             continue
-        # cgcc ignores -no-compile if it sees -M or -MM?
         if x.startswith('-M'):
             continue
-        # sparse does not understand these!
         if x == '-iquote' or x == '-isystem':
             x = '-I'
         if x == '-I':

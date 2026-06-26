@@ -1,14 +1,3 @@
-/*
- * Linux UFFD-WP support
- *
- * Copyright Virtuozzo GmbH, 2020
- *
- * Authors:
- *  Andrey Gruzdev   <andrey.gruzdev@virtuozzo.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/bitops.h"
@@ -31,18 +20,11 @@ int uffd_open(int flags)
     static uffd_open_mode open_mode;
     static int uffd_dev;
 
-    /* Detect how to generate uffd desc when run the 1st time */
     if (open_mode == UFFD_UNINITIALIZED) {
-        /*
-         * Make /dev/userfaultfd the default approach because it has better
-         * permission controls, meanwhile allows kernel faults without any
-         * privilege requirement (e.g. SYS_CAP_PTRACE).
-         */
         uffd_dev = open("/dev/userfaultfd", O_RDWR | O_CLOEXEC);
         if (uffd_dev >= 0) {
             open_mode = UFFD_USE_DEV_PATH;
         } else {
-            /* Fallback to the system call */
             open_mode = UFFD_USE_SYSCALL;
         }
         trace_uffd_detect_open_mode(open_mode);
@@ -59,13 +41,6 @@ int uffd_open(int flags)
 #endif
 }
 
-/**
- * uffd_query_features: query UFFD features
- *
- * Returns: 0 on success, negative value in case of an error
- *
- * @features: parameter to receive 'uffdio_api.features'
- */
 int uffd_query_features(uint64_t *features)
 {
     int uffd_fd;
@@ -93,14 +68,6 @@ out:
     return ret;
 }
 
-/**
- * uffd_create_fd: create UFFD file descriptor
- *
- * Returns non-negative file descriptor or negative value in case of an error
- *
- * @features: UFFD features to request
- * @non_blocking: create UFFD file descriptor for non-blocking operation
- */
 int uffd_create_fd(uint64_t features, bool non_blocking)
 {
     int uffd_fd;
@@ -133,28 +100,12 @@ fail:
     return -1;
 }
 
-/**
- * uffd_close_fd: close UFFD file descriptor
- *
- * @uffd_fd: UFFD file descriptor
- */
 void uffd_close_fd(int uffd_fd)
 {
     assert(uffd_fd >= 0);
     close(uffd_fd);
 }
 
-/**
- * uffd_register_memory: register memory range via UFFD-IO
- *
- * Returns 0 in case of success, negative value in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @addr: base address of memory range
- * @length: length of memory range
- * @mode: UFFD register mode (UFFDIO_REGISTER_MODE_MISSING, ...)
- * @ioctls: optional pointer to receive supported IOCTL mask
- */
 int uffd_register_memory(int uffd_fd, void *addr, uint64_t length,
         uint64_t mode, uint64_t *ioctls)
 {
@@ -175,15 +126,6 @@ int uffd_register_memory(int uffd_fd, void *addr, uint64_t length,
     return 0;
 }
 
-/**
- * uffd_unregister_memory: un-register memory range with UFFD-IO
- *
- * Returns 0 in case of success, negative value in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @addr: base address of memory range
- * @length: length of memory range
- */
 int uffd_unregister_memory(int uffd_fd, void *addr, uint64_t length)
 {
     struct uffdio_range uffd_range;
@@ -199,17 +141,6 @@ int uffd_unregister_memory(int uffd_fd, void *addr, uint64_t length)
     return 0;
 }
 
-/**
- * uffd_change_protection: protect/un-protect memory range for writes via UFFD-IO
- *
- * Returns 0 on success, negative value in case of error
- *
- * @uffd_fd: UFFD file descriptor
- * @addr: base address of memory range
- * @length: length of memory range
- * @wp: write-protect/unprotect
- * @dont_wake: do not wake threads waiting on wr-protected page
- */
 int uffd_change_protection(int uffd_fd, void *addr, uint64_t length,
         bool wp, bool dont_wake)
 {
@@ -218,7 +149,6 @@ int uffd_change_protection(int uffd_fd, void *addr, uint64_t length,
     uffd_writeprotect.range.start = (uintptr_t) addr;
     uffd_writeprotect.range.len = length;
     if (!wp && dont_wake) {
-        /* DONTWAKE is meaningful only on protection release */
         uffd_writeprotect.mode = UFFDIO_WRITEPROTECT_MODE_DONTWAKE;
     } else {
         uffd_writeprotect.mode = (wp ? UFFDIO_WRITEPROTECT_MODE_WP : 0);
@@ -234,20 +164,6 @@ int uffd_change_protection(int uffd_fd, void *addr, uint64_t length,
     return 0;
 }
 
-/**
- * uffd_copy_page: copy range of pages to destination via UFFD-IO
- *
- * Copy range of source pages to the destination to resolve
- * missing page fault somewhere in the destination range.
- *
- * Returns 0 on success, -errno in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @dst_addr: destination base address
- * @src_addr: source base address
- * @length: length of the range to copy
- * @dont_wake: do not wake threads waiting on missing page
- */
 int uffd_copy_page(int uffd_fd, void *dst_addr, void *src_addr,
         uint64_t length, bool dont_wake)
 {
@@ -269,18 +185,6 @@ int uffd_copy_page(int uffd_fd, void *dst_addr, void *src_addr,
     return 0;
 }
 
-/**
- * uffd_zero_page: fill range of pages with zeroes via UFFD-IO
- *
- * Fill range pages with zeroes to resolve missing page fault within the range.
- *
- * Returns 0 on success, -errno in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @addr: base address
- * @length: length of the range to fill with zeroes
- * @dont_wake: do not wake threads waiting on missing page
- */
 int uffd_zero_page(int uffd_fd, void *addr, uint64_t length, bool dont_wake)
 {
     struct uffdio_zeropage uffd_zeropage;
@@ -300,20 +204,6 @@ int uffd_zero_page(int uffd_fd, void *addr, uint64_t length, bool dont_wake)
     return 0;
 }
 
-/**
- * uffd_wakeup: wake up threads waiting on page UFFD-managed page fault resolution
- *
- * Wake up threads waiting on any page/pages from the designated range.
- * The main use case is when during some period, page faults are resolved
- * via UFFD-IO IOCTLs with MODE_DONTWAKE flag set, then after that all waits
- * for the whole memory range are satisfied in a single call to uffd_wakeup().
- *
- * Returns 0 on success, -errno in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @addr: base address
- * @length: length of the range
- */
 int uffd_wakeup(int uffd_fd, void *addr, uint64_t length)
 {
     struct uffdio_range uffd_range;
@@ -331,16 +221,6 @@ int uffd_wakeup(int uffd_fd, void *addr, uint64_t length)
     return 0;
 }
 
-/**
- * uffd_read_events: read pending UFFD events
- *
- * Returns number of fetched messages, 0 if non is available or
- * negative value in case of an error
- *
- * @uffd_fd: UFFD file descriptor
- * @msgs: pointer to message buffer
- * @count: number of messages that can fit in the buffer
- */
 int uffd_read_events(int uffd_fd, struct uffd_msg *msgs, int count)
 {
     ssize_t res;

@@ -1,10 +1,3 @@
-/*
- * Vhost-user i2c virtio device
- *
- * Copyright (c) 2021 Viresh Kumar <viresh.kumar@linaro.org>
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #ifndef QEMU_VHOST_USER_I2C_H
 #define QEMU_VHOST_USER_I2C_H

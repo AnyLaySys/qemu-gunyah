@@ -12,7 +12,6 @@ static void acpi_dsdt_add_pci_route_table(Aml *dev, uint32_t irq,
     Aml *method, *crs;
     int i, slot_no;
 
-    /* Declare the PCI Routing Table. */
     Aml *rt_pkg = aml_varpackage(PCI_SLOT_MAX * PCI_NUM_PINS);
     for (slot_no = 0; slot_no < PCI_SLOT_MAX; slot_no++) {
         for (i = 0; i < PCI_NUM_PINS; i++) {
@@ -27,7 +26,6 @@ static void acpi_dsdt_add_pci_route_table(Aml *dev, uint32_t irq,
     }
     aml_append(dev, aml_name_decl("_PRT", rt_pkg));
 
-    /* Create GSI link device */
     for (i = 0; i < PCI_NUM_PINS; i++) {
         uint32_t irqs = irq + i;
         Aml *dev_gsi = aml_device("L%.02X%X", bus_num, i);
@@ -53,19 +51,12 @@ static void acpi_dsdt_add_pci_osc(Aml *dev)
 {
     Aml *method, *UUID, *ifctx, *ifctx1, *elsectx, *buf;
 
-    /* Declare an _OSC (OS Control Handoff) method */
     aml_append(dev, aml_name_decl("SUPP", aml_int(0)));
     aml_append(dev, aml_name_decl("CTRL", aml_int(0)));
     method = aml_method("_OSC", 4, AML_NOTSERIALIZED);
     aml_append(method,
         aml_create_dword_field(aml_arg(3), aml_int(0), "CDW1"));
 
-    /* PCI Firmware Specification 3.0
-     * 4.5.1. _OSC Interface for PCI Host Bridge Devices
-     * The _OSC interface for a PCI/PCI-X/PCI Express hierarchy is
-     * identified by the Universal Unique IDentifier (UUID)
-     * 33DB4D5B-1FF7-401C-9657-7441C03DD766
-     */
     UUID = aml_touuid("33DB4D5B-1FF7-401C-9657-7441C03DD766");
     ifctx = aml_if(aml_equal(aml_arg(0), UUID));
     aml_append(ifctx,
@@ -75,10 +66,6 @@ static void acpi_dsdt_add_pci_osc(Aml *dev)
     aml_append(ifctx, aml_store(aml_name("CDW2"), aml_name("SUPP")));
     aml_append(ifctx, aml_store(aml_name("CDW3"), aml_name("CTRL")));
 
-    /*
-     * Allow OS control for all 5 features:
-     * PCIeHotplug SHPCHotplug PME AER PCIeCapability.
-     */
     aml_append(ifctx, aml_and(aml_name("CTRL"), aml_int(0x1F),
                               aml_name("CTRL")));
 
@@ -105,11 +92,6 @@ static void acpi_dsdt_add_pci_osc(Aml *dev)
 
     method = aml_method("_DSM", 4, AML_NOTSERIALIZED);
 
-    /* PCI Firmware Specification 3.0
-     * 4.6.1. _DSM for PCI Express Slot Information
-     * The UUID in _DSM in this context is
-     * {E5C937D0-3553-4D7A-9117-EA4D19C3434D}
-     */
     UUID = aml_touuid("E5C937D0-3553-4D7A-9117-EA4D19C3434D");
     ifctx = aml_if(aml_equal(aml_arg(0), UUID));
     ifctx1 = aml_if(aml_equal(aml_arg(2), aml_int(0)));
@@ -134,7 +116,6 @@ void acpi_dsdt_add_gpex(Aml *scope, struct GPEXConfig *cfg)
     CrsRangeEntry *entry;
     int i;
 
-    /* start to construct the tables for pxb */
     crs_range_set_init(&crs_range_set);
     if (bus) {
         QLIST_FOREACH(bus, &bus->child, sibling) {
@@ -146,11 +127,6 @@ void acpi_dsdt_add_gpex(Aml *scope, struct GPEXConfig *cfg)
                 continue;
             }
 
-            /*
-             * 0 - (nr_pcie_buses - 1) is the bus range for the main
-             * host-bridge and it equals the MIN of the
-             * busNr defined for pxb-pcie.
-             */
             if (bus_num < nr_pcie_buses) {
                 nr_pcie_buses = bus_num;
             }
@@ -170,11 +146,6 @@ void acpi_dsdt_add_gpex(Aml *scope, struct GPEXConfig *cfg)
 
             acpi_dsdt_add_pci_route_table(dev, cfg->irq, scope, bus_num);
 
-            /*
-             * Resources defined for PXBs are composed of the following parts:
-             * 1. The resources the pci-brige/pcie-root-port need.
-             * 2. The resources the devices behind pxb need.
-             */
             crs = build_crs(PCI_HOST_BRIDGE(BUS(bus)->parent), &crs_range_set,
                             cfg->pio.base, 0, 0, 0);
             aml_append(dev, aml_name_decl("_CRS", crs));
@@ -185,7 +156,6 @@ void acpi_dsdt_add_gpex(Aml *scope, struct GPEXConfig *cfg)
         }
     }
 
-    /* tables for the main */
     dev = aml_device("%s", "PCI0");
     aml_append(dev, aml_name_decl("_HID", aml_string("PNP0A08")));
     aml_append(dev, aml_name_decl("_CID", aml_string("PNP0A03")));
@@ -201,11 +171,6 @@ void acpi_dsdt_add_gpex(Aml *scope, struct GPEXConfig *cfg)
     aml_append(method, aml_return(aml_int(cfg->ecam.base)));
     aml_append(dev, method);
 
-    /*
-     * At this point crs_range_set has all the ranges used by pci
-     * busses *other* than PCI0.  These ranges will be excluded from
-     * the PCI0._CRS.
-     */
     rbuf = aml_resource_template();
     aml_append(rbuf,
         aml_word_bus_number(AML_MIN_FIXED, AML_MAX_FIXED, AML_POS_DECODE,

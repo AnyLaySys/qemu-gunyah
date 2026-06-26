@@ -1,23 +1,3 @@
-/*
- * QEMU Crypto akcipher algorithms
- *
- * Copyright (c) 2022 Bytedance
- * Author: lei he <helei.sig11@bytedance.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include <nettle/rsa.h>
 
@@ -108,10 +88,6 @@ static int qcrypt_nettle_parse_rsa_private_key(QCryptoNettleRSA *rsa,
         return -1;
     }
 
-    /**
-     * Since in the kernel's unit test, the p, q, a, b, c of some
-     * private keys is 0, only the simplest length check is done here
-     */
     if (rsa_key->p.len > 1 &&
         rsa_key->q.len > 1 &&
         rsa_key->dp.len > 1 &&
@@ -181,7 +157,6 @@ static int qcrypto_nettle_rsa_encrypt(QCryptoAkCipher *akcipher,
         return ret;
     }
 
-    /* Nettle do not support RSA encryption without any padding */
     switch (rsa->padding_alg) {
     case QCRYPTO_RSA_PADDING_ALGO_RAW:
         error_setg(errp, "RSA with raw padding is not supported");
@@ -252,10 +227,6 @@ static int qcrypto_nettle_rsa_sign(QCryptoAkCipher *akcipher,
     int ret = -1, rv;
     mpz_t s;
 
-    /**
-     * The RSA algorithm cannot be used for signature/verification
-     * without padding.
-     */
     if (rsa->padding_alg == QCRYPTO_RSA_PADDING_ALGO_RAW) {
         error_setg(errp, "Try to make signature without padding");
         return ret;
@@ -319,10 +290,6 @@ static int qcrypto_nettle_rsa_verify(QCryptoAkCipher *akcipher,
     int ret = -1, rv;
     mpz_t s;
 
-    /**
-     * The RSA algorithm cannot be used for signature/verification
-     * without padding.
-     */
     if (rsa->padding_alg == QCRYPTO_RSA_PADDING_ALGO_RAW) {
         error_setg(errp, "Try to verify signature without padding");
         return ret;

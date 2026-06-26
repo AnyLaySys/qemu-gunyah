@@ -1,22 +1,7 @@
-/*
- * Copyright (C) 2004 Red Hat, Inc. All Rights Reserved.
- * Written by David Howells (dhowells@redhat.com)
- * Copyright (C) 2008 IBM Corporation
- * Written by Rusty Russell <rusty@rustcorp.com.au>
- * (Inspired by David Howell's find_next_bit implementation)
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version
- * 2 of the License, or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/bitops.h"
 
-/*
- * Find the next set bit in a memory region.
- */
 unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
                             unsigned long offset)
 {
@@ -78,10 +63,6 @@ found_middle:
     return result + ctzl(tmp);
 }
 
-/*
- * This implementation of find_{first,next}_zero_bit was stolen from
- * Linus' asm-alpha/bitops.h.
- */
 unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size,
                                  unsigned long offset)
 {
@@ -132,10 +113,8 @@ unsigned long find_last_bit(const unsigned long *addr, unsigned long size)
     unsigned long words;
     unsigned long tmp;
 
-    /* Start at final word. */
     words = size / BITS_PER_LONG;
 
-    /* Partial final word? */
     if (size & (BITS_PER_LONG-1)) {
         tmp = (addr[words] & (~0UL >> (BITS_PER_LONG
                                        - (size & (BITS_PER_LONG-1)))));
@@ -152,6 +131,5 @@ unsigned long find_last_bit(const unsigned long *addr, unsigned long size)
         }
     }
 
-    /* Not found */
     return size;
 }

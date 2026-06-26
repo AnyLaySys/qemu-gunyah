@@ -1,16 +1,3 @@
-/*
- * Core Definitions for QAPI/QMP Command Registry
- *
- * Copyright (C) 2012-2016 Red Hat, Inc.
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qapi/compat-policy.h"
@@ -48,7 +35,6 @@ static QObjectOutputVisitor *to_qov(Visitor *v)
     return container_of(v, QObjectOutputVisitor, visitor);
 }
 
-/* Push @value onto the stack of current QObjects being built */
 static void qobject_output_push_obj(QObjectOutputVisitor *qov, QObject *value,
                                     void *qapi)
 {
@@ -61,7 +47,6 @@ static void qobject_output_push_obj(QObjectOutputVisitor *qov, QObject *value,
     QSLIST_INSERT_HEAD(&qov->stack, e, node);
 }
 
-/* Pop a value off the stack of QObjects being built, and return it. */
 static QObject *qobject_output_pop(QObjectOutputVisitor *qov, void *qapi)
 {
     QStackEntry *e = QSLIST_FIRST(&qov->stack);
@@ -76,9 +61,6 @@ static QObject *qobject_output_pop(QObjectOutputVisitor *qov, void *qapi)
     return value;
 }
 
-/* Add @value to the current QObject being built.
- * If the stack is visiting a dictionary or list, @value is now owned
- * by that container. Otherwise, @value is now the root.  */
 static void qobject_output_add_obj(QObjectOutputVisitor *qov, const char *name,
                                    QObject *value)
 {
@@ -86,7 +68,6 @@ static void qobject_output_add_obj(QObjectOutputVisitor *qov, const char *name,
     QObject *cur = e ? e->value : NULL;
 
     if (!cur) {
-        /* Don't allow reuse of visitor on more than one root */
         assert(!qov->root);
         qov->root = value;
     } else {
@@ -220,14 +201,10 @@ static bool qobject_output_policy_skip(Visitor *v, const char *name,
             && pol->unstable_output == COMPAT_POLICY_OUTPUT_HIDE);
 }
 
-/* Finish building, and return the root object.
- * The root object is never null. The caller becomes the object's
- * owner, and should use qobject_unref() when done with it.  */
 static void qobject_output_complete(Visitor *v, void *opaque)
 {
     QObjectOutputVisitor *qov = to_qov(v);
 
-    /* A visit must have occurred, with each start paired with end.  */
     assert(qov->root && QSLIST_EMPTY(&qov->stack));
     assert(opaque == qov->result);
 

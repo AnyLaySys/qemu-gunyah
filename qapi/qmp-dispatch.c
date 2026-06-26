@@ -1,15 +1,3 @@
-/*
- * Core Definitions for QAPI/QMP Dispatch
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 
@@ -101,9 +89,6 @@ QDict *qmp_error_response(Error *err)
     return rsp;
 }
 
-/*
- * Does @qdict look like a command to be run out-of-band?
- */
 bool qmp_is_oob(const QDict *dict)
 {
     return qdict_haskey(dict, "exec-oob")
@@ -130,10 +115,6 @@ static void do_qmp_dispatch_bh(void *opaque)
     aio_co_wake(data->co);
 }
 
-/*
- * Runs outside of coroutine context for OOB commands, but in coroutine
- * context for everything else.
- */
 QDict *coroutine_mixed_fn qmp_dispatch(const QmpCommandList *cmds, QObject *request,
                                        bool allow_oob, Monitor *cur_mon)
 {
@@ -207,11 +188,6 @@ QDict *coroutine_mixed_fn qmp_dispatch(const QmpCommandList *cmds, QObject *requ
     assert(monitor_cur() == NULL);
     if (!!(cmd->options & QCO_COROUTINE) == qemu_in_coroutine()) {
         if (qemu_in_coroutine()) {
-            /*
-             * Move the coroutine from iohandler_ctx to qemu_aio_context for
-             * executing the command handler so that it can make progress if it
-             * involves an AIO_WAIT_WHILE().
-             */
             aio_co_schedule(qemu_get_aio_context(), qemu_coroutine_self());
             qemu_coroutine_yield();
         }
@@ -221,29 +197,11 @@ QDict *coroutine_mixed_fn qmp_dispatch(const QmpCommandList *cmds, QObject *requ
         monitor_set_cur(qemu_coroutine_self(), NULL);
 
         if (qemu_in_coroutine()) {
-            /*
-             * Yield and reschedule so the main loop stays responsive.
-             *
-             * Move back to iohandler_ctx so that nested event loops for
-             * qemu_aio_context don't start new monitor commands.
-             */
             aio_co_schedule(iohandler_get_aio_context(),
                             qemu_coroutine_self());
             qemu_coroutine_yield();
         }
     } else {
-       /*
-        * Actual context doesn't match the one the command needs.
-        *
-        * Case 1: we are in coroutine context, but command does not
-        * have QCO_COROUTINE.  We need to drop out of coroutine
-        * context for executing it.
-        *
-        * Case 2: we are outside coroutine context, but command has
-        * QCO_COROUTINE.  Can't actually happen, because we get here
-        * outside coroutine context only when executing a command
-        * out of band, and OOB commands never have QCO_COROUTINE.
-        */
         assert(!oob && qemu_in_coroutine() && !(cmd->options & QCO_COROUTINE));
 
         QmpDispatchBH data = {
@@ -260,7 +218,6 @@ QDict *coroutine_mixed_fn qmp_dispatch(const QmpCommandList *cmds, QObject *requ
     }
     qobject_unref(args);
     if (err) {
-        /* or assert(!ret) after reviewing all handlers: */
         qobject_unref(ret);
         goto out;
     }
@@ -269,11 +226,6 @@ QDict *coroutine_mixed_fn qmp_dispatch(const QmpCommandList *cmds, QObject *requ
         g_assert(!ret);
         return NULL;
     } else if (!ret) {
-        /*
-         * When the command's schema has no 'returns', cmd->fn()
-         * leaves @ret null.  The QMP spec calls for an empty object
-         * then; supply it.
-         */
         ret = QOBJECT(qdict_new());
     }
 

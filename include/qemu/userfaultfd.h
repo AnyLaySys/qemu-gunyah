@@ -1,14 +1,3 @@
-/*
- * Linux UFFD-WP support
- *
- * Copyright Virtuozzo GmbH, 2020
- *
- * Authors:
- *  Andrey Gruzdev   <andrey.gruzdev@virtuozzo.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #ifndef USERFAULTFD_H
 #define USERFAULTFD_H
@@ -18,13 +7,6 @@
 #include "exec/hwaddr.h"
 #include <linux/userfaultfd.h>
 
-/**
- * uffd_open(): Open an userfaultfd handle for current context.
- *
- * @flags: The flags we want to pass in when creating the handle.
- *
- * Returns: the uffd handle if >=0, or <0 if error happens.
- */
 int uffd_open(int flags);
 int uffd_query_features(uint64_t *features);
 int uffd_create_fd(uint64_t features, bool non_blocking);

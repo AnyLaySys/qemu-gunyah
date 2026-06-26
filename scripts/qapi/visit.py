@@ -142,7 +142,6 @@ bool visit_type_%(c_name)s_members(Visitor *v, %(c_name)s *obj, Error **errp)
                                     tag_member.type.prefix)
             ret += var.ifcond.gen_if()
             if var.type.name == 'q_empty':
-                # valid variant and nothing to do
                 ret += mcgen('''
     case %(case)s:
         break;
@@ -394,17 +393,13 @@ class QAPISchemaGenVisitVisitor(QAPISchemaModularCVisitor):
                           base: Optional[QAPISchemaObjectType],
                           members: List[QAPISchemaObjectTypeMember],
                           branches: Optional[QAPISchemaBranches]) -> None:
-        # Nothing to do for the special empty builtin
         if name == 'q_empty':
             return
         with ifcontext(ifcond, self._genh, self._genc):
             self._genh.add(gen_visit_members_decl(name))
             self._genc.add(gen_visit_object_members(name, base,
                                                     members, branches))
-            # TODO Worth changing the visitor signature, so we could
-            # directly use rather than repeat type.is_implicit()?
             if not name.startswith('q_'):
-                # only explicit types need an allocating visit
                 self._genh.add(gen_visit_decl(name))
                 self._genc.add(gen_visit_object(name))
 

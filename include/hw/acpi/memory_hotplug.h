@@ -10,12 +10,6 @@
 #define MEMORY_DEVICES_CONTAINER     "\\_SB.MHPC"
 #define MEMORY_HOTPLUG_IO_LEN         24
 
-/**
- * MemStatus:
- * @is_removing: the memory device in slot has been requested to be ejected.
- *
- * This structure stores memory device's status.
- */
 typedef struct MemStatus {
     DeviceState *dimm;
     bool is_enabled;

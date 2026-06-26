@@ -4,7 +4,6 @@
 #include "cursor_hidden.xpm"
 #include "cursor_left_ptr.xpm"
 
-/* for creating built-in cursors */
 static QEMUCursor *cursor_parse_xpm(const char *xpm[])
 {
     QEMUCursor *c;
@@ -14,7 +13,6 @@ static QEMUCursor *cursor_parse_xpm(const char *xpm[])
     char name[16];
     uint8_t idx;
 
-    /* parse header line: width, height, #colors, #chars */
     if (sscanf(xpm[line], "%u %u %u %u",
                &width, &height, &colors, &chars) != 4) {
         fprintf(stderr, "%s: header parse error: \"%s\"\n",
@@ -27,7 +25,6 @@ static QEMUCursor *cursor_parse_xpm(const char *xpm[])
     }
     line++;
 
-    /* parse color table */
     for (i = 0; i < colors; i++, line++) {
         if (sscanf(xpm[line], "%c c %15s", &idx, name) == 2) {
             if (sscanf(name, "#%02x%02x%02x", &r, &g, &b) == 3) {
@@ -44,7 +41,6 @@ static QEMUCursor *cursor_parse_xpm(const char *xpm[])
         return NULL;
     }
 
-    /* parse pixel data */
     c = cursor_alloc(width, height);
     assert(c != NULL);
 
@@ -57,7 +53,6 @@ static QEMUCursor *cursor_parse_xpm(const char *xpm[])
     return c;
 }
 
-/* nice for debugging */
 void cursor_print_ascii_art(QEMUCursor *c, const char *prefix)
 {
     uint32_t *data = c->data;
@@ -95,7 +90,6 @@ QEMUCursor *cursor_alloc(uint16_t width, uint16_t height)
     QEMUCursor *c;
     size_t datasize = width * height * sizeof(uint32_t);
 
-    /* Modern physical hardware typically uses 512x512 sprites */
     if (width > 512 || height > 512) {
         return NULL;
     }
@@ -139,10 +133,6 @@ void cursor_set_mono(QEMUCursor *c,
     bool has_inverted_colors = false;
     const uint32_t inverted = 0x80000000;
 
-    /*
-     * Converts a monochrome bitmap with XOR mask 'image' and AND mask 'mask':
-     * https://docs.microsoft.com/en-us/windows-hardware/drivers/display/drawing-monochrome-pointers
-     */
     bpl = cursor_get_mono_bpl(c);
     for (y = 0; y < c->height; y++) {
         bit = 0x80;
@@ -170,11 +160,6 @@ void cursor_set_mono(QEMUCursor *c,
         image += bpl;
     }
 
-    /*
-     * If there are any pixels with inverted colors, create an outline (fill
-     * transparent neighbors with the background color) and use the foreground
-     * color as "inverted" color.
-     */
     if (has_inverted_colors) {
         data = c->data;
         for (y = 0; y < c->height; y++) {

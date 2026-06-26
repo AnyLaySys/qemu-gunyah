@@ -1,13 +1,3 @@
-/*
- * QEMU AAudio audio backend for Android
- *
- * Uses the Android AAudio NDK C API to play/record audio directly
- * on Android hosts without requiring a Java app or Activity.
- *
- * Copyright (c) 2025
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "qemu/module.h"
@@ -61,7 +51,6 @@ static AAudioStream *aaudio_open_stream(struct audsettings *as,
     AAudioStreamBuilder_setPerformanceMode(builder,
                                            AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
     AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
-    /* Double the buffer capacity for headroom */
     AAudioStreamBuilder_setBufferCapacityInFrames(builder, 1024 * 2);
 
     res = AAudioStreamBuilder_openStream(builder, &stream);
@@ -75,14 +64,12 @@ static AAudioStream *aaudio_open_stream(struct audsettings *as,
     return stream;
 }
 
-/* ---- Playback ---- */
 
 static int aaudio_init_out(HWVoiceOut *hw, struct audsettings *as,
                            void *drv_opaque)
 {
     AAudioVoiceOut *aa = (AAudioVoiceOut *)hw;
 
-    /* Force S16 — most reliable format on Android */
     as->fmt = AUDIO_FORMAT_S16;
 
     aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_OUTPUT);
@@ -141,7 +128,6 @@ static void aaudio_enable_out(HWVoiceOut *hw, bool enable)
     }
 }
 
-/* ---- Capture ---- */
 
 static int aaudio_init_in(HWVoiceIn *hw, struct audsettings *as,
                           void *drv_opaque)
@@ -206,7 +192,6 @@ static void aaudio_enable_in(HWVoiceIn *hw, bool enable)
     }
 }
 
-/* ---- Driver ---- */
 
 static void *aaudio_audio_init(Audiodev *dev, Error **errp)
 {

@@ -1,21 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * poll(2) file descriptor monitoring
- *
- * Uses ppoll(2) when available, g_poll() otherwise.
- */
 
 #include "qemu/osdep.h"
 #include "aio-posix.h"
 #include "qemu/rcu_queue.h"
 
-/*
- * These variables are per-thread poll state used only in fdmon_poll_wait()
- * around the call to the poll() system call.
- *
- * Android: __thread in dlopen'd .so corrupts TLS block layout.
- * Use pthread_key_t instead.
- */
 #include <pthread.h>
 
 typedef struct FdmonPollState {
@@ -104,7 +91,6 @@ static int fdmon_poll_wait(AioContext *ctx, AioHandlerList *ready_list,
         }
     }
 
-    /* epoll(7) is faster above a certain number of fds */
     if (fdmon_epoll_try_upgrade(ctx, s->npfd)) {
         s->npfd = 0; /* we won't need pollfds[], reset npfd */
         return ctx->fdmon_ops->wait(ctx, ready_list, timeout);
@@ -131,7 +117,6 @@ static void fdmon_poll_update(AioContext *ctx,
                               AioHandler *old_node,
                               AioHandler *new_node)
 {
-    /* Do nothing, AioHandler already contains the state we'll need */
 }
 
 const FDMonOps fdmon_poll_ops = {

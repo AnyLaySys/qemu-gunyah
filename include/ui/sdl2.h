@@ -1,15 +1,10 @@
 #ifndef SDL2_H
 #define SDL2_H
 
-/* Avoid compiler warning because macro is redefined in SDL_syswm.h. */
 #undef WIN32_LEAN_AND_MEAN
 
 #include <SDL.h>
 
-/* with Alpine / muslc SDL headers pull in directfb headers
- * which in turn trigger warning about redundant decls for
- * direct_waitqueue_deinit.
- */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wredundant-decls"
 

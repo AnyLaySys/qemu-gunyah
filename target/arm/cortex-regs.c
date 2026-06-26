@@ -1,10 +1,3 @@
-/*
- * ARM Cortex-A registers
- *
- * This code is licensed under the GNU GPL v2 or later.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
 #include "qemu/osdep.h"
 #include "cpu.h"
@@ -15,14 +8,6 @@ static uint64_t l2ctlr_read(CPUARMState *env, const ARMCPRegInfo *ri)
 {
     ARMCPU *cpu = env_archcpu(env);
 
-    /*
-     * Number of cores is in [25:24]; otherwise we RAZ.
-     * If the board didn't configure the CPUs into clusters,
-     * we default to "all CPUs in one cluster", which might be
-     * more than the 4 that the hardware permits and which is
-     * all you can report in this two-bit field. Saturate to
-     * 0b11 (== 4 CPUs) rather than overflowing the field.
-     */
     return MIN(cpu->core_count - 1, 3) << 24;
 }
 

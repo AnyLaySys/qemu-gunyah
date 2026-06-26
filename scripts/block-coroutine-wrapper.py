@@ -120,7 +120,6 @@ class FuncDecl:
         return '\n'.join(format.format_map(arg.__dict__) for arg in self.args)
 
 
-# Match wrappers declared with a co_wrapper mark
 func_decl_re = re.compile(r'^(?P<return_type>[a-zA-Z][a-zA-Z0-9_]* [\*]?)'
                           r'(\s*coroutine_fn)?'
                           r'\s*(?P<wrapper_type>(no_)?co)_wrapper'

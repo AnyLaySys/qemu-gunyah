@@ -1,19 +1,3 @@
-/*
- * Register Definition API
- *
- * Copyright (c) 2016 Xilinx Inc.
- * Copyright (c) 2013 Peter Crosthwaite <peter.crosthwaite@xilinx.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
- * for more details.
- */
 
 #include "qemu/osdep.h"
 #include "hw/register.h"
@@ -100,9 +84,6 @@ void register_write(RegisterInfo *reg, uint64_t val, uint64_t we,
                       prefix, reg->access->name, val, ac->unimp);
     }
 
-    /* Create the no write mask based on the read only, write to clear and
-     * reserved bit masks.
-     */
     no_w_mask = ac->ro | ac->w1c | ac->rsvd | ~we;
     new_val = (val & ~no_w_mask) | (old_val & no_w_mask);
     new_val &= ~(val & ac->w1c);
@@ -142,7 +123,6 @@ uint64_t register_read(RegisterInfo *reg, uint64_t re, const char* prefix,
 
     register_write_val(reg, ret & ~(ac->cor & re));
 
-    /* Mask based on the read enable size */
     ret &= re;
 
     if (ac->post_read) {
@@ -197,7 +177,6 @@ void register_write_memory(void *opaque, hwaddr addr,
         return;
     }
 
-    /* Generate appropriate write enable mask */
     we = register_enabled_mask(reg->data_size, size);
 
     register_write(reg, value, we, reg_array->prefix,
@@ -226,7 +205,6 @@ uint64_t register_read_memory(void *opaque, hwaddr addr,
         return 0;
     }
 
-    /* Generate appropriate read enable mask */
     re = register_enabled_mask(reg->data_size, size);
 
     read_val = register_read(reg, re, reg_array->prefix,
@@ -258,10 +236,8 @@ static RegisterInfoArray *register_init_block(DeviceState *owner,
         int index = rae[i].addr / data_size;
         RegisterInfo *r = &ri[index];
 
-        /* Init the register, this will zero it. */
         object_initialize((void *)r, sizeof(*r), TYPE_REGISTER);
 
-        /* Set the properties of the register */
         r->data = data + data_size * index;
         r->data_size = data_size;
         r->access = &rae[i];
@@ -323,7 +299,6 @@ static void register_class_init(ObjectClass *oc, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(oc);
 
-    /* Reason: needs to be wired up to work */
     dc->user_creatable = false;
 }
 

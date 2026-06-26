@@ -1,10 +1,3 @@
-/*
- * QEMU MMU Access type definitions
- *
- * Copyright (c) 2012 SUSE LINUX Products GmbH
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 #ifndef EXEC_MMU_ACCESS_TYPE_H
 #define EXEC_MMU_ACCESS_TYPE_H
 

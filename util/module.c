@@ -1,17 +1,3 @@
-/*
- * QEMU Module Infrastructure
- *
- * Copyright IBM, Corp. 2009
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #ifdef CONFIG_MODULES
@@ -115,7 +101,6 @@ void module_call_init(module_init_type type)
 #ifdef CONFIG_MODULES
 
 static const QemuModinfo module_info_stub[] = { {
-    /* end of list */
 } };
 static const QemuModinfo *module_info = module_info_stub;
 static const char *module_arch;
@@ -134,26 +119,15 @@ static bool module_check_arch(const QemuModinfo *modinfo)
 {
     if (modinfo->arch) {
         if (!module_arch) {
-            /* no arch set -> ignore all */
             return false;
         }
         if (strcmp(module_arch, modinfo->arch) != 0) {
-            /* mismatch */
             return false;
         }
     }
     return true;
 }
 
-/*
- * module_load_dso: attempt to load an existing dso file
- *
- * fname:          full pathname of the file to load
- * export_symbols: if true, add the symbols to the global name space
- * errp:           error to set.
- *
- * Return value:   true on success, false on error, and errp will be set.
- */
 static bool module_load_dso(const char *fname, bool export_symbols,
                             Error **errp)
 {
@@ -175,10 +149,6 @@ static bool module_load_dso(const char *fname, bool export_symbols,
     }
     if (!g_module_symbol(g_module, DSO_STAMP_FUN_STR, (gpointer *)&sym)) {
         error_setg(errp, "failed to initialize module: %s", fname);
-        /*
-         * Print some info if this is a QEMU module (but from different build),
-         * this will make debugging user problems easier.
-         */
         if (g_module_symbol(g_module, "qemu_module_dummy", (gpointer *)&sym)) {
             error_append_hint(errp,
                 "Only modules from the same build can be loaded.\n");
@@ -223,7 +193,6 @@ int module_load(const char *prefix, const char *name, Error **errp)
         loaded_modules = g_hash_table_new(g_str_hash, g_str_equal);
     }
 
-    /* allocate all resources managed by the out: label here */
     module_name = g_strdup_printf("%s%s", prefix, name);
 
     if (g_hash_table_contains(loaded_modules, module_name)) {
@@ -246,7 +215,6 @@ int module_load(const char *prefix, const char *name, Error **errp)
 #endif
     assert(n_dirs <= ARRAY_SIZE(dirs));
 
-    /* end of resources managed by the out: label */
 
     for (modinfo = module_info; modinfo->name != NULL; modinfo++) {
         if (modinfo->arch) {
@@ -260,7 +228,6 @@ int module_load(const char *prefix, const char *name, Error **errp)
         }
         if (modinfo->deps) {
             if (strcmp(modinfo->name, module_name) == 0) {
-                /* we depend on other module(s) */
                 for (sl = modinfo->deps; *sl != NULL; sl++) {
                     int subrv = module_load("", *sl, errp);
                     if (subrv <= 0) {
@@ -271,7 +238,6 @@ int module_load(const char *prefix, const char *name, Error **errp)
             } else {
                 for (sl = modinfo->deps; *sl != NULL; sl++) {
                     if (strcmp(module_name, *sl) == 0) {
-                        /* another module depends on us */
                         export_symbols = true;
                     }
                 }
@@ -284,16 +250,9 @@ int module_load(const char *prefix, const char *name, Error **errp)
                                       dirs[i], module_name, CONFIG_HOST_DSOSUF);
         int ret = access(fname, F_OK);
         if (ret != 0 && (errno == ENOENT || errno == ENOTDIR)) {
-            /*
-             * if we don't find the module in this dir, try the next one.
-             * If we don't find it in any dir, that can be fine too: user
-             * did not install the module. We will return 0 in this case
-             * with no error set.
-             */
             g_free(fname);
             continue;
         } else if (ret != 0) {
-            /* most common is EACCES here */
             error_setg_errno(errp, errno, "error trying to access %s", fname);
         } else if (module_load_dso(fname, export_symbols, errp)) {
             rv = 1; /* module successfully loaded */

@@ -1,26 +1,3 @@
-/*
- * QEMU Character Hub Device
- *
- * Author: Roman Penyaev <r.peniaev@gmail.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -28,46 +5,27 @@
 #include "chardev/char.h"
 #include "chardev-internal.h"
 
-/*
- * Character hub device aggregates input from multiple backend devices
- * and forwards it to a single frontend device. Additionally, hub
- * device takes the output from the frontend device and sends it back
- * to all the connected backend devices.
- */
 
-/*
- * Write to all backends. Different backend devices accept data with
- * various rate, so it is quite possible that one device returns less,
- * then others. In this case we return minimum to the caller,
- * expecting caller will repeat operation soon. When repeat happens
- * send to the devices which consume data faster must be avoided
- * for obvious reasons not to send data, which was already sent.
- * Called with chr_write_lock held.
- */
 static int hub_chr_write(Chardev *chr, const uint8_t *buf, int len)
 {
     HubChardev *d = HUB_CHARDEV(chr);
     int r, i, ret = len;
     unsigned int written;
 
-    /* Invalidate index on every write */
     d->be_eagain_ind = -1;
 
     for (i = 0; i < d->be_cnt; i++) {
         if (!d->backends[i].be.chr->be_open) {
-            /* Skip closed backend */
             continue;
         }
         written = d->be_written[i] - d->be_min_written;
         if (written) {
-            /* Written in the previous call so take into account */
             ret = MIN(written, ret);
             continue;
         }
         r = qemu_chr_fe_write(&d->backends[i].be, buf, len);
         if (r < 0) {
             if (errno == EAGAIN) {
-                /* Set index and expect to be called soon on watch wake up */
                 d->be_eagain_ind = i;
             }
             return r;
@@ -110,23 +68,16 @@ static void hub_chr_event(void *opaque, QEMUChrEvent event)
     CharBackend *fe = d->parent.be;
 
     if (event == CHR_EVENT_OPENED) {
-        /*
-         * Catch up with what was already written while this backend
-         * was closed
-         */
         d->be_written[backend->be_ind] = d->be_min_written;
 
         if (d->be_event_opened_cnt++) {
-            /* Ignore subsequent open events from other backends */
             return;
         }
     } else if (event == CHR_EVENT_CLOSED) {
         if (!d->be_event_opened_cnt) {
-            /* Don't go below zero. Probably assert is better */
             return;
         }
         if (--d->be_event_opened_cnt) {
-            /* Serve only the last one close event */
             return;
         }
     }
@@ -241,7 +192,6 @@ static void qemu_chr_open_hub(Chardev *chr,
         list = list->next;
     }
 
-    /* Closed until an explicit event from backend */
     *be_opened = false;
 }
 
@@ -280,7 +230,6 @@ static void char_hub_class_init(ObjectClass *oc, void *data)
     cc->open = qemu_chr_open_hub;
     cc->chr_write = hub_chr_write;
     cc->chr_add_watch = hub_chr_add_watch;
-    /* We handle events from backends only */
     cc->chr_be_event = NULL;
     cc->chr_update_read_handler = hub_chr_update_read_handlers;
 }

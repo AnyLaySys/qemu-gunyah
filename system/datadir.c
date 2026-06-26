@@ -1,26 +1,3 @@
-/*
- * QEMU firmware and keymap file search
- *
- * Copyright (c) 2003-2020 QEMU contributors
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/datadir.h"
@@ -36,7 +13,6 @@ char *qemu_find_file(int type, const char *name)
     const char *subdir;
     char *buf;
 
-    /* Try the name as a straight path first */
     if (access(name, R_OK) == 0) {
         trace_load_file(name, name);
         return g_strdup(name);
@@ -92,12 +68,10 @@ void qemu_add_default_firmwarepath(void)
 
     size_t i;
 
-    /* add configured firmware directories */
     for (i = 0; dirs[i] != NULL; i++) {
         qemu_add_data_dir(get_relocated_path(dirs[i]));
     }
 
-    /* try to find datadir relative to the executable path */
     qemu_add_data_dir(get_relocated_path(CONFIG_QEMU_DATADIR));
 }
 

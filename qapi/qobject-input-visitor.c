@@ -1,16 +1,3 @@
-/*
- * Input Visitor
- *
- * Copyright (C) 2012-2017 Red Hat, Inc.
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include <math.h>
@@ -45,12 +32,9 @@ typedef struct StackObject {
 struct QObjectInputVisitor {
     Visitor visitor;
 
-    /* Root of visit at visitor creation. */
     QObject *root;
     bool keyval;                /* Assume @root made with keyval_parse() */
 
-    /* Stack of objects being visited (all entries will be either
-     * QDict or QList). */
     QSLIST_HEAD(, StackObject) stack;
 
     GString *errname;           /* Accumulator for full_name() */
@@ -61,17 +45,6 @@ static QObjectInputVisitor *to_qiv(Visitor *v)
     return container_of(v, QObjectInputVisitor, visitor);
 }
 
-/*
- * Find the full name of something @qiv is currently visiting.
- * @qiv is visiting something named @name in the stack of containers
- * @qiv->stack.
- * If @n is zero, return its full name.
- * If @n is positive, return the full name of the @n-th container
- * counting from the top.  The stack of containers must have at least
- * @n elements.
- * The returned string is valid until the next full_name_nth(@v) or
- * destruction of @v.
- */
 static const char *full_name_nth(QObjectInputVisitor *qiv, const char *name,
                                  int n)
 {
@@ -125,12 +98,10 @@ static QObject *qobject_input_try_get_object(QObjectInputVisitor *qiv,
     QObject *ret;
 
     if (QSLIST_EMPTY(&qiv->stack)) {
-        /* Starting at root, name is ignored. */
         assert(qiv->root);
         return qiv->root;
     }
 
-    /* We are in a container; find the next element. */
     tos = QSLIST_FIRST(&qiv->stack);
     qobj = tos->obj;
     assert(qobj);
@@ -194,7 +165,6 @@ static const char *qobject_input_get_keyval(QObjectInputVisitor *qiv,
                        full_name(qiv, name));
             return NULL;
         default:
-            /* Non-string scalar (should this be an assertion?) */
             error_setg(errp, "Internal error: parameter %s invalid",
                        full_name(qiv, name));
             return NULL;
@@ -423,7 +393,6 @@ static bool qobject_input_type_int64_keyval(Visitor *v, const char *name,
     }
 
     if (qemu_strtoi64(str, NULL, 0, obj) < 0) {
-        /* TODO report -ERANGE more nicely */
         error_setg(errp, QERR_INVALID_PARAMETER_VALUE,
                    full_name(qiv, name), "integer");
         return false;
@@ -451,7 +420,6 @@ static bool qobject_input_type_uint64(Visitor *v, const char *name,
         return true;
     }
 
-    /* Need to accept negative values for backward compatibility */
     if (qnum_get_try_int(qnum, &val)) {
         *obj = val;
         return true;
@@ -474,7 +442,6 @@ static bool qobject_input_type_uint64_keyval(Visitor *v, const char *name,
     }
 
     if (qemu_strtou64(str, NULL, 0, obj) < 0) {
-        /* TODO report -ERANGE more nicely */
         error_setg(errp, QERR_INVALID_PARAMETER_VALUE,
                    full_name(qiv, name), "integer");
         return false;
@@ -586,7 +553,6 @@ static bool qobject_input_type_number_keyval(Visitor *v, const char *name,
     }
 
     if (qemu_strtod_finite(str, NULL, &val)) {
-        /* TODO report -ERANGE more nicely */
         error_setg(errp, "Invalid parameter type for '%s', expected: number",
                    full_name(qiv, name));
         return false;
@@ -642,7 +608,6 @@ static bool qobject_input_type_size_keyval(Visitor *v, const char *name,
     }
 
     if (qemu_strtosz(str, NULL, obj) < 0) {
-        /* TODO report -ERANGE more nicely */
         error_setg(errp, QERR_INVALID_PARAMETER_VALUE,
                    full_name(qiv, name), "size");
         return false;

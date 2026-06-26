@@ -1,14 +1,3 @@
-/*
- * QEMU Thread Context
- *
- * Copyright Red Hat Inc., 2022
- *
- * Authors:
- *  David Hildenbrand <david@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/thread-context.h"
@@ -47,16 +36,6 @@ static void *thread_context_run(void *opaque)
     qemu_sem_post(&tc->sem);
 
     while (true) {
-        /*
-         * Threads inherit the CPU affinity of the creating thread. For this
-         * reason, we create new (especially short-lived) threads from our
-         * persistent context thread.
-         *
-         * Especially when QEMU is not allowed to set the affinity itself,
-         * management tools can simply set the affinity of the context thread
-         * after creating the context, to have new threads created via
-         * the context inherit the CPU affinity automatically.
-         */
         switch (tc->thread_cmd) {
         case TC_CMD_NONE:
             break;
@@ -114,10 +93,6 @@ static void thread_context_set_cpu_affinity(Object *obj, Visitor *v,
     }
 
     if (tc->thread_id != -1) {
-        /*
-         * Note: we won't be adjusting the affinity of any thread that is still
-         * around, but only the affinity of the context thread.
-         */
         ret = qemu_thread_set_affinity(&tc->thread, bitmap, nbits);
         if (ret) {
             error_setg(errp, "Setting CPU affinity failed: %s", strerror(ret));
@@ -197,7 +172,6 @@ static void thread_context_set_node_affinity(Object *obj, Visitor *v,
         numa_bitmask_clearall(tmp_cpus);
         ret = numa_node_to_cpus(l->value, tmp_cpus);
         if (ret) {
-            /* We ignore any errors, such as impossible nodes. */
             continue;
         }
         for (i = 0; i < nbits; i++) {
@@ -214,10 +188,6 @@ static void thread_context_set_node_affinity(Object *obj, Visitor *v,
     }
 
     if (tc->thread_id != -1) {
-        /*
-         * Note: we won't be adjusting the affinity of any thread that is still
-         * around for now, but only the affinity of the context thread.
-         */
         ret = qemu_thread_set_affinity(&tc->thread, bitmap, nbits);
         if (ret) {
             error_setg(errp, "Setting CPU affinity failed: %s", strerror(ret));
@@ -257,7 +227,6 @@ static void thread_context_instance_complete(UserCreatable *uc, Error **errp)
                        QEMU_THREAD_JOINABLE);
     g_free(thread_name);
 
-    /* Wait until initialization of the thread is done. */
     while (tc->thread_id == -1) {
         qemu_sem_wait(&tc->sem);
     }

@@ -1,19 +1,3 @@
-/*
- * Virtio blk PCI Bindings
- *
- * Copyright IBM, Corp. 2007
- * Copyright (c) 2009 CodeSourcery
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *  Paul Brook        <paul@codesourcery.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 
@@ -26,9 +10,6 @@
 
 typedef struct VirtIOBlkPCI VirtIOBlkPCI;
 
-/*
- * virtio-blk-pci: This extends VirtioPCIProxy.
- */
 #define TYPE_VIRTIO_BLK_PCI "virtio-blk-pci-base"
 DECLARE_INSTANCE_CHECKER(VirtIOBlkPCI, VIRTIO_BLK_PCI,
                          TYPE_VIRTIO_BLK_PCI)

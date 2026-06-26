@@ -1,17 +1,3 @@
-/*
- * JSON Writer
- *
- * Copyright IBM, Corp. 2009
- * Copyright (c) 2010-2020 Red Hat Inc.
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *  Markus Armbruster <armbru@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qobject/json-writer.h"
@@ -139,7 +125,6 @@ static void quoted_str(JSONWriter *writer, const char *str)
                 cp = 0xFFFD; /* replacement character */
             }
             if (cp > 0xFFFF) {
-                /* beyond BMP; need a surrogate pair */
                 g_string_append_printf(writer->contents, "\\u%04X\\u%04X",
                                        0xD800 + ((cp - 0x10000) >> 10),
                                        0xDC00 + ((cp - 0x10000) & 0x3FF));
@@ -228,15 +213,6 @@ void json_writer_double(JSONWriter *writer, const char *name, double val)
 {
     maybe_comma_name(writer, name);
 
-    /*
-     * FIXME: g_string_append_printf() is locale dependent; but JSON
-     * requires numbers to be formatted as if in the C locale.
-     * Dependence on C locale is a pervasive issue in QEMU.
-     */
-    /*
-     * FIXME: This risks printing Inf or NaN, which are not valid
-     * JSON values.
-     */
     g_string_append_printf(writer->contents, "%.17g", val);
 }
 

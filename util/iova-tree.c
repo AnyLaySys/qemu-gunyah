@@ -1,13 +1,3 @@
-/*
- * IOVA tree implementation based on GTree.
- *
- * Copyright 2018 Red Hat, Inc.
- *
- * Authors:
- *  Peter Xu <peterx@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/iova-tree.h"
@@ -16,24 +6,17 @@ struct IOVATree {
     GTree *tree;
 };
 
-/* Args to pass to iova_tree_alloc foreach function. */
 struct IOVATreeAllocArgs {
-    /* Size of the desired allocation */
     size_t new_size;
 
-    /* The minimum address allowed in the allocation */
     hwaddr iova_begin;
 
-    /* Map at the left of the hole, can be NULL if "this" is first one */
     const DMAMap *prev;
 
-    /* Map at the right of the hole, can be NULL if "prev" is the last one */
     const DMAMap *this;
 
-    /* If found, we fill in the IOVA here */
     hwaddr iova_result;
 
-    /* Whether have we found a valid IOVA */
     bool iova_found;
 };
 
@@ -42,12 +25,6 @@ typedef struct IOVATreeFindIOVAArgs {
     const DMAMap *result;
 } IOVATreeFindIOVAArgs;
 
-/**
- * Iterate args to the next hole
- *
- * @args: The alloc arguments
- * @next: The next mapping in the tree. Can be NULL to signal the last one
- */
 static void iova_tree_alloc_args_iterate(struct IOVATreeAllocArgs *args,
                                          const DMAMap *next)
 {
@@ -67,7 +44,6 @@ static int iova_tree_compare(gconstpointer a, gconstpointer b, gpointer data)
         return -1;
     }
 
-    /* Overlapped */
     return 0;
 }
 
@@ -75,7 +51,6 @@ IOVATree *iova_tree_new(void)
 {
     IOVATree *iova_tree = g_new0(IOVATree, 1);
 
-    /* We don't have values actually, no need to free */
     iova_tree->tree = g_tree_new_full(iova_tree_compare, NULL, g_free, NULL);
 
     return iova_tree;
@@ -117,7 +92,6 @@ const DMAMap *iova_tree_find_iova(const IOVATree *tree, const DMAMap *map)
 
 static inline void iova_tree_insert_internal(GTree *gtree, DMAMap *range)
 {
-    /* Key and value are sharing the same range data */
     g_tree_insert(gtree, range, range);
 }
 
@@ -129,7 +103,6 @@ int iova_tree_insert(IOVATree *tree, const DMAMap *map)
         return IOVA_ERR_INVALID;
     }
 
-    /* We don't allow to insert range that overlaps with existings */
     if (iova_tree_find(tree, map)) {
         return IOVA_ERR_OVERLAP;
     }
@@ -150,25 +123,6 @@ void iova_tree_remove(IOVATree *tree, DMAMap map)
     }
 }
 
-/**
- * Try to find an unallocated IOVA range between prev and this elements.
- *
- * @args: Arguments to allocation
- *
- * Cases:
- *
- * (1) !prev, !this: No entries allocated, always succeed
- *
- * (2) !prev, this: We're iterating at the 1st element.
- *
- * (3) prev, !this: We're iterating at the last element.
- *
- * (4) prev, this: this is the most common case, we'll try to find a hole
- * between "prev" and "this" mapping.
- *
- * Note that this function assumes the last valid iova is HWADDR_MAX, but it
- * searches linearly so it's easy to discard the result if it's not the case.
- */
 static void iova_tree_alloc_map_in_hole(struct IOVATreeAllocArgs *args)
 {
     const DMAMap *prev = args->prev, *this = args->this;
@@ -187,16 +141,6 @@ static void iova_tree_alloc_map_in_hole(struct IOVATreeAllocArgs *args)
     }
 }
 
-/**
- * Foreach dma node in the tree, compare if there is a hole with its previous
- * node (or minimum iova address allowed) and the node.
- *
- * @key: Node iterating
- * @value: Node iterating
- * @pargs: Struct to communicate with the outside world
- *
- * Return: false to keep iterating, true if needs break.
- */
 static gboolean iova_tree_alloc_traverse(gpointer key, gpointer value,
                                          gpointer pargs)
 {
@@ -222,24 +166,8 @@ int iova_tree_alloc_map(IOVATree *tree, DMAMap *map, hwaddr iova_begin,
         return IOVA_ERR_INVALID;
     }
 
-    /*
-     * Find a valid hole for the mapping
-     *
-     * Assuming low iova_begin, so no need to do a binary search to
-     * locate the first node.
-     *
-     * TODO: Replace all this with g_tree_node_first/next/last when available
-     * (from glib since 2.68). To do it with g_tree_foreach complicates the
-     * code a lot.
-     *
-     */
     g_tree_foreach(tree->tree, iova_tree_alloc_traverse, &args);
     if (!args.iova_found) {
-        /*
-         * Either tree is empty or the last hole is still not checked.
-         * g_tree_foreach does not compare (last, iova_last] range, so we check
-         * it here.
-         */
         iova_tree_alloc_args_iterate(&args, NULL);
         iova_tree_alloc_map_in_hole(&args);
     }
@@ -270,7 +198,6 @@ static int gpa_tree_compare(gconstpointer a, gconstpointer b, gpointer data)
         return -1;
     }
 
-    /* Overlapped */
     return 0;
 }
 
@@ -292,7 +219,6 @@ int gpa_tree_insert(IOVATree *tree, const DMAMap *map)
         return IOVA_ERR_INVALID;
     }
 
-    /* We don't allow inserting ranges that overlap with existing ones */
     if (iova_tree_find(tree, map)) {
         return IOVA_ERR_OVERLAP;
     }

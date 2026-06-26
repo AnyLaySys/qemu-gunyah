@@ -1,33 +1,3 @@
-/*
- * QEMU Generic PCI Express Bridge Emulation
- *
- * Copyright (C) 2015 Alexander Graf <agraf@suse.de>
- *
- * Code loosely based on q35.c.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * Check out these documents for more information on the device:
- *
- * http://www.kernel.org/doc/Documentation/devicetree/bindings/pci/host-generic-pci.txt
- * http://www.firmware.org/1275/practice/imap/imap0_9d.pdf
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -39,9 +9,6 @@
 #include "migration/vmstate.h"
 #include "qemu/module.h"
 
-/****************************************************************************
- * GPEX host
- */
 
 struct GPEXIrq {
     qemu_irq irq;
@@ -101,29 +68,6 @@ static void gpex_host_realize(DeviceState *dev, Error **errp)
     pcie_host_mmcfg_init(pex, PCIE_MMCFG_SIZE_MAX);
     sysbus_init_mmio(sbd, &pex->mmio);
 
-    /*
-     * Note that the MemoryRegions io_mmio and io_ioport that we pass
-     * to pci_register_root_bus() are not the same as the
-     * MemoryRegions io_mmio_window and io_ioport_window that we
-     * expose as SysBus MRs. The difference is in the behaviour of
-     * accesses to addresses where no PCI device has been mapped.
-     *
-     * io_mmio and io_ioport are the underlying PCI view of the PCI
-     * address space, and when a PCI device does a bus master access
-     * to a bad address this is reported back to it as a transaction
-     * failure.
-     *
-     * io_mmio_window and io_ioport_window implement "unmapped
-     * addresses read as -1 and ignore writes"; this is traditional
-     * x86 PC behaviour, which is not mandated by the PCI spec proper
-     * but expected by much PCI-using guest software, including Linux.
-     *
-     * In the interests of not being unnecessarily surprising, we
-     * implement it in the gpex PCI host controller, by providing the
-     * _window MRs, which are containers with io ops that implement
-     * the 'background' behaviour and which hold the real PCI MRs as
-     * subregions.
-     */
     memory_region_init(&s->io_mmio, OBJECT(s), "gpex_mmio", UINT64_MAX);
     memory_region_init(&s->io_ioport, OBJECT(s), "gpex_ioport", 64 * 1024);
 
@@ -172,10 +116,6 @@ static const char *gpex_host_root_bus_path(PCIHostState *host_bridge,
 }
 
 static const Property gpex_host_properties[] = {
-    /*
-     * Permit CPU accesses to unmapped areas of the PIO and MMIO windows
-     * (discarding writes and returning -1 for reads) rather than aborting.
-     */
     DEFINE_PROP_BOOL("allow-unmapped-accesses", GPEXHost,
                      allow_unmapped_accesses, true),
     DEFINE_PROP_UINT64(PCI_HOST_ECAM_BASE, GPEXHost, gpex_cfg.ecam.base, 0),
@@ -224,9 +164,6 @@ static const TypeInfo gpex_host_info = {
     .class_init = gpex_host_class_init,
 };
 
-/****************************************************************************
- * GPEX Root D0:F0
- */
 
 static const VMStateDescription vmstate_gpex_root = {
     .name = "gpex_root",
@@ -250,10 +187,6 @@ static void gpex_root_class_init(ObjectClass *klass, void *data)
     k->device_id = PCI_DEVICE_ID_REDHAT_PCIE_HOST;
     k->revision = 0;
     k->class_id = PCI_CLASS_BRIDGE_HOST;
-    /*
-     * PCI-facing part of the host bridge, not usable without the
-     * host-facing part, which can't be device_add'ed, yet.
-     */
     dc->user_creatable = false;
 }
 

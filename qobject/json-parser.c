@@ -1,15 +1,3 @@
-/*
- * JSON Parser
- *
- * Copyright IBM, Corp. 2009
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- *
- */
 
 #include "qemu/osdep.h"
 #include "qemu/ctype.h"
@@ -40,20 +28,9 @@ typedef struct JSONParserContext {
 
 #define BUG_ON(cond) assert(!(cond))
 
-/**
- * TODO
- *
- * 0) make errors meaningful again
- * 1) add geometry information to tokens
- * 3) should we return a parsed size?
- * 4) deal with premature EOI
- */
 
 static QObject *parse_value(JSONParserContext *ctxt);
 
-/**
- * Error handler
- */
 static void G_GNUC_PRINTF(3, 4) parse_error(JSONParserContext *ctxt,
                                            JSONToken *token, const char *msg, ...)
 {
@@ -92,40 +69,6 @@ static int cvt4hex(const char *s)
     return cp;
 }
 
-/**
- * parse_string(): Parse a JSON string
- *
- * From RFC 8259 "The JavaScript Object Notation (JSON) Data
- * Interchange Format":
- *
- *    char = unescaped /
- *        escape (
- *            %x22 /          ; "    quotation mark  U+0022
- *            %x5C /          ; \    reverse solidus U+005C
- *            %x2F /          ; /    solidus         U+002F
- *            %x62 /          ; b    backspace       U+0008
- *            %x66 /          ; f    form feed       U+000C
- *            %x6E /          ; n    line feed       U+000A
- *            %x72 /          ; r    carriage return U+000D
- *            %x74 /          ; t    tab             U+0009
- *            %x75 4HEXDIG )  ; uXXXX                U+XXXX
- *    escape = %x5C              ; \
- *    quotation-mark = %x22      ; "
- *    unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
- *
- * Extensions over RFC 8259:
- * - Extra escape sequence in strings:
- *   0x27 (apostrophe) is recognized after escape, too
- * - Single-quoted strings:
- *   Like double-quoted strings, except they're delimited by %x27
- *   (apostrophe) instead of %x22 (quotation mark), and can't contain
- *   unescaped apostrophe, but can contain unescaped quotation mark.
- *
- * Note:
- * - Encoding is modified UTF-8.
- * - Invalid Unicode characters are rejected.
- * - Control characters \x00..\x1F are rejected by the lexer.
- */
 static QString *parse_string(JSONParserContext *ctxt, JSONToken *token)
 {
     const char *ptr = token->str;
@@ -178,14 +121,11 @@ static QString *parse_string(JSONParserContext *ctxt, JSONToken *token)
                 cp = cvt4hex(ptr);
                 ptr += 4;
 
-                /* handle surrogate pairs */
                 if (cp >= 0xD800 && cp <= 0xDBFF
                     && ptr[0] == '\\' && ptr[1] == 'u') {
-                    /* leading surrogate followed by \u */
                     cp = 0x10000 + ((cp & 0x3FF) << 10);
                     trailing = cvt4hex(ptr + 2);
                     if (trailing >= 0xDC00 && trailing <= 0xDFFF) {
-                        /* followed by trailing surrogate */
                         cp |= trailing & 0x3FF;
                         ptr += 6;
                     } else {
@@ -214,7 +154,6 @@ static QString *parse_string(JSONParserContext *ctxt, JSONToken *token)
                 }
                 ptr++;
             }
-            /* fall through */
         default:
             cp = mod_utf8_codepoint(ptr, 6, &end);
             if (cp < 0) {
@@ -235,10 +174,6 @@ out:
     return NULL;
 }
 
-/* Note: the token object returned by parser_context_peek_token or
- * parser_context_pop_token is deleted as soon as parser_context_pop_token
- * is called again.
- */
 static JSONToken *parser_context_pop_token(JSONParserContext *ctxt)
 {
     g_free(ctxt->current);
@@ -251,9 +186,6 @@ static JSONToken *parser_context_peek_token(JSONParserContext *ctxt)
     return g_queue_peek_head(ctxt->buf);
 }
 
-/**
- * Parsing rules
- */
 static int parse_pair(JSONParserContext *ctxt, QDict *dict)
 {
     QObject *key_obj = NULL;
@@ -489,18 +421,6 @@ static QObject *parse_literal(JSONParserContext *ctxt)
     case JSON_STRING:
         return QOBJECT(parse_string(ctxt, token));
     case JSON_INTEGER: {
-        /*
-         * Represent JSON_INTEGER as QNUM_I64 if possible, else as
-         * QNUM_U64, else as QNUM_DOUBLE.  Note that qemu_strtoi64()
-         * and qemu_strtou64() fail with ERANGE when it's not
-         * possible.
-         *
-         * qnum_get_int() will then work for any signed 64-bit
-         * JSON_INTEGER, qnum_get_uint() for any unsigned 64-bit
-         * integer, and qnum_get_double() both for any JSON_INTEGER
-         * and any JSON_FLOAT (with precision loss for integers beyond
-         * 53 bits)
-         */
         int ret;
         int64_t value;
         uint64_t uvalue;
@@ -519,11 +439,7 @@ static QObject *parse_literal(JSONParserContext *ctxt)
             assert(ret == -ERANGE);
         }
     }
-    /* fall through to JSON_FLOAT */
     case JSON_FLOAT:
-        /* FIXME dependent on locale; a pervasive issue in QEMU */
-        /* FIXME our lexer matches RFC 8259 in forbidding Inf or NaN,
-         * but those might be useful extensions beyond JSON */
         return QOBJECT(qnum_from_double(strtod(token->str, NULL)));
     default:
         abort();

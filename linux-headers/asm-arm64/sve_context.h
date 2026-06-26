@@ -1,10 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/* Copyright (C) 2017-2018 ARM Limited */
 
-/*
- * For use by other UAPI headers only.
- * Do not make direct use of header or its definitions.
- */
 
 #ifndef __ASM_SVE_CONTEXT_H
 #define __ASM_SVE_CONTEXT_H
@@ -13,17 +7,6 @@
 
 #define __SVE_VQ_BYTES		16	/* number of bytes per quadword */
 
-/*
- * Yes, __SVE_VQ_MAX is 512 QUADWORDS.
- *
- * To help ensure forward portability, this is much larger than the
- * current maximum value defined by the SVE architecture.  While arrays
- * or static allocations can be sized based on this value, watch out!
- * It will waste a surprisingly large amount of memory.
- *
- * Dynamic sizing based on the actual runtime vector length is likely to
- * be preferable for most purposes.
- */
 #define __SVE_VQ_MIN		1
 #define __SVE_VQ_MAX		512
 

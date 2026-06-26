@@ -1,21 +1,3 @@
-/*
- * QEMU Arm CPU -- feature test functions
- *
- *  Copyright (c) 2023 Linaro Ltd
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef TARGET_ARM_FEATURES_H
 #define TARGET_ARM_FEATURES_H
@@ -23,25 +5,7 @@
 #include "hw/registerfields.h"
 #include "qemu/host-utils.h"
 
-/*
- * Naming convention for isar_feature functions:
- * Functions which test 32-bit ID registers should have _aa32_ in
- * their name. Functions which test 64-bit ID registers should have
- * _aa64_ in their name. These must only be used in code where we
- * know for certain that the CPU has AArch32 or AArch64 respectively
- * or where the correct answer for a CPU which doesn't implement that
- * CPU state is "false" (eg when generating A32 or A64 code, if adding
- * system registers that are specific to that CPU state, for "should
- * we let this system register bit be set" tests where the 32-bit
- * flavour of the register doesn't have the bit, and so on).
- * Functions which simply ask "does this feature exist at all" have
- * _any_ in their name, and always return the logical OR of the _aa64_
- * and the _aa32_ function.
- */
 
-/*
- * 32-bit feature tests via id registers.
- */
 static inline bool isar_feature_aa32_thumb_div(const ARMISARegisters *id)
 {
     return FIELD_EX32(id->id_isar0, ID_ISAR0, DIVIDE) != 0;
@@ -54,7 +18,6 @@ static inline bool isar_feature_aa32_arm_div(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa32_lob(const ARMISARegisters *id)
 {
-    /* (M-profile) low-overhead loops and branch future */
     return FIELD_EX32(id->id_isar0, ID_ISAR0, CMPBRANCH) >= 3;
 }
 
@@ -145,16 +108,11 @@ static inline bool isar_feature_aa32_mprofile(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa32_m_sec_state(const ARMISARegisters *id)
 {
-    /*
-     * Return true if M-profile state handling insns
-     * (VSCCLRM, CLRM, FPCTX access insns) are implemented
-     */
     return FIELD_EX32(id->id_pfr1, ID_PFR1, SECURITY) >= 3;
 }
 
 static inline bool isar_feature_aa32_fp16_arith(const ARMISARegisters *id)
 {
-    /* Sadly this is encoded differently for A-profile and M-profile */
     if (isar_feature_aa32_mprofile(id)) {
         return FIELD_EX32(id->mvfr1, MVFR1, FP16) > 0;
     } else {
@@ -164,38 +122,23 @@ static inline bool isar_feature_aa32_fp16_arith(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa32_mve(const ARMISARegisters *id)
 {
-    /*
-     * Return true if MVE is supported (either integer or floating point).
-     * We must check for M-profile as the MVFR1 field means something
-     * else for A-profile.
-     */
     return isar_feature_aa32_mprofile(id) &&
         FIELD_EX32(id->mvfr1, MVFR1, MVE) > 0;
 }
 
 static inline bool isar_feature_aa32_mve_fp(const ARMISARegisters *id)
 {
-    /*
-     * Return true if MVE is supported (either integer or floating point).
-     * We must check for M-profile as the MVFR1 field means something
-     * else for A-profile.
-     */
     return isar_feature_aa32_mprofile(id) &&
         FIELD_EX32(id->mvfr1, MVFR1, MVE) >= 2;
 }
 
 static inline bool isar_feature_aa32_vfp_simd(const ARMISARegisters *id)
 {
-    /*
-     * Return true if either VFP or SIMD is implemented.
-     * In this case, a minimum of VFP w/ D0-D15.
-     */
     return FIELD_EX32(id->mvfr0, MVFR0, SIMDREG) > 0;
 }
 
 static inline bool isar_feature_aa32_simd_r32(const ARMISARegisters *id)
 {
-    /* Return true if D16-D31 are implemented */
     return FIELD_EX32(id->mvfr0, MVFR0, SIMDREG) >= 2;
 }
 
@@ -206,25 +149,21 @@ static inline bool isar_feature_aa32_fpshvec(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa32_fpsp_v2(const ARMISARegisters *id)
 {
-    /* Return true if CPU supports single precision floating point, VFPv2 */
     return FIELD_EX32(id->mvfr0, MVFR0, FPSP) > 0;
 }
 
 static inline bool isar_feature_aa32_fpsp_v3(const ARMISARegisters *id)
 {
-    /* Return true if CPU supports single precision floating point, VFPv3 */
     return FIELD_EX32(id->mvfr0, MVFR0, FPSP) >= 2;
 }
 
 static inline bool isar_feature_aa32_fpdp_v2(const ARMISARegisters *id)
 {
-    /* Return true if CPU supports double precision floating point, VFPv2 */
     return FIELD_EX32(id->mvfr0, MVFR0, FPDP) > 0;
 }
 
 static inline bool isar_feature_aa32_fpdp_v3(const ARMISARegisters *id)
 {
-    /* Return true if CPU supports double precision floating point, VFPv3 */
     return FIELD_EX32(id->mvfr0, MVFR0, FPDP) >= 2;
 }
 
@@ -233,11 +172,6 @@ static inline bool isar_feature_aa32_vfp(const ARMISARegisters *id)
     return isar_feature_aa32_fpsp_v2(id) || isar_feature_aa32_fpdp_v2(id);
 }
 
-/*
- * We always set the FP and SIMD FP16 fields to indicate identical
- * levels of support (assuming SIMD is implemented at all), so
- * we only need one set of accessors.
- */
 static inline bool isar_feature_aa32_fp16_spconv(const ARMISARegisters *id)
 {
     return FIELD_EX32(id->mvfr1, MVFR1, FPHP) > 0;
@@ -248,13 +182,6 @@ static inline bool isar_feature_aa32_fp16_dpconv(const ARMISARegisters *id)
     return FIELD_EX32(id->mvfr1, MVFR1, FPHP) > 1;
 }
 
-/*
- * Note that this ID register field covers both VFP and Neon FMAC,
- * so should usually be tested in combination with some other
- * check that confirms the presence of whichever of VFP or Neon is
- * relevant, to avoid accidentally enabling a Neon feature on
- * a VFP-no-Neon core or vice-versa.
- */
 static inline bool isar_feature_aa32_simdfmac(const ARMISARegisters *id)
 {
     return FIELD_EX32(id->mvfr1, MVFR1, SIMDFMAC) != 0;
@@ -297,21 +224,18 @@ static inline bool isar_feature_aa32_ats1e1(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa32_pmuv3p1(const ARMISARegisters *id)
 {
-    /* 0xf means "non-standard IMPDEF PMU" */
     return FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) >= 4 &&
         FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) != 0xf;
 }
 
 static inline bool isar_feature_aa32_pmuv3p4(const ARMISARegisters *id)
 {
-    /* 0xf means "non-standard IMPDEF PMU" */
     return FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) >= 5 &&
         FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) != 0xf;
 }
 
 static inline bool isar_feature_aa32_pmuv3p5(const ARMISARegisters *id)
 {
-    /* 0xf means "non-standard IMPDEF PMU" */
     return FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) >= 6 &&
         FIELD_EX32(id->id_dfr0, ID_DFR0, PERFMON) != 0xf;
 }
@@ -371,9 +295,6 @@ static inline bool isar_feature_aa32_doublelock(const ARMISARegisters *id)
     return FIELD_EX32(id->dbgdevid, DBGDEVID, DOUBLELOCK) > 0;
 }
 
-/*
- * 64-bit feature tests via id registers.
- */
 static inline bool isar_feature_aa64_aes(const ARMISARegisters *id)
 {
     return FIELD_EX64(id->id_aa64isar0, ID_AA64ISAR0, AES) != 0;
@@ -479,11 +400,6 @@ static inline bool isar_feature_aa64_xs(const ARMISARegisters *id)
     return FIELD_EX64(id->id_aa64isar1, ID_AA64ISAR1, XS) != 0;
 }
 
-/*
- * These are the values from APA/API/APA3.
- * In general these must be compared '>=', per the normal Arm ARM
- * treatment of fields in ID registers.
- */
 typedef enum {
     PauthFeat_None         = 0,
     PauthFeat_1            = 1,
@@ -496,10 +412,6 @@ typedef enum {
 static inline ARMPauthFeature
 isar_feature_pauth_feature(const ARMISARegisters *id)
 {
-    /*
-     * Architecturally, only one of {APA,API,APA3} may be active (non-zero)
-     * and the other two must be zero.  Thus we may avoid conditionals.
-     */
     return (FIELD_EX64(id->id_aa64isar1, ID_AA64ISAR1, APA) |
             FIELD_EX64(id->id_aa64isar1, ID_AA64ISAR1, API) |
             FIELD_EX64(id->id_aa64isar2, ID_AA64ISAR2, APA3));
@@ -507,28 +419,16 @@ isar_feature_pauth_feature(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa64_pauth(const ARMISARegisters *id)
 {
-    /*
-     * Return true if any form of pauth is enabled, as this
-     * predicate controls migration of the 128-bit keys.
-     */
     return isar_feature_pauth_feature(id) != PauthFeat_None;
 }
 
 static inline bool isar_feature_aa64_pauth_qarma5(const ARMISARegisters *id)
 {
-    /*
-     * Return true if pauth is enabled with the architected QARMA5 algorithm.
-     * QEMU will always enable or disable both APA and GPA.
-     */
     return FIELD_EX64(id->id_aa64isar1, ID_AA64ISAR1, APA) != 0;
 }
 
 static inline bool isar_feature_aa64_pauth_qarma3(const ARMISARegisters *id)
 {
-    /*
-     * Return true if pauth is enabled with the architected QARMA3 algorithm.
-     * QEMU will always enable or disable both APA3 and GPA3.
-     */
     return FIELD_EX64(id->id_aa64isar2, ID_AA64ISAR2, APA3) != 0;
 }
 
@@ -604,13 +504,11 @@ static inline bool isar_feature_aa64_rpres(const ARMISARegisters *id)
 
 static inline bool isar_feature_aa64_fp_simd(const ARMISARegisters *id)
 {
-    /* We always set the AdvSIMD and FP fields identically.  */
     return FIELD_EX64(id->id_aa64pfr0, ID_AA64PFR0, FP) != 0xf;
 }
 
 static inline bool isar_feature_aa64_fp16(const ARMISARegisters *id)
 {
-    /* We always set the AdvSIMD and FP fields identically wrt FP16.  */
     return FIELD_EX64(id->id_aa64pfr0, ID_AA64PFR0, FP) == 1;
 }
 
@@ -990,9 +888,6 @@ static inline bool isar_feature_aa64_sme_fa64(const ARMISARegisters *id)
     return FIELD_EX64(id->id_aa64smfr0, ID_AA64SMFR0, FA64);
 }
 
-/*
- * Feature tests for "does this exist in either 32-bit or 64-bit?"
- */
 static inline bool isar_feature_any_fp16(const ARMISARegisters *id)
 {
     return isar_feature_aa64_fp16(id) || isar_feature_aa32_fp16_arith(id);
@@ -1065,30 +960,15 @@ static inline uint64_t make_ccsidr(CCSIDRFormat format, unsigned assoc,
     assert(is_power_of_2(linesize));
     assert(lg_linesize >= 4 && lg_linesize <= 7 + 4);
 
-    /* sets * associativity * linesize == cachesize. */
     sets = cachesize / (assoc * linesize);
     assert(cachesize % (assoc * linesize) == 0);
 
     if (format == CCSIDR_FORMAT_LEGACY) {
-        /*
-         * The 32-bit CCSIDR format is:
-         *   [27:13] number of sets - 1
-         *   [12:3]  associativity - 1
-         *   [2:0]   log2(linesize) - 4
-         *           so 0 == 16 bytes, 1 == 32 bytes, 2 == 64 bytes, etc
-         */
         ccsidr = deposit32(ccsidr, 28,  4, flags);
         ccsidr = deposit32(ccsidr, 13, 15, sets - 1);
         ccsidr = deposit32(ccsidr,  3, 10, assoc - 1);
         ccsidr = deposit32(ccsidr,  0,  3, lg_linesize - 4);
     } else {
-        /*
-         * The 64-bit CCSIDR_EL1 format is:
-         *   [55:32] number of sets - 1
-         *   [23:3]  associativity - 1
-         *   [2:0]   log2(linesize) - 4
-         *           so 0 == 16 bytes, 1 == 32 bytes, 2 == 64 bytes, etc
-         */
         ccsidr = deposit64(ccsidr, 32, 24, sets - 1);
         ccsidr = deposit64(ccsidr,  3, 21, assoc - 1);
         ccsidr = deposit64(ccsidr,  0,  3, lg_linesize - 4);
@@ -1097,9 +977,6 @@ static inline uint64_t make_ccsidr(CCSIDRFormat format, unsigned assoc,
     return ccsidr;
 }
 
-/*
- * Forward to the above feature tests given an ARMCPU pointer.
- */
 #define cpu_isar_feature(name, cpu) \
     ({ ARMCPU *cpu_ = (cpu); isar_feature_##name(&cpu_->isar); })
 

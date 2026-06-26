@@ -14,20 +14,12 @@ OBJECT_DECLARE_TYPE(PRManager, PRManagerClass,
 struct sg_io_hdr;
 
 struct PRManager {
-    /* <private> */
     Object parent;
 };
 
-/**
- * PRManagerClass:
- * @parent_class: the base class
- * @run: callback invoked in thread pool context
- */
 struct PRManagerClass {
-    /* <private> */
     ObjectClass parent_class;
 
-    /* <public> */
     int (*run)(PRManager *pr_mgr, int fd, struct sg_io_hdr *hdr);
     bool (*is_connected)(PRManager *pr_mgr);
 };

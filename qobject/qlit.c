@@ -1,17 +1,3 @@
-/*
- * QLit literal qobject
- *
- * Copyright IBM, Corp. 2009
- * Copyright (c) 2013, 2015, 2017 Red Hat Inc.
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *  Markus Armbruster <armbru@redhat.com>
- *  Marc-André Lureau <marcandre.lureau@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
- * See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 
@@ -35,8 +21,6 @@ static bool qlit_equal_qdict(const QLitObject *lhs, const QDict *qdict)
         }
     }
 
-    /* Note: the literal qdict must not contain duplicates, this is
-     * considered a programming error and it isn't checked here. */
     if (qdict_size(qdict) != i) {
         return false;
     }

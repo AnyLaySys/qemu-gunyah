@@ -1,6 +1,4 @@
 #!/bin/sh -e
-#
-# Helper script for the build process to apply entitlements
 
 in_place=:
 if [ "$1" = --install ]; then
@@ -25,7 +23,6 @@ if test -n "$ENTITLEMENT"; then
   codesign --entitlements "$ENTITLEMENT" --force -s - "$SRC"
 fi
 
-# Add the QEMU icon to the binary on Mac OS
 Rez -append "$ICON" -o "$SRC"
 SetFile -a C "$SRC"
 

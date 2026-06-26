@@ -1,26 +1,3 @@
-/*
- * Keycode and keysyms conversion tables for curses
- * 
- * Copyright (c) 2005 Andrzej Zaborowski  <balrog@zabor.org>
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #ifndef QEMU_CURSES_KEYS_H
 #define QEMU_CURSES_KEYS_H
@@ -46,7 +23,6 @@
 #define KEYSYM_ALT          (SCANCODE_ALT   << 16)
 #define KEYSYM_ALTGR        (SCANCODE_ALTGR << 16)
 
-/* curses won't detect a Control + Alt + 1, so use Alt + 1 */
 #define QEMU_KEY_CONSOLE0   (2 | ALT)   /* (curses2keycode['1'] | ALT) */
 
 #define CURSES_CHARS        0x100       /* Support latin1 only */
@@ -188,7 +164,6 @@ static const int _curses2keycode[CURSES_CHARS] = {
     ['T' - '@'] = 20 | CNTRL, /* Control + t */
     ['Y' - '@'] = 21 | CNTRL, /* Control + y */
     ['U' - '@'] = 22 | CNTRL, /* Control + u */
-    /* Control + i collides with Tab */
     ['O' - '@'] = 24 | CNTRL, /* Control + o */
     ['P' - '@'] = 25 | CNTRL, /* Control + p */
 
@@ -198,7 +173,6 @@ static const int _curses2keycode[CURSES_CHARS] = {
     ['F' - '@'] = 33 | CNTRL, /* Control + f */
     ['G' - '@'] = 34 | CNTRL, /* Control + g */
     ['H' - '@'] = 35 | CNTRL, /* Control + h */
-    /* Control + j collides with Return */
     ['K' - '@'] = 37 | CNTRL, /* Control + k */
     ['L' - '@'] = 38 | CNTRL, /* Control + l */
 
@@ -208,10 +182,8 @@ static const int _curses2keycode[CURSES_CHARS] = {
     ['V' - '@'] = 47 | CNTRL, /* Control + v */
     ['B' - '@'] = 48 | CNTRL, /* Control + b */
     ['N' - '@'] = 49 | CNTRL, /* Control + n */
-    /* Control + m collides with the keycode for Enter */
 
     ['@' - '@']  =  3 | CNTRL, /* Control + @ */
-    /* Control + [ collides with the keycode for Escape */
     ['\\' - '@'] = 43 | CNTRL, /* Control + Backslash */
     [']' - '@']  = 27 | CNTRL, /* Control + ] */
     ['^' - '@']  =  7 | CNTRL, /* Control + ^ */
@@ -296,7 +268,6 @@ static const int _curseskey2qemu[CURSES_KEYS] = {
 };
 
 static const name2keysym_t name2keysym[] = {
-    /* Plain ASCII */
     { "space", 0x020 },
     { "exclam", 0x021 },
     { "quotedbl", 0x022 },
@@ -393,7 +364,6 @@ static const name2keysym_t name2keysym[] = {
     { "braceright", 0x07d },
     { "asciitilde", 0x07e },
 
-    /* Latin-1 extensions */
     { "nobreakspace", 0x0a0 },
     { "exclamdown", 0x0a1 },
     { "cent", 0x0a2 },
@@ -495,7 +465,6 @@ static const name2keysym_t name2keysym[] = {
     { "thorn", 0x0fe },
     { "ydiaeresis", 0x0ff },
 
-    /* Special keys */
     { "BackSpace", KEY_BACKSPACE },
     { "Tab", '\t' },
     { "Return", KEY_ENTER },

@@ -1,10 +1,3 @@
-/*
- * Virtio input PCI Bindings
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 
@@ -15,9 +8,6 @@
 #include "qom/object.h"
 
 
-/*
- * virtio-input-pci: This extends VirtioPCIProxy.
- */
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOInputPCI, VIRTIO_INPUT_PCI)
 
 struct VirtIOInputPCI {
@@ -116,7 +106,6 @@ static const VirtioPCIDeviceTypeInfo virtio_tablet_pci_info = {
 
 static void virtio_pci_input_register(void)
 {
-    /* Base types: */
     type_register_static(&virtio_input_pci_info);
     type_register_static(&virtio_input_hid_pci_info);
 

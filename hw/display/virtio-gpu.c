@@ -1,15 +1,3 @@
-/*
- * Virtio GPU Device
- *
- * Copyright Red Hat, Inc. 2013-2014
- *
- * Authors:
- *     Dave Airlie <airlied@redhat.com>
- *     Gerd Hoffmann <kraxel@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 
@@ -77,7 +65,6 @@ void virtio_gpu_update_cursor_data(VirtIOGPU *g,
     memcpy(s->current_cursor->data, data,
            pixels * sizeof(uint32_t));
 
-    /* Gunyah fix: if cursor data is all zeros (LEND'd memory), try IOV fallback */
     {
         uint32_t *cdata = s->current_cursor->data;
         int nonzero = 0;
@@ -252,9 +239,6 @@ void virtio_gpu_get_edid(VirtIOGPU *g,
 static uint32_t calc_image_hostmem(pixman_format_code_t pformat,
                                    uint32_t width, uint32_t height)
 {
-    /* Copied from pixman/pixman-bits-image.c, skip integer overflow check.
-     * pixman_image_create_bits will fail in case it overflow.
-     */
 
     int bpp = PIXMAN_FORMAT_BPP(pformat);
     int stride = ((width * bpp + 0x1f) >> 5) * sizeof(uint32_t);
@@ -443,10 +427,6 @@ static void virtio_gpu_resource_unref(VirtIOGPU *g,
         cmd->error = VIRTIO_GPU_RESP_ERR_INVALID_RESOURCE_ID;
         return;
     }
-    /*
-     * virtio_gpu_resource_destroy does not set any errors, so pass a NULL errp
-     * to ignore them.
-     */
     virtio_gpu_resource_destroy(g, res, NULL);
 }
 
@@ -587,7 +567,6 @@ static void virtio_gpu_resource_flush(VirtIOGPU *g,
         qemu_rect_init(&rect, scanout->x, scanout->y,
                        scanout->width, scanout->height);
 
-        /* work out the area we need to update for each console */
         if (qemu_rect_intersect(&flush_rect, &rect, &rect)) {
             qemu_rect_translate(&rect, -scanout->x, -scanout->y);
             dpy_gfx_update(g->parent_obj.scanout[i].con,
@@ -672,7 +651,6 @@ static bool virtio_gpu_do_set_scanout(VirtIOGPU *g,
         data = (uint8_t *)pixman_image_get_data(res->image);
     }
 
-    /* create a surface for this scanout */
     if ((res->blob && !console_has_gl(scanout->con)) ||
         !scanout->ds ||
         surface_data(scanout->ds) != data + fb->offset ||
@@ -689,7 +667,6 @@ static bool virtio_gpu_do_set_scanout(VirtIOGPU *g,
                                               res->image);
         }
 
-        /* realloc the surface ptr */
         scanout->ds = qemu_create_displaysurface_pixman(rect);
         qemu_displaysurface_set_share_handle(scanout->ds, res->share_handle, fb->offset);
 
@@ -860,15 +837,6 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
         do {
             len = l;
 
-            /*
-             * Gunyah protected VM: if the guest address falls in the
-             * LEND'd region, the host process cannot access it (SIGBUS).
-             * Allocate a local bounce buffer instead.  The display may
-             * show stale/blank content for these resources, but QEMU
-             * won't crash.  This typically happens when the guest GPU
-             * driver sends raw physical addresses instead of DMA-mapped
-             * (SHARE'd) addresses for its framebuffer backing pages.
-             */
             if (gunyah_enabled() && gunyah_addr_is_lend(a)) {
                 static bool warned;
                 if (!warned) {
@@ -926,12 +894,6 @@ void virtio_gpu_cleanup_mapping_iov(VirtIOGPU *g,
     int i;
 
     for (i = 0; i < count; i++) {
-        /*
-         * Check if this IOV was mapped from a RAM MemoryRegion
-         * (dma_memory_map) or is a locally-allocated bounce buffer
-         * (g_malloc0, used for Gunyah LEND'd addresses).
-         * memory_region_from_host() returns NULL for the latter.
-         */
         MemoryRegion *mr;
         ram_addr_t offset;
         mr = memory_region_from_host(iov[i].iov_base, &offset);
@@ -1095,10 +1057,8 @@ void virtio_gpu_process_cmdq(VirtIOGPU *g)
     while (!QTAILQ_EMPTY(&g->cmdq)) {
         cmd = QTAILQ_FIRST(&g->cmdq);
 
-        /* process command */
         vgc->process_cmd(g, cmd);
 
-        /* command suspended */
         if (!cmd->finished && !(cmd->cmd_hdr.flags & VIRTIO_GPU_FLAG_FENCE)) {
             trace_virtio_gpu_cmd_suspended(cmd->cmd_hdr.type);
             break;
@@ -1252,7 +1212,6 @@ static int virtio_gpu_save(QEMUFile *f, void *opaque, size_t size,
     struct virtio_gpu_simple_resource *res;
     int i;
 
-    /* in 2d mode we should never find unprocessed commands here */
     assert(QTAILQ_EMPTY(&g->cmdq));
 
     QTAILQ_FOREACH(res, &g->reslist, next) {
@@ -1288,12 +1247,10 @@ static bool virtio_gpu_load_restore_mapping(VirtIOGPU *g,
                            DMA_DIRECTION_TO_DEVICE, MEMTXATTRS_UNSPECIFIED);
 
         if (!res->iov[i].iov_base || len != res->iov[i].iov_len) {
-            /* Clean up the half-a-mapping we just created... */
             if (res->iov[i].iov_base) {
                 dma_memory_unmap(VIRTIO_DEVICE(g)->dma_as, res->iov[i].iov_base,
                                  len, DMA_DIRECTION_TO_DEVICE, 0);
             }
-            /* ...and the mappings for previous loop iterations */
             res->iov_cnt = i;
             virtio_gpu_cleanup_mapping(g, res);
             return false;
@@ -1329,7 +1286,6 @@ static int virtio_gpu_load(QEMUFile *f, void *opaque, size_t size,
         res->format = qemu_get_be32(f);
         res->iov_cnt = qemu_get_be32(f);
 
-        /* allocate */
         pformat = virtio_gpu_get_pixman_format(res->format);
         if (!pformat) {
             g_free(res);
@@ -1352,7 +1308,6 @@ static int virtio_gpu_load(QEMUFile *f, void *opaque, size_t size,
         res->addrs = g_new(uint64_t, res->iov_cnt);
         res->iov = g_new(struct iovec, res->iov_cnt);
 
-        /* read data */
         for (i = 0; i < res->iov_cnt; i++) {
             res->addrs[i] = qemu_get_be64(f);
             res->iov[i].iov_len = qemu_get_be32(f);
@@ -1369,7 +1324,6 @@ static int virtio_gpu_load(QEMUFile *f, void *opaque, size_t size,
         resource_id = qemu_get_be32(f);
     }
 
-    /* load & apply scanout state */
     vmstate_load_state(f, &vmstate_virtio_gpu_scanouts, g, 1);
 
     return 0;
@@ -1382,7 +1336,6 @@ static int virtio_gpu_blob_save(QEMUFile *f, void *opaque, size_t size,
     struct virtio_gpu_simple_resource *res;
     int i;
 
-    /* in 2d mode we should never find unprocessed commands here */
     assert(QTAILQ_EMPTY(&g->cmdq));
 
     QTAILQ_FOREACH(res, &g->reslist, next) {
@@ -1425,7 +1378,6 @@ static int virtio_gpu_blob_load(QEMUFile *f, void *opaque, size_t size,
         res->addrs = g_new(uint64_t, res->iov_cnt);
         res->iov = g_new(struct iovec, res->iov_cnt);
 
-        /* read data */
         for (i = 0; i < res->iov_cnt; i++) {
             res->addrs[i] = qemu_get_be64(f);
             res->iov[i].iov_len = qemu_get_be32(f);
@@ -1475,7 +1427,6 @@ static int virtio_gpu_post_load(void *opaque, int version_id)
                 return -EINVAL;
             }
         } else {
-            /* legacy v1 migration support */
             if (!res->image) {
                 return -EINVAL;
             }
@@ -1552,7 +1503,6 @@ static void virtio_gpu_reset_bh(void *opaque)
                               "for resource_id = %"PRIu32" failed.\n",
                               __func__, object_get_typename(OBJECT(g)),
                               resource_id);
-            /* error_report_err frees the error object for us */
             error_report_err(local_err);
             local_err = NULL;
         }
@@ -1643,14 +1593,6 @@ const VMStateDescription vmstate_virtio_gpu_blob_state = {
     },
 };
 
-/*
- * For historical reasons virtio_gpu does not adhere to virtio migration
- * scheme as described in doc/virtio-migration.txt, in a sense that no
- * save/load callback are provided to the core. Instead the device data
- * is saved/loaded after the core data.
- *
- * Because of this we need a special vmsd.
- */
 static const VMStateDescription vmstate_virtio_gpu = {
     .name = "virtio-gpu",
     .minimum_version_id = VIRTIO_GPU_VM_VERSION,

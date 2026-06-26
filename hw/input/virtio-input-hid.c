@@ -1,8 +1,3 @@
-/*
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/iov.h"
@@ -21,7 +16,6 @@
 #define VIRTIO_ID_NAME_TABLET       "QEMU Virtio Tablet"
 #define VIRTIO_ID_NAME_MULTITOUCH   "QEMU Virtio MultiTouch"
 
-/* ----------------------------------------------------------------- */
 
 static const unsigned short keymap_button[INPUT_BUTTON__MAX] = {
     [INPUT_BUTTON_LEFT]              = BTN_LEFT,
@@ -49,7 +43,6 @@ static const unsigned short axismap_tch[INPUT_AXIS__MAX] = {
     [INPUT_AXIS_Y]                   = ABS_MT_POSITION_Y,
 };
 
-/* ----------------------------------------------------------------- */
 
 static void virtio_input_extend_config(VirtIOInput *vinput,
                                        const unsigned short *map,
@@ -164,7 +157,6 @@ static void virtio_input_handle_event(DeviceState *dev, QemuConsole *src,
         }
         break;
     default:
-        /* keep gcc happy */
         break;
     }
 }
@@ -262,7 +254,6 @@ static const TypeInfo virtio_input_hid_info = {
     .abstract      = true,
 };
 
-/* ----------------------------------------------------------------- */
 
 static const QemuInputHandler virtio_keyboard_handler = {
     .name  = VIRTIO_ID_NAME_KEYBOARD,
@@ -319,7 +310,6 @@ static const TypeInfo virtio_keyboard_info = {
     .instance_init = virtio_keyboard_init,
 };
 
-/* ----------------------------------------------------------------- */
 
 static const QemuInputHandler virtio_mouse_handler = {
     .name  = VIRTIO_ID_NAME_MOUSE,
@@ -412,7 +402,6 @@ static const TypeInfo virtio_mouse_info = {
     .class_init    = virtio_mouse_class_init,
 };
 
-/* ----------------------------------------------------------------- */
 
 static const QemuInputHandler virtio_tablet_handler = {
     .name  = VIRTIO_ID_NAME_TABLET,
@@ -536,7 +525,6 @@ static const TypeInfo virtio_tablet_info = {
     .class_init    = virtio_tablet_class_init,
 };
 
-/* ----------------------------------------------------------------- */
 
 static const QemuInputHandler virtio_multitouch_handler = {
     .name  = VIRTIO_ID_NAME_MULTITOUCH,
@@ -621,7 +609,6 @@ static const TypeInfo virtio_multitouch_info = {
     .instance_init = virtio_multitouch_init,
 };
 
-/* ----------------------------------------------------------------- */
 
 static void virtio_register_types(void)
 {

@@ -9,5 +9,4 @@ int64_t cpus_get_virtual_clock(void)
 
 void cpus_set_virtual_clock(int64_t new_time)
 {
-    /* do nothing */
 }

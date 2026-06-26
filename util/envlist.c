@@ -12,9 +12,6 @@ struct envlist {
     size_t el_count;                        /* number of entries */
 };
 
-/*
- * Allocates new envlist and returns pointer to it.
- */
 envlist_t *
 envlist_create(void)
 {
@@ -28,9 +25,6 @@ envlist_create(void)
     return (envlist);
 }
 
-/*
- * Releases given envlist and its entries.
- */
 void
 envlist_free(envlist_t *envlist)
 {
@@ -48,12 +42,6 @@ envlist_free(envlist_t *envlist)
     g_free(envlist);
 }
 
-/*
- * Sets environment value to envlist in similar manner
- * than putenv(3).
- *
- * Returns 0 in success, errno otherwise.
- */
 int
 envlist_setenv(envlist_t *envlist, const char *env)
 {
@@ -64,16 +52,10 @@ envlist_setenv(envlist_t *envlist, const char *env)
     if ((envlist == NULL) || (env == NULL))
         return (EINVAL);
 
-    /* find out first equals sign in given env */
     if ((eq_sign = strchr(env, '=')) == NULL)
         return (EINVAL);
     envname_len = eq_sign - env + 1;
 
-    /*
-     * If there already exists variable with given name
-     * we remove and release it before allocating a whole
-     * new entry.
-     */
     for (entry = envlist->el_entries.lh_first; entry != NULL;
         entry = entry->ev_link.le_next) {
         if (strncmp(entry->ev_var, env, envname_len) == 0)
@@ -95,10 +77,6 @@ envlist_setenv(envlist_t *envlist, const char *env)
     return (0);
 }
 
-/*
- * Removes given env value from envlist in similar manner
- * than unsetenv(3).  Returns 0 in success, errno otherwise.
- */
 int
 envlist_unsetenv(envlist_t *envlist, const char *env)
 {
@@ -108,14 +86,9 @@ envlist_unsetenv(envlist_t *envlist, const char *env)
     if ((envlist == NULL) || (env == NULL))
         return (EINVAL);
 
-    /* env is not allowed to contain '=' */
     if (strchr(env, '=') != NULL)
         return (EINVAL);
 
-    /*
-     * Find out the requested entry and remove
-     * it from the list.
-     */
     envname_len = strlen(env);
     for (entry = envlist->el_entries.lh_first; entry != NULL;
         entry = entry->ev_link.le_next) {
@@ -132,16 +105,6 @@ envlist_unsetenv(envlist_t *envlist, const char *env)
     return (0);
 }
 
-/*
- * Returns given envlist as array of strings (in same form that
- * global variable environ is).  Caller must free returned memory
- * by calling g_free for each element and the array.
- * Returned array and given envlist are not related (no common
- * references).
- *
- * If caller provides count pointer, number of items in array is
- * stored there.
- */
 char **
 envlist_to_environ(const envlist_t *envlist, size_t *count)
 {

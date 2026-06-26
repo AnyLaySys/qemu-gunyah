@@ -1,14 +1,3 @@
-/*
- * Support for RAM backed by mmaped host memory.
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * Authors:
- *  Michael S. Tsirkin <mst@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * later.  See the COPYING file in the top-level directory.
- */
 
 #ifdef CONFIG_LINUX
 #include <linux/mman.h>
@@ -73,7 +62,6 @@ size_t qemu_fd_getpagesize(int fd)
         }
     }
 #ifdef __sparc__
-    /* SPARC Linux needs greater alignment than the pagesize */
     return QEMU_VMALLOC_ALIGN;
 #endif
 #endif
@@ -91,37 +79,14 @@ static bool map_noreserve_effective(int fd, uint32_t qemu_map_flags)
     const char *endptr;
     unsigned int tmp;
 
-    /*
-     * hugeltb accounting is different than ordinary swap reservation:
-     * a) Hugetlb pages from the pool are reserved for both private and
-     *    shared mappings. For shared mappings, all mappers have to specify
-     *    MAP_NORESERVE.
-     * b) MAP_NORESERVE is not affected by /proc/sys/vm/overcommit_memory.
-     */
     if (qemu_fd_getpagesize(fd) != qemu_real_host_page_size()) {
         return true;
     }
 
-    /*
-     * Accountable mappings in the kernel that can be affected by MAP_NORESEVE
-     * are private writable mappings (see mm/mmap.c:accountable_mapping() in
-     * Linux). For all shared or readonly mappings, MAP_NORESERVE is always
-     * implicitly active -- no reservation; this includes shmem. The only
-     * exception is shared anonymous memory, it is accounted like private
-     * anonymous memory.
-     */
     if (readonly || (shared && fd >= 0)) {
         return true;
     }
 
-    /*
-     * MAP_NORESERVE is globally ignored for applicable !hugetlb mappings when
-     * memory overcommit is set to "never". Sparse memory regions aren't really
-     * possible in this system configuration.
-     *
-     * Bail out now instead of silently committing way more memory than
-     * currently desired by the user.
-     */
     if (g_file_get_contents(OVERCOMMIT_MEMORY_PATH, &content, NULL, NULL) &&
         !qemu_strtoui(content, &endptr, 0, &tmp) &&
         (!endptr || *endptr == '\n')) {
@@ -132,37 +97,19 @@ static bool map_noreserve_effective(int fd, uint32_t qemu_map_flags)
         }
         return true;
     }
-    /* this interface has been around since Linux 2.6 */
     error_report("Skipping reservation of swap space is not supported:"
                  " Could not read: \"" OVERCOMMIT_MEMORY_PATH "\"");
     return false;
 #endif
-    /*
-     * E.g., FreeBSD used to define MAP_NORESERVE, never implemented it,
-     * and removed it a while ago.
-     */
     error_report("Skipping reservation of swap space is not supported");
     return false;
 }
 
-/*
- * Reserve a new memory region of the requested size to be used for mapping
- * from the given fd (if any).
- */
 static void *mmap_reserve(size_t size, int fd)
 {
     int flags = MAP_PRIVATE;
 
 #if defined(__powerpc64__) && defined(__linux__)
-    /*
-     * On ppc64 mappings in the same segment (aka slice) must share the same
-     * page size. Since we will be re-allocating part of this segment
-     * from the supplied fd, we should make sure to use the same page size, to
-     * this end we mmap the supplied fd.  In this case, set MAP_NORESERVE to
-     * avoid allocating backing store memory.
-     * We do this unless we are using the system page size, in which case
-     * anonymous memory is OK.
-     */
     if (fd == -1 || qemu_fd_getpagesize(fd) == qemu_real_host_page_size()) {
         fd = -1;
         flags |= MAP_ANONYMOUS;
@@ -177,10 +124,6 @@ static void *mmap_reserve(size_t size, int fd)
     return mmap(0, size, PROT_NONE, flags, fd, 0);
 }
 
-/*
- * Activate memory in a reserved region from the given fd (if any), to make
- * it accessible.
- */
 static void *mmap_activate(void *ptr, size_t size, int fd,
                            uint32_t qemu_map_flags, off_t map_offset)
 {
@@ -225,10 +168,6 @@ static void *mmap_activate(void *ptr, size_t size, int fd,
             warn_report("Using non DAX backing file with 'pmem=on' option"
                         " is deprecated");
         }
-        /*
-         * If mmap failed with MAP_SHARED_VALIDATE | MAP_SYNC, we will try
-         * again without these flags to handle backwards compatibility.
-         */
         activated_ptr = mmap(ptr, size, prot, flags, fd, map_offset);
     }
     return activated_ptr;
@@ -237,7 +176,6 @@ static void *mmap_activate(void *ptr, size_t size, int fd,
 static inline size_t mmap_guard_pagesize(int fd)
 {
 #if defined(__powerpc64__) && defined(__linux__)
-    /* Mappings in the same segment must share the same page size */
     return qemu_fd_getpagesize(fd);
 #else
     return qemu_real_host_page_size();
@@ -254,10 +192,6 @@ void *qemu_ram_mmap(int fd,
     size_t offset, total;
     void *ptr, *guardptr;
 
-    /*
-     * Note: this always allocates at least one extra page of virtual address
-     * space, even if size is already aligned.
-     */
     total = size + align;
 
     guardptr = mmap_reserve(total, fd);
@@ -266,7 +200,6 @@ void *qemu_ram_mmap(int fd,
     }
 
     assert(is_power_of_2(align));
-    /* Always align to host page size */
     assert(align >= guard_pagesize);
 
     offset = QEMU_ALIGN_UP((uintptr_t)guardptr, align) - (uintptr_t)guardptr;
@@ -282,26 +215,11 @@ void *qemu_ram_mmap(int fd,
         munmap(guardptr, offset);
     }
 
-    /*
-     * Leave a single PROT_NONE page allocated after the RAM block, to serve as
-     * a guard page guarding against potential buffer overflows.
-     */
     total -= offset;
     if (total > size + guard_pagesize) {
         munmap(ptr + size + guard_pagesize, total - size - guard_pagesize);
     }
 
-    /*
-     * Disable THP for this region on Android/Linux.
-     *
-     * When running under Gunyah, guest RAM is LEND'd to the hypervisor.
-     * THPs are now REQUIRED for Gunyah demand paging efficiency.
-     * The deferred_split_scan crash is handled by the
-     * gh_disable_deferred_split KPM instead.
-     *
-     * DO NOT add MADV_NOHUGEPAGE here — it would prevent THPs and
-     * cause the hypervisor page table pool to be exhausted (ENOMEM).
-     */
 
     return ptr;
 }
@@ -309,7 +227,6 @@ void *qemu_ram_mmap(int fd,
 void qemu_ram_munmap(int fd, void *ptr, size_t size)
 {
     if (ptr) {
-        /* Unmap both the RAM block and the guard page */
         munmap(ptr, size + mmap_guard_pagesize(fd));
     }
 }

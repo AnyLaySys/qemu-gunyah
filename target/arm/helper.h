@@ -272,7 +272,6 @@ DEF_HELPER_FLAGS_2(fjcvtzs, TCG_CALL_NO_RWG, i64, f64, fpst)
 
 DEF_HELPER_FLAGS_3(check_hcr_el2_trap, TCG_CALL_NO_WG, void, env, i32, i32)
 
-/* neon_helper.c */
 DEF_HELPER_2(neon_pmin_u8, i32, i32, i32)
 DEF_HELPER_2(neon_pmin_s8, i32, i32, i32)
 DEF_HELPER_2(neon_pmin_u16, i32, i32, i32)
@@ -434,7 +433,6 @@ DEF_HELPER_3(neon_acgt_f32, i32, i32, i32, fpst)
 DEF_HELPER_3(neon_acge_f64, i64, i64, i64, fpst)
 DEF_HELPER_3(neon_acgt_f64, i64, i64, i64, fpst)
 
-/* iwmmxt_helper.c */
 DEF_HELPER_2(iwmmxt_maddsq, i64, i64, i64)
 DEF_HELPER_2(iwmmxt_madduq, i64, i64, i64)
 DEF_HELPER_2(iwmmxt_sadb, i64, i64, i64)

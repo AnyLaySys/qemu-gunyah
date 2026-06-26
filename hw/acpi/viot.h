@@ -1,8 +1,3 @@
-/*
- * ACPI Virtual I/O Translation Table implementation
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 #ifndef VIOT_H
 #define VIOT_H
 

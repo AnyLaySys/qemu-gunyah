@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Syslog built-in backend.
@@ -31,7 +30,6 @@ def generate_h(event, group):
         argnames = ", " + argnames
 
     if "vcpu" in event.properties:
-        # already checked on the generic format code
         cond = "true"
     else:
         cond = "trace_event_get_state(%s)" % ("TRACE_" + event.name.upper())

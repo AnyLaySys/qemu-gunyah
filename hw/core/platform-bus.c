@@ -1,23 +1,3 @@
-/*
- *  Platform Bus device to support dynamic Sysbus devices
- *
- * Copyright (C) 2014 Freescale Semiconductor, Inc. All rights reserved.
- *
- * Author: Alexander Graf, <agraf@suse.de>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/platform-bus.h"
@@ -27,10 +7,6 @@
 #include "qemu/module.h"
 
 
-/*
- * Returns the PlatformBus IRQ number for a SysBusDevice irq number or -1 if
- * the IRQ is not mapped on this Platform bus.
- */
 int platform_bus_get_irqn(PlatformBusDevice *pbus, SysBusDevice *sbdev,
                           int n)
 {
@@ -43,14 +19,9 @@ int platform_bus_get_irqn(PlatformBusDevice *pbus, SysBusDevice *sbdev,
         }
     }
 
-    /* IRQ not mapped on platform bus */
     return -1;
 }
 
-/*
- * Returns the PlatformBus MMIO region offset for Region n of a SysBusDevice or
- * -1 if the region is not mapped on this Platform bus.
- */
 hwaddr platform_bus_get_mmio_addr(PlatformBusDevice *pbus, SysBusDevice *sbdev,
                                   int n)
 {
@@ -60,14 +31,12 @@ hwaddr platform_bus_get_mmio_addr(PlatformBusDevice *pbus, SysBusDevice *sbdev,
     Object *parent_mr;
 
     if (!memory_region_is_mapped(sbdev_mr)) {
-        /* Region is not mapped? */
         return -1;
     }
 
     parent_mr = object_property_get_link(OBJECT(sbdev_mr), "container",
                                          &error_abort);
     if (parent_mr != pbus_mr_obj) {
-        /* MMIO region is not mapped on platform bus */
         return -1;
     }
 
@@ -95,10 +64,6 @@ static void platform_bus_count_irqs(SysBusDevice *sbdev, void *opaque)
     }
 }
 
-/*
- * Loop through all sysbus devices and look for unassigned IRQ lines as well as
- * unassociated MMIO regions. Connect them to the platform bus if available.
- */
 static void plaform_bus_refresh_irqs(PlatformBusDevice *pbus)
 {
     bitmap_zero(pbus->used_irqs, pbus->num_irqs);
@@ -112,7 +77,6 @@ static void platform_bus_map_irq(PlatformBusDevice *pbus, SysBusDevice *sbdev,
     int irqn;
 
     if (sysbus_is_irq_connected(sbdev, n)) {
-        /* IRQ is already mapped, nothing to do */
         return;
     }
 
@@ -136,14 +100,9 @@ static void platform_bus_map_mmio(PlatformBusDevice *pbus, SysBusDevice *sbdev,
     bool found_region = false;
 
     if (memory_region_is_mapped(sbdev_mr)) {
-        /* Region is already mapped, nothing to do */
         return;
     }
 
-    /*
-     * Look for empty space in the MMIO space that is naturally aligned with
-     * the target device's memory region
-     */
     for (off = 0; off < pbus->mmio_size; off += alignment) {
         MemoryRegion *mr = memory_region_find(&pbus->mmio, off, size).mr;
         if (!mr) {
@@ -160,14 +119,9 @@ static void platform_bus_map_mmio(PlatformBusDevice *pbus, SysBusDevice *sbdev,
         exit(1);
     }
 
-    /* Map the device's region into our Platform Bus MMIO space */
     memory_region_add_subregion(&pbus->mmio, off, sbdev_mr);
 }
 
-/*
- * Look for unassigned IRQ lines as well as unassociated MMIO regions.
- * Connect them to the platform bus if available.
- */
 void platform_bus_link_device(PlatformBusDevice *pbus, SysBusDevice *sbdev)
 {
     int i;
@@ -200,7 +154,6 @@ static void platform_bus_realize(DeviceState *dev, Error **errp)
         sysbus_init_irq(d, &pbus->irqs[i]);
     }
 
-    /* some devices might be initialized before so update used IRQs map */
     plaform_bus_refresh_irqs(pbus);
 }
 

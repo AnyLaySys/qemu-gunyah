@@ -1,25 +1,4 @@
-/*
- *  Physical memory access templates
- *
- *  Copyright (c) 2003 Fabrice Bellard
- *  Copyright (c) 2015 Linaro, Inc.
- *  Copyright (c) 2016 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
-/* warning: addr must be aligned */
 static inline uint32_t glue(address_space_ldl_internal, SUFFIX)(ARG1_DECL,
     hwaddr addr, MemTxAttrs attrs, MemTxResult *result,
     enum device_endian endian)
@@ -37,11 +16,9 @@ static inline uint32_t glue(address_space_ldl_internal, SUFFIX)(ARG1_DECL,
     if (l < 4 || !memory_access_is_direct(mr, false, attrs)) {
         release_lock |= prepare_mmio_access(mr);
 
-        /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val,
                                         MO_32 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         fuzz_dma_read_cb(addr, 4, mr);
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
@@ -88,7 +65,6 @@ uint32_t glue(address_space_ldl_be, SUFFIX)(ARG1_DECL,
                                                     DEVICE_BIG_ENDIAN);
 }
 
-/* warning: addr must be aligned */
 static inline uint64_t glue(address_space_ldq_internal, SUFFIX)(ARG1_DECL,
     hwaddr addr, MemTxAttrs attrs, MemTxResult *result,
     enum device_endian endian)
@@ -106,11 +82,9 @@ static inline uint64_t glue(address_space_ldq_internal, SUFFIX)(ARG1_DECL,
     if (l < 8 || !memory_access_is_direct(mr, false, attrs)) {
         release_lock |= prepare_mmio_access(mr);
 
-        /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val,
                                         MO_64 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         fuzz_dma_read_cb(addr, 8, mr);
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
@@ -173,10 +147,8 @@ uint8_t glue(address_space_ldub, SUFFIX)(ARG1_DECL,
     if (!memory_access_is_direct(mr, false, attrs)) {
         release_lock |= prepare_mmio_access(mr);
 
-        /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val, MO_8, attrs);
     } else {
-        /* RAM case */
         fuzz_dma_read_cb(addr, 1, mr);
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         val = ldub_p(ptr);
@@ -192,7 +164,6 @@ uint8_t glue(address_space_ldub, SUFFIX)(ARG1_DECL,
     return val;
 }
 
-/* warning: addr must be aligned */
 static inline uint16_t glue(address_space_lduw_internal, SUFFIX)(ARG1_DECL,
     hwaddr addr, MemTxAttrs attrs, MemTxResult *result,
     enum device_endian endian)
@@ -210,11 +181,9 @@ static inline uint16_t glue(address_space_lduw_internal, SUFFIX)(ARG1_DECL,
     if (l < 2 || !memory_access_is_direct(mr, false, attrs)) {
         release_lock |= prepare_mmio_access(mr);
 
-        /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val,
                                         MO_16 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         fuzz_dma_read_cb(addr, 2, mr);
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
@@ -261,9 +230,6 @@ uint16_t glue(address_space_lduw_be, SUFFIX)(ARG1_DECL,
                                        DEVICE_BIG_ENDIAN);
 }
 
-/* warning: addr must be aligned. The ram page is not masked as dirty
-   and the code inside is not invalidated. It is useful if the dirty
-   bits are used to track modified PTEs */
 void glue(address_space_stl_notdirty, SUFFIX)(ARG1_DECL,
     hwaddr addr, uint32_t val, MemTxAttrs attrs, MemTxResult *result)
 {
@@ -300,7 +266,6 @@ void glue(address_space_stl_notdirty, SUFFIX)(ARG1_DECL,
     RCU_READ_UNLOCK();
 }
 
-/* warning: addr must be aligned */
 static inline void glue(address_space_stl_internal, SUFFIX)(ARG1_DECL,
     hwaddr addr, uint32_t val, MemTxAttrs attrs,
     MemTxResult *result, enum device_endian endian)
@@ -319,7 +284,6 @@ static inline void glue(address_space_stl_internal, SUFFIX)(ARG1_DECL,
         r = memory_region_dispatch_write(mr, addr1, val,
                                          MO_32 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
         case DEVICE_LITTLE_ENDIAN:
@@ -381,7 +345,6 @@ void glue(address_space_stb, SUFFIX)(ARG1_DECL,
         release_lock |= prepare_mmio_access(mr);
         r = memory_region_dispatch_write(mr, addr1, val, MO_8, attrs);
     } else {
-        /* RAM case */
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         stb_p(ptr, val);
         invalidate_and_set_dirty(mr, addr1, 1);
@@ -396,7 +359,6 @@ void glue(address_space_stb, SUFFIX)(ARG1_DECL,
     RCU_READ_UNLOCK();
 }
 
-/* warning: addr must be aligned */
 static inline void glue(address_space_stw_internal, SUFFIX)(ARG1_DECL,
     hwaddr addr, uint16_t val, MemTxAttrs attrs,
     MemTxResult *result, enum device_endian endian)
@@ -415,7 +377,6 @@ static inline void glue(address_space_stw_internal, SUFFIX)(ARG1_DECL,
         r = memory_region_dispatch_write(mr, addr1, val,
                                          MO_16 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
         case DEVICE_LITTLE_ENDIAN:
@@ -479,7 +440,6 @@ static void glue(address_space_stq_internal, SUFFIX)(ARG1_DECL,
         r = memory_region_dispatch_write(mr, addr1, val,
                                          MO_64 | devend_memop(endian), attrs);
     } else {
-        /* RAM case */
         ptr = qemu_map_ram_ptr(mr->ram_block, addr1);
         switch (endian) {
         case DEVICE_LITTLE_ENDIAN:

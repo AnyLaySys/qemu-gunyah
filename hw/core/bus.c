@@ -1,21 +1,3 @@
-/*
- *  Dynamic device configuration and creation -- buses.
- *
- *  Copyright (c) 2009 CodeSourcery
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #include "qemu/osdep.h"
 #include "hw/qdev-properties.h"
@@ -111,11 +93,9 @@ static void qbus_init_internal(BusState *bus, DeviceState *parent,
     if (name) {
         bus->name = g_strdup(name);
     } else if (bus->parent && bus->parent->id) {
-        /* parent device has id -> use it plus parent-bus-id for bus name */
         bus_id = bus->parent->num_child_bus;
         bus->name = g_strdup_printf("%s.%d", bus->parent->id, bus_id);
     } else {
-        /* no id -> use lowercase bus type plus global bus-id for bus name */
         bc = BUS_GET_CLASS(bus);
         bus_id = bc->automatic_ids++;
         bus->name = g_strdup_printf("%s.%d", typename, bus_id);
@@ -130,7 +110,6 @@ static void qbus_init_internal(BusState *bus, DeviceState *parent,
         object_property_add_child(OBJECT(bus->parent), bus->name, OBJECT(bus));
         object_unref(OBJECT(bus));
     } else {
-        /* The only bus without a parent is the main system bus */
         assert(bus == sysbus_get_default());
     }
 }
@@ -140,7 +119,6 @@ static void bus_unparent(Object *obj)
     BusState *bus = BUS(obj);
     BusChild *kid;
 
-    /* Only the main system bus has no parent, and that bus is never freed */
     assert(bus->parent);
 
     while ((kid = QTAILQ_FIRST(&bus->children)) != NULL) {
@@ -197,7 +175,6 @@ static void bus_set_realized(Object *obj, bool value, Error **errp)
             bc->realize(bus, errp);
         }
 
-        /* TODO: recursive realization */
     } else if (!value && bus->realized) {
         WITH_RCU_READ_LOCK_GUARD() {
             QTAILQ_FOREACH_RCU(kid, &bus->children, sibling) {

@@ -1,28 +1,4 @@
-/*
- * Guest Loader
- *
- * Copyright (C) 2020 Linaro
- * Written by Alex Bennée <alex.bennee@linaro.org>
- * (based on the generic-loader by Li Guang <lig.fnst@cn.fujitsu.com>)
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 
-/*
- * Much like the generic-loader this is treated as a special device
- * inside QEMU. However unlike the generic-loader this device is used
- * to load guest images for hypervisors. As part of that process the
- * hypervisor needs to have platform information passed to it by the
- * lower levels of the stack (e.g. firmware/bootloader). If you boot
- * the hypervisor directly you use the guest-loader to load the Dom0
- * or equivalent guest images in the right place in the same way a
- * boot loader would.
- *
- * This is only relevant for full system emulation.
- */
 
 #include "qemu/osdep.h"
 #include "hw/core/cpu.h"
@@ -35,9 +11,6 @@
 #include "system/device_tree.h"
 #include "hw/boards.h"
 
-/*
- * Insert some FDT nodes for the loaded blob.
- */
 static void loader_insert_platform_data(GuestLoaderState *s, int size,
                                         Error **errp)
 {
@@ -85,7 +58,6 @@ static void guest_loader_realize(DeviceState *dev, Error **errp)
     char *file = s->kernel ? s->kernel : s->initrd;
     int size = 0;
 
-    /* Perform some error checking on the user's options */
     if (s->kernel && s->initrd) {
         error_setg(errp, "Cannot specify a kernel and initrd in same stanza");
         return;
@@ -99,7 +71,6 @@ static void guest_loader_realize(DeviceState *dev, Error **errp)
         error_setg(errp, "Boot args only relevant to kernel blobs");
     }
 
-    /* Default to the maximum size being the machine's ram size */
     size = load_image_targphys_as(file, s->addr, current_machine->ram_size,
                                   NULL);
     if (size < 0) {
@@ -107,7 +78,6 @@ static void guest_loader_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    /* Now the image is loaded we need to update the platform data */
     loader_insert_platform_data(s, size, errp);
 }
 

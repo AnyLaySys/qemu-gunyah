@@ -63,7 +63,6 @@ def gen_param_var(typ: QAPISchemaObjectType) -> str:
         if memb.need_has():
             ret += 'has_' + c_name(memb.name) + sep
         if memb.type.name == 'str':
-            # Cast away const added in build_params()
             ret += '(char *)'
         ret += c_name(memb.name)
     ret += mcgen('''
@@ -84,12 +83,6 @@ def gen_event_send(name: str,
                    boxed: bool,
                    event_enum_name: str,
                    event_emit: str) -> str:
-    # FIXME: Our declaration of local variables (and of 'errp' in the
-    # parameter list) can collide with exploded members of the event's
-    # data type passed in as parameters.  If this collision ever hits in
-    # practice, we can rename our local variables with a leading _ prefix,
-    # or split the code into a wrapper function that creates a boxed
-    # 'param' object then calls another to do the real work.
     have_args = boxed or (arg_type and not arg_type.is_empty())
 
     ret = mcgen('''
@@ -238,8 +231,6 @@ void %(event_emit)s(%(event_enum)s event, QDict *qdict);
             self._genc.add(gen_event_send(name, arg_type, features, boxed,
                                           self._event_enum_name,
                                           self._event_emit_name))
-        # Note: we generate the enum member regardless of @ifcond, to
-        # keep the enumeration usable in target-independent code.
         self._event_enum_members.append(QAPISchemaEnumMember(name, None))
 
 

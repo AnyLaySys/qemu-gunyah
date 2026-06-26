@@ -1,22 +1,3 @@
-/*
- * ARM SMMUv3 support - Internal API
- *
- * Copyright (C) 2014-2016 Broadcom Corporation
- * Copyright (c) 2017 Red Hat, Inc.
- * Written by Prem Mallappa, Eric Auger
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, see <http://www.gnu.org/licenses/>.
- */
 
 #ifndef HW_ARM_SMMUV3_INTERNAL_H
 #define HW_ARM_SMMUV3_INTERNAL_H
@@ -38,7 +19,6 @@ typedef enum SMMUTranslationClass {
     SMMU_CLASS_IN,
 } SMMUTranslationClass;
 
-/* MMIO Registers */
 
 REG32(IDR0,                0x0)
     FIELD(IDR0, S2P,         0 , 1)
@@ -130,7 +110,6 @@ REG32(GBPA,                0x44)
     FIELD(GBPA, ABORT,        20, 1)
     FIELD(GBPA, UPDATE,       31, 1)
 
-/* Use incoming. */
 #define SMMU_GBPA_RESET_VAL 0x1000
 
 REG32(IRQ_CTRL,            0x50)
@@ -184,23 +163,16 @@ static inline int smmu_enabled(SMMUv3State *s)
     return FIELD_EX32(s->cr[0], CR0, SMMU_ENABLE);
 }
 
-/* Command Queue Entry */
 typedef struct Cmd {
     uint32_t word[4];
 } Cmd;
 
-/* Event Queue Entry */
 typedef struct Evt  {
     uint32_t word[8];
 } Evt;
 
 static inline uint32_t smmuv3_idreg(int regoffset)
 {
-    /*
-     * Return the value of the Primecell/Corelink ID registers at the
-     * specified offset from the first ID register.
-     * These value indicate an ARM implementation of MMU600 p1
-     */
     static const uint8_t smmuv3_ids[] = {
         0x04, 0, 0, 0, 0x84, 0xB4, 0xF0, 0x10, 0x0D, 0xF0, 0x05, 0xB1
     };
@@ -217,7 +189,6 @@ static inline bool smmuv3_gerror_irq_enabled(SMMUv3State *s)
     return FIELD_EX32(s->irq_ctrl, IRQ_CTRL, GERROR_IRQEN);
 }
 
-/* Queue Handling */
 
 #define Q_BASE(q)          ((q)->base & SMMU_BASE_ADDR_MASK)
 #define WRAP_MASK(q)       (1 << (q)->log2size)
@@ -250,10 +221,6 @@ static inline void queue_prod_incr(SMMUQueue *q)
 
 static inline void queue_cons_incr(SMMUQueue *q)
 {
-    /*
-     * We have to use deposit for the CONS registers to preserve
-     * the ERR field in the high bits.
-     */
     q->cons = deposit32(q->cons, 0, q->log2size + 1, q->cons + 1);
 }
 
@@ -272,7 +239,6 @@ static inline void smmu_write_cmdq_err(SMMUv3State *s, uint32_t err_type)
     s->cmdq.cons = FIELD_DP32(s->cmdq.cons, CMDQ_CONS, ERR, err_type);
 }
 
-/* Commands */
 
 typedef enum SMMUCommandType {
     SMMU_CMD_NONE            = 0x00,
@@ -340,7 +306,6 @@ static inline const char *smmu_cmd_string(SMMUCommandType type)
     }
 }
 
-/* CMDQ fields */
 
 typedef enum {
     SMMU_CERROR_NONE = 0,
@@ -379,7 +344,6 @@ enum { /* Command completion notification */
 
 #define SMMU_FEATURE_2LVL_STE (1 << 0)
 
-/* Events */
 
 typedef enum SMMUEventType {
     SMMU_EVT_NONE               = 0x00,
@@ -434,7 +398,6 @@ static inline const char *smmu_event_string(SMMUEventType type)
     }
 }
 
-/*  Encode an event record */
 typedef struct SMMUEventInfo {
     SMMUEventType type;
     uint32_t sid;
@@ -486,18 +449,9 @@ typedef struct SMMUEventInfo {
        struct FullInfo f_access;
        struct FullInfo f_permission;
        struct SSIDInfo f_cfg_conflict;
-       /**
-        * not supported yet:
-        * F_BAD_ATS_TREQ
-        * F_BAD_ATS_TREQ
-        * F_TLB_CONFLICT
-        * E_PAGE_REQUEST
-        * IMPDEF_EVENTn
-        */
     } u;
 } SMMUEventInfo;
 
-/* EVTQ fields */
 
 #define EVT_Q_OVERFLOW        (1 << 31)
 
@@ -525,29 +479,23 @@ typedef struct SMMUEventInfo {
 
 void smmuv3_record_event(SMMUv3State *s, SMMUEventInfo *event);
 
-/* Configuration Data */
 
-/* STE Level 1 Descriptor */
 typedef struct STEDesc {
     uint32_t word[2];
 } STEDesc;
 
-/* CD Level 1 Descriptor */
 typedef struct CDDesc {
     uint32_t word[2];
 } CDDesc;
 
-/* Stream Table Entry(STE) */
 typedef struct STE {
     uint32_t word[16];
 } STE;
 
-/* Context Descriptor(CD) */
 typedef struct CD {
     uint32_t word[16];
 } CD;
 
-/* STE fields */
 
 #define STE_VALID(x)   extract32((x)->word[0], 0, 1)
 
@@ -603,7 +551,6 @@ static inline int oas2bits(int oas_field)
     g_assert_not_reached();
 }
 
-/* CD fields */
 
 #define CD_VALID(x)   extract32((x)->word[0], 31, 1)
 #define CD_ASID(x)    extract32((x)->word[1], 16, 16)
@@ -627,12 +574,6 @@ static inline int oas2bits(int oas_field)
 #define CD_A(x)          extract32((x)->word[1], 14, 1)
 #define CD_AARCH64(x)    extract32((x)->word[1], 9 , 1)
 
-/**
- * tg2granule - Decodes the CD translation granule size field according
- * to the ttbr in use
- * @bits: TG0/1 fields
- * @ttbr: ttbr index in use
- */
 static inline int tg2granule(int bits, int ttbr)
 {
     switch (bits) {

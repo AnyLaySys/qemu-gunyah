@@ -1,17 +1,3 @@
-/*
- * QMP commands related to QOM
- *
- * Copyright IBM, Corp. 2011
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "block/qdict.h"
@@ -147,7 +133,6 @@ ObjectPropertyInfoList *qmp_device_list_properties(const char *typename,
     while ((prop = object_property_iter_next(&iter))) {
         ObjectPropertyInfo *info;
 
-        /* Skip Object and DeviceState properties */
         if (strcmp(prop->name, "type") == 0 ||
             strcmp(prop->name, "realized") == 0 ||
             strcmp(prop->name, "hotpluggable") == 0 ||
@@ -156,9 +141,6 @@ ObjectPropertyInfoList *qmp_device_list_properties(const char *typename,
             continue;
         }
 
-        /* Skip legacy properties since they are just string versions of
-         * properties that we already list.
-         */
         if (strstart(prop->name, "legacy-", NULL)) {
             continue;
         }

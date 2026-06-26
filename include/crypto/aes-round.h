@@ -1,14 +1,7 @@
-/*
- * AES round fragments, generic version
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * Copyright (C) 2023 Linaro, Ltd.
- */
 
 #ifndef CRYPTO_AES_ROUND_H
 #define CRYPTO_AES_ROUND_H
 
-/* Hosts with acceleration will usually need a 16-byte vector type. */
 typedef uint8_t AESStateVec __attribute__((vector_size(16)));
 
 typedef union {
@@ -20,9 +13,6 @@ typedef union {
 
 #include "host/crypto/aes-round.h"
 
-/*
- * Perform MixColumns.
- */
 
 void aesenc_MC_gen(AESState *ret, const AESState *st);
 void aesenc_MC_genrev(AESState *ret, const AESState *st);
@@ -38,9 +28,6 @@ static inline void aesenc_MC(AESState *r, const AESState *st, bool be)
     }
 }
 
-/*
- * Perform SubBytes + ShiftRows + AddRoundKey.
- */
 
 void aesenc_SB_SR_AK_gen(AESState *ret, const AESState *st,
                          const AESState *rk);
@@ -59,9 +46,6 @@ static inline void aesenc_SB_SR_AK(AESState *r, const AESState *st,
     }
 }
 
-/*
- * Perform SubBytes + ShiftRows + MixColumns + AddRoundKey.
- */
 
 void aesenc_SB_SR_MC_AK_gen(AESState *ret, const AESState *st,
                             const AESState *rk);
@@ -80,9 +64,6 @@ static inline void aesenc_SB_SR_MC_AK(AESState *r, const AESState *st,
     }
 }
 
-/*
- * Perform InvMixColumns.
- */
 
 void aesdec_IMC_gen(AESState *ret, const AESState *st);
 void aesdec_IMC_genrev(AESState *ret, const AESState *st);
@@ -98,9 +79,6 @@ static inline void aesdec_IMC(AESState *r, const AESState *st, bool be)
     }
 }
 
-/*
- * Perform InvSubBytes + InvShiftRows + AddRoundKey.
- */
 
 void aesdec_ISB_ISR_AK_gen(AESState *ret, const AESState *st,
                            const AESState *rk);
@@ -119,9 +97,6 @@ static inline void aesdec_ISB_ISR_AK(AESState *r, const AESState *st,
     }
 }
 
-/*
- * Perform InvSubBytes + InvShiftRows + AddRoundKey + InvMixColumns.
- */
 
 void aesdec_ISB_ISR_AK_IMC_gen(AESState *ret, const AESState *st,
                                const AESState *rk);
@@ -140,9 +115,6 @@ static inline void aesdec_ISB_ISR_AK_IMC(AESState *r, const AESState *st,
     }
 }
 
-/*
- * Perform InvSubBytes + InvShiftRows + InvMixColumns + AddRoundKey.
- */
 
 void aesdec_ISB_ISR_IMC_AK_gen(AESState *ret, const AESState *st,
                                const AESState *rk);

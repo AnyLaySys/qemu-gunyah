@@ -1,8 +1,3 @@
-/* SPDX-License-Identifier: MIT */
-/*
- * Define tcg_debug_assert
- * Copyright (c) 2008 Fabrice Bellard
- */
 
 #ifndef TCG_DEBUG_ASSERT_H
 #define TCG_DEBUG_ASSERT_H

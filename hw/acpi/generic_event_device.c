@@ -1,13 +1,3 @@
-/*
- *
- * Copyright (c) 2018 Intel Corporation
- * Copyright (c) 2019 Huawei Technologies R & D (UK) Ltd
- * Written by Samuel Ortiz, Shameer Kolothum
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2 or later, as published by the Free Software Foundation.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
@@ -28,16 +18,6 @@ static const uint32_t ged_supported_events[] = {
     ACPI_GED_CPU_HOTPLUG_EVT,
 };
 
-/*
- * The ACPI Generic Event Device (GED) is a hardware-reduced specific
- * device[ACPI v6.1 Section 5.6.9] that handles all platform events,
- * including the hotplug ones. Platforms need to specify their own
- * GED Event bitmap to describe what kind of events they want to support
- * through GED. This routine uses a single interrupt for the GED device,
- * relying on IO memory region to communicate the type of device
- * affected by the interrupt. This way, we can support up to 32 events
- * with a unique interrupt.
- */
 void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
                    uint32_t ged_irq, AmlRegionSpace rs, hwaddr ged_base)
 {
@@ -48,7 +28,6 @@ void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
     Aml *evt_sel = aml_local(0);
     Aml *esel = aml_name(AML_GED_EVT_SEL);
 
-    /* _CRS interrupt */
     aml_append(crs, aml_interrupt(AML_CONSUMER, AML_EDGE, AML_ACTIVE_HIGH,
                                   AML_EXCLUSIVE, &ged_irq, 1));
 
@@ -56,7 +35,6 @@ void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
     aml_append(dev, aml_name_decl("_UID", aml_string(GED_DEVICE)));
     aml_append(dev, aml_name_decl("_CRS", crs));
 
-    /* Append IO region */
     aml_append(dev, aml_operation_region(AML_GED_EVT_REG, rs,
                aml_int(ged_base + ACPI_GED_EVT_SEL_OFFSET),
                ACPI_GED_EVT_SEL_LEN));
@@ -66,32 +44,12 @@ void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
                                       ACPI_GED_EVT_SEL_LEN * BITS_PER_BYTE));
     aml_append(dev, field);
 
-    /*
-     * For each GED event we:
-     * - Add a conditional block for each event, inside a loop.
-     * - Call a method for each supported GED event type.
-     *
-     * The resulting ASL code looks like:
-     *
-     * Local0 = ESEL
-     * If ((Local0 & One) == One)
-     * {
-     *     MethodEvent0()
-     * }
-     *
-     * If ((Local0 & 0x2) == 0x2)
-     * {
-     *     MethodEvent1()
-     * }
-     * ...
-     */
     evt = aml_method("_EVT", 1, AML_SERIALIZED);
     {
         Aml *if_ctx;
         uint32_t i;
         uint32_t ged_events = ctpop32(s->ged_event_bitmap);
 
-        /* Local0 = ESEL */
         aml_append(evt, aml_store(esel, evt_sel));
 
         for (i = 0; i < ARRAY_SIZE(ged_supported_events) && ged_events; i++) {
@@ -122,10 +80,6 @@ void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
                                       aml_int(0x80)));
                 break;
             default:
-                /*
-                 * Please make sure all the events in ged_supported_events[]
-                 * are handled above.
-                 */
                 g_assert_not_reached();
             }
 
@@ -139,7 +93,6 @@ void build_ged_aml(Aml *table, const char *name, HotplugHandler *hotplug_dev,
         }
     }
 
-    /* Append _EVT method */
     aml_append(dev, evt);
 
     aml_append(table, dev);
@@ -153,7 +106,6 @@ void acpi_dsdt_add_power_button(Aml *scope)
     aml_append(scope, dev);
 }
 
-/* Memory read by the GED _EVT AML dynamic method */
 static uint64_t ged_evt_read(void *opaque, hwaddr addr, unsigned size)
 {
     uint64_t val = 0;
@@ -161,7 +113,6 @@ static uint64_t ged_evt_read(void *opaque, hwaddr addr, unsigned size)
 
     switch (addr) {
     case ACPI_GED_EVT_SEL_OFFSET:
-        /* Read the selector value and reset it */
         val = ged_st->sel;
         ged_st->sel = 0;
         break;
@@ -172,7 +123,6 @@ static uint64_t ged_evt_read(void *opaque, hwaddr addr, unsigned size)
     return val;
 }
 
-/* Nothing is expected to be written to the GED memory region */
 static void ged_evt_write(void *opaque, hwaddr addr, uint64_t data,
                           unsigned int size)
 {
@@ -300,19 +250,12 @@ static void acpi_ged_send_event(AcpiDeviceIf *adev, AcpiEventStatusBits ev)
     } else if (ev & ACPI_CPU_HOTPLUG_STATUS) {
         sel = ACPI_GED_CPU_HOTPLUG_EVT;
     } else {
-        /* Unknown event. Return without generating interrupt. */
         warn_report("GED: Unsupported event %d. No irq injected", ev);
         return;
     }
 
-    /*
-     * Set the GED selector field to communicate the event type.
-     * This will be read by GED aml code to select the appropriate
-     * event method.
-     */
     ged_st->sel |= sel;
 
-    /* Trigger the event by sending an interrupt to the guest. */
     qemu_irq_pulse(s->irq);
 }
 
@@ -420,7 +363,6 @@ static void acpi_ged_realize(DeviceState *dev, Error **errp)
 
         switch (event) {
         case ACPI_GED_CPU_HOTPLUG_EVT:
-            /* initialize CPU Hotplug related regions */
             memory_region_init(&s->container_cpuhp, OBJECT(dev),
                                 "cpuhp container",
                                 ACPI_CPU_HOTPLUG_REG_LEN);
@@ -452,12 +394,6 @@ static void acpi_ged_initfn(Object *obj)
     sysbus_init_irq(sbd, &s->irq);
 
     s->memhp_state.is_enabled = true;
-    /*
-     * GED handles memory hotplug event and acpi-mem-hotplug
-     * memory region gets initialized here. Create an exclusive
-     * container for memory hotplug IO and expose it as GED sysbus
-     * MMIO so that boards can map it separately.
-     */
      memory_region_init(&s->container_memhp, OBJECT(dev), "memhp container",
                         MEMORY_HOTPLUG_IO_LEN);
      sysbus_init_mmio(sbd, &s->container_memhp);

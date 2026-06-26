@@ -1,6 +1,3 @@
-/*
- * Minimal VMState support for the Gunyah-only build.
- */
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"

@@ -1,14 +1,3 @@
-/*
- * Dealing with identifiers
- *
- * Copyright (C) 2014 Red Hat, Inc.
- *
- * Authors:
- *  Markus Armbruster <armbru@redhat.com>,
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.1
- * or later.  See the COPYING.LIB file in the top-level directory.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/ctype.h"
@@ -38,20 +27,6 @@ static const char *const id_subsys_str[ID_MAX] = {
     [ID_NET] = "net",
 };
 
-/*
- *  Generates an ID of the form PREFIX SUBSYSTEM NUMBER
- *  where:
- *
- *  - PREFIX is the reserved character '#'
- *  - SUBSYSTEM identifies the subsystem creating the ID
- *  - NUMBER is a decimal number unique within SUBSYSTEM.
- *
- *    Example: "#block146"
- *
- * Note that these IDs do not satisfy id_wellformed().
- *
- * The caller is responsible for freeing the returned string with g_free()
- */
 char *id_generate(IdSubSystems id)
 {
     static uint64_t id_counters[ID_MAX];

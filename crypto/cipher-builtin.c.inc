@@ -1,22 +1,3 @@
-/*
- * QEMU Crypto cipher built-in algorithms
- *
- * Copyright (c) 2015 Red Hat, Inc.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
- *
- */
 
 #include "crypto/aes.h"
 
@@ -65,7 +46,6 @@ static void do_aes_encrypt_ecb(const void *vctx,
 {
     const QCryptoCipherBuiltinAESContext *ctx = vctx;
 
-    /* We have already verified that len % AES_BLOCK_SIZE == 0. */
     while (len) {
         AES_encrypt(in, out, &ctx->enc);
         in += AES_BLOCK_SIZE;
@@ -81,7 +61,6 @@ static void do_aes_decrypt_ecb(const void *vctx,
 {
     const QCryptoCipherBuiltinAESContext *ctx = vctx;
 
-    /* We have already verified that len % AES_BLOCK_SIZE == 0. */
     while (len) {
         AES_decrypt(in, out, &ctx->dec);
         in += AES_BLOCK_SIZE;
@@ -99,7 +78,6 @@ static void do_aes_encrypt_cbc(const AES_KEY *key,
     uint8_t tmp[AES_BLOCK_SIZE];
     size_t n;
 
-    /* We have already verified that len % AES_BLOCK_SIZE == 0. */
     while (len) {
         for (n = 0; n < AES_BLOCK_SIZE; ++n) {
             tmp[n] = in[n] ^ ivec[n];
@@ -121,7 +99,6 @@ static void do_aes_decrypt_cbc(const AES_KEY *key,
     uint8_t tmp[AES_BLOCK_SIZE];
     size_t n;
 
-    /* We have already verified that len % AES_BLOCK_SIZE == 0. */
     while (len) {
         memcpy(tmp, in, AES_BLOCK_SIZE);
         AES_decrypt(in, out, key);

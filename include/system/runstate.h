@@ -27,12 +27,6 @@ VMChangeStateEntry *qdev_add_vm_change_state_handler_full(
     DeviceState *dev, VMChangeStateHandler *cb,
     VMChangeStateHandler *prepare_cb, void *opaque);
 void qemu_del_vm_change_state_handler(VMChangeStateEntry *e);
-/**
- * vm_state_notify: Notify the state of the VM
- *
- * @running: whether the VM is running or not.
- * @state: the #RunState of the VM.
- */
 void vm_state_notify(bool running, RunState state);
 
 static inline bool shutdown_caused_by_guest(ShutdownCause cause)
@@ -40,10 +34,6 @@ static inline bool shutdown_caused_by_guest(ShutdownCause cause)
     return cause >= SHUTDOWN_CAUSE_GUEST_SHUTDOWN;
 }
 
-/*
- * In a "live" state, the vcpu clock is ticking, and the runstate notifiers
- * think we are running.
- */
 static inline bool runstate_is_live(RunState state)
 {
     return state == RUN_STATE_RUNNING || state == RUN_STATE_SUSPENDED;
@@ -51,19 +41,8 @@ static inline bool runstate_is_live(RunState state)
 
 void vm_start(void);
 
-/**
- * vm_prepare_start: Prepare for starting/resuming the VM
- *
- * @step_pending: whether any of the CPUs is about to be single-stepped by gdb
- */
 int vm_prepare_start(bool step_pending);
 
-/**
- * vm_resume: If @state is a live state, start the vm and set the state,
- * else just set the state.
- *
- * @state: the state to restore
- */
 void vm_resume(RunState state);
 
 int vm_stop(RunState state);
@@ -73,7 +52,6 @@ void vm_set_suspended(bool suspended);
 bool vm_get_suspended(void);
 
 typedef enum WakeupReason {
-    /* Always keep QEMU_WAKEUP_REASON_NONE = 0 */
     QEMU_WAKEUP_REASON_NONE = 0,
     QEMU_WAKEUP_REASON_RTC,
     QEMU_WAKEUP_REASON_PMTIMER,

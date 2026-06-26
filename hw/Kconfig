@@ -1,4 +1,3 @@
-# devices Kconfig
 source acpi/Kconfig
 source audio/Kconfig
 source block/Kconfig
@@ -18,11 +17,9 @@ source rtc/Kconfig
 source smbios/Kconfig
 source virtio/Kconfig
 
-# arch Kconfig
 source arm/Kconfig
 source cpu/Kconfig
 
-# Symbols used by multiple targets
 config TEST_DEVICES
     bool
 

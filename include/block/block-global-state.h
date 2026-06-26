@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator block driver
- *
- * Copyright (c) 2003 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 #ifndef BLOCK_GLOBAL_STATE_H
 #define BLOCK_GLOBAL_STATE_H
 
@@ -28,28 +5,6 @@
 #include "qemu/coroutine.h"
 #include "qemu/transactions.h"
 
-/*
- * Global state (GS) API. These functions run under the BQL.
- *
- * If a function modifies the graph, it also uses the graph lock to be sure it
- * has unique access. The graph lock is needed together with BQL because of the
- * thread-safe I/O API that concurrently runs and accesses the graph without
- * the BQL.
- *
- * It is important to note that not all of these functions are
- * necessarily limited to running under the BQL, but they would
- * require additional auditing and many small thread-safety changes
- * to move them into the I/O API. Often it's not worth doing that
- * work since the APIs are only used with the BQL held at the
- * moment, so they have been placed in the GS API (for now).
- *
- * These functions can call any function from this and other categories
- * (I/O, "I/O or GS", Common), but must be invoked only by other GS APIs.
- *
- * All functions in this header must use the macro
- * GLOBAL_STATE_CODE();
- * to catch when they are accidentally called without the BQL.
- */
 
 void bdrv_init(void);
 BlockDriver *bdrv_find_protocol(const char *filename,
@@ -158,11 +113,6 @@ bdrv_freeze_backing_chain(BlockDriverState *bs, BlockDriverState *base,
 void GRAPH_RDLOCK
 bdrv_unfreeze_backing_chain(BlockDriverState *bs, BlockDriverState *base);
 
-/*
- * The units of offset and total_work_size may be chosen arbitrarily by the
- * block driver; total_work_size may change during the course of the amendment
- * operation
- */
 typedef void BlockDriverAmendStatusCB(BlockDriverState *bs, int64_t offset,
                                       int64_t total_work_size, void *opaque);
 int GRAPH_RDLOCK
@@ -170,7 +120,6 @@ bdrv_amend_options(BlockDriverState *bs_new, QemuOpts *opts,
                    BlockDriverAmendStatusCB *status_cb, void *cb_opaque,
                    bool force, Error **errp);
 
-/* check if a named node can be replaced when doing drive-mirror */
 BlockDriverState * GRAPH_RDLOCK
 check_to_replace_node(BlockDriverState *parent_bs, const char *node_name,
                       Error **errp);
@@ -287,19 +236,6 @@ bdrv_add_child(BlockDriverState *parent, BlockDriverState *child, Error **errp);
 void GRAPH_WRLOCK
 bdrv_del_child(BlockDriverState *parent, BdrvChild *child, Error **errp);
 
-/**
- *
- * bdrv_register_buf/bdrv_unregister_buf:
- *
- * Register/unregister a buffer for I/O. For example, VFIO drivers are
- * interested to know the memory areas that would later be used for I/O, so
- * that they can prepare IOMMU mapping etc., to get better performance.
- *
- * Buffers must not overlap and they must be unregistered with the same <host,
- * size> values that they were registered with.
- *
- * Returns: true on success, false on failure
- */
 bool bdrv_register_buf(BlockDriverState *bs, void *host, size_t size,
                        Error **errp);
 void bdrv_unregister_buf(BlockDriverState *bs, void *host, size_t size);

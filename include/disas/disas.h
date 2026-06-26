@@ -1,7 +1,6 @@
 #ifndef QEMU_DISAS_H
 #define QEMU_DISAS_H
 
-/* Disassemble this for me please... (debugging). */
 #ifdef CONFIG_TCG
 void disas(FILE *out, const void *code, size_t size);
 void target_disas(FILE *out, CPUState *cpu, const DisasContextBase *db);
@@ -15,7 +14,6 @@ char *plugin_disas(CPUState *cpu, const DisasContextBase *db,
                    uint64_t addr, size_t size);
 #endif
 
-/* Look up symbol for debugging purpose.  Returns "" if unknown. */
 const char *lookup_symbol(uint64_t orig_addr);
 
 struct syminfo;
@@ -35,7 +33,6 @@ struct syminfo {
     struct syminfo *next;
 };
 
-/* Filled in by elfload.c.  Simplistic, but will do for now. */
 extern struct syminfo *syminfos;
 
 #endif /* QEMU_DISAS_H */

@@ -1,12 +1,4 @@
-/*
- * QEMU Gunyah hypervisor support
- *
- * Copyright(c) 2023 Qualcomm Innovation Center, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
 
-/* header to be included in non-Gunyah-specific code */
 
 #ifndef QEMU_GUNYAH_H
 #define QEMU_GUNYAH_H
@@ -31,18 +23,10 @@ DECLARE_INSTANCE_CHECKER(GUNYAHState, GUNYAH_STATE,
 
 int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size);
 
-/*
- * Check if a guest physical address falls in LEND'd (host-inaccessible)
- * memory.  Returns true if the address is in the LEND region, meaning
- * the host process will SIGBUS if it tries to access the corresponding
- * HVA.  Used by virtio-gpu and other devices to avoid mapping LEND'd
- * memory directly.
- */
 bool gunyah_addr_is_lend(uint64_t gpa);
 void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
                 uint32_t gic_phandle);
 
-/* SimpleFB: framebuffer in SHARE'd memory for Gunyah display */
 uint64_t gunyah_get_simplefb_addr(void);
 uint64_t gunyah_get_simplefb_size(void);
 

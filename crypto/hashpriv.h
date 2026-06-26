@@ -1,17 +1,3 @@
-/*
- * QEMU Crypto hash driver supports
- *
- * Copyright (c) 2024 Seagate Technology LLC and/or its Affiliates
- * Copyright (c) 2017 HUAWEI TECHNOLOGIES CO., LTD.
- *
- * Authors:
- *    Longpeng(Mike) <longpeng2@huawei.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or
- * (at your option) any later version.  See the COPYING file in the
- * top-level directory.
- *
- */
 
 #ifndef QCRYPTO_HASHPRIV_H
 #define QCRYPTO_HASHPRIV_H

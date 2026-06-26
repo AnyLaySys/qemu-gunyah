@@ -1,26 +1,3 @@
-/*
- * QEMU System Emulator
- *
- * Copyright (c) 2003-2008 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/help-texts.h"
@@ -229,11 +206,6 @@ static QemuOptsList qemu_accel_opts = {
     .implied_opt_name = "accel",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_accel_opts.head),
     .desc = {
-        /*
-         * no elements => accept any
-         * sanity checking will happen later
-         * when setting accelerator properties
-         */
         { }
     },
 };
@@ -305,7 +277,6 @@ static QemuOptsList qemu_tpmdev_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_tpmdev_opts.head),
     .desc = {
-        /* options are defined in the TPM backends */
         { /* end of list */ }
     },
 };
@@ -521,10 +492,6 @@ static int parse_add_fd(void *opaque, QemuOpts *opts, Error **errp)
         return -1;
     }
 
-    /*
-     * All fds inherited across exec() necessarily have FD_CLOEXEC
-     * clear, while qemu sets FD_CLOEXEC on all other fds used internally.
-     */
     flags = fcntl(fd, F_GETFD);
     if (flags == -1 || (flags & FD_CLOEXEC)) {
         error_setg(errp, "fd is not valid or already in use");
@@ -549,7 +516,6 @@ static int parse_add_fd(void *opaque, QemuOpts *opts, Error **errp)
         return -1;
     }
 
-    /* add the duplicate fd, and optionally the opaque string, to the fd set */
     fdinfo = monitor_fdset_add_fd(dupfd, true, fdset_id, fd_opaque,
                                   &error_abort);
     g_free(fdinfo);
@@ -568,8 +534,6 @@ static int cleanup_add_fd(void *opaque, QemuOpts *opts, Error **errp)
 }
 #endif
 
-/***********************************************************/
-/* QEMU Block devices */
 
 #define HD_OPTS "media=disk"
 #define CDROM_OPTS "media=cdrom"
@@ -615,17 +579,11 @@ static void default_drive(int enable, int snapshot, BlockInterfaceType type,
 static void configure_blockdev(BlockdevOptionsQueue *bdo_queue,
                                MachineClass *machine_class, int snapshot)
 {
-    /*
-     * If the currently selected machine wishes to override the
-     * units-per-bus property of its default HBA interface type, do so
-     * now.
-     */
     if (machine_class->units_per_default_bus) {
         override_max_devs(machine_class->block_default_type,
                           machine_class->units_per_default_bus);
     }
 
-    /* open the virtual block devices */
     while (!QSIMPLEQ_EMPTY(bdo_queue)) {
         BlockdevOptionsQueueEntry *bdo = QSIMPLEQ_FIRST(bdo_queue);
 
@@ -642,7 +600,6 @@ static void configure_blockdev(BlockdevOptionsQueue *bdo_queue,
     }
     if (qemu_opts_foreach(qemu_find_opts("drive"), drive_init_func,
                           &machine_class->block_default_type, &error_fatal)) {
-        /* We printed help */
         exit(0);
     }
 
@@ -743,8 +700,6 @@ static void configure_msg(QemuOpts *opts)
 }
 
 
-/***********************************************************/
-/* machine registration */
 
 static MachineClass *find_machine(const char *name, GSList *machines)
 {
@@ -923,7 +878,6 @@ static int parse_fw_cfg(void *opaque, QemuOpts *opts, Error **errp)
     str = qemu_opt_get(opts, "string");
     gen_id = qemu_opt_get(opts, "gen_id");
 
-    /* we need the name, and exactly one of: file, content string, gen_id */
     if (!nonempty_str(name) ||
         nonempty_str(file) + nonempty_str(str) + nonempty_str(gen_id) != 1) {
         error_setg(errp, "name, plus exactly one of file,"
@@ -936,11 +890,6 @@ static int parse_fw_cfg(void *opaque, QemuOpts *opts, Error **errp)
         return -1;
     }
     if (nonempty_str(gen_id)) {
-        /*
-         * In this particular case where the content is populated
-         * internally, the "etc/" namespace protection is relaxed,
-         * so do not emit a warning.
-         */
     } else if (strncmp(name, "opt/", 4) != 0) {
         warn_report("externally provided fw_cfg item names "
                     "should be prefixed with \"opt/\"");
@@ -962,7 +911,6 @@ static int parse_fw_cfg(void *opaque, QemuOpts *opts, Error **errp)
             return -1;
         }
     }
-    /* For legacy, keep user files in a specific global order. */
     fw_cfg_set_order_override(fw_cfg, FW_CFG_ORDER_OVERRIDE_USER);
     fw_cfg_add_file(fw_cfg, name, buf, size);
     fw_cfg_reset_order_override(fw_cfg);
@@ -1063,14 +1011,6 @@ static void add_device_config(int type, const char *cmdline)
     QTAILQ_INSERT_TAIL(&device_configs, conf, next);
 }
 
-/**
- * foreach_device_config_or_exit(): process per-device configs
- * @type: device_config type
- * @func: device specific config function, returning pass/fail
- *
- * @func is called with the &error_fatal handler so device specific
- * error messages can be reported on failure.
- */
 static void foreach_device_config_or_exit(int type,
                                           bool (*func)(const char *cmdline,
                                                        Error **errp))
@@ -1146,15 +1086,6 @@ static void qemu_create_default_devices(void)
     const char *vc = qemu_display_get_vc(&dpy);
 
     if (is_daemonized()) {
-        /* According to documentation and historically, -nographic redirects
-         * serial port, parallel port and monitor to stdio, which does not work
-         * with -daemonize.  We can redirect these to null instead, but since
-         * -nographic is legacy, let's just error out.
-         * We disallow -nographic only if all other ports are not redirected
-         * explicitly, to not break existing legacy setups which uses
-         * -nographic _and_ redirects all ports explicitly - this is valid
-         * usage, -nographic is just a no-op in this case.
-         */
         if (nographic
             && (default_parallel || default_serial || default_monitor)) {
             error_report("-nographic cannot be used with -daemonize");
@@ -1211,7 +1142,6 @@ static bool serial_parse(const char *devname, Error **errp)
     serial_hds = g_renew(Chardev *, serial_hds, index + 1);
 
     if (strcmp(devname, "none") == 0) {
-        /* Don't allocate a serial device for this index */
         serial_hds[index] = NULL;
     } else {
         char label[32];
@@ -1284,29 +1214,22 @@ static gint machine_class_cmp(gconstpointer a, gconstpointer b)
 
     if (mc1->family == NULL) {
         if (mc2->family == NULL) {
-            /* Compare standalone machine types against each other; they sort
-             * in increasing order.
-             */
             return strcmp(object_class_get_name(OBJECT_CLASS(mc1)),
                           object_class_get_name(OBJECT_CLASS(mc2)));
         }
 
-        /* Standalone machine types sort after families. */
         return 1;
     }
 
     if (mc2->family == NULL) {
-        /* Families sort before standalone machine types. */
         return -1;
     }
 
-    /* Families sort between each other alphabetically increasingly. */
     res = strcmp(mc1->family, mc2->family);
     if (res != 0) {
         return res;
     }
 
-    /* Within the same family, machine types sort in decreasing order. */
     return strcmp(object_class_get_name(OBJECT_CLASS(mc2)),
                   object_class_get_name(OBJECT_CLASS(mc1)));
 }
@@ -1345,7 +1268,6 @@ machine_merge_property(const char *propname, QDict *prop, Error **errp)
     QDict *opts;
 
     opts = qdict_new();
-    /* Preserve the caller's reference to prop.  */
     qobject_ref(prop);
     qdict_put(opts, propname, prop);
     keyval_merge(machine_opts_dict, opts, errp);
@@ -1393,7 +1315,6 @@ static const QEMUOption *lookup_opt(int argc, char **argv,
 
     loc_set_cmdline(argv, optind, 1);
     optind++;
-    /* Treat --foo the same as -foo.  */
     if (r[1] == '-')
         r++;
     popt = qemu_options;
@@ -1465,7 +1386,6 @@ static int object_parse_property_opt(Object *obj,
     return 0;
 }
 
-/* *Non*recursively replace underscores with dashes in QDict keys.  */
 static void keyval_dashify(QDict *qdict, Error **errp)
 {
     const QDictEntry *ent, *next;
@@ -1501,7 +1421,6 @@ static void qemu_apply_legacy_machine_options(QDict *qdict)
 
     keyval_dashify(qdict, &error_fatal);
 
-    /* Legacy options do not correspond to MachineState properties.  */
     value = qdict_get_try_str(qdict, "accel");
     if (value) {
         accelerators = g_strdup(value);
@@ -1516,7 +1435,6 @@ static void qemu_apply_legacy_machine_options(QDict *qdict)
             exit(EXIT_FAILURE);
         }
 
-        /* Resolved later.  */
         ram_memdev_id = g_strdup(value);
         qdict_del(qdict, "memory-backend");
     }
@@ -1623,20 +1541,9 @@ static void overcommit_parse(const char *str)
     exit(1);
 }
 
-/*
- * Very early object creation, before the sandbox options have been activated.
- */
 static bool object_create_pre_sandbox(const char *type)
 {
-    /*
-     * Objects should in general not get initialized "too early" without
-     * a reason. If you add one, state the reason in a comment!
-     */
 
-    /*
-     * Reason: -sandbox on,resourcecontrol=deny disallows setting CPU
-     * affinity of threads.
-     */
     if (g_str_equal(type, "thread-context")) {
         return true;
     }
@@ -1644,40 +1551,21 @@ static bool object_create_pre_sandbox(const char *type)
     return false;
 }
 
-/*
- * Initial object creation happens before all other
- * QEMU data types are created. The majority of objects
- * can be created at this point. The rng-egd object
- * cannot be created here, as it depends on the chardev
- * already existing.
- */
 static bool object_create_early(const char *type)
 {
-    /*
-     * Objects should not be made "delayed" without a reason.  If you
-     * add one, state the reason in a comment!
-     */
 
-    /* Reason: already created. */
     if (object_create_pre_sandbox(type)) {
         return false;
     }
 
-    /* Reason: property "chardev" */
     if (g_str_equal(type, "rng-egd") ||
         g_str_equal(type, "qtest")) {
         return false;
     }
 
-    /* Reason: vhost-user-blk-server property "node-name" */
     if (g_str_equal(type, "vhost-user-blk-server")) {
         return false;
     }
-    /*
-     * Allocation of large amounts of memory may delay
-     * chardev initialization for too long, and trigger timeouts
-     * on software that waits for a monitor socket to be created
-     */
     if (g_str_has_prefix(type, "memory-backend-")) {
         return false;
     }
@@ -1718,18 +1606,11 @@ static void qemu_create_early_backends(void)
 
     object_option_foreach_add(object_create_early);
 
-    /* spice needs the timers to be initialized by this point */
-    /* spice must initialize before audio as it changes the default audiodev */
-    /* spice must initialize before chardevs (for spicevmc and spiceport) */
     qemu_spice.init();
 
     qemu_opts_foreach(qemu_find_opts("chardev"),
                       chardev_init_func, NULL, &error_fatal);
 
-    /*
-     * Note: we need to create audio and block backends before
-     * setting machine properties, so they can be referred to.
-     */
     configure_blockdev(&bdo_queue, machine_class, snapshot);
     audio_init_audiodevs();
     if (default_audio) {
@@ -1738,10 +1619,6 @@ static void qemu_create_early_backends(void)
 }
 
 
-/*
- * The remainder of object creation happens after the
- * creation of chardev, fsdev, net clients and device data types.
- */
 static bool object_create_late(const char *type)
 {
     return !object_create_early(type) && !object_create_pre_sandbox(type);
@@ -1757,10 +1634,6 @@ static void qemu_create_late_backends(void)
 
     object_option_foreach_add(object_create_late);
 
-    /*
-     * Wait for any outstanding memory prealloc from created memory
-     * backends to complete.
-     */
     if (!qemu_finish_async_prealloc_mem(&error_fatal)) {
         exit(1);
     }
@@ -1812,7 +1685,6 @@ static void parse_memory_options(void)
     prop = qdict_new();
 
     if (qemu_opt_get_size(opts, "size", 0) != 0) {
-        /* Fix up legacy suffix-less format */
         mem_str = qemu_opt_get(opts, "size");
         if (g_ascii_isdigit(mem_str[strlen(mem_str) - 1])) {
             g_autofree char *mib_str = g_strdup_printf("%sM", mem_str);
@@ -1863,9 +1735,6 @@ static void qemu_create_machine(QDict *qdict)
 
     if (machine_class->minimum_page_bits) {
         if (!set_preferred_target_page_bits(machine_class->minimum_page_bits)) {
-            /* This would be a board error: specifying a minimum smaller than
-             * a target's compile-time fixed setting.
-             */
             g_assert_not_reached();
         }
     }
@@ -1876,10 +1745,6 @@ static void qemu_create_machine(QDict *qdict)
         qemu_set_hw_version(machine_class->hw_version);
     }
 
-    /*
-     * Get the default machine options from the machine if it is not already
-     * specified either by the configuration file or by the command line.
-     */
     if (machine_class->default_machine_opts) {
         QDict *default_opts =
             keyval_parse(machine_class->default_machine_opts, NULL, NULL,
@@ -1903,10 +1768,6 @@ static int global_init_func(void *opaque, QemuOpts *opts, Error **errp)
     return 0;
 }
 
-/*
- * Return whether configuration group @group is stored in QemuOpts, or
- * recorded as one or more QDicts by qemu_record_config_group.
- */
 static bool is_qemuopts_group(const char *group)
 {
     if (g_str_equal(group, "object") ||
@@ -1936,10 +1797,6 @@ static void qemu_record_config_group(const char *group, QDict *dict,
         visit_free(v);
 
     } else if (g_str_equal(group, "machine")) {
-        /*
-         * Cannot merge string-valued and type-safe dictionaries, so JSON
-         * is not accepted yet for -M.
-         */
         assert(!from_json);
         keyval_merge(machine_opts_dict, dict, errp);
     } else if (g_str_equal(group, "smp-opts")) {
@@ -1951,10 +1808,6 @@ static void qemu_record_config_group(const char *group, QDict *dict,
     }
 }
 
-/*
- * Parse non-QemuOpts config file groups, pass the rest to
- * qemu_config_do_parse.
- */
 static void qemu_parse_config_group(const char *group, QDict *qdict,
                                     void *opaque, Error **errp)
 {
@@ -2081,7 +1934,6 @@ static void configure_accelerators(const char *progname)
         char **accel_list, **tmp;
 
         if (accelerators == NULL) {
-            /* Select the default accelerator */
             bool have_tcg = accel_find("tcg");
 
             if (have_tcg) {
@@ -2095,10 +1947,6 @@ static void configure_accelerators(const char *progname)
         accel_list = g_strsplit(accelerators, ":", 0);
 
         for (tmp = accel_list; *tmp; tmp++) {
-            /*
-             * Filter invalid accelerators here, to prevent obscenities
-             * such as "-machine accel=tcg,,thread=single".
-             */
             if (accel_find(*tmp)) {
                 qemu_opts_parse_noisily(qemu_find_opts("accel"), *tmp, true);
             } else {
@@ -2176,11 +2024,7 @@ static void qemu_process_sugar_options(void)
     }
 }
 
-/* -action processing */
 
-/*
- * Process all the -action parameters parsed from cmdline.
- */
 static int process_runstate_actions(void *opaque, QemuOpts *opts, Error **errp)
 {
     Error *local_err = NULL;
@@ -2223,7 +2067,6 @@ static void qemu_process_early_options(void)
                       cleanup_add_fd, NULL, &error_fatal);
 #endif
 
-    /* Open the logfile at this point and set the log mask if necessary.  */
     {
         int mask = 0;
         if (log_mask) {
@@ -2241,12 +2084,6 @@ static void qemu_process_early_options(void)
 
 static void qemu_process_help_options(void)
 {
-    /*
-     * Check for -cpu help and -device help before we call select_machine(),
-     * which will return an error if the architecture has no default machine
-     * type and the user did not specify one, so that the user doesn't need
-     * to say '-cpu help -machine something'.
-     */
     if (cpu_option && is_help_option(cpu_option)) {
         list_cpus();
         exit(0);
@@ -2257,7 +2094,6 @@ static void qemu_process_help_options(void)
         exit(0);
     }
 
-    /* -L help lists the data directories and exits. */
     if (list_data_dirs) {
         qemu_list_data_dirs();
         exit(0);
@@ -2302,14 +2138,11 @@ static void qemu_init_displays(void)
 {
     DisplayState *ds;
 
-    /* init local displays */
     ds = init_displaystate();
     qemu_display_init(ds, &dpy);
 
-    /* must be after terminal init, SDL library changes signal handlers */
     os_setup_signal_handling();
 
-    /* init remote displays */
     if (using_spice) {
         qemu_spice.display_init();
     }
@@ -2317,10 +2150,8 @@ static void qemu_init_displays(void)
 
 static void qemu_init_board(void)
 {
-    /* process plugin before CPUs are created, but once -smp has been parsed */
     qemu_plugin_load_list(&plugin_list, &error_fatal);
 
-    /* From here on we enter MACHINE_PHASE_INITIALIZED.  */
     machine_run_board_init(current_machine, mem_path, &error_fatal);
 
     drive_check_orphaned();
@@ -2337,7 +2168,6 @@ static void qemu_create_cli_devices(void)
     qemu_opts_foreach(qemu_find_opts("fw_cfg"),
                       parse_fw_cfg, fw_cfg_find(), &error_fatal);
 
-    /* init generic devices */
     rom_set_order_override(FW_CFG_ORDER_OVERRIDE_DEVICE);
     qemu_opts_foreach(qemu_find_opts("device"),
                       device_init_func, NULL, &error_fatal);
@@ -2356,17 +2186,8 @@ static bool qemu_machine_creation_done(Error **errp)
 {
     MachineState *machine = MACHINE(qdev_get_machine());
 
-    /* Did we create any drives that we failed to create a device for? */
     drive_check_orphaned();
 
-    /* Don't warn about the default network setup that you get if
-     * no command line -net or -netdev options are specified. There
-     * are two cases that we would otherwise complain about:
-     * (1) board doesn't support a NIC but the implicit "-net nic"
-     * requested one
-     * (2) CONFIG_SLIRP not set, in which case the implicit "-net nic"
-     * sets up a nic that isn't connected to anything.
-     */
     if (!default_net && (!qtest_enabled() || has_defaults)) {
         net_check_clients();
     }
@@ -2456,11 +2277,9 @@ void qemu_init(int argc, char **argv)
 
     qemu_init_subsystems();
 
-    /* first pass of option parsing */
     optind = 1;
     while (optind < argc) {
         if (argv[optind][0] != '-') {
-            /* disk image */
             optind++;
         } else {
             const QEMUOption *popt;
@@ -2479,7 +2298,6 @@ void qemu_init(int argc, char **argv)
         qemu_read_default_config_file(&error_fatal);
     }
 
-    /* second pass of option parsing */
     optind = 1;
     for(;;) {
         if (optind >= argc)
@@ -2497,7 +2315,6 @@ void qemu_init(int argc, char **argv)
             }
             switch(popt->index) {
             case QEMU_OPTION_cpu:
-                /* hw initialization will check this */
                 cpu_option = optarg;
                 break;
             case QEMU_OPTION_hda:
@@ -2875,7 +2692,6 @@ void qemu_init(int argc, char **argv)
                     for (el = accel_list; el; el = el->next) {
                         gchar *typename = g_strdup(object_class_get_name(
                                                    OBJECT_CLASS(el->data)));
-                        /* omit qtest which is used for tests only */
                         if (g_strcmp0(typename, ACCEL_CLASS_NAME("qtest")) &&
                             g_str_has_suffix(typename, ACCEL_CLASS_SUFFIX)) {
                             gchar **optname = g_strsplit(typename,
@@ -2948,7 +2764,6 @@ void qemu_init(int argc, char **argv)
                 if (!opts) {
                     exit(1);
                 }
-                /* Capture guest name if -msg guest-name is used later */
                 error_guest_name = qemu_opt_get(opts, "guest");
                 break;
             case QEMU_OPTION_prom_env:
@@ -3058,7 +2873,6 @@ void qemu_init(int argc, char **argv)
                 qsp_enable();
                 break;
             case QEMU_OPTION_nouserconfig:
-                /* Nothing to be parsed here. Especially, do not error out below. */
                 break;
 #if defined(CONFIG_POSIX)
             case QEMU_OPTION_daemonize:
@@ -3100,32 +2914,16 @@ void qemu_init(int argc, char **argv)
             }
         }
     }
-    /*
-     * Clear error location left behind by the loop.
-     * Best done right after the loop.  Do not insert code here!
-     */
     loc_set_none();
 
     qemu_validate_options(machine_opts_dict);
     qemu_process_sugar_options();
 
-    /*
-     * These options affect everything else and should be processed
-     * before daemonizing.
-     */
     qemu_process_early_options();
 
     qemu_process_help_options();
     qemu_maybe_daemonize(pid_file);
 
-    /*
-     * The trace backend must be initialized after daemonizing.
-     * trace_init_backends() will call st_init(), which will create the
-     * trace thread in the parent, and also register st_flush_trace_buffer()
-     * in atexit(). This function will force the parent to wait for the
-     * writeout thread to finish, which will not occur, and the parent
-     * process will be left in the host.
-     */
     if (!trace_init_backends()) {
         exit(1);
     }
@@ -3137,7 +2935,6 @@ void qemu_init(int argc, char **argv)
     user_register_global_props();
     configure_rtc(qemu_find_opts_singleton("rtc"));
 
-    /* Transfer QemuOpts options into machine options */
     parse_memory_options();
 
     qemu_create_machine(machine_opts_dict);
@@ -3154,28 +2951,9 @@ void qemu_init(int argc, char **argv)
     qobject_unref(machine_opts_dict);
     phase_advance(PHASE_MACHINE_CREATED);
 
-    /*
-     * Note: uses machine properties such as kernel-irqchip, must run
-     * after qemu_apply_machine_options.
-     */
     configure_accelerators(argv[0]);
     phase_advance(PHASE_ACCEL_CREATED);
 
-    /*
-     * Beware, QOM objects created before this point miss global and
-     * compat properties.
-     *
-     * Global properties get set up by qdev_prop_register_global(),
-     * called from user_register_global_props(), and certain option
-     * desugaring.  Also in CPU feature desugaring (buried in
-     * parse_cpu_option()), which happens below this point, but may
-     * only target the CPU type, which can only be created after
-     * parse_cpu_option() returned the type.
-     *
-     * Machine compat properties: object_set_machine_compat_props().
-     * Accelerator compat props: object_set_accelerator_compat_props(),
-     * called from do_configure_accelerator().
-     */
 
     machine_class = MACHINE_GET_CLASS(current_machine);
     if (!qtest_enabled() && machine_class->deprecation_reason) {
@@ -3186,12 +2964,10 @@ void qemu_init(int argc, char **argv)
     qemu_create_late_backends();
     phase_advance(PHASE_LATE_BACKENDS_CREATED);
 
-    /* parse features once if machine provides default cpu_type */
     current_machine->cpu_type = machine_class_default_cpu_type(machine_class);
     if (cpu_option) {
         current_machine->cpu_type = parse_cpu_option(cpu_option);
     }
-    /* NB: for machine none cpu_type could STILL be NULL here! */
 
     qemu_resolve_machine_memdev();
     parse_numa_opts(current_machine);

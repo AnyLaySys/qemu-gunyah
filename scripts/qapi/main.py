@@ -1,5 +1,3 @@
-# This work is licensed under the terms of the GNU GPL, version 2 or later.
-# See the COPYING file in the top-level directory.
 
 """
 QAPI Generator
@@ -80,8 +78,6 @@ def main() -> int:
     parser.add_argument('-B', '--backend', default=None,
                         help="Python module name for code generator")
 
-    # Option --suppress-tracing exists so we can avoid solving build system
-    # problems.  TODO Drop it when we no longer need it.
     parser.add_argument('--suppress-tracing', action='store_true',
                         help="suppress adding trace events to qmp marshals")
 

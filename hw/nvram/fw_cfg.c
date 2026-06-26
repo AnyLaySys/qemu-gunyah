@@ -1,26 +1,3 @@
-/*
- * QEMU Firmware configuration device emulation
- *
- * Copyright (c) 2008 Gleb Natapov
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/datadir.h"
@@ -45,11 +22,9 @@
 
 #define FW_CFG_FILE_SLOTS_DFLT 0x20
 
-/* FW_CFG_VERSION bits */
 #define FW_CFG_VERSION      0x01
 #define FW_CFG_VERSION_DMA  0x02
 
-/* FW_CFG_DMA_CONTROL bits */
 #define FW_CFG_DMA_CTL_ERROR   0x01
 #define FW_CFG_DMA_CTL_READ    0x02
 #define FW_CFG_DMA_CTL_SKIP    0x04
@@ -67,14 +42,6 @@ struct FWCfgEntry {
     FWCfgWriteCallback write_cb;
 };
 
-/**
- * key_name:
- *
- * @key: The uint16 selector key.
- *
- * Returns: The stringified name if the selector refers to a well-known
- *          numerically defined item, or NULL on key lookup failure.
- */
 static const char *key_name(uint16_t key)
 {
     static const char *fw_cfg_wellknown_keys[FW_CFG_FILE_FIRST] = {
@@ -142,12 +109,10 @@ static char *read_splashfile(char *filename, gsize *file_sizep,
         return NULL;
     }
 
-    /* check file size */
     if (*file_sizep < 30) {
         goto error;
     }
 
-    /* check magic ID */
     filehead = lduw_le_p(content);
     if (filehead == 0xd8ff) {
         file_type = JPG_FILE;
@@ -157,7 +122,6 @@ static char *read_splashfile(char *filename, gsize *file_sizep,
         goto error;
     }
 
-    /* check BMP bpp */
     if (file_type == BMP_FILE) {
         bmp_bpp = lduw_le_p(&content[28]);
         if (bmp_bpp != 24) {
@@ -165,7 +129,6 @@ static char *read_splashfile(char *filename, gsize *file_sizep,
         }
     }
 
-    /* return values */
     *file_typep = file_type;
 
     return content;
@@ -183,24 +146,20 @@ static void fw_cfg_bootsplash(FWCfgState *s)
     gsize file_size;
     int file_type;
 
-    /* insert splash time if user configurated */
     if (current_machine->boot_config.has_splash_time) {
         int64_t bst_val = current_machine->boot_config.splash_time;
         uint16_t bst_le16;
 
-        /* validate the input */
         if (bst_val < 0 || bst_val > 0xffff) {
             error_report("splash-time is invalid,"
                          "it should be a value between 0 and 65535");
             exit(1);
         }
-        /* use little endian format */
         bst_le16 = cpu_to_le16(bst_val);
         fw_cfg_add_file(s, "etc/boot-menu-wait",
                         g_memdup(&bst_le16, sizeof bst_le16), sizeof bst_le16);
     }
 
-    /* insert splash file if user configurated */
     if (current_machine->boot_config.splash) {
         const char *boot_splash_filename = current_machine->boot_config.splash;
         filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, boot_splash_filename);
@@ -209,7 +168,6 @@ static void fw_cfg_bootsplash(FWCfgState *s)
             return;
         }
 
-        /* loading file data */
         file_data = read_splashfile(filename, &file_size, &file_type);
         if (file_data == NULL) {
             g_free(filename);
@@ -218,7 +176,6 @@ static void fw_cfg_bootsplash(FWCfgState *s)
         g_free(boot_splash_filedata);
         boot_splash_filedata = (uint8_t *)file_data;
 
-        /* insert data */
         if (file_type == JPG_FILE) {
             fw_cfg_add_file(s, "bootsplash.jpg",
                             boot_splash_filedata, file_size);
@@ -238,7 +195,6 @@ static void fw_cfg_reboot(FWCfgState *s)
     if (current_machine->boot_config.has_reboot_timeout) {
         rt_val = current_machine->boot_config.reboot_timeout;
 
-        /* validate the input */
         if (rt_val > 0xffff && rt_val != (uint64_t)-1) {
             error_report("reboot timeout is invalid,"
                          "it should be a value between -1 and 65535");
@@ -287,7 +243,6 @@ static inline uint16_t fw_cfg_file_slots(const FWCfgState *s)
     return s->file_slots;
 }
 
-/* Note: this function returns an exclusive limit. */
 static inline uint32_t fw_cfg_max_entry(const FWCfgState *s)
 {
     return FW_CFG_FILE_FIRST + fw_cfg_file_slots(s);
@@ -305,7 +260,6 @@ static int fw_cfg_select(FWCfgState *s, uint16_t key)
     } else {
         s->cur_entry = key;
         ret = 1;
-        /* entry successfully selected, now run callback if present */
         arch = !!(key & FW_CFG_ARCH_LOCAL);
         e = &s->entries[arch][key & FW_CFG_ENTRY_MASK];
         if (e->select_cb) {
@@ -327,19 +281,9 @@ static uint64_t fw_cfg_data_read(void *opaque, hwaddr addr, unsigned size)
 
     assert(size > 0 && size <= sizeof(value));
     if (s->cur_entry != FW_CFG_INVALID && e->data && s->cur_offset < e->len) {
-        /* The least significant 'size' bytes of the return value are
-         * expected to contain a string preserving portion of the item
-         * data, padded with zeros on the right in case we run out early.
-         * In technical terms, we're composing the host-endian representation
-         * of the big endian interpretation of the fw_cfg string.
-         */
         do {
             value = (value << 8) | e->data[s->cur_offset++];
         } while (--size && s->cur_offset < e->len);
-        /* If size is still not zero, we *did* run out early, so continue
-         * left-shifting, to add the appropriate number of padding zeros
-         * on the right.
-         */
         value <<= 8 * size;
     }
 
@@ -367,7 +311,6 @@ static void fw_cfg_dma_transfer(FWCfgState *s)
     int read = 0, write = 0;
     dma_addr_t dma_addr;
 
-    /* Reset the address before the next access */
     dma_addr = s->dma_addr;
     s->dma_addr = 0;
 
@@ -410,9 +353,6 @@ static void fw_cfg_dma_transfer(FWCfgState *s)
                                 s->cur_offset >= e->len) {
             len = dma.length;
 
-            /* If the access is not a read access, it will be a skip access,
-             * tested before.
-             */
             if (read) {
                 if (dma_memory_set(s->dma_as, dma.address, 0, len,
                                    MEMTXATTRS_UNSPECIFIED)) {
@@ -429,9 +369,6 @@ static void fw_cfg_dma_transfer(FWCfgState *s)
                 len = (e->len - s->cur_offset);
             }
 
-            /* If the access is not a read access, it will be a skip access,
-             * tested before.
-             */
             if (read) {
                 if (dma_memory_write(s->dma_as, dma.address,
                                      &e->data[s->cur_offset], len,
@@ -468,7 +405,6 @@ static void fw_cfg_dma_transfer(FWCfgState *s)
 static uint64_t fw_cfg_dma_mem_read(void *opaque, hwaddr addr,
                                     unsigned size)
 {
-    /* Return a signature value (and handle various read sizes) */
     return extract64(FW_CFG_DMA_SIGNATURE, (8 - addr - size) * 8, size * 8);
 }
 
@@ -479,10 +415,8 @@ static void fw_cfg_dma_mem_write(void *opaque, hwaddr addr,
 
     if (size == 4) {
         if (addr == 0) {
-            /* FWCfgDmaAccess high address */
             s->dma_addr = value << 32;
         } else if (addr == 4) {
-            /* FWCfgDmaAccess low address */
             s->dma_addr |= value;
             fw_cfg_dma_transfer(s);
         }
@@ -583,14 +517,9 @@ static void fw_cfg_reset(DeviceState *d)
 {
     FWCfgState *s = FW_CFG(d);
 
-    /* we never register a read callback for FW_CFG_SIGNATURE */
     fw_cfg_select(s, FW_CFG_SIGNATURE);
 }
 
-/* Save restore 32 bit int as uint16_t
-   This is a Big hack, but it is how the old state did it.
-   Or we broke compatibility in the state, or we can't use struct tm
- */
 
 static int get_uint32_as_uint16(QEMUFile *f, void *pv, size_t size,
                                 const VMStateField *field)
@@ -752,7 +681,6 @@ static void *fw_cfg_modify_bytes_read(FWCfgState *s, uint16_t key,
 
     assert(key < fw_cfg_max_entry(s) && len < UINT32_MAX);
 
-    /* return the old data to the function caller, avoid memory leak */
     ptr = s->entries[arch][key].data;
     s->entries[arch][key].data = data;
     s->entries[arch][key].len = len;
@@ -856,20 +784,6 @@ void fw_cfg_reset_order_override(FWCfgState *s)
     s->fw_cfg_order_override = 0;
 }
 
-/*
- * This is the legacy order list.  For legacy systems, files are in
- * the fw_cfg in the order defined below, by the "order" value.  Note
- * that some entries (VGA ROMs, NIC option ROMS, etc.) go into a
- * specific area, but there may be more than one and they occur in the
- * order that the user specifies them on the command line.  Those are
- * handled in a special manner, using the order override above.
- *
- * For non-legacy, the files are sorted by filename to avoid this kind
- * of complexity in the future.
- *
- * This is only for x86, other arches don't implement versioning so
- * they won't set legacy mode.
- */
 static struct {
     const char *name;
     int order;
@@ -900,12 +814,6 @@ static struct {
 #define FW_CFG_ORDER_OVERRIDE_LAST 200
 };
 
-/*
- * Any sub-page size update to these table MRs will be lost during migration,
- * as we use aligned size in ram_load_precopy() -> qemu_ram_resize() path.
- * In order to avoid the inconsistency in sizes save them separately and
- * migrate over in vmstate post_load().
- */
 static void fw_cfg_acpi_mr_save(FWCfgState *s, const char *filename, size_t len)
 {
     if (!strcmp(filename, ACPI_BUILD_TABLE_FILE)) {
@@ -935,7 +843,6 @@ static int get_fw_cfg_order(FWCfgState *s, const char *name)
         }
     }
 
-    /* Stick unknown stuff at the end. */
     warn_report("Unknown firmware file in legacy mode: %s", name);
     return FW_CFG_ORDER_OVERRIDE_LAST;
 }
@@ -960,30 +867,17 @@ void fw_cfg_add_file_callback(FWCfgState *s,  const char *filename,
     count = be32_to_cpu(s->files->count);
     assert(count < fw_cfg_file_slots(s));
 
-    /* Find the insertion point. */
     if (mc->legacy_fw_cfg_order) {
-        /*
-         * Sort by order. For files with the same order, we keep them
-         * in the sequence in which they were added.
-         */
         order = get_fw_cfg_order(s, filename);
         for (index = count;
              index > 0 && order < s->entry_order[index - 1];
              index--);
     } else {
-        /* Sort by file name. */
         for (index = count;
              index > 0 && strcmp(filename, s->files->f[index - 1].name) < 0;
              index--);
     }
 
-    /*
-     * Move all the entries from the index point and after down one
-     * to create a slot for the new entry.  Because calculations are
-     * being done with the index, make it so that "i" is the current
-     * index and "i - 1" is the one being copied from, thus the
-     * unusual start and end in the for statement.
-     */
     for (i = count; i > index; i--) {
         s->files->f[i] = s->files->f[i - 1];
         s->files->f[i].select = cpu_to_be16(FW_CFG_FILE_FIRST + i);
@@ -1047,7 +941,6 @@ void *fw_cfg_modify_file(FWCfgState *s, const char *filename,
 
     assert(index < fw_cfg_file_slots(s));
 
-    /* add new one */
     fw_cfg_add_file_callback(s, filename, NULL, NULL, NULL, data, len, true);
     return NULL;
 }
@@ -1166,7 +1059,6 @@ FWCfgState *fw_cfg_init_io_dma(uint32_t iobase, uint32_t dma_iobase,
     s = FW_CFG(dev);
 
     if (s->dma_enabled) {
-        /* 64 bits for the address field */
         s->dma_as = dma_as;
         s->dma_addr = 0;
         memory_region_add_subregion(iomem, dma_iobase, &s->dma_iomem);
@@ -1219,7 +1111,6 @@ FWCfgState *fw_cfg_init_mem(hwaddr ctl_addr, hwaddr data_addr)
 
 FWCfgState *fw_cfg_find(void)
 {
-    /* Returns NULL unless there is exactly one fw_cfg device */
     return FW_CFG(object_resolve_path_type("", TYPE_FW_CFG, NULL));
 }
 
@@ -1283,9 +1174,6 @@ static void fw_cfg_file_slots_allocate(FWCfgState *s, Error **errp)
         return;
     }
 
-    /* (UINT16_MAX & FW_CFG_ENTRY_MASK) is the highest inclusive selector value
-     * that we permit. The actual (exclusive) value coming from the
-     * configuration is (FW_CFG_FILE_FIRST + fw_cfg_file_slots(s)). */
     file_slots_max = (UINT16_MAX & FW_CFG_ENTRY_MASK) - FW_CFG_FILE_FIRST + 1;
     if (fw_cfg_file_slots(s) > file_slots_max) {
         error_setg(errp, "\"file_slots\" must not exceed 0x%" PRIx16,
@@ -1315,9 +1203,6 @@ static void fw_cfg_io_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    /* when using port i/o, the 8-bit data register ALWAYS overlaps
-     * with half of the 16-bit control register. Hence, the total size
-     * of the i/o region used is FW_CFG_CTL_SIZE */
     memory_region_init_io(&s->comb_iomem, OBJECT(s), &fw_cfg_comb_mem_ops,
                           FW_CFG(s), "fwcfg", FW_CFG_CTL_SIZE);
 

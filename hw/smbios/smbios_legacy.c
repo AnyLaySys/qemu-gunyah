@@ -1,19 +1,3 @@
-/*
- * SMBIOS legacy support
- *
- * Copyright (C) 2009 Hewlett-Packard Development Company, L.P.
- * Copyright (C) 2013 Red Hat, Inc.
- *
- * Authors:
- *  Alex Williamson <alex.williamson@hp.com>
- *  Markus Armbruster <armbru@redhat.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- * Contributions after 2012-01-13 are licensed under the terms of the
- * GNU GPL, version 2 or (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/bswap.h"
@@ -117,12 +101,6 @@ static void smbios_build_type_1_fields(void)
     smbios_maybe_add_str(1, offsetof(struct smbios_type_1, family_str),
                          smbios_type1.family);
     if (qemu_uuid_set) {
-        /*
-         * We don't encode the UUID in the "wire format" here because this
-         * function is for legacy mode and needs to keep the guest ABI, and
-         * because we don't know what's the SMBIOS version advertised by the
-         * BIOS.
-         */
         smbios_add_field(1, offsetof(struct smbios_type_1, uuid),
                          &qemu_uuid, 16);
     }
@@ -133,7 +111,6 @@ uint8_t *smbios_get_table_legacy(size_t *length, Error **errp)
     int i;
     size_t usr_offset;
 
-    /* complain if fields were given for types > 1 */
     if (find_next_bit(smbios_have_fields_bitmap,
                       SMBIOS_MAX_TYPE + 1, 2) < SMBIOS_MAX_TYPE + 1) {
         error_setg(errp, "can't process fields for smbios "
@@ -151,9 +128,6 @@ uint8_t *smbios_get_table_legacy(size_t *length, Error **errp)
     smbios_entries_len = sizeof(uint16_t);
     smbios_entries = g_malloc0(smbios_entries_len);
 
-    /*
-     * build a set of legacy smbios_table entries using user provided blobs
-     */
     for (i = 0, usr_offset = 0; usr_blobs_sizes && i < usr_blobs_sizes->len;
          i++)
     {
@@ -169,10 +143,6 @@ uint8_t *smbios_get_table_legacy(size_t *length, Error **errp)
         table->header.length = cpu_to_le16(sizeof(*table) + size);
         memcpy(table->data, header, size);
         smbios_entries_len += sizeof(*table) + size;
-        /*
-         * update number of entries in the blob,
-         * see SeaBIOS: qemu_cfg_legacy():QEMU_CFG_SMBIOS_ENTRIES
-         */
         (*(uint16_t *)smbios_entries) =
             cpu_to_le16(le16_to_cpu(*(uint16_t *)smbios_entries) + 1);
         usr_offset += size;

@@ -1,15 +1,3 @@
-/*
- * Notifier lists
- *
- * Copyright IBM, Corp. 2010
- *
- * Authors:
- *  Anthony Liguori   <aliguori@us.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2.  See
- * the COPYING file in the top-level directory.
- *
- */
 
 #ifndef QEMU_NOTIFY_H
 #define QEMU_NOTIFY_H
@@ -42,18 +30,12 @@ void notifier_list_notify(NotifierList *list, void *data);
 
 bool notifier_list_empty(NotifierList *list);
 
-/* Same as Notifier but allows .notify() to return errors */
 typedef struct NotifierWithReturn NotifierWithReturn;
 
-/* Return int to allow for different failure modes and recovery actions */
 typedef int (*NotifierWithReturnFunc)(NotifierWithReturn *notifier, void *data,
                                       Error **errp);
 
 struct NotifierWithReturn {
-    /**
-     * Return 0 on success (next notifier will be invoked), otherwise
-     * notifier_with_return_list_notify() will stop and return the value.
-     */
     NotifierWithReturnFunc notify;
     QLIST_ENTRY(NotifierWithReturn) node;
 };
