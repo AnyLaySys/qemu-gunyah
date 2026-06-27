@@ -191,7 +191,7 @@ char *path_combine(const char *base_path, const char *filename)
 
     result = g_malloc(len + strlen(filename) + 1);
     memcpy(result, base_path, len);
-    strcpy(result + len, filename);
+    memcpy(result + len, filename, strlen(filename) + 1);
 
     return result;
 }
@@ -6295,7 +6295,7 @@ void bdrv_refresh_filename(BlockDriverState *bs)
             primary_child_bs->drv->protocol_name &&
             !drv->is_filter && !generate_json_filename)
         {
-            strcpy(bs->exact_filename, primary_child_bs->exact_filename);
+            pstrcpy(bs->exact_filename, sizeof(bs->exact_filename), primary_child_bs->exact_filename);
         }
     }
 
@@ -6305,7 +6305,7 @@ void bdrv_refresh_filename(BlockDriverState *bs)
         GString *json = qobject_to_json(QOBJECT(bs->full_open_options));
         if (snprintf(bs->filename, sizeof(bs->filename), "json:%s",
                      json->str) >= sizeof(bs->filename)) {
-            strcpy(bs->filename + sizeof(bs->filename) - 4, "...");
+            memcpy(bs->filename + sizeof(bs->filename) - 4, "...", 4);
         }
         g_string_free(json, true);
     }
