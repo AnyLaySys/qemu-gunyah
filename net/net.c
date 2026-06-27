@@ -850,7 +850,9 @@ static int net_init_nic(const Netdev *netdev, const char *name,
             return -1;
         }
     } else {
-        assert(peer);
+        if (!peer) {
+            return 0;
+        }
         nd->netdev = peer;
     }
     nd->name = g_strdup(name);
