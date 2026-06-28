@@ -34,7 +34,6 @@
 #include "qemu/main-loop.h"
 #include "system/runstate.h"
 #include "qemu/guest-random.h"
-
 #include "gunyah-signal.c"
 #include "gunyah-ioctl.c"
 #include "gunyah-mem.c"

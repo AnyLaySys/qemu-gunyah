@@ -2905,7 +2905,6 @@ genh += hxdep
 
 
 trace_events_subdirs = [
-  'crypto',
   'qapi',
   'qom',
   'monitor',
@@ -2970,7 +2969,6 @@ blockdev_ss = ss.source_set()
 block_ss = ss.source_set()
 chardev_ss = ss.source_set()
 common_ss = ss.source_set()
-crypto_ss = ss.source_set()
 hwcore_ss = ss.source_set()
 io_ss = ss.source_set()
 qmp_ss = ss.source_set()
@@ -3001,7 +2999,6 @@ subdir('trace')
 subdir('util')
 subdir('qom')
 subdir('authz')
-subdir('crypto')
 subdir('ui')
 if have_system
   subdir('hw')
@@ -3254,14 +3251,6 @@ libauthz = static_library('authz', authz_ss.sources() + genh,
 authz = declare_dependency(objects: libauthz.extract_all_objects(recursive: false),
                            dependencies: [authz_ss.dependencies(), qom])
 
-crypto_ss = crypto_ss.apply({})
-libcrypto = static_library('crypto', crypto_ss.sources() + genh,
-                           dependencies: [crypto_ss.dependencies()],
-                           build_by_default: false)
-
-crypto = declare_dependency(objects: libcrypto.extract_all_objects(recursive: false),
-                            dependencies: [crypto_ss.dependencies(), authz, qom])
-
 io_ss = io_ss.apply({})
 libio = static_library('io', io_ss.sources() + genh,
                        dependencies: [io_ss.dependencies()],
@@ -3269,7 +3258,7 @@ libio = static_library('io', io_ss.sources() + genh,
                        build_by_default: false)
 
 io = declare_dependency(objects: libio.extract_all_objects(recursive: false),
-                        dependencies: [io_ss.dependencies(), crypto, qom])
+                        dependencies: [io_ss.dependencies(), qom])
 
 libmigration = static_library('migration', sources: migration_files + genh,
                               build_by_default: false)
@@ -3283,7 +3272,7 @@ libblock = static_library('block', block_ss.sources() + genh,
                           build_by_default: false)
 
 block = declare_dependency(objects: libblock.extract_all_objects(recursive: false),
-                           dependencies: [block_ss.dependencies(), crypto, io])
+                           dependencies: [block_ss.dependencies(), io])
 
 blockdev_ss = blockdev_ss.apply({})
 libblockdev = static_library('blockdev', blockdev_ss.sources() + genh,
@@ -3315,7 +3304,7 @@ hwcore = declare_dependency(objects: libhwcore.extract_all_objects(recursive: fa
 common_ss.add(hwcore)
 
 
-system_ss.add(authz, blockdev, chardev, crypto, io, qmp)
+system_ss.add(authz, blockdev, chardev, io, qmp)
 common_ss.add(qom, qemuutil)
 
 common_ss.add_all(when: 'CONFIG_SYSTEM_ONLY', if_true: [system_ss])

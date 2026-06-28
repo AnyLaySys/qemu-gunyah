@@ -1,5 +1,4 @@
 config TCG
-    bool
-
+bool
 config GH
-    bool
+bool

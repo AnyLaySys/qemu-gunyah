@@ -1,5 +1,6 @@
 
 stub_ss.add(files('cpu-get-clock.c'))
+stub_ss.add(files('crypto-stub.c'))
 stub_ss.add(files('error-printf.c'))
 stub_ss.add(files('fdset.c'))
 stub_ss.add(files('iothread-lock.c'))
