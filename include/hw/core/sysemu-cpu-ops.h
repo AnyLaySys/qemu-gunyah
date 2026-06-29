@@ -6,8 +6,6 @@
 
 typedef struct SysemuCPUOps {
     bool (*has_work)(CPUState *cpu); /* MANDATORY NON-NULL */
-    bool (*get_memory_mapping)(CPUState *cpu, MemoryMappingList *list,
-                               Error **errp);
     bool (*get_paging_enabled)(const CPUState *cpu);
     hwaddr (*get_phys_page_debug)(CPUState *cpu, vaddr addr);
     hwaddr (*get_phys_page_attrs_debug)(CPUState *cpu, vaddr addr,

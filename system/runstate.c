@@ -25,7 +25,6 @@
 #include "qom/object.h"
 #include "qom/object_interfaces.h"
 #include "system/cpus.h"
-#include "system/qtest.h"
 #include "system/reset.h"
 #include "system/runstate.h"
 #include "system/runstate-action.h"
@@ -357,7 +356,7 @@ static int qemu_shutdown_requested(void)
 
 static void qemu_kill_report(void)
 {
-    if (!qtest_driver() && shutdown_signal) {
+    if (shutdown_signal) {
         if (shutdown_pid == 0) {
             error_report("terminating on signal %d", shutdown_signal);
         } else {

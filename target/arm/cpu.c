@@ -24,7 +24,6 @@
 #endif /* CONFIG_TCG */
 #endif /* !CONFIG_USER_ONLY */
 #include "system/tcg.h"
-#include "system/qtest.h"
 #include "system/hw_accel.h"
 #include "system/gunyah.h"
 #include "disas/capstone.h"
@@ -1428,20 +1427,20 @@ void arm_cpu_post_init(Object *obj)
         if (cpu_isar_feature(aa64_fp_simd, cpu)) {
             cpu->has_vfp = true;
             cpu->has_vfp_d32 = true;
-            if (tcg_enabled() || qtest_enabled()) {
+            if (tcg_enabled()) {
                 qdev_property_add_static(DEVICE(obj),
                                          &arm_cpu_has_vfp_property);
             }
         }
     } else if (cpu_isar_feature(aa32_vfp, cpu)) {
         cpu->has_vfp = true;
-        if (tcg_enabled() || qtest_enabled()) {
+        if (tcg_enabled()) {
             qdev_property_add_static(DEVICE(obj),
                                      &arm_cpu_has_vfp_property);
         }
         if (cpu_isar_feature(aa32_simd_r32, cpu)) {
             cpu->has_vfp_d32 = true;
-            if ((tcg_enabled() || qtest_enabled())
+            if (tcg_enabled()
                 && !(arm_feature(&cpu->env, ARM_FEATURE_V8)
                      && !arm_feature(&cpu->env, ARM_FEATURE_M))) {
                 qdev_property_add_static(DEVICE(obj),
@@ -1620,7 +1619,7 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
         }
     }
 
-    if (!tcg_enabled() && !qtest_enabled()) {
+    if (!tcg_enabled()) {
         if (arm_feature(env, ARM_FEATURE_M)) {
             error_setg(errp,
                        "Cannot enable %s when using an M-profile guest CPU",

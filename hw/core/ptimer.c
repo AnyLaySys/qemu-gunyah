@@ -4,7 +4,6 @@
 #include "migration/vmstate.h"
 #include "qemu/host-utils.h"
 #include "system/cpu-timers.h"
-#include "system/qtest.h"
 #include "block/aio.h"
 #include "hw/clock.h"
 
@@ -58,9 +57,7 @@ static void ptimer_reload(ptimer_state *s, int delta_adjust)
     }
 
     if (s->period == 0 && s->period_frac == 0) {
-        if (!qtest_enabled()) {
-            fprintf(stderr, "Timer with period zero, disabling\n");
-        }
+        fprintf(stderr, "Timer with period zero, disabling\n");
         timer_del(s->timer);
         s->enabled = 0;
         return;
@@ -94,17 +91,14 @@ static void ptimer_reload(ptimer_state *s, int delta_adjust)
         if (s->enabled == 0) {
             return;
         }
-        if (!qtest_enabled()) {
-            fprintf(stderr, "Timer with delta zero, disabling\n");
-        }
+        fprintf(stderr, "Timer with delta zero, disabling\n");
         timer_del(s->timer);
         s->enabled = 0;
         return;
     }
 
 
-    if (s->enabled == 1 && (delta * period < 10000) &&
-        !icount_enabled() && !qtest_enabled()) {
+    if (s->enabled == 1 && (delta * period < 10000) && !icount_enabled()) {
         period = 10000 / delta;
         period_frac = 0;
     }
@@ -172,7 +166,7 @@ uint64_t ptimer_get_count(ptimer_state *s)
             uint64_t period = s->period;
 
             if (!oneshot && (s->delta * period < 10000) &&
-                !icount_enabled() && !qtest_enabled()) {
+                !icount_enabled()) {
                 period = 10000 / s->delta;
                 period_frac = 0;
             }
@@ -237,9 +231,7 @@ void ptimer_run(ptimer_state *s, int oneshot)
     assert(s->in_transaction);
 
     if (was_disabled && s->period == 0 && s->period_frac == 0) {
-        if (!qtest_enabled()) {
-            fprintf(stderr, "Timer with period zero, disabling\n");
-        }
+        fprintf(stderr, "Timer with period zero, disabling\n");
         return;
     }
     s->enabled = oneshot ? 2 : 1;

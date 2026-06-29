@@ -1368,7 +1368,7 @@ void monitor_init_hmp(Chardev *chr, bool use_readline, Error **errp)
         return;
     }
 
-    monitor_data_init(&mon->common, false, false, false);
+    monitor_data_init(&mon->common, false, false);
 
     mon->use_readline = use_readline;
     if (mon->use_readline) {

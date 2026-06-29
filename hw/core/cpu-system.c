@@ -26,17 +26,6 @@ bool cpu_paging_enabled(const CPUState *cpu)
     return false;
 }
 
-bool cpu_get_memory_mapping(CPUState *cpu, MemoryMappingList *list,
-                            Error **errp)
-{
-    if (cpu->cc->sysemu_ops->get_memory_mapping) {
-        return cpu->cc->sysemu_ops->get_memory_mapping(cpu, list, errp);
-    }
-
-    error_setg(errp, "Obtaining memory mappings is unsupported on this CPU.");
-    return false;
-}
-
 hwaddr cpu_get_phys_page_attrs_debug(CPUState *cpu, vaddr addr,
                                      MemTxAttrs *attrs)
 {

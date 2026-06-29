@@ -1,9 +1,5 @@
 # See docs/devel/tracing.rst for syntax documentation.
 
-# balloon.c
-# Since requests are raised via monitor, not many tracepoints are needed.
-balloon_event(void *opaque, unsigned long addr) "opaque %p addr %lu"
-
 # dma-helpers.c
 dma_blk_io(void *dbs, void *bs, int64_t offset, bool to_dev) "dbs=%p bs=%p offset=%" PRId64 " to_dev=%d"
 dma_aio_cancel(void *dbs) "dbs=%p"

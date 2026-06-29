@@ -26,7 +26,6 @@
 #include "qemu/error-report.h"
 #include "qemu/sockets.h"
 #include "qemu/accel.h"
-#include "qemu/async-teardown.h"
 #include "hw/scsi/scsi.h"
 #include "hw/firmware/smbios.h"
 #include "hw/acpi/acpi.h"
@@ -58,7 +57,6 @@
 #include "qemu/option.h"
 #include "qemu/config-file.h"
 #include "qemu/main-loop.h"
-#include "system/qtest.h"
 #ifdef CONFIG_TCG
 #include "tcg/perf.h"
 #endif
@@ -72,7 +70,6 @@
 #include "system/arch_init.h"
 #include "system/confidential-guest-support.h"
 
-#include "ui/qemu-spice.h"
 #include "qapi/string-input-visitor.h"
 #include "qapi/opts-visitor.h"
 #include "qapi/clone-visitor.h"
@@ -138,9 +135,6 @@ static Chardev **serial_hds;
 static const char *log_mask;
 static const char *log_file;
 static bool list_data_dirs;
-static const char *qtest_chrdev;
-static const char *qtest_log;
-
 static int has_defaults = 1;
 static int default_audio = 1;
 static int default_serial = 1;
@@ -656,12 +650,6 @@ static QemuOptsList qemu_run_with_opts = {
     .name = "run-with",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_run_with_opts.head),
     .desc = {
-#if defined(CONFIG_LINUX)
-        {
-            .name = "async-teardown",
-            .type = QEMU_OPT_BOOL,
-        },
-#endif
         {
             .name = "chroot",
             .type = QEMU_OPT_STRING,
@@ -955,7 +943,7 @@ static int mon_init_func(void *opaque, QemuOpts *opts, Error **errp)
     return monitor_init_opts(opts, errp);
 }
 
-static void monitor_parse(const char *str, const char *mode, bool pretty)
+static void monitor_parse(const char *str)
 {
     static int monitor_device_index = 0;
     QemuOpts *opts;
@@ -975,13 +963,7 @@ static void monitor_parse(const char *str, const char *mode, bool pretty)
     }
 
     opts = qemu_opts_create(qemu_find_opts("mon"), label, 1, &error_fatal);
-    qemu_opt_set(opts, "mode", mode, &error_abort);
     qemu_opt_set(opts, "chardev", label, &error_abort);
-    if (!strcmp(mode, "control")) {
-        qemu_opt_set_bool(opts, "pretty", pretty, &error_abort);
-    } else {
-        assert(pretty == false);
-    }
     monitor_device_index++;
 }
 
@@ -1104,7 +1086,7 @@ static void qemu_create_default_devices(void)
                 add_device_config(DEV_SERIAL, "stdio");
             }
             if (default_monitor) {
-                monitor_parse("stdio", "readline", false);
+                monitor_parse("stdio");
             }
         }
     } else {
@@ -1115,7 +1097,7 @@ static void qemu_create_default_devices(void)
             add_device_config(DEV_PARALLEL, vc ?: "null");
         }
         if (default_monitor && vc) {
-            monitor_parse(vc, "readline", false);
+            monitor_parse(vc);
         }
     }
 
@@ -1558,8 +1540,7 @@ static bool object_create_early(const char *type)
         return false;
     }
 
-    if (g_str_equal(type, "rng-egd") ||
-        g_str_equal(type, "qtest")) {
+    if (g_str_equal(type, "rng-egd")) {
         return false;
     }
 
@@ -1606,8 +1587,6 @@ static void qemu_create_early_backends(void)
 
     object_option_foreach_add(object_create_early);
 
-    qemu_spice.init();
-
     qemu_opts_foreach(qemu_find_opts("chardev"),
                       chardev_init_func, NULL, &error_fatal);
 
@@ -1626,10 +1605,6 @@ static bool object_create_late(const char *type)
 
 static void qemu_create_late_backends(void)
 {
-    if (qtest_chrdev) {
-        qtest_server_init(qtest_chrdev, qtest_log, &error_fatal);
-    }
-
     net_init_clients();
 
     object_option_foreach_add(object_create_late);
@@ -1970,7 +1945,7 @@ static void configure_accelerators(const char *progname)
         exit(1);
     }
 
-    if (init_failed && !qtest_chrdev) {
+    if (init_failed) {
         error_report("falling back to %s", current_accel_name());
     }
 
@@ -2143,9 +2118,6 @@ static void qemu_init_displays(void)
 
     os_setup_signal_handling();
 
-    if (using_spice) {
-        qemu_spice.display_init();
-    }
 }
 
 static void qemu_init_board(void)
@@ -2188,7 +2160,7 @@ static bool qemu_machine_creation_done(Error **errp)
 
     drive_check_orphaned();
 
-    if (!default_net && (!qtest_enabled() || has_defaults)) {
+    if (!default_net && has_defaults) {
         net_check_clients();
     }
 
@@ -2584,16 +2556,8 @@ void qemu_init(int argc, char **argv)
             case QEMU_OPTION_monitor:
                 default_monitor = 0;
                 if (strncmp(optarg, "none", 4)) {
-                    monitor_parse(optarg, "readline", false);
+                    monitor_parse(optarg);
                 }
-                break;
-            case QEMU_OPTION_qmp:
-                monitor_parse(optarg, "control", false);
-                default_monitor = 0;
-                break;
-            case QEMU_OPTION_qmp_pretty:
-                monitor_parse(optarg, "control", true);
-                default_monitor = 0;
                 break;
             case QEMU_OPTION_mon:
                 opts = qemu_opts_parse_noisily(qemu_find_opts("mon"), optarg,
@@ -2692,8 +2656,7 @@ void qemu_init(int argc, char **argv)
                     for (el = accel_list; el; el = el->next) {
                         gchar *typename = g_strdup(object_class_get_name(
                                                    OBJECT_CLASS(el->data)));
-                        if (g_strcmp0(typename, ACCEL_CLASS_NAME("qtest")) &&
-                            g_str_has_suffix(typename, ACCEL_CLASS_SUFFIX)) {
+                        if (g_str_has_suffix(typename, ACCEL_CLASS_SUFFIX)) {
                             gchar **optname = g_strsplit(typename,
                                                          ACCEL_CLASS_SUFFIX, 0);
                             printf("%s\n", optname[0]);
@@ -2806,12 +2769,6 @@ void qemu_init(int argc, char **argv)
                 display_remote++;
                 break;
 #endif
-            case QEMU_OPTION_qtest:
-                qtest_chrdev = optarg;
-                break;
-            case QEMU_OPTION_qtest_log:
-                qtest_log = optarg;
-                break;
             case QEMU_OPTION_sandbox:
                 olist = qemu_find_opts("sandbox");
                 if (!olist) {
@@ -2885,11 +2842,6 @@ void qemu_init(int argc, char **argv)
                 if (!opts) {
                     exit(1);
                 }
-#if defined(CONFIG_LINUX)
-                if (qemu_opt_get_bool(opts, "async-teardown", false)) {
-                    init_async_teardown();
-                }
-#endif
                 str = qemu_opt_get(opts, "chroot");
                 if (str) {
                     os_set_chroot(str);
@@ -2956,7 +2908,7 @@ void qemu_init(int argc, char **argv)
 
 
     machine_class = MACHINE_GET_CLASS(current_machine);
-    if (!qtest_enabled() && machine_class->deprecation_reason) {
+    if (machine_class->deprecation_reason) {
         warn_report("Machine type '%s' is deprecated: %s",
                      machine_class->name, machine_class->deprecation_reason);
     }

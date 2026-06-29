@@ -22,7 +22,6 @@
 #include "hw/qdev-properties.h"
 #include "hw/boards.h"
 #include "system/tcg.h"
-#include "system/qtest.h"
 #include "qemu/timer.h"
 #include "qemu/config-file.h"
 #include "qemu/error-report.h"
@@ -1630,10 +1629,8 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
     if (new_block->host) {
         qemu_ram_setup_dump(new_block->host, new_block->max_length);
         qemu_madvise(new_block->host, new_block->max_length, QEMU_MADV_HUGEPAGE);
-        if (!qtest_enabled()) {
-            qemu_madvise(new_block->host, new_block->max_length,
-                         QEMU_MADV_DONTFORK);
-        }
+        qemu_madvise(new_block->host, new_block->max_length,
+                     QEMU_MADV_DONTFORK);
         ram_block_notify_add(new_block->host, new_block->used_length,
                              new_block->max_length);
     }

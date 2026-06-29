@@ -92,7 +92,6 @@ meson_options_help() {
   printf "%s\n" ''
   printf "%s\n" '  alsa            ALSA sound support'
   printf "%s\n" '  attr            attr/xattr support'
-  printf "%s\n" '  auth-pam        PAM access control'
   printf "%s\n" '  avx2            AVX2 optimizations'
   printf "%s\n" '  avx512bw        AVX512BW optimizations'
   printf "%s\n" '  blkio           libblkio block device driver'
@@ -165,7 +164,6 @@ meson_options_help() {
   printf "%s\n" '  replication     replication support'
   printf "%s\n" '  rust            Rust support'
   printf "%s\n" '  sdl             SDL user interface'
-  printf "%s\n" '  sdl-image       SDL Image support for icons'
   printf "%s\n" '  seccomp         seccomp support'
   printf "%s\n" '  slirp           libslirp user mode network backend support'
   printf "%s\n" '  slirp-smbd      use smbd (at path --smbd=*) in slirp networking'
@@ -214,8 +212,6 @@ _meson_option_parse() {
     --enable-attr) printf "%s" -Dattr=enabled ;;
     --disable-attr) printf "%s" -Dattr=disabled ;;
     --audio-drv-list=*) quote_sh "-Daudio_drv_list=$2" ;;
-    --enable-auth-pam) printf "%s" -Dauth_pam=enabled ;;
-    --disable-auth-pam) printf "%s" -Dauth_pam=disabled ;;
     --enable-avx2) printf "%s" -Davx2=enabled ;;
     --disable-avx2) printf "%s" -Davx2=disabled ;;
     --enable-avx512bw) printf "%s" -Davx512bw=enabled ;;
@@ -422,8 +418,6 @@ _meson_option_parse() {
     --disable-safe-stack) printf "%s" -Dsafe_stack=false ;;
     --enable-sdl) printf "%s" -Dsdl=enabled ;;
     --disable-sdl) printf "%s" -Dsdl=disabled ;;
-    --enable-sdl-image) printf "%s" -Dsdl_image=enabled ;;
-    --disable-sdl-image) printf "%s" -Dsdl_image=disabled ;;
     --enable-seccomp) printf "%s" -Dseccomp=enabled ;;
     --disable-seccomp) printf "%s" -Dseccomp=disabled ;;
     --enable-slirp) printf "%s" -Dslirp=enabled ;;

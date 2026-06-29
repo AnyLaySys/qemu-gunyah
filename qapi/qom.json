@@ -1,5 +1,4 @@
 
-{ 'include': 'authz.json' }
 { 'include': 'block-core.json' }
 { 'include': 'common.json' }
 { 'include': 'crypto.json' }
@@ -117,10 +116,6 @@
   'data': { 'path': 'str' },
   'if': 'CONFIG_LINUX' }
 
-{ 'struct': 'QtestProperties',
-        'data': { 'chardev': 'str',
-                  '*log': 'str' } }
-
 { 'struct': 'RemoteObjectProperties',
   'data': { 'fd': 'str', 'devid': 'str' } }
 
@@ -184,10 +179,6 @@
   'data': [
     'acpi-generic-initiator',
     'acpi-generic-port',
-    'authz-list',
-    'authz-listfile',
-    'authz-pam',
-    'authz-simple',
     'dbus-vmstate',
     'input-barrier',
     { 'name': 'input-linux',
@@ -206,7 +197,6 @@
     'pef-guest',
     { 'name': 'pr-manager-helper',
       'if': 'CONFIG_LINUX' },
-    'qtest',
     'rng-builtin',
     'rng-egd',
     { 'name': 'rng-random',
@@ -234,10 +224,6 @@
       'acpi-generic-initiator':     'AcpiGenericInitiatorProperties',
       'acpi-generic-port':          'AcpiGenericPortProperties',
       'arm-confidential-guest':     'ArmConfidentialGuestProperties',
-      'authz-list':                 'AuthZListProperties',
-      'authz-listfile':             'AuthZListFileProperties',
-      'authz-pam':                  'AuthZPAMProperties',
-      'authz-simple':               'AuthZSimpleProperties',
       'dbus-vmstate':               'DBusVMStateProperties',
       'input-barrier':              'InputBarrierProperties',
       'input-linux':                { 'type': 'InputLinuxProperties',
@@ -255,7 +241,6 @@
                                       'if': 'CONFIG_POSIX' },
       'pr-manager-helper':          { 'type': 'PrManagerHelperProperties',
                                       'if': 'CONFIG_LINUX' },
-      'qtest':                      'QtestProperties',
       'rng-builtin':                'RngProperties',
       'rng-egd':                    'RngEgdProperties',
       'rng-random':                 { 'type': 'RngRandomProperties',

@@ -25,7 +25,6 @@
 #include "system/gunyah_int.h"
 #include "system/confidential-guest-support.h"
 #include "qom/object_interfaces.h"
-#include "system/qtest.h"
 #include "hw/loader.h"
 #include "qapi/error.h"
 #include "qemu/bitops.h"
@@ -1644,7 +1643,7 @@ static void finalize_gic_version(VirtMachineState *vms)
  if (gunyah_enabled()) {
 
  gics_supported |= VIRT_GIC_VERSION_3_MASK;
- } else if (tcg_enabled() || qtest_enabled()) {
+ } else if (tcg_enabled()) {
  gics_supported |= VIRT_GIC_VERSION_2_MASK;
  if (module_object_class_by_name("arm-gicv3")) {
  gics_supported |= VIRT_GIC_VERSION_3_MASK;

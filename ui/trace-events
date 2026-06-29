@@ -29,14 +29,6 @@ input_event_sync(void) ""
 # sdl2-input.c
 sdl2_process_key(int sdl_scancode, int qcode, const char *action) "translated SDL scancode %d to QKeyCode %d (%s)"
 
-qemu_spice_gl_surface(int qid, uint32_t w, uint32_t h, uint32_t fourcc) "%d %dx%d, fourcc 0x%x"
-qemu_spice_gl_scanout_disable(int qid) "%d"
-qemu_spice_gl_scanout_texture(int qid, uint32_t w, uint32_t h, uint32_t fourcc) "%d %dx%d, fourcc 0x%x"
-qemu_spice_gl_cursor(int qid, bool enabled, bool hotspot) "%d enabled %d, hotspot %d"
-qemu_spice_gl_forward_dmabuf(int qid, uint32_t width, uint32_t height) "%d %dx%d"
-qemu_spice_gl_render_dmabuf(int qid, uint32_t width, uint32_t height) "%d %dx%d"
-qemu_spice_gl_update(int qid, uint32_t x, uint32_t y, uint32_t w, uint32_t h) "%d +%d+%d %dx%d"
-
 # keymaps.c
 keymap_parse(const char *file) "file %s"
 keymap_add(int sym, int code, const char *line) "sym=0x%04x code=0x%04x (line: %s)"
@@ -45,4 +37,3 @@ keymap_unmapped(int sym) "sym=0x%04x"
 # clipboard.c
 clipboard_check_serial(int cur, int recv, bool ok) "cur:%d recv:%d %d"
 clipboard_reset_serial(void) ""
-

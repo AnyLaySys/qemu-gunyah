@@ -1,26 +1,6 @@
 
 
 { 'include': 'common.json' }
-{ 'include': 'sockets.json' }
-
-{ 'enum': 'DisplayProtocol',
-  'data': [ 'spice' ] }
-
-{ 'enum': 'SetPasswordAction',
-  'data': [ 'keep', 'fail', 'disconnect' ] }
-
-{ 'struct': 'SetPasswordOptions',
-  'data': { 'protocol': 'DisplayProtocol',
-            'password': 'str',
-            '*connected': 'SetPasswordAction' } }
-
-{ 'command': 'set_password', 'boxed': true, 'data': 'SetPasswordOptions' }
-
-{ 'struct': 'ExpirePasswordOptions',
-  'data': { 'protocol': 'DisplayProtocol',
-            'time': 'str' } }
-
-{ 'command': 'expire_password', 'boxed': true, 'data': 'ExpirePasswordOptions' }
 
 { 'enum': 'ImageFormat',
   'data': ['ppm', 'png'] }
@@ -30,55 +10,6 @@
            '*format': 'ImageFormat'},
   'coroutine': true,
   'if': 'CONFIG_PIXMAN' }
-
-
-{ 'struct': 'SpiceBasicInfo',
-  'data': { 'host': 'str',
-            'port': 'str',
-            'family': 'NetworkAddressFamily' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'SpiceServerInfo',
-  'base': 'SpiceBasicInfo',
-  'data': { '*auth': 'str' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'SpiceChannel',
-  'base': 'SpiceBasicInfo',
-  'data': {'connection-id': 'int', 'channel-type': 'int', 'channel-id': 'int',
-           'tls': 'bool'},
-  'if': 'CONFIG_SPICE' }
-
-{ 'enum': 'SpiceQueryMouseMode',
-  'data': [ 'client', 'server', 'unknown' ],
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'SpiceInfo',
-  'data': {'enabled': 'bool', 'migrated': 'bool', '*host': 'str', '*port': 'int',
-           '*tls-port': 'int', '*auth': 'str', '*compiled-version': 'str',
-           'mouse-mode': 'SpiceQueryMouseMode', '*channels': ['SpiceChannel']},
-  'if': 'CONFIG_SPICE' }
-
-{ 'command': 'query-spice', 'returns': 'SpiceInfo',
-  'if': 'CONFIG_SPICE' }
-
-{ 'event': 'SPICE_CONNECTED',
-  'data': { 'server': 'SpiceBasicInfo',
-            'client': 'SpiceBasicInfo' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'event': 'SPICE_INITIALIZED',
-  'data': { 'server': 'SpiceServerInfo',
-            'client': 'SpiceChannel' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'event': 'SPICE_DISCONNECTED',
-  'data': { 'server': 'SpiceBasicInfo',
-            'client': 'SpiceBasicInfo' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'event': 'SPICE_MIGRATE_COMPLETED',
-  'if': 'CONFIG_SPICE' }
 
 
 { 'struct': 'MouseInfo',
@@ -191,29 +122,8 @@
             '*head'  : 'int',
             'events' : [ 'InputEvent' ] } }
 
-{ 'struct'  : 'DisplayEGLHeadless',
-  'data'    : { '*rendernode' : 'str' } }
-
-{ 'struct'  : 'DisplayDBus',
-  'data'    : { '*rendernode' : 'str',
-                '*addr': 'str',
-                '*p2p': 'bool',
-                '*audiodev': 'str' } }
-
 { 'enum'    : 'DisplayGLMode',
   'data'    : [ 'off', 'on', 'core', 'es' ] }
-
-{ 'struct'  : 'DisplayCurses',
-  'data'    : { '*charset'       : 'str' } }
-
-{ 'struct': 'DisplayCocoa',
-  'data': {
-      '*left-command-key': 'bool',
-      '*full-grab': 'bool',
-      '*swap-opt-cmd': 'bool',
-      '*zoom-to-fit': 'bool',
-      '*zoom-interpolation': 'bool'
-  } }
 
 { 'enum'  : 'HotKeyMod',
   'data'  : [ 'lctrl-lalt', 'lshift-lctrl-lalt', 'rctrl' ] }
@@ -225,12 +135,7 @@
   'data'    : [
     { 'name': 'default' },
     { 'name': 'none' },
-    { 'name': 'sdl', 'if': 'CONFIG_SDL' },
-    { 'name': 'egl-headless', 'if': 'CONFIG_OPENGL' },
-    { 'name': 'curses', 'if': 'CONFIG_CURSES' },
-    { 'name': 'cocoa', 'if': 'CONFIG_COCOA' },
-    { 'name': 'spice-app', 'if': 'CONFIG_SPICE' },
-    { 'name': 'dbus', 'if': 'CONFIG_DBUS_DISPLAY' }
+    { 'name': 'sdl', 'if': 'CONFIG_SDL' }
   ]
 }
 
@@ -242,11 +147,6 @@
                 '*gl'            : 'DisplayGLMode' },
   'discriminator' : 'type',
   'data'    : {
-      'cocoa': { 'type': 'DisplayCocoa', 'if': 'CONFIG_COCOA' },
-      'curses': { 'type': 'DisplayCurses', 'if': 'CONFIG_CURSES' },
-      'egl-headless': { 'type': 'DisplayEGLHeadless',
-                        'if': 'CONFIG_OPENGL' },
-      'dbus': { 'type': 'DisplayDBus', 'if': 'CONFIG_DBUS_DISPLAY' },
       'sdl': { 'type': 'DisplaySDL', 'if': 'CONFIG_SDL' }
   }
 }

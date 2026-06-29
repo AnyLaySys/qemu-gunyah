@@ -43,7 +43,6 @@
 { 'struct': 'ChardevSocket',
   'data': { 'addr': 'SocketAddressLegacy',
             '*tls-creds': 'str',
-            '*tls-authz'  : 'str',
             '*server': 'bool',
             '*wait': 'bool',
             '*nodelay': 'bool',

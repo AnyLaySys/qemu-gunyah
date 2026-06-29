@@ -297,9 +297,6 @@ bool cpu_paging_enabled(const CPUState *cpu);
 
 #if !defined(CONFIG_USER_ONLY)
 
-bool cpu_get_memory_mapping(CPUState *cpu, MemoryMappingList *list,
-                            Error **errp);
-
 GuestPanicInformation *cpu_get_crash_info(CPUState *cpu);
 
 #endif /* !CONFIG_USER_ONLY */

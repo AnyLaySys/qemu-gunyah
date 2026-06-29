@@ -26,12 +26,9 @@ if have_block or have_ga
   stub_ss.add(files('qemu-timer-notify-cb.c'))
 
   stub_ss.add(files('monitor-internal.c'))
-  stub_ss.add(files('qmp-command-available.c'))
-  stub_ss.add(files('qmp-quit.c'))
 endif
 
 if have_block or have_user
-  stub_ss.add(files('qtest.c'))
   stub_ss.add(files('vm-stop.c'))
 endif
 

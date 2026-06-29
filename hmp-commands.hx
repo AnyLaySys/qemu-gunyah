@@ -739,19 +739,6 @@ SRST
 ERST
 
     {
-        .name       = "balloon",
-        .args_type  = "value:M",
-        .params     = "target",
-        .help       = "request VM to change its memory allocation (in MB)",
-        .cmd        = hmp_balloon,
-    },
-
-SRST
-``balloon`` *value*
-  Request VM to change its memory allocation to *value* (in MB).
-ERST
-
-    {
         .name       = "set_link",
         .args_type  = "name:s,up:b",
         .params     = "name on|off",
@@ -813,48 +800,6 @@ SRST
   Close the file descriptor previously assigned to *fdname* using the
   ``getfd`` command. This is only needed if the file descriptor was never
   used by another monitor command.
-ERST
-
-    {
-        .name       = "set_password",
-        .args_type  = "protocol:s,password:s,display:-ds,connected:s?",
-        .params     = "protocol password [-d display] [action-if-connected]",
-        .help       = "set spice password",
-        .cmd        = hmp_set_password,
-    },
-
-SRST
-``set_password spice password [ action-if-connected ]``
-  Change spice password.  *action-if-connected* specifies
-  what should happen in case a connection is established: *fail* makes
-  the password change fail.  *disconnect* changes the password and
-  disconnects the client.  *keep* changes the password and keeps the
-  connection up.  *keep* is the default.
-ERST
-
-    {
-        .name       = "expire_password",
-        .args_type  = "protocol:s,time:s,display:-ds",
-        .params     = "protocol time [-d display]",
-        .help       = "set spice password expire-time",
-        .cmd        = hmp_expire_password,
-    },
-
-SRST
-``expire_password spice expire-time``
-  Specify when a password for spice becomes invalid.
-  *expire-time* accepts:
-
-  ``now``
-    Invalidate password instantly.
-  ``never``
-    Password stays valid forever.
-  ``+``\ *nsec*
-    Password stays valid for *nsec* seconds starting now.
-  *nsec*
-    Password is invalidated at the given time.  *nsec* are the seconds
-    passed since 1970, i.e. unix epoch.
-
 ERST
 
     {

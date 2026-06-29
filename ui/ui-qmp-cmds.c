@@ -2,101 +2,12 @@
 #include "qemu/osdep.h"
 
 #include "io/channel-file.h"
-#include "monitor/qmp-helpers.h"
 #include "qapi/qapi-commands-ui.h"
-#include "qapi/qmp/qerror.h"
 #include "qemu/coroutine.h"
-#include "qemu/cutils.h"
 #include "trace.h"
 #include "ui/console.h"
-#include "ui/dbus-display.h"
-#include "ui/qemu-spice.h"
 #ifdef CONFIG_PNG
 #include <png.h>
-#endif
-
-void qmp_set_password(SetPasswordOptions *opts, Error **errp)
-{
-    int rc;
-
-    if (!qemu_using_spice(errp)) {
-        return;
-    }
-    rc = qemu_spice.set_passwd(opts->password,
-            opts->connected == SET_PASSWORD_ACTION_FAIL,
-            opts->connected == SET_PASSWORD_ACTION_DISCONNECT);
-
-    if (rc != 0) {
-        error_setg(errp, "Could not set password");
-    }
-}
-
-void qmp_expire_password(ExpirePasswordOptions *opts, Error **errp)
-{
-    time_t when;
-    int rc;
-    const char *whenstr = opts->time;
-    const char *numstr = NULL;
-    uint64_t num;
-
-    if (strcmp(whenstr, "now") == 0) {
-        when = 0;
-    } else if (strcmp(whenstr, "never") == 0) {
-        when = TIME_MAX;
-    } else if (whenstr[0] == '+') {
-        when = time(NULL);
-        numstr = whenstr + 1;
-    } else {
-        when = 0;
-        numstr = whenstr;
-    }
-
-    if (numstr) {
-        if (qemu_strtou64(numstr, NULL, 10, &num) < 0) {
-            error_setg(errp, "Parameter 'time' doesn't take value '%s'",
-                       whenstr);
-            return;
-        }
-        when += num;
-    }
-
-    if (!qemu_using_spice(errp)) {
-        return;
-    }
-    rc = qemu_spice.set_pw_expire(when);
-
-    if (rc != 0) {
-        error_setg(errp, "Could not set password expire time");
-    }
-}
-
-bool qmp_add_client_spice(int fd, bool has_skipauth, bool skipauth,
-                          bool has_tls, bool tls, Error **errp)
-{
-    if (!qemu_using_spice(errp)) {
-        return false;
-    }
-    skipauth = has_skipauth ? skipauth : false;
-    tls = has_tls ? tls : false;
-    if (qemu_spice.display_add_client(fd, skipauth, tls) < 0) {
-        error_setg(errp, "spice failed to add client");
-        return false;
-    }
-    return true;
-}
-
-#ifdef CONFIG_DBUS_DISPLAY
-bool qmp_add_client_dbus_display(int fd, bool has_skipauth, bool skipauth,
-                                 bool has_tls, bool tls, Error **errp)
-{
-    if (!qemu_using_dbus_display(errp)) {
-        return false;
-    }
-    if (!qemu_dbus_display.add_client(fd, errp)) {
-        return false;
-    }
-    return true;
-}
 #endif
 
 #ifdef CONFIG_PIXMAN

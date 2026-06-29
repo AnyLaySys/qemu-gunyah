@@ -23,7 +23,6 @@ system_ss.add(when: pixman, if_true: files('console-vc.c'), if_false: files('con
 if dbus_display
   error('DBus display was removed from this trimmed build')
 endif
-system_ss.add(files('spice-module.c'))
 
 if host_os == 'linux'
   system_ss.add(files('input-linux.c', 'udmabuf.c'))
@@ -45,7 +44,7 @@ ui_modules = {}
 
 if sdl.found()
   sdl_ss = ss.source_set()
-  sdl_ss.add(sdl, sdl_image, pixman, glib, files(
+  sdl_ss.add(sdl, pixman, glib, files(
     'sdl2-2d.c',
     'sdl2-input.c',
     'sdl2.c',
@@ -86,14 +85,6 @@ if have_system or xkbcommon.found()
                             '--varname', 'qemu_input_map_@0@_to_@1@'.format(e[0], e[1]),
                             '@INPUT0@', e[0], e[1]])
   endforeach
-endif
-
-subdir('shader')
-
-if have_system
-  subdir('icons')
-
-  install_data('qemu.desktop', install_dir: qemu_desktopdir)
 endif
 
 modules += {'ui': ui_modules}

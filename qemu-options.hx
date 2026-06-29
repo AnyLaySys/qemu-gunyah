@@ -2240,7 +2240,7 @@ DEF("chardev", HAS_ARG, QEMU_OPTION_chardev,
     "-chardev null,id=id[,mux=on|off][,logfile=PATH][,logappend=on|off]\n"
     "-chardev socket,id=id[,host=host],port=port[,to=to][,ipv4=on|off][,ipv6=on|off][,nodelay=on|off]\n"
     "         [,server=on|off][,wait=on|off][,telnet=on|off][,websocket=on|off][,reconnect-ms=milliseconds][,mux=on|off]\n"
-    "         [,logfile=PATH][,logappend=on|off][,tls-creds=ID][,tls-authz=ID] (tcp)\n"
+    "         [,logfile=PATH][,logappend=on|off][,tls-creds=ID] (tcp)\n"
     "-chardev socket,id=id,path=path[,server=on|off][,wait=on|off][,telnet=on|off][,websocket=on|off][,reconnect-ms=milliseconds]\n"
     "         [,mux=on|off][,logfile=PATH][,logappend=on|off][,abstract=on|off][,tight=on|off] (unix)\n"
     "-chardev udp,id=id[,host=host],port=port[,localaddr=localaddr]\n"
@@ -2307,7 +2307,7 @@ The general form of a character device option is:
     ::
 
         -chardev stdio,mux=on,id=char0 \
-        -mon chardev=char0,mode=readline \
+        -mon chardev=char0 \
         -serial chardev:char0 \
         -serial chardev:char0
 
@@ -2319,7 +2319,7 @@ The general form of a character device option is:
     ::
 
         -chardev stdio,mux=on,id=char0 \
-        -mon chardev=char0,mode=readline \
+        -mon chardev=char0 \
         -parallel chardev:char0 \
         -chardev tcp,...,mux=on,id=char1 \
         -serial chardev:char1 \
@@ -2352,7 +2352,7 @@ The available backends are:
     A void device. This device will not emit any data, and will drop any
     data it receives. The null backend does not take any options.
 
-``-chardev socket,id=id[,TCP options or unix options][,server=on|off][,wait=on|off][,telnet=on|off][,websocket=on|off][,reconnect-ms=milliseconds][,tls-creds=id][,tls-authz=id]``
+``-chardev socket,id=id[,TCP options or unix options][,server=on|off][,wait=on|off][,telnet=on|off][,websocket=on|off][,reconnect-ms=milliseconds][,tls-creds=id]``
     Create a two-way stream socket, which can be either a TCP or a unix
     socket. A unix socket will be created if ``path`` is specified.
     Behaviour is undefined if TCP options are specified for a unix
@@ -2378,12 +2378,6 @@ The available backends are:
     encryption, and specifies the id of the TLS credentials to use for
     the handshake. The credentials must be previously created with the
     ``-object tls-creds`` argument.
-
-    ``tls-auth`` provides the ID of the QAuthZ authorization object
-    against which the client's x509 distinguished name will be
-    validated. This object is only resolved at time of use, so can be
-    deleted and recreated on the fly while the chardev server is active.
-    If missing, it will default to denying access.
 
     TCP and unix socket options are given below:
 
@@ -3060,47 +3054,18 @@ SRST
     in non graphical mode. Use ``-monitor none`` to disable the default
     monitor.
 ERST
-DEF("qmp", HAS_ARG, QEMU_OPTION_qmp, \
-    "-qmp dev        like -monitor but opens in 'control' mode\n",
-    QEMU_ARCH_ALL)
-SRST
-``-qmp dev``
-    Like ``-monitor`` but opens in 'control' mode. For example, to make
-    QMP available on localhost port 4444::
-
-        -qmp tcp:localhost:4444,server=on,wait=off
-
-    Not all options are configurable via this syntax; for maximum
-    flexibility use the ``-mon`` option and an accompanying ``-chardev``.
-
-ERST
-DEF("qmp-pretty", HAS_ARG, QEMU_OPTION_qmp_pretty, \
-    "-qmp-pretty dev like -qmp but uses pretty JSON formatting\n",
-    QEMU_ARCH_ALL)
-SRST
-``-qmp-pretty dev``
-    Like ``-qmp`` but uses pretty JSON formatting.
-ERST
-
 DEF("mon", HAS_ARG, QEMU_OPTION_mon, \
-    "-mon [chardev=]name[,mode=readline|control][,pretty[=on|off]]\n", QEMU_ARCH_ALL)
+    "-mon [chardev=]name\n", QEMU_ARCH_ALL)
 SRST
-``-mon [chardev=]name[,mode=readline|control][,pretty[=on|off]]``
-    Set up a monitor connected to the chardev ``name``.
-    QEMU supports two monitors: the Human Monitor Protocol
-    (HMP; for human interaction), and the QEMU Monitor Protocol
-    (QMP; a JSON RPC-style protocol).
-    The default is HMP; ``mode=control`` selects QMP instead.
-    ``pretty`` is only valid when ``mode=control``,
-    turning on JSON pretty printing to ease
-    human reading and debugging.
+``-mon [chardev=]name``
+    Set up an HMP monitor connected to the chardev ``name``.
 
     For example::
 
       -chardev socket,id=mon1,host=localhost,port=4444,server=on,wait=off \
-      -mon chardev=mon1,mode=control,pretty=on
+      -mon chardev=mon1
 
-    enables the QMP monitor on localhost port 4444 with pretty-printing.
+    enables an HMP monitor on localhost port 4444.
 ERST
 
 DEF("debugcon", HAS_ARG, QEMU_OPTION_debugcon, \
@@ -3447,33 +3412,17 @@ SRST
         Argument passed to the plugin. (Can be given multiple times.)
 ERST
 
-HXCOMM Internal use
-DEF("qtest", HAS_ARG, QEMU_OPTION_qtest, "", QEMU_ARCH_ALL)
-DEF("qtest-log", HAS_ARG, QEMU_OPTION_qtest_log, "", QEMU_ARCH_ALL)
-
 #ifdef CONFIG_POSIX
 DEF("run-with", HAS_ARG, QEMU_OPTION_run_with,
-    "-run-with [async-teardown=on|off][,chroot=dir][user=username|uid:gid]\n"
+    "-run-with [chroot=dir][user=username|uid:gid]\n"
     "                Set miscellaneous QEMU process lifecycle options:\n"
-    "                async-teardown=on enables asynchronous teardown (Linux only)\n"
     "                chroot=dir chroot to dir just before starting the VM\n"
     "                user=username switch to the specified user before starting the VM\n"
     "                user=uid:gid ditto, but use specified user-ID and group-ID instead\n",
     QEMU_ARCH_ALL)
 SRST
-``-run-with [async-teardown=on|off][,chroot=dir][user=username|uid:gid]``
+``-run-with [chroot=dir][user=username|uid:gid]``
     Set QEMU process lifecycle options.
-
-    ``async-teardown=on`` enables asynchronous teardown. A new process called
-    "cleanup/<QEMU_PID>" will be created at startup sharing the address
-    space with the main QEMU process, using clone. It will wait for the
-    main QEMU process to terminate completely, and then exit. This allows
-    QEMU to terminate very quickly even if the guest was huge, leaving the
-    teardown of the address space to the cleanup process. Since the cleanup
-    process shares the same cgroups as the main QEMU process, accounting is
-    performed correctly. This only works if the cleanup process is not
-    forcefully killed with SIGKILL before the main QEMU process has
-    terminated completely.
 
     ``chroot=dir`` can be used for doing a chroot to the specified directory
     immediately before starting the guest execution. This is especially useful
@@ -3994,111 +3943,6 @@ SRST
                  -object sev-guest,id=sev0,cbitpos=47,reduced-phys-bits=1 \\
                  -machine ...,memory-encryption=sev0 \\
                  .....
-
-    ``-object authz-simple,id=id,identity=string``
-        Create an authorization object that will control access to
-        network services.
-
-        The ``identity`` parameter is identifies the user and its format
-        depends on the network service that authorization object is
-        associated with. For authorizing based on TLS x509 certificates,
-        the identity must be the x509 distinguished name. Note that care
-        must be taken to escape any commas in the distinguished name.
-
-        An example authorization object to validate a x509 distinguished
-        name would look like:
-
-        .. parsed-literal::
-
-             # |qemu_system| \\
-                 ... \\
-                 -object 'authz-simple,id=auth0,identity=CN=laptop.example.com,,O=Example Org,,L=London,,ST=London,,C=GB' \\
-                 ...
-
-        Note the use of quotes due to the x509 distinguished name
-        containing whitespace, and escaping of ','.
-
-    ``-object authz-listfile,id=id,filename=path,refresh=on|off``
-        Create an authorization object that will control access to
-        network services.
-
-        The ``filename`` parameter is the fully qualified path to a file
-        containing the access control list rules in JSON format.
-
-        An example set of rules that match against SASL usernames might
-        look like:
-
-        ::
-
-              {
-                "rules": [
-                   { "match": "fred", "policy": "allow", "format": "exact" },
-                   { "match": "bob", "policy": "allow", "format": "exact" },
-                   { "match": "danb", "policy": "deny", "format": "glob" },
-                   { "match": "dan*", "policy": "allow", "format": "exact" },
-                ],
-                "policy": "deny"
-              }
-
-        When checking access the object will iterate over all the rules
-        and the first rule to match will have its ``policy`` value
-        returned as the result. If no rules match, then the default
-        ``policy`` value is returned.
-
-        The rules can either be an exact string match, or they can use
-        the simple UNIX glob pattern matching to allow wildcards to be
-        used.
-
-        If ``refresh`` is set to true the file will be monitored and
-        automatically reloaded whenever its content changes.
-
-        As with the ``authz-simple`` object, the format of the identity
-        strings being matched depends on the network service, but is
-        usually a TLS x509 distinguished name, or a SASL username.
-
-        An example authorization object to validate a SASL username
-        would look like:
-
-        .. parsed-literal::
-
-             # |qemu_system| \\
-                 ... \\
-                 -object authz-simple,id=auth0,filename=/etc/qemu/sasl.acl,refresh=on \\
-                 ...
-
-    ``-object authz-pam,id=id,service=string``
-        Create an authorization object that will control access to
-        network services.
-
-        The ``service`` parameter provides the name of a PAM service to
-        use for authorization. It requires that a file
-        ``/etc/pam.d/service`` exist to provide the configuration for
-        the ``account`` subsystem.
-
-        An example authorization object to validate a TLS x509
-        distinguished name would look like:
-
-        .. parsed-literal::
-
-             # |qemu_system| \\
-                 ... \\
-                 -object authz-pam,id=auth0,service=qemu-tls \\
-                 ...
-
-        There would then be a corresponding config file for PAM at
-        ``/etc/pam.d/qemu-tls`` that contains:
-
-        ::
-
-            account requisite  pam_listfile.so item=user sense=allow \
-                       file=/etc/qemu/tls.allow
-
-        Finally the ``/etc/qemu/tls.allow`` file would contain the list
-        of x509 distinguished names that are permitted access
-
-        ::
-
-            CN=laptop.example.com,O=Example Home,L=London,ST=London,C=GB
 
     ``-object iothread,id=id,poll-max-ns=poll-max-ns,poll-grow=poll-grow,poll-shrink=poll-shrink,aio-max-batch=aio-max-batch``
         Creates a dedicated event loop thread that devices can be

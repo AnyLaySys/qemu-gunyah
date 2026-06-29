@@ -12,10 +12,6 @@
 
 #pragma GCC diagnostic pop
 
-#ifdef CONFIG_SDL_IMAGE
-# include <SDL_image.h>
-#endif
-
 #include "ui/kbd-state.h"
 #ifdef CONFIG_OPENGL
 # include "ui/egl-helpers.h"

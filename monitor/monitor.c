@@ -5,31 +5,13 @@
 #include "qapi/opts-visitor.h"
 #include "qapi/qapi-emit-events.h"
 #include "qapi/qapi-visit-control.h"
-#include "qobject/qdict.h"
 #include "qemu/error-report.h"
 #include "qemu/option.h"
-#include "system/qtest.h"
 #include "trace.h"
-
-typedef struct MonitorQAPIEventState {
-    QAPIEvent event;    /* Throttling state for this event type and... */
-    QDict *data;        /* ... data, see qapi_event_throttle_equal() */
-    QEMUTimer *timer;   /* Timer for handling delayed events */
-    QDict *qdict;       /* Delayed event (if any) */
-} MonitorQAPIEventState;
-
-typedef struct {
-    int64_t rate;       /* Minimum time (in ns) between two events */
-} MonitorQAPIEventConf;
 
 IOThread *mon_iothread;
 
-Coroutine *qmp_dispatcher_co;
-
-bool qmp_dispatcher_co_shutdown;
-
 QemuMutex monitor_lock;
-static GHashTable *monitor_qapi_event_state;
 static GHashTable *coroutine_mon; /* Maps Coroutine* to Monitor* */
 
 MonitorList mon_list;
@@ -63,9 +45,7 @@ Monitor *monitor_set_cur(Coroutine *co, Monitor *mon)
 
 bool monitor_cur_is_qmp(void)
 {
-    Monitor *cur_mon = monitor_cur();
-
-    return cur_mon && monitor_is_qmp(cur_mon);
+    return false;
 }
 
 static inline bool monitor_uses_readline(const MonitorHMP *mon)
@@ -75,10 +55,6 @@ static inline bool monitor_uses_readline(const MonitorHMP *mon)
 
 static inline bool monitor_is_hmp_non_interactive(const Monitor *mon)
 {
-    if (monitor_is_qmp(mon)) {
-        return false;
-    }
-
     return !monitor_uses_readline(container_of(mon, MonitorHMP, common));
 }
 
@@ -163,10 +139,6 @@ int monitor_vprintf(Monitor *mon, const char *fmt, va_list ap)
         return -1;
     }
 
-    if (monitor_is_qmp(mon)) {
-        return -1;
-    }
-
     buf = g_strdup_vprintf(fmt, ap);
     n = monitor_puts(mon, buf);
     g_free(buf);
@@ -215,7 +187,7 @@ int error_vprintf(const char *fmt, va_list ap)
 {
     Monitor *cur_mon = monitor_cur();
 
-    if (cur_mon && !monitor_cur_is_qmp()) {
+    if (cur_mon) {
         return monitor_vprintf(cur_mon, fmt, ap);
     }
     return vfprintf(stderr, fmt, ap);
@@ -228,10 +200,7 @@ int error_vprintf_unless_qmp(const char *fmt, va_list ap)
     if (!cur_mon) {
         return vfprintf(stderr, fmt, ap);
     }
-    if (!monitor_cur_is_qmp()) {
-        return monitor_vprintf(cur_mon, fmt, ap);
-    }
-    return -1;
+    return monitor_vprintf(cur_mon, fmt, ap);
 }
 
 int error_printf_unless_qmp(const char *fmt, ...)
@@ -245,188 +214,8 @@ int error_printf_unless_qmp(const char *fmt, ...)
     return ret;
 }
 
-static MonitorQAPIEventConf monitor_qapi_event_conf[QAPI_EVENT__MAX] = {
-    [QAPI_EVENT_RTC_CHANGE]        = { 1000 * SCALE_MS },
-    [QAPI_EVENT_BLOCK_IO_ERROR]    = { 1000 * SCALE_MS },
-    [QAPI_EVENT_BALLOON_CHANGE]    = { 1000 * SCALE_MS },
-    [QAPI_EVENT_QUORUM_REPORT_BAD] = { 1000 * SCALE_MS },
-    [QAPI_EVENT_QUORUM_FAILURE]    = { 1000 * SCALE_MS },
-    [QAPI_EVENT_VSERPORT_CHANGE]   = { 1000 * SCALE_MS },
-    [QAPI_EVENT_MEMORY_DEVICE_SIZE_CHANGE] = { 1000 * SCALE_MS },
-};
-
-static inline QEMUClockType monitor_get_event_clock(void)
-{
-    return qtest_enabled() ? QEMU_CLOCK_VIRTUAL : QEMU_CLOCK_REALTIME;
-}
-
-static void monitor_qapi_event_emit(QAPIEvent event, QDict *qdict)
-{
-    Monitor *mon;
-    MonitorQMP *qmp_mon;
-
-    trace_monitor_protocol_event_emit(event, qdict);
-    QTAILQ_FOREACH(mon, &mon_list, entry) {
-        if (!monitor_is_qmp(mon)) {
-            continue;
-        }
-
-        qmp_mon = container_of(mon, MonitorQMP, common);
-        if (qmp_mon->commands != &qmp_cap_negotiation_commands) {
-            qmp_send_response(qmp_mon, qdict);
-        }
-    }
-}
-
-static void monitor_qapi_event_handler(void *opaque);
-
-static void
-monitor_qapi_event_queue_no_reenter(QAPIEvent event, QDict *qdict)
-{
-    MonitorQAPIEventConf *evconf;
-    MonitorQAPIEventState *evstate;
-
-    assert(event < QAPI_EVENT__MAX);
-    evconf = &monitor_qapi_event_conf[event];
-    trace_monitor_protocol_event_queue(event, qdict, evconf->rate);
-
-    QEMU_LOCK_GUARD(&monitor_lock);
-
-    if (!evconf->rate) {
-        monitor_qapi_event_emit(event, qdict);
-    } else {
-        QDict *data = qobject_to(QDict, qdict_get(qdict, "data"));
-        MonitorQAPIEventState key = { .event = event, .data = data };
-
-        evstate = g_hash_table_lookup(monitor_qapi_event_state, &key);
-        assert(!evstate || timer_pending(evstate->timer));
-
-        if (evstate) {
-            qobject_unref(evstate->qdict);
-            evstate->qdict = qobject_ref(qdict);
-        } else {
-            int64_t now = qemu_clock_get_ns(monitor_get_event_clock());
-
-            monitor_qapi_event_emit(event, qdict);
-
-            evstate = g_new(MonitorQAPIEventState, 1);
-            evstate->event = event;
-            evstate->data = qobject_ref(data);
-            evstate->qdict = NULL;
-            evstate->timer = timer_new_ns(monitor_get_event_clock(),
-                                          monitor_qapi_event_handler,
-                                          evstate);
-            g_hash_table_add(monitor_qapi_event_state, evstate);
-            timer_mod_ns(evstate->timer, now + evconf->rate);
-        }
-    }
-}
-
 void qapi_event_emit(QAPIEvent event, QDict *qdict)
 {
-    typedef struct MonitorQapiEvent {
-        QAPIEvent event;
-        QDict *qdict;
-        QSIMPLEQ_ENTRY(MonitorQapiEvent) entry;
-    } MonitorQapiEvent;
-    static QSIMPLEQ_HEAD(, MonitorQapiEvent) event_queue;
-    static bool reentered;
-    MonitorQapiEvent *ev;
-
-    if (!reentered) {
-        QSIMPLEQ_INIT(&event_queue);
-    }
-
-    ev = g_new(MonitorQapiEvent, 1);
-    ev->qdict = qobject_ref(qdict);
-    ev->event = event;
-    QSIMPLEQ_INSERT_TAIL(&event_queue, ev, entry);
-    if (reentered) {
-        return;
-    }
-
-    reentered = true;
-
-    while ((ev = QSIMPLEQ_FIRST(&event_queue)) != NULL) {
-        QSIMPLEQ_REMOVE_HEAD(&event_queue, entry);
-        monitor_qapi_event_queue_no_reenter(ev->event, ev->qdict);
-        qobject_unref(ev->qdict);
-        g_free(ev);
-    }
-
-    reentered = false;
-}
-
-static void monitor_qapi_event_handler(void *opaque)
-{
-    MonitorQAPIEventState *evstate = opaque;
-    MonitorQAPIEventConf *evconf = &monitor_qapi_event_conf[evstate->event];
-
-    trace_monitor_protocol_event_handler(evstate->event, evstate->qdict);
-    QEMU_LOCK_GUARD(&monitor_lock);
-
-    if (evstate->qdict) {
-        int64_t now = qemu_clock_get_ns(monitor_get_event_clock());
-
-        monitor_qapi_event_emit(evstate->event, evstate->qdict);
-        qobject_unref(evstate->qdict);
-        evstate->qdict = NULL;
-        timer_mod_ns(evstate->timer, now + evconf->rate);
-    } else {
-        g_hash_table_remove(monitor_qapi_event_state, evstate);
-        qobject_unref(evstate->data);
-        timer_free(evstate->timer);
-        g_free(evstate);
-    }
-}
-
-static unsigned int qapi_event_throttle_hash(const void *key)
-{
-    const MonitorQAPIEventState *evstate = key;
-    unsigned int hash = evstate->event * 255;
-
-    if (evstate->event == QAPI_EVENT_VSERPORT_CHANGE) {
-        hash += g_str_hash(qdict_get_str(evstate->data, "id"));
-    }
-
-    if (evstate->event == QAPI_EVENT_QUORUM_REPORT_BAD) {
-        hash += g_str_hash(qdict_get_str(evstate->data, "node-name"));
-    }
-
-    if (evstate->event == QAPI_EVENT_MEMORY_DEVICE_SIZE_CHANGE ||
-        evstate->event == QAPI_EVENT_BLOCK_IO_ERROR) {
-        hash += g_str_hash(qdict_get_str(evstate->data, "qom-path"));
-    }
-
-    return hash;
-}
-
-static gboolean qapi_event_throttle_equal(const void *a, const void *b)
-{
-    const MonitorQAPIEventState *eva = a;
-    const MonitorQAPIEventState *evb = b;
-
-    if (eva->event != evb->event) {
-        return FALSE;
-    }
-
-    if (eva->event == QAPI_EVENT_VSERPORT_CHANGE) {
-        return !strcmp(qdict_get_str(eva->data, "id"),
-                       qdict_get_str(evb->data, "id"));
-    }
-
-    if (eva->event == QAPI_EVENT_QUORUM_REPORT_BAD) {
-        return !strcmp(qdict_get_str(eva->data, "node-name"),
-                       qdict_get_str(evb->data, "node-name"));
-    }
-
-    if (eva->event == QAPI_EVENT_MEMORY_DEVICE_SIZE_CHANGE ||
-        eva->event == QAPI_EVENT_BLOCK_IO_ERROR) {
-        return !strcmp(qdict_get_str(eva->data, "qom-path"),
-                       qdict_get_str(evb->data, "qom-path"));
-    }
-
-    return TRUE;
 }
 
 int monitor_suspend(Monitor *mon)
@@ -450,7 +239,7 @@ static void monitor_accept_input(void *opaque)
     Monitor *mon = opaque;
 
     qemu_mutex_lock(&mon->mon_lock);
-    if (!monitor_is_qmp(mon) && mon->reset_seen) {
+    if (mon->reset_seen) {
         MonitorHMP *hmp_mon = container_of(mon, MonitorHMP, common);
         assert(hmp_mon->rs);
         readline_restart(hmp_mon->rs);
@@ -511,14 +300,12 @@ static void monitor_iothread_init(void)
     mon_iothread = iothread_create("mon_iothread", &error_abort);
 }
 
-void monitor_data_init(Monitor *mon, bool is_qmp, bool skip_flush,
-                       bool use_io_thread)
+void monitor_data_init(Monitor *mon, bool skip_flush, bool use_io_thread)
 {
     if (use_io_thread && !mon_iothread) {
         monitor_iothread_init();
     }
     qemu_mutex_init(&mon->mon_lock);
-    mon->is_qmp = is_qmp;
     mon->outbuf = g_string_new(NULL);
     mon->skip_flush = skip_flush;
     mon->use_io_thread = use_io_thread;
@@ -528,26 +315,13 @@ void monitor_data_destroy(Monitor *mon)
 {
     g_free(mon->mon_cpu_path);
     qemu_chr_fe_deinit(&mon->chr, false);
-    if (monitor_is_qmp(mon)) {
-        monitor_data_destroy_qmp(container_of(mon, MonitorQMP, common));
-    } else {
-        readline_free(container_of(mon, MonitorHMP, common)->rs);
-    }
+    readline_free(container_of(mon, MonitorHMP, common)->rs);
     g_string_free(mon->outbuf, true);
     qemu_mutex_destroy(&mon->mon_lock);
 }
 
 void monitor_cleanup(void)
 {
-    WITH_QEMU_LOCK_GUARD(&monitor_lock) {
-        qmp_dispatcher_co_shutdown = true;
-    }
-    qmp_dispatcher_co_wake();
-
-    AIO_WAIT_WHILE_UNLOCKED(NULL,
-                   (aio_poll(iohandler_get_aio_context(), false),
-                    qatomic_read(&qmp_dispatcher_co)));
-
     if (mon_iothread) {
         iothread_stop(mon_iothread);
     }
@@ -571,23 +345,13 @@ void monitor_cleanup(void)
     }
 }
 
-static void monitor_qapi_event_init(void)
-{
-    monitor_qapi_event_state = g_hash_table_new(qapi_event_throttle_hash,
-                                                qapi_event_throttle_equal);
-}
-
 void monitor_init_globals(void)
 {
-    monitor_qapi_event_init();
     qemu_mutex_init(&monitor_lock);
     coroutine_mon = g_hash_table_new(NULL, NULL);
-
-    qmp_dispatcher_co = qemu_coroutine_create(monitor_qmp_dispatcher_co, NULL);
-    aio_co_schedule(iohandler_get_aio_context(), qmp_dispatcher_co);
 }
 
-int monitor_init(MonitorOptions *opts, bool allow_hmp, Error **errp)
+int monitor_init(MonitorOptions *opts, Error **errp)
 {
     ERRP_GUARD();
     Chardev *chr;
@@ -598,28 +362,7 @@ int monitor_init(MonitorOptions *opts, bool allow_hmp, Error **errp)
         return -1;
     }
 
-    if (!opts->has_mode) {
-        opts->mode = allow_hmp ? MONITOR_MODE_READLINE : MONITOR_MODE_CONTROL;
-    }
-
-    switch (opts->mode) {
-    case MONITOR_MODE_CONTROL:
-        monitor_init_qmp(chr, opts->pretty, errp);
-        break;
-    case MONITOR_MODE_READLINE:
-        if (!allow_hmp) {
-            error_setg(errp, "Only QMP is supported");
-            return -1;
-        }
-        if (opts->pretty) {
-            error_setg(errp, "'pretty' is not compatible with HMP monitors");
-            return -1;
-        }
-        monitor_init_hmp(chr, true, errp);
-        break;
-    default:
-        g_assert_not_reached();
-    }
+    monitor_init_hmp(chr, true, errp);
 
     return *errp ? -1 : 0;
 }
@@ -637,7 +380,7 @@ int monitor_init_opts(QemuOpts *opts, Error **errp)
         return -1;
     }
 
-    ret = monitor_init(options, true, errp);
+    ret = monitor_init(options, errp);
     qapi_free_MonitorOptions(options);
     return ret;
 }
@@ -648,14 +391,8 @@ QemuOptsList qemu_mon_opts = {
     .head = QTAILQ_HEAD_INITIALIZER(qemu_mon_opts.head),
     .desc = {
         {
-            .name = "mode",
-            .type = QEMU_OPT_STRING,
-        },{
             .name = "chardev",
             .type = QEMU_OPT_STRING,
-        },{
-            .name = "pretty",
-            .type = QEMU_OPT_BOOL,
         },
         { /* end of list */ }
     },

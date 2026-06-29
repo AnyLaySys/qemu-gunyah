@@ -118,8 +118,6 @@ option('libkeyutils', type: 'feature', value: 'auto',
 
 option('attr', type : 'feature', value : 'auto',
        description: 'attr/xattr support')
-option('auth_pam', type : 'feature', value : 'auto',
-       description: 'PAM access control')
 option('brlapi', type : 'feature', value : 'auto',
        description: 'brlapi character device driver')
 option('bzip2', type : 'feature', value : 'auto',
@@ -188,8 +186,6 @@ option('rdma', type : 'feature', value : 'auto',
        description: 'Enable RDMA-based migration')
 option('sdl', type : 'feature', value : 'auto',
        description: 'SDL user interface')
-option('sdl_image', type : 'feature', value : 'auto',
-       description: 'SDL Image support for icons')
 option('seccomp', type : 'feature', value : 'auto',
        description: 'seccomp support')
 option('smartcard', type : 'feature', value : 'auto',

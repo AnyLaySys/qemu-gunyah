@@ -309,21 +309,6 @@ SRST
     Show which guest mouse is receiving events.
 ERST
 
-#if defined(CONFIG_SPICE)
-    {
-        .name       = "spice",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show the spice server status",
-        .cmd        = hmp_info_spice,
-    },
-#endif
-
-SRST
-  ``info spice``
-    Show the spice server status.
-ERST
-
     {
         .name       = "name",
         .args_type  = "",
@@ -365,19 +350,6 @@ ERST
 SRST
   ``info usernet``
     Show user network stack connection states.
-ERST
-
-    {
-        .name       = "balloon",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show balloon information",
-        .cmd        = hmp_info_balloon,
-    },
-
-SRST
-  ``info balloon``
-    Show balloon information.
 ERST
 
     {
@@ -446,19 +418,6 @@ ERST
 SRST
   ``info trace-events``
     Show available trace-events & their state.
-ERST
-
-    {
-        .name       = "tpm",
-        .args_type  = "",
-        .params     = "",
-        .help       = "show the TPM device",
-        .cmd        = hmp_info_tpm,
-    },
-
-SRST
-  ``info tpm``
-    Show the TPM device.
 ERST
 
     {

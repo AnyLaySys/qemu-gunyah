@@ -212,15 +212,6 @@
   'allow-preconfig': true
 }
 
-{ 'command': 'balloon', 'data': {'value': 'int'} }
-
-{ 'struct': 'BalloonInfo', 'data': {'actual': 'int' } }
-
-{ 'command': 'query-balloon', 'returns': 'BalloonInfo' }
-
-{ 'event': 'BALLOON_CHANGE',
-  'data': { 'actual': 'int' } }
-
 { 'struct': 'MemoryInfo',
   'data'  : { 'base-memory': 'size', '*plugged-memory': 'size' } }
 

@@ -30,7 +30,6 @@ struct SocketChardev {
     QIONetListener *listener;
     GSource *hup_source;
     QCryptoTLSCreds *tls_creds;
-    char *tls_authz;
     TCPChardevState state;
     int max_size;
     int do_telnetopt;

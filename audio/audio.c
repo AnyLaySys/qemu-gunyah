@@ -17,7 +17,6 @@
 #include "qemu/help_option.h"
 #include "system/system.h"
 #include "system/runstate.h"
-#include "ui/qemu-spice.h"
 #include "trace.h"
 
 #define AUDIO_CAP "audio"
@@ -28,7 +27,6 @@
 
 
 const char *audio_prio_list[] = {
-    "spice",
     CONFIG_AUDIO_DRIVERS
     "none",
     NULL

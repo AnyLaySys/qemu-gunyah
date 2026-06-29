@@ -35,9 +35,6 @@ qemu_datadir = get_option('datadir') / get_option('qemu_suffix')
 qemu_docdir = get_option('docdir') / get_option('qemu_suffix')
 qemu_moddir = get_option('libdir') / get_option('qemu_suffix')
 
-qemu_desktopdir = get_option('datadir') / 'applications'
-qemu_icondir = get_option('datadir') / 'icons'
-
 genh = []
 qapi_trace_events = []
 
@@ -1257,7 +1254,6 @@ endif
 sdl = not_found
 if not get_option('sdl').auto() or have_system
   sdl = dependency('sdl2', required: get_option('sdl'))
-  sdl_image = not_found
 endif
 if sdl.found()
   if not cc.compiles('''
@@ -1269,14 +1265,6 @@ if sdl.found()
                              dependencies: sdl,
                              version: sdl.version())
   endif
-  sdl_image = dependency('SDL2_image', required: get_option('sdl_image'),
-                         method: 'pkg-config')
-else
-  if get_option('sdl_image').enabled()
-    error('sdl-image required, but SDL was @0@'.format(
-          get_option('sdl').disabled() ? 'disabled' : 'not found'))
-  endif
-  sdl_image = not_found
 endif
 
 rbd = not_found
@@ -1572,30 +1560,6 @@ if get_option('png').allowed() and have_system
    png = dependency('libpng', version: '>=1.6.34', required: get_option('png'),
                     method: 'pkg-config')
 endif
-pam = not_found
-if not get_option('auth_pam').auto() or have_system
-  pam = cc.find_library('pam', has_headers: ['security/pam_appl.h'],
-                        required: get_option('auth_pam'))
-endif
-if pam.found() and not cc.links('''
-   #include <stddef.h>
-   #include <security/pam_appl.h>
-   int main(void) {
-     const char *service_name = "qemu";
-     const char *user = "frank";
-     const struct pam_conv pam_conv = { 0 };
-     pam_handle_t *pamh = NULL;
-     pam_start(service_name, user, &pam_conv, &pamh);
-     return 0;
-   }''', dependencies: pam)
-  pam = not_found
-  if get_option('auth_pam').enabled()
-    error('could not link libpam')
-  else
-    warning('could not link libpam, disabling')
-  endif
-endif
-
 snappy = not_found
 if not get_option('snappy').auto() or have_system
   snappy = cc.find_library('snappy', has_headers: ['snappy-c.h'],
@@ -1886,7 +1850,6 @@ config_host_data.set_quoted('CONFIG_BINDIR', get_option('prefix') / get_option('
 config_host_data.set_quoted('CONFIG_PREFIX', get_option('prefix'))
 config_host_data.set_quoted('CONFIG_QEMU_CONFDIR', get_option('prefix') / qemu_confdir)
 config_host_data.set_quoted('CONFIG_QEMU_DATADIR', get_option('prefix') / qemu_datadir)
-config_host_data.set_quoted('CONFIG_QEMU_DESKTOPDIR', get_option('prefix') / qemu_desktopdir)
 
 qemu_firmwarepath = ''
 foreach k : get_option('qemu_firmwarepath')
@@ -1895,7 +1858,6 @@ endforeach
 config_host_data.set('CONFIG_QEMU_FIRMWAREPATH', qemu_firmwarepath)
 
 config_host_data.set_quoted('CONFIG_QEMU_HELPERDIR', get_option('prefix') / get_option('libexecdir'))
-config_host_data.set_quoted('CONFIG_QEMU_ICONDIR', get_option('prefix') / qemu_icondir)
 config_host_data.set_quoted('CONFIG_QEMU_LOCALEDIR', get_option('prefix') / get_option('localedir'))
 config_host_data.set_quoted('CONFIG_QEMU_LOCALSTATEDIR', get_option('prefix') / get_option('localstatedir'))
 config_host_data.set_quoted('CONFIG_QEMU_MODDIR', get_option('prefix') / qemu_moddir)
@@ -1988,7 +1950,6 @@ config_host_data.set('CONFIG_RDMA', rdma.found())
 config_host_data.set('CONFIG_RELOCATABLE', get_option('relocatable'))
 config_host_data.set('CONFIG_SAFESTACK', get_option('safe_stack'))
 config_host_data.set('CONFIG_SDL', sdl.found())
-config_host_data.set('CONFIG_SDL_IMAGE', sdl_image.found())
 config_host_data.set('CONFIG_SECCOMP', seccomp.found())
 if seccomp.found()
   config_host_data.set('CONFIG_SECCOMP_SYSRAWRC', seccomp_has_sysrawrc)
@@ -2829,7 +2790,6 @@ config_host_h = configure_file(output: 'config-host.h', configuration: config_ho
 genh += config_host_h
 
 hxtool = find_program('scripts/hxtool')
-shaderinclude = find_program('scripts/shaderinclude.py')
 qapi_gen = find_program('scripts/qapi-gen.py')
 qapi_gen_depends = [ meson.current_source_dir() / 'scripts/qapi/__init__.py',
                      meson.current_source_dir() / 'scripts/qapi/commands.py',
@@ -2918,7 +2878,6 @@ if have_bsd_user
 endif
 if have_block
   trace_events_subdirs += [
-    'authz',
     'block',
     'chardev',
     'io',
@@ -2964,7 +2923,6 @@ if have_system or have_user
 endif
 
 
-authz_ss = ss.source_set()
 blockdev_ss = ss.source_set()
 block_ss = ss.source_set()
 chardev_ss = ss.source_set()
@@ -2982,8 +2940,6 @@ trace_ss = ss.source_set()
 user_ss = ss.source_set()
 util_ss = ss.source_set()
 
-qtest_module_ss = ss.source_set()
-
 modules = {}
 target_modules = {}
 plugin_modules = []
@@ -2998,7 +2954,6 @@ subdir('stubs')
 subdir('trace')
 subdir('util')
 subdir('qom')
-subdir('authz')
 subdir('ui')
 if have_system
   subdir('hw')
@@ -3115,11 +3070,6 @@ if have_user
   subdir('bsd-user')
   subdir('linux-user')
 endif
-
-
-
-target_modules += { 'accel' : { 'qtest': qtest_module_ss }}
-
 
 modinfo_collect = find_program('scripts/modinfo-collect.py')
 modinfo_generate = find_program('scripts/modinfo-generate.py')
@@ -3243,14 +3193,6 @@ qemu_syms = custom_target('qemu.syms', output: 'qemu.syms',
                              capture: true,
                              command: [undefsym, nm, '@INPUT@'])
 
-authz_ss = authz_ss.apply({})
-libauthz = static_library('authz', authz_ss.sources() + genh,
-                          dependencies: [authz_ss.dependencies()],
-                          build_by_default: false)
-
-authz = declare_dependency(objects: libauthz.extract_all_objects(recursive: false),
-                           dependencies: [authz_ss.dependencies(), qom])
-
 io_ss = io_ss.apply({})
 libio = static_library('io', io_ss.sources() + genh,
                        dependencies: [io_ss.dependencies()],
@@ -3304,7 +3246,7 @@ hwcore = declare_dependency(objects: libhwcore.extract_all_objects(recursive: fa
 common_ss.add(hwcore)
 
 
-system_ss.add(authz, blockdev, chardev, io, qmp)
+system_ss.add(blockdev, chardev, io, qmp)
 common_ss.add(qom, qemuutil)
 
 common_ss.add_all(when: 'CONFIG_SYSTEM_ONLY', if_true: [system_ss])
@@ -3805,7 +3747,6 @@ if host_os == 'darwin'
   summary_info += {'Cocoa support':           cocoa}
 endif
 summary_info += {'SDL support':       sdl}
-summary_info += {'SDL image support': sdl_image}
 summary_info += {'pixman':            pixman}
 summary_info += {'PNG support':       png}
 summary_info += {'spice protocol support': spice_protocol}
@@ -3858,7 +3799,6 @@ summary(summary_info, bool_yn: true, section: 'Crypto')
 
 summary_info = {}
 summary_info += {'libtasn1':          tasn1}
-summary_info += {'PAM':               pam}
 summary_info += {'iconv support':     iconv}
 summary_info += {'blkio support':     blkio}
 summary_info += {'curl support':      curl}

@@ -762,7 +762,7 @@ static void tcp_chr_tls_init(Chardev *chr)
     if (s->is_listen) {
         tioc = qio_channel_tls_new_server(
             s->ioc, s->tls_creds,
-            s->tls_authz,
+            NULL,
             &err);
     } else {
         tioc = qio_channel_tls_new_client(
@@ -1000,7 +1000,6 @@ static void char_socket_finalize(Object *obj)
     if (s->tls_creds) {
         object_unref(OBJECT(s->tls_creds));
     }
-    g_free(s->tls_authz);
     if (s->registered_yank) {
         if (!chr->handover_yank_instance) {
             yank_unregister_instance(CHARDEV_YANK_INSTANCE(chr->label));
@@ -1201,11 +1200,6 @@ static bool qmp_chardev_validate_socket(ChardevSocket *sock,
         break;
     }
 
-    if (sock->tls_authz && !sock->tls_creds) {
-        error_setg(errp, "'tls_authz' option requires 'tls_creds' option");
-        return false;
-    }
-
     if (!sock->has_server || sock->server) {
         if (sock->has_reconnect) {
             error_setg(errp,
@@ -1283,8 +1277,6 @@ static void qmp_chardev_open_socket(Chardev *chr,
             return;
         }
     }
-    s->tls_authz = g_strdup(sock->tls_authz);
-
     s->addr = addr = socket_address_flatten(sock->addr);
 
     if (!qmp_chardev_validate_socket(sock, addr, errp)) {
@@ -1383,7 +1375,6 @@ static void qemu_chr_parse_socket(QemuOpts *opts, ChardevBackend *backend,
     sock->reconnect_ms = qemu_opt_get_number(opts, "reconnect-ms", 0);
 
     sock->tls_creds = g_strdup(qemu_opt_get(opts, "tls-creds"));
-    sock->tls_authz = g_strdup(qemu_opt_get(opts, "tls-authz"));
 
     addr = g_new0(SocketAddressLegacy, 1);
     if (path) {
