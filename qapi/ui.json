@@ -2,22 +2,6 @@
 
 { 'include': 'common.json' }
 
-{ 'enum': 'ImageFormat',
-  'data': ['ppm', 'png'] }
-
-{ 'command': 'screendump',
-  'data': {'filename': 'str', '*device': 'str', '*head': 'int',
-           '*format': 'ImageFormat'},
-  'coroutine': true,
-  'if': 'CONFIG_PIXMAN' }
-
-
-{ 'struct': 'MouseInfo',
-  'data': {'name': 'str', 'index': 'int', 'current': 'bool',
-           'absolute': 'bool'} }
-
-{ 'command': 'query-mice', 'returns': ['MouseInfo'] }
-
 { 'enum': 'QKeyCode',
   'prefix': 'Q_KEY_CODE',
   'data': [ 'unmapped',
@@ -59,9 +43,6 @@
   'data': {
     'number': 'IntWrapper',
     'qcode': 'QKeyCodeWrapper' } }
-
-{ 'command': 'send-key',
-  'data': { 'keys': ['KeyValue'], '*hold-time': 'int' } }
 
 { 'enum'  : 'InputButton',
   'data'  : [ 'left', 'middle', 'right', 'wheel-up', 'wheel-down', 'side',
@@ -116,11 +97,6 @@
               'rel'     : 'InputMoveEventWrapper',
               'abs'     : 'InputMoveEventWrapper',
               'mtt'     : 'InputMultiTouchEventWrapper' } }
-
-{ 'command': 'input-send-event',
-  'data': { '*device': 'str',
-            '*head'  : 'int',
-            'events' : [ 'InputEvent' ] } }
 
 { 'enum'    : 'DisplayGLMode',
   'data'    : [ 'off', 'on', 'core', 'es' ] }

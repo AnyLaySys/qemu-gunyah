@@ -76,8 +76,6 @@ void qemu_remove_led_event_handler(QEMUPutLEDEntry *entry);
 
 void kbd_put_ledstate(int ledstate);
 
-bool qemu_mouse_set(int index, Error **errp);
-
 #define QEMU_KEY_ESC1(c) ((c) | 0xe100)
 #define QEMU_KEY_TAB        0x0009
 #define QEMU_KEY_BACKSPACE  0x007f
@@ -414,8 +412,6 @@ void qemu_display_early_init(DisplayOptions *opts);
 void qemu_display_init(DisplayState *ds, DisplayOptions *opts);
 const char *qemu_display_get_vc(DisplayOptions *opts);
 void qemu_display_help(void);
-
-int index_from_key(const char *key, size_t key_length);
 
 #ifdef CONFIG_LINUX
 int udmabuf_fd(void);

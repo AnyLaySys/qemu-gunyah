@@ -28,10 +28,6 @@
 { 'enum': 'NetFilterDirection',
   'data': [ 'all', 'rx', 'tx' ] }
 
-{ 'enum': 'GrabToggleKeys',
-  'data': [ 'ctrl-ctrl', 'alt-alt', 'shift-shift','meta-meta', 'scrolllock',
-            'ctrl-scrolllock' ] }
-
 { 'struct': 'HumanReadableText',
   'data': { 'human-readable-text': 'str' } }
 

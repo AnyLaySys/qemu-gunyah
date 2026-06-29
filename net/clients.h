@@ -3,9 +3,7 @@
 
 #include "net/net.h"
 
-#ifdef CONFIG_SLIRP
-int net_init_slirp(const Netdev *netdev, const char *name,
-                   NetClientState *peer, Error **errp);
-#endif
+int net_init_tap(const Netdev *netdev, const char *name,
+                 NetClientState *peer, Error **errp);
 
 #endif /* QEMU_NET_CLIENTS_H */

@@ -1,13 +1,4 @@
 
-
-{ 'command': 'set_link', 'data': {'name': 'str', 'up': 'bool'} }
-
-{ 'command': 'netdev_add', 'data': 'Netdev', 'boxed': true,
-  'allow-preconfig': true }
-
-{ 'command': 'netdev_del', 'data': {'id': 'str'},
-  'allow-preconfig': true }
-
 { 'struct': 'NetLegacyNicOptions',
   'data': {
     '*netdev':  'str',
@@ -20,40 +11,22 @@
   'data': {
     'str': 'str' } }
 
-{ 'struct': 'NetdevUserOptions',
+{ 'struct': 'NetdevTapOptions',
   'data': {
-    '*hostname':  'str',
-    '*restrict':  'bool',
-    '*ipv4':      'bool',
-    '*ipv6':      'bool',
-    '*ip':        'str',
-    '*net':       'str',
-    '*host':      'str',
-    '*tftp':      'str',
-    '*bootfile':  'str',
-    '*dhcpstart': 'str',
-    '*dns':       'str',
-    '*dnssearch': ['String'],
-    '*domainname': 'str',
-    '*ipv6-prefix':      'str',
-    '*ipv6-prefixlen':   'int',
-    '*ipv6-host':        'str',
-    '*ipv6-dns':         'str',
-    '*smb':       'str',
-    '*smbserver': 'str',
-    '*hostfwd':   ['String'],
-    '*guestfwd':  ['String'],
-    '*tftp-server-name': 'str' } }
+    '*ifname':     'str',
+    '*script':     'str',
+    '*downscript': 'str',
+    '*vnet-hdr':   'bool' } }
 
 { 'enum': 'NetClientDriver',
-  'data': [ 'none', 'nic', 'user' ] }
+  'data': [ 'none', 'nic', 'tap' ] }
 
 { 'union': 'Netdev',
   'base': { 'id': 'str', 'type': 'NetClientDriver' },
   'discriminator': 'type',
   'data': {
     'nic':      'NetLegacyNicOptions',
-    'user':     'NetdevUserOptions' } }
+    'tap':      'NetdevTapOptions' } }
 
 { 'enum': 'RxState', 'data': [ 'normal', 'none', 'all' ] }
 
@@ -72,10 +45,6 @@
     'unicast-table':      ['str'],
     'multicast-table':    ['str'] }}
 
-{ 'command': 'query-rx-filter',
-  'data': { '*name': 'str' },
-  'returns': ['RxFilterInfo'] }
-
 { 'event': 'NIC_RX_FILTER_CHANGED',
   'data': { '*name': 'str', 'path': 'str' } }
 
@@ -87,9 +56,6 @@
             'step': 'int',
             '*interfaces': ['str'],
             '*id' : 'str' } }
-
-{ 'command': 'announce-self', 'boxed': true,
-  'data' : 'AnnounceParameters'}
 
 { 'event': 'FAILOVER_NEGOTIATED',
   'data': {'device-id': 'str'} }

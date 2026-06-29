@@ -6,7 +6,6 @@
 #include "chardev/char-fe.h"
 #include "qom/object.h"
 
-#define MAX_HUB 4
 #define MAX_MUX 4
 #define MUX_BUFFER_SIZE 32 /* Must be a power of 2.  */
 #define MUX_BUFFER_MASK (MUX_BUFFER_SIZE - 1)
@@ -27,35 +26,12 @@ struct MuxChardev {
     int64_t timestamps_start;
 };
 typedef struct MuxChardev MuxChardev;
-typedef struct HubChardev HubChardev;
-typedef struct HubCharBackend HubCharBackend;
-
-struct HubCharBackend {
-    HubChardev   *hub;
-    CharBackend  be;
-    unsigned int be_ind;
-};
-
-struct HubChardev {
-    Chardev parent;
-    HubCharBackend backends[MAX_HUB];
-    unsigned int be_cnt;
-    unsigned int be_event_opened_cnt;
-    unsigned int be_written[MAX_HUB];
-    unsigned int be_min_written;
-    int be_eagain_ind;
-};
-typedef struct HubChardev HubChardev;
 
 DECLARE_INSTANCE_CHECKER(MuxChardev, MUX_CHARDEV,
                          TYPE_CHARDEV_MUX)
-DECLARE_INSTANCE_CHECKER(HubChardev, HUB_CHARDEV,
-                         TYPE_CHARDEV_HUB)
 
 #define CHARDEV_IS_MUX(chr)                                \
     object_dynamic_cast(OBJECT(chr), TYPE_CHARDEV_MUX)
-#define CHARDEV_IS_HUB(chr)                                \
-    object_dynamic_cast(OBJECT(chr), TYPE_CHARDEV_HUB)
 
 bool mux_chr_attach_frontend(MuxChardev *d, CharBackend *b,
                              unsigned int *tag, Error **errp);

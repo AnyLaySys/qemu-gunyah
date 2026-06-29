@@ -43,7 +43,6 @@ void qemu_input_event_sync(void);
 void qemu_input_event_sync_impl(void);
 
 void qemu_input_event_send_key(QemuConsole *src, KeyValue *key, bool down);
-void qemu_input_event_send_key_number(QemuConsole *src, int num, bool down);
 void qemu_input_event_send_key_qcode(QemuConsole *src, QKeyCode q, bool down);
 void qemu_input_event_send_key_delay(uint32_t delay_ms);
 int qemu_input_key_number_to_qcode(unsigned int nr);

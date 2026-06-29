@@ -1521,11 +1521,7 @@ void qemu_display_init(DisplayState *ds, DisplayOptions *opts)
 
 const char *qemu_display_get_vc(DisplayOptions *opts)
 {
-#ifdef CONFIG_PIXMAN
-    const char *vc = "vc:80Cx24C";
-#else
     const char *vc = NULL;
-#endif
 
     assert(opts->type < DISPLAY_TYPE__MAX);
     if (dpys[opts->type] && dpys[opts->type]->vc) {

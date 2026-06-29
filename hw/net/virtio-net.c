@@ -2728,7 +2728,7 @@ static int virtio_net_post_load_device(void *opaque, int version_id)
             timer_mod(n->announce_timer.tm,
                       qemu_clock_get_ms(n->announce_timer.type));
         } else {
-            qemu_announce_timer_del(&n->announce_timer, false);
+            qemu_announce_timer_del(&n->announce_timer);
         }
     }
 
@@ -3371,7 +3371,7 @@ static void virtio_net_device_unrealize(DeviceState *dev)
         virtio_net_del_queue(n, i);
     }
     virtio_del_queue(vdev, max_queue_pairs * 2);
-    qemu_announce_timer_del(&n->announce_timer, false);
+    qemu_announce_timer_del(&n->announce_timer);
     g_free(n->vqs);
     qemu_del_nic(n->nic);
     virtio_net_rsc_cleanup(n);

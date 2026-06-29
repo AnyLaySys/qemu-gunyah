@@ -4,13 +4,11 @@
 #include "net/net.h"
 #include "clients.h"
 #include "hw/qdev-properties.h"
-#include "net/slirp.h"
 #include "net/eth.h"
 #include "util.h"
 
 #include "monitor/monitor.h"
 #include "qemu/help_option.h"
-#include "qapi/qapi-commands-net.h"
 #include "qapi/qapi-visit-net.h"
 #include "qobject/qdict.h"
 #include "qapi/qmp/qerror.h"
@@ -1087,9 +1085,7 @@ static int (* const net_client_init_fun[NET_CLIENT_DRIVER__MAX])(
     const char *name,
     NetClientState *peer, Error **errp) = {
         [NET_CLIENT_DRIVER_NIC]       = net_init_nic,
-#ifdef CONFIG_SLIRP
-        [NET_CLIENT_DRIVER_USER]      = net_init_slirp,
-#endif
+        [NET_CLIENT_DRIVER_TAP]       = net_init_tap,
 };
 
 
@@ -1143,9 +1139,7 @@ void show_netdevs(void)
 {
     int idx;
     const char *available_netdevs[] = {
-#ifdef CONFIG_SLIRP
-        "user",
-#endif
+        "tap",
     };
 
     qemu_printf("Available netdev backend types:\n");
@@ -1209,132 +1203,6 @@ out:
 void netdev_add(QemuOpts *opts, Error **errp)
 {
     net_client_init(opts, true, errp);
-}
-
-void qmp_netdev_add(Netdev *netdev, Error **errp)
-{
-    if (!id_wellformed(netdev->id)) {
-        error_setg(errp, QERR_INVALID_PARAMETER_VALUE, "id", "an identifier");
-        return;
-    }
-
-    net_client_init1(netdev, true, errp);
-}
-
-void qmp_netdev_del(const char *id, Error **errp)
-{
-    NetClientState *nc;
-    QemuOpts *opts;
-
-    nc = qemu_find_netdev(id);
-    if (!nc) {
-        error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND,
-                  "Device '%s' not found", id);
-        return;
-    }
-
-    if (!nc->is_netdev) {
-        error_setg(errp, "Device '%s' is not a netdev", id);
-        return;
-    }
-
-    qemu_del_net_client(nc);
-
-    opts = qemu_opts_find(qemu_find_opts("netdev"), id);
-    if (opts) {
-        qemu_opts_del(opts);
-    }
-}
-
-void print_net_client(Monitor *mon, NetClientState *nc)
-{
-    monitor_printf(mon, "%s: index=%d,type=%s,%s\n", nc->name,
-                   nc->queue_index,
-                   NetClientDriver_str(nc->info->type),
-                   nc->info_str);
-}
-
-RxFilterInfoList *qmp_query_rx_filter(const char *name, Error **errp)
-{
-    NetClientState *nc;
-    RxFilterInfoList *filter_list = NULL, **tail = &filter_list;
-
-    QTAILQ_FOREACH(nc, &net_clients, next) {
-        RxFilterInfo *info;
-
-        if (name && strcmp(nc->name, name) != 0) {
-            continue;
-        }
-
-        if (nc->info->type != NET_CLIENT_DRIVER_NIC) {
-            if (name) {
-                error_setg(errp, "net client(%s) isn't a NIC", name);
-                assert(!filter_list);
-                return NULL;
-            }
-            continue;
-        }
-
-        if (nc->queue_index != 0)
-            continue;
-
-        if (nc->info->query_rx_filter) {
-            info = nc->info->query_rx_filter(nc);
-            QAPI_LIST_APPEND(tail, info);
-        } else if (name) {
-            error_setg(errp, "net client(%s) doesn't support"
-                       " rx-filter querying", name);
-            assert(!filter_list);
-            return NULL;
-        }
-
-        if (name) {
-            break;
-        }
-    }
-
-    if (filter_list == NULL && name) {
-        error_setg(errp, "invalid net client name: %s", name);
-    }
-
-    return filter_list;
-}
-
-void qmp_set_link(const char *name, bool up, Error **errp)
-{
-    NetClientState *ncs[MAX_QUEUE_NUM];
-    NetClientState *nc;
-    int queues, i;
-
-    queues = qemu_find_net_clients_except(name, ncs,
-                                          NET_CLIENT_DRIVER__MAX,
-                                          MAX_QUEUE_NUM);
-
-    if (queues == 0) {
-        error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND,
-                  "Device '%s' not found", name);
-        return;
-    }
-    nc = ncs[0];
-
-    for (i = 0; i < queues; i++) {
-        ncs[i]->link_down = !up;
-    }
-
-    if (nc->info->link_status_changed) {
-        nc->info->link_status_changed(nc);
-    }
-
-    if (nc->peer) {
-        if (nc->peer->info->type == NET_CLIENT_DRIVER_NIC) {
-            for (i = 0; i < queues; i++) {
-                ncs[i]->peer->link_down = !up;
-            }
-        }
-        if (nc->peer->info->link_status_changed) {
-            nc->peer->info->link_status_changed(nc->peer);
-        }
-    }
 }
 
 static void net_vm_change_state_handler(void *opaque, bool running,
@@ -1467,7 +1335,7 @@ static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
     }
 
     if (!type) {
-        qemu_opt_set(opts, "type", "user", &error_abort);
+        qemu_opt_set(opts, "type", "tap", &error_abort);
     }
 
     ni = &nd_table[idx];

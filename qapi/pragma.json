@@ -3,15 +3,11 @@
 
 { 'pragma': {
     'command-name-exceptions': [
-        'add_client',
         'block_resize',
         'device_add',
         'device_del',
         'migrate_cancel',
-        'netdev_add',
-        'netdev_del',
         'qmp_capabilities',
-        'set_link',
         'system_powerdown',
         'system_reset',
         'system_wakeup' ],
@@ -19,8 +15,7 @@
         'human-monitor-command',
         'qom-get',
         'query-tpm-models',
-        'query-tpm-types',
-        'ringbuf-read' ],
+        'query-tpm-types' ],
     'documentation-exceptions': [
         'AbortWrapper',
         'AudiodevDriver',
@@ -70,12 +65,8 @@
         'BlockdevDriver',           # blockdev-add, -blockdev, ...
         'BlockdevVmdkAdapterType',  # blockdev-create (to match VMDK spec)
         'BlockdevVmdkSubformat',    # blockdev-create (to match VMDK spec)
-        'InputLinuxProperties',     # object_add, -object
         'ObjectType',               # object-add, -object
         'PCIELinkSpeed',            # internal only
-        'PciBusInfo',               # query-pci
-        'PciDeviceInfo',            # query-pci
-        'PciMemoryRegion',          # query-pci
         'QKeyCode',                 # send-key, input-sent-event
         'QapiErrorClass',           # QMP error replies
         'SshHostKeyCheckMode',      # blockdev-add, -blockdev

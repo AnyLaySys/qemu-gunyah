@@ -88,7 +88,6 @@ void qemu_chr_be_update_read_handlers(Chardev *s,
 
 void qemu_chr_be_event(Chardev *s, QEMUChrEvent event);
 
-int qemu_chr_add_client(Chardev *s, int fd);
 Chardev *qemu_chr_find(const char *name);
 
 bool qemu_chr_has_feature(Chardev *chr,
@@ -106,23 +105,8 @@ OBJECT_DECLARE_TYPE(Chardev, ChardevClass, CHARDEV)
 
 #define TYPE_CHARDEV_NULL "chardev-null"
 #define TYPE_CHARDEV_MUX "chardev-mux"
-#define TYPE_CHARDEV_HUB "chardev-hub"
-#define TYPE_CHARDEV_RINGBUF "chardev-ringbuf"
-#define TYPE_CHARDEV_PTY "chardev-pty"
 #define TYPE_CHARDEV_CONSOLE "chardev-console"
 #define TYPE_CHARDEV_STDIO "chardev-stdio"
-#define TYPE_CHARDEV_PIPE "chardev-pipe"
-#define TYPE_CHARDEV_MEMORY "chardev-memory"
-#define TYPE_CHARDEV_PARALLEL "chardev-parallel"
-#define TYPE_CHARDEV_FILE "chardev-file"
-#define TYPE_CHARDEV_SERIAL "chardev-serial"
-#define TYPE_CHARDEV_SOCKET "chardev-socket"
-#define TYPE_CHARDEV_UDP "chardev-udp"
-
-#define CHARDEV_IS_RINGBUF(chr) \
-    object_dynamic_cast(OBJECT(chr), TYPE_CHARDEV_RINGBUF)
-#define CHARDEV_IS_PTY(chr) \
-    object_dynamic_cast(OBJECT(chr), TYPE_CHARDEV_PTY)
 
 struct ChardevClass {
     ObjectClass parent_class;
@@ -148,8 +132,6 @@ struct ChardevClass {
     int (*get_msgfds)(Chardev *s, int* fds, int num);
 
     int (*set_msgfds)(Chardev *s, int *fds, int num);
-
-    int (*chr_add_client)(Chardev *chr, int fd);
 
     int (*chr_wait_connected)(Chardev *chr, Error **errp);
 

@@ -170,17 +170,6 @@ static void char_fd_finalize(Object *obj)
     qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
 }
 
-int qmp_chardev_open_file_source(char *src, int flags, Error **errp)
-{
-    int fd = -1;
-
-    fd = RETRY_ON_EINTR(qemu_open_old(src, flags, 0666));
-    if (fd == -1) {
-        error_setg_file_open(errp, errno, src);
-    }
-    return fd;
-}
-
 void qemu_chr_open_fd(Chardev *chr,
                       int fd_in, int fd_out)
 {

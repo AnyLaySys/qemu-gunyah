@@ -1,7 +1,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
-#include "qapi/qapi-commands-ui.h"
 #include "ui/console.h"
 #include "keymaps.h"
 #include "ui/input.h"
@@ -31,58 +30,6 @@ struct QEMUPutLEDEntry {
 
 static QTAILQ_HEAD(, QEMUPutLEDEntry) led_handlers =
     QTAILQ_HEAD_INITIALIZER(led_handlers);
-
-int index_from_key(const char *key, size_t key_length)
-{
-    int i;
-
-    for (i = 0; i < Q_KEY_CODE__MAX; i++) {
-        if (!strncmp(key, QKeyCode_str(i), key_length) &&
-            !QKeyCode_str(i)[key_length]) {
-            break;
-        }
-    }
-
-    return i;
-}
-
-static KeyValue *copy_key_value(KeyValue *src)
-{
-    KeyValue *dst = g_new(KeyValue, 1);
-    memcpy(dst, src, sizeof(*src));
-    if (dst->type == KEY_VALUE_KIND_NUMBER) {
-        QKeyCode code = qemu_input_key_number_to_qcode(dst->u.number.data);
-        dst->type = KEY_VALUE_KIND_QCODE;
-        dst->u.qcode.data = code;
-    }
-    return dst;
-}
-
-void qmp_send_key(KeyValueList *keys, bool has_hold_time, int64_t hold_time,
-                  Error **errp)
-{
-    KeyValueList *p;
-    KeyValue **up = NULL;
-    int count = 0;
-
-    if (!has_hold_time) {
-        hold_time = 0; /* use default */
-    }
-
-    for (p = keys; p != NULL; p = p->next) {
-        qemu_input_event_send_key(NULL, copy_key_value(p->value), true);
-        qemu_input_event_send_key_delay(hold_time);
-        up = g_realloc(up, sizeof(*up) * (count+1));
-        up[count] = copy_key_value(p->value);
-        count++;
-    }
-    while (count) {
-        count--;
-        qemu_input_event_send_key(NULL, up[count], false);
-        qemu_input_event_send_key_delay(hold_time);
-    }
-    g_free(up);
-}
 
 static void legacy_mouse_event(DeviceState *dev, QemuConsole *src,
                                InputEvent *evt)

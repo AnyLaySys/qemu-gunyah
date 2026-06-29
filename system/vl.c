@@ -32,7 +32,6 @@
 #include "hw/loader.h"
 #include "monitor/qdev.h"
 #include "net/net.h"
-#include "net/slirp.h"
 #include "monitor/monitor.h"
 #include "ui/console.h"
 #include "ui/input.h"

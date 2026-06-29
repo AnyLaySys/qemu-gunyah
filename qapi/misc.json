@@ -2,10 +2,6 @@
 
 { 'include': 'common.json' }
 
-{ 'command': 'add_client',
-  'data': { 'protocol': 'str', 'fdname': 'str', '*skipauth': 'bool',
-            '*tls': 'bool' } }
-
 { 'struct': 'NameInfo', 'data': {'*name': 'str'} }
 
 { 'command': 'query-name', 'returns': 'NameInfo', 'allow-preconfig': true }

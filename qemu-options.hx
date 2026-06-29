@@ -2135,32 +2135,17 @@ DEFHEADING()
 DEFHEADING(Network options:)
 
 DEF("netdev", HAS_ARG, QEMU_OPTION_netdev,
-#ifdef CONFIG_SLIRP
-    "-netdev user,id=str[,ipv4=on|off][,net=addr[/mask]][,host=addr]\n"
-    "         [,ipv6=on|off][,ipv6-net=addr[/int]][,ipv6-host=addr]\n"
-    "         [,restrict=on|off][,hostname=host][,dhcpstart=addr]\n"
-    "         [,dns=addr][,ipv6-dns=addr][,dnssearch=domain][,domainname=domain]\n"
-    "         [,tftp=dir][,tftp-server-name=name][,bootfile=f][,hostfwd=rule][,guestfwd=rule]"
-#ifndef _WIN32
-                                             "[,smb=dir[,smbserver=addr]]\n"
-#endif
-    "                configure a user mode network backend with ID 'str',\n"
-    "                its DHCP server and optional services\n"
-#else
-    "-netdev user,id=str\n"
-    "                user mode networking is not available in this build\n"
-#endif
+    "-netdev tap,id=str,ifname=name,script=no,downscript=no\n"
+    "                configure a TAP network backend with ID 'str'\n"
     , QEMU_ARCH_ALL)
 DEF("nic", HAS_ARG, QEMU_OPTION_nic,
-#ifdef CONFIG_SLIRP
-    "-nic user[,option][,...][mac=macaddr]\n"
-    "                initialize a default NIC and connect it to user networking\n"
-#endif
+    "-nic tap[,option][,...][mac=macaddr]\n"
+    "                initialize a default NIC and connect it to TAP networking\n"
     "-nic none       use it alone to have zero network devices\n",
     QEMU_ARCH_ALL)
 DEF("net", HAS_ARG, QEMU_OPTION_net,
     "-net nic[,netdev=nd][,macaddr=mac][,model=type][,name=str][,addr=str][,vectors=v]\n"
-    "                legacy NIC option; prefer -netdev user + -device virtio-net-pci\n"
+    "                legacy NIC option; prefer -netdev tap + -device virtio-net-pci\n"
     "-net none       use it alone to have zero network devices\n",
     QEMU_ARCH_ALL)
 SRST

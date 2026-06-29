@@ -1,5 +1,4 @@
 # See docs/devel/tracing.rst for syntax documentation.
 
 # announce.c
-qemu_announce_self_iter(const char *id, const char *name, const char *mac, int skip) "%s:%s:%s skip: %d"
-qemu_announce_timer_del(bool free_named, bool free_timer, char *id) "free named: %d free timer: %d id: %s"
+qemu_announce_timer_del(char *id) "id: %s"

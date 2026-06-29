@@ -1,7 +1,6 @@
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
-#include "qapi/qapi-commands-virtio.h"
 #include "trace.h"
 #include "qemu/defer-call.h"
 #include "qemu/error-report.h"
@@ -20,7 +19,6 @@
 #include "hw/virtio/virtio-access.h"
 #include "system/dma.h"
 #include "system/runstate.h"
-#include "virtio-qmp.h"
 
 #include "standard-headers/linux/virtio_ids.h"
 #include "standard-headers/linux/vhost_types.h"
@@ -374,18 +372,6 @@ static inline void vring_used_write(VirtQueue *vq, VRingUsedElem *uelem,
     virtio_tswap32s(vq->vdev, &uelem->len);
     address_space_write_cached(&caches->used, pa, uelem, sizeof(VRingUsedElem));
     address_space_cache_invalidate(&caches->used, pa, sizeof(VRingUsedElem));
-}
-
-static inline uint16_t vring_used_flags(VirtQueue *vq)
-{
-    VRingMemoryRegionCaches *caches = vring_get_region_caches(vq);
-    hwaddr pa = offsetof(VRingUsed, flags);
-
-    if (!caches) {
-        return 0;
-    }
-
-    return virtio_lduw_phys_cached(vq->vdev, &caches->used, pa);
 }
 
 static uint16_t vring_used_idx(VirtQueue *vq)
@@ -3807,205 +3793,6 @@ bool virtio_device_ioeventfd_enabled(VirtIODevice *vdev)
     VirtioBusState *vbus = VIRTIO_BUS(qbus);
 
     return virtio_bus_ioeventfd_enabled(vbus);
-}
-
-VirtQueueStatus *qmp_x_query_virtio_queue_status(const char *path,
-                                                 uint16_t queue,
-                                                 Error **errp)
-{
-    VirtIODevice *vdev;
-    VirtQueueStatus *status;
-
-    vdev = qmp_find_virtio_device(path);
-    if (vdev == NULL) {
-        error_setg(errp, "Path %s is not a VirtIODevice", path);
-        return NULL;
-    }
-
-    if (queue >= VIRTIO_QUEUE_MAX || !virtio_queue_get_num(vdev, queue)) {
-        error_setg(errp, "Invalid virtqueue number %d", queue);
-        return NULL;
-    }
-
-    status = g_new0(VirtQueueStatus, 1);
-    status->name = g_strdup(vdev->name);
-    status->queue_index = vdev->vq[queue].queue_index;
-    status->inuse = vdev->vq[queue].inuse;
-    status->vring_num = vdev->vq[queue].vring.num;
-    status->vring_num_default = vdev->vq[queue].vring.num_default;
-    status->vring_align = vdev->vq[queue].vring.align;
-    status->vring_desc = vdev->vq[queue].vring.desc;
-    status->vring_avail = vdev->vq[queue].vring.avail;
-    status->vring_used = vdev->vq[queue].vring.used;
-    status->used_idx = vdev->vq[queue].used_idx;
-    status->signalled_used = vdev->vq[queue].signalled_used;
-    status->signalled_used_valid = vdev->vq[queue].signalled_used_valid;
-
-    if (vdev->vhost_started) {
-        VirtioDeviceClass *vdc = VIRTIO_DEVICE_GET_CLASS(vdev);
-        struct vhost_dev *hdev = vdc->get_vhost(vdev);
-
-        if (queue >= hdev->vq_index && queue < hdev->vq_index + hdev->nvqs) {
-            status->has_last_avail_idx = true;
-
-            int vhost_vq_index =
-                hdev->vhost_ops->vhost_get_vq_index(hdev, queue);
-            struct vhost_vring_state state = {
-                .index = vhost_vq_index,
-            };
-
-            status->last_avail_idx =
-                hdev->vhost_ops->vhost_get_vring_base(hdev, &state);
-        }
-    } else {
-        status->has_shadow_avail_idx = true;
-        status->has_last_avail_idx = true;
-        status->last_avail_idx = vdev->vq[queue].last_avail_idx;
-        status->shadow_avail_idx = vdev->vq[queue].shadow_avail_idx;
-    }
-
-    return status;
-}
-
-static strList *qmp_decode_vring_desc_flags(uint16_t flags)
-{
-    strList *list = NULL;
-    strList *node;
-    int i;
-
-    struct {
-        uint16_t flag;
-        const char *value;
-    } map[] = {
-        { VRING_DESC_F_NEXT, "next" },
-        { VRING_DESC_F_WRITE, "write" },
-        { VRING_DESC_F_INDIRECT, "indirect" },
-        { 1 << VRING_PACKED_DESC_F_AVAIL, "avail" },
-        { 1 << VRING_PACKED_DESC_F_USED, "used" },
-        { 0, "" }
-    };
-
-    for (i = 0; map[i].flag; i++) {
-        if ((map[i].flag & flags) == 0) {
-            continue;
-        }
-        node = g_malloc0(sizeof(strList));
-        node->value = g_strdup(map[i].value);
-        node->next = list;
-        list = node;
-    }
-
-    return list;
-}
-
-VirtioQueueElement *qmp_x_query_virtio_queue_element(const char *path,
-                                                     uint16_t queue,
-                                                     bool has_index,
-                                                     uint16_t index,
-                                                     Error **errp)
-{
-    VirtIODevice *vdev;
-    VirtQueue *vq;
-    VirtioQueueElement *element = NULL;
-
-    vdev = qmp_find_virtio_device(path);
-    if (vdev == NULL) {
-        error_setg(errp, "Path %s is not a VirtIO device", path);
-        return NULL;
-    }
-
-    if (queue >= VIRTIO_QUEUE_MAX || !virtio_queue_get_num(vdev, queue)) {
-        error_setg(errp, "Invalid virtqueue number %d", queue);
-        return NULL;
-    }
-    vq = &vdev->vq[queue];
-
-    if (virtio_vdev_has_feature(vdev, VIRTIO_F_RING_PACKED)) {
-        error_setg(errp, "Packed ring not supported");
-        return NULL;
-    } else {
-        unsigned int head, i, max;
-        VRingMemoryRegionCaches *caches;
-        MemoryRegionCache indirect_desc_cache;
-        MemoryRegionCache *desc_cache;
-        VRingDesc desc;
-        VirtioRingDescList *list = NULL;
-        VirtioRingDescList *node;
-        int rc; int ndescs;
-
-        address_space_cache_init_empty(&indirect_desc_cache);
-
-        RCU_READ_LOCK_GUARD();
-
-        max = vq->vring.num;
-
-        if (!has_index) {
-            head = vring_avail_ring(vq, vq->last_avail_idx % vq->vring.num);
-        } else {
-            head = vring_avail_ring(vq, index % vq->vring.num);
-        }
-        i = head;
-
-        caches = vring_get_region_caches(vq);
-        if (!caches) {
-            error_setg(errp, "Region caches not initialized");
-            return NULL;
-        }
-        if (caches->desc.len < max * sizeof(VRingDesc)) {
-            error_setg(errp, "Cannot map descriptor ring");
-            return NULL;
-        }
-
-        desc_cache = &caches->desc;
-        vring_split_desc_read(vdev, &desc, desc_cache, i);
-        if (desc.flags & VRING_DESC_F_INDIRECT) {
-            int64_t len;
-            len = address_space_cache_init(&indirect_desc_cache, vdev->dma_as,
-                                           desc.addr, desc.len, false);
-            desc_cache = &indirect_desc_cache;
-            if (len < desc.len) {
-                error_setg(errp, "Cannot map indirect buffer");
-                goto done;
-            }
-
-            max = desc.len / sizeof(VRingDesc);
-            i = 0;
-            vring_split_desc_read(vdev, &desc, desc_cache, i);
-        }
-
-        element = g_new0(VirtioQueueElement, 1);
-        element->avail = g_new0(VirtioRingAvail, 1);
-        element->used = g_new0(VirtioRingUsed, 1);
-        element->name = g_strdup(vdev->name);
-        element->index = head;
-        element->avail->flags = vring_avail_flags(vq);
-        element->avail->idx = vring_avail_idx(vq);
-        element->avail->ring = head;
-        element->used->flags = vring_used_flags(vq);
-        element->used->idx = vring_used_idx(vq);
-        ndescs = 0;
-
-        do {
-            if (ndescs >= max) {
-                break;
-            }
-            node = g_new0(VirtioRingDescList, 1);
-            node->value = g_new0(VirtioRingDesc, 1);
-            node->value->addr = desc.addr;
-            node->value->len = desc.len;
-            node->value->flags = qmp_decode_vring_desc_flags(desc.flags);
-            node->next = list;
-            list = node;
-
-            ndescs++;
-            rc = virtqueue_split_read_next_desc(vdev, &desc, desc_cache, max);
-        } while (rc == VIRTQUEUE_READ_DESC_MORE);
-        element->descs = list;
-done:
-        address_space_cache_destroy(&indirect_desc_cache);
-    }
-
-    return element;
 }
 
 static const TypeInfo virtio_device_info = {

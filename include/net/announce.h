@@ -14,14 +14,12 @@ typedef struct AnnounceTimer {
 
 int64_t qemu_announce_timer_step(AnnounceTimer *timer);
 
-void qemu_announce_timer_del(AnnounceTimer *timer, bool free_named);
+void qemu_announce_timer_del(AnnounceTimer *timer);
 
 void qemu_announce_timer_reset(AnnounceTimer *timer,
                                AnnounceParameters *params,
                                QEMUClockType type,
                                QEMUTimerCB *cb,
                                void *opaque);
-
-void qemu_announce_self(AnnounceTimer *timer, AnnounceParameters *params);
 
 #endif

@@ -1,144 +1,20 @@
 
-
-{ 'include': 'sockets.json' }
-
-{ 'struct': 'ChardevInfo',
-  'data': { 'label': 'str',
-            'filename': 'str',
-            'frontend-open': 'bool' } }
-
-{ 'command': 'query-chardev', 'returns': ['ChardevInfo'],
-  'allow-preconfig': true }
-
-{ 'struct': 'ChardevBackendInfo', 'data': {'name': 'str'} }
-
-{ 'command': 'query-chardev-backends', 'returns': ['ChardevBackendInfo'] }
-
-{ 'enum': 'DataFormat',
-  'data': [ 'utf8', 'base64' ] }
-
-{ 'command': 'ringbuf-write',
-  'data': { 'device': 'str',
-            'data': 'str',
-           '*format': 'DataFormat'} }
-
-{ 'command': 'ringbuf-read',
-  'data': {'device': 'str', 'size': 'int', '*format': 'DataFormat'},
-  'returns': 'str' }
-
 { 'struct': 'ChardevCommon',
   'data': { '*logfile': 'str',
             '*logappend': 'bool' } }
 
-{ 'struct': 'ChardevFile',
-  'data': { '*in': 'str',
-            'out': 'str',
-            '*append': 'bool' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevHostdev',
-  'data': { 'device': 'str' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevSocket',
-  'data': { 'addr': 'SocketAddressLegacy',
-            '*tls-creds': 'str',
-            '*server': 'bool',
-            '*wait': 'bool',
-            '*nodelay': 'bool',
-            '*telnet': 'bool',
-            '*tn3270': 'bool',
-            '*websocket': 'bool',
-            '*reconnect': { 'type': 'int', 'features': [ 'deprecated' ] },
-            '*reconnect-ms': 'int' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevUdp',
-  'data': { 'remote': 'SocketAddressLegacy',
-            '*local': 'SocketAddressLegacy' },
-  'base': 'ChardevCommon' }
-
 { 'struct': 'ChardevMux',
   'data': { 'chardev': 'str' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevHub',
-  'data': { 'chardevs': ['str'] },
   'base': 'ChardevCommon' }
 
 { 'struct': 'ChardevStdio',
   'data': { '*signal': 'bool' },
   'base': 'ChardevCommon' }
 
-{ 'struct': 'ChardevSpiceChannel',
-  'data': { 'type': 'str' },
-  'base': 'ChardevCommon',
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'ChardevSpicePort',
-  'data': { 'fqdn': 'str' },
-  'base': 'ChardevCommon',
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'ChardevDBus',
-  'data': { 'name': 'str' },
-  'base': 'ChardevCommon',
-  'if': 'CONFIG_DBUS_DISPLAY' }
-
-{ 'struct': 'ChardevVC',
-  'data': { '*width': 'int',
-            '*height': 'int',
-            '*cols': 'int',
-            '*rows': 'int' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevRingbuf',
-  'data': { '*size': 'int' },
-  'base': 'ChardevCommon' }
-
-{ 'struct': 'ChardevQemuVDAgent',
-  'data': { '*mouse': 'bool',
-            '*clipboard': 'bool' },
-  'base': 'ChardevCommon',
-  'if': 'CONFIG_SPICE_PROTOCOL' }
-
-{ 'struct': 'ChardevPty',
-  'data': { '*path': 'str' },
-  'base': 'ChardevCommon' }
-
 { 'enum': 'ChardevBackendKind',
-  'data': [ 'file',
-            { 'name': 'serial', 'if': 'HAVE_CHARDEV_SERIAL' },
-            { 'name': 'parallel', 'if': 'HAVE_CHARDEV_PARALLEL' },
-            'pipe',
-            'socket',
-            'udp',
-            'pty',
-            'null',
+  'data': [ 'null',
             'mux',
-            'hub',
-            { 'name': 'braille', 'if': 'CONFIG_BRLAPI' },
-            'stdio',
-            { 'name': 'console', 'if': 'CONFIG_WIN32' },
-            { 'name': 'spicevmc', 'if': 'CONFIG_SPICE' },
-            { 'name': 'spiceport', 'if': 'CONFIG_SPICE' },
-            { 'name': 'qemu-vdagent', 'if': 'CONFIG_SPICE_PROTOCOL' },
-            { 'name': 'dbus', 'if': 'CONFIG_DBUS_DISPLAY' },
-            'vc',
-            'ringbuf',
-            { 'name': 'memory', 'features': [ 'deprecated' ] } ] }
-
-{ 'struct': 'ChardevFileWrapper',
-  'data': { 'data': 'ChardevFile' } }
-
-{ 'struct': 'ChardevHostdevWrapper',
-  'data': { 'data': 'ChardevHostdev' } }
-
-{ 'struct': 'ChardevSocketWrapper',
-  'data': { 'data': 'ChardevSocket' } }
-
-{ 'struct': 'ChardevUdpWrapper',
-  'data': { 'data': 'ChardevUdp' } }
+            'stdio' ] }
 
 { 'struct': 'ChardevCommonWrapper',
   'data': { 'data': 'ChardevCommon' } }
@@ -146,89 +22,12 @@
 { 'struct': 'ChardevMuxWrapper',
   'data': { 'data': 'ChardevMux' } }
 
-{ 'struct': 'ChardevHubWrapper',
-  'data': { 'data': 'ChardevHub' } }
-
 { 'struct': 'ChardevStdioWrapper',
   'data': { 'data': 'ChardevStdio' } }
-
-{ 'struct': 'ChardevSpiceChannelWrapper',
-  'data': { 'data': 'ChardevSpiceChannel' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'ChardevSpicePortWrapper',
-  'data': { 'data': 'ChardevSpicePort' },
-  'if': 'CONFIG_SPICE' }
-
-{ 'struct': 'ChardevQemuVDAgentWrapper',
-  'data': { 'data': 'ChardevQemuVDAgent' },
-  'if': 'CONFIG_SPICE_PROTOCOL' }
-
-{ 'struct': 'ChardevDBusWrapper',
-  'data': { 'data': 'ChardevDBus' },
-  'if': 'CONFIG_DBUS_DISPLAY' }
-
-{ 'struct': 'ChardevVCWrapper',
-  'data': { 'data': 'ChardevVC' } }
-
-{ 'struct': 'ChardevRingbufWrapper',
-  'data': { 'data': 'ChardevRingbuf' } }
-
-
-{ 'struct': 'ChardevPtyWrapper',
-  'data': { 'data': 'ChardevPty' } }
 
 { 'union': 'ChardevBackend',
   'base': { 'type': 'ChardevBackendKind' },
   'discriminator': 'type',
-  'data': { 'file': 'ChardevFileWrapper',
-            'serial': { 'type': 'ChardevHostdevWrapper',
-                        'if': 'HAVE_CHARDEV_SERIAL' },
-            'parallel': { 'type': 'ChardevHostdevWrapper',
-                          'if': 'HAVE_CHARDEV_PARALLEL' },
-            'pipe': 'ChardevHostdevWrapper',
-            'socket': 'ChardevSocketWrapper',
-            'udp': 'ChardevUdpWrapper',
-            'pty': 'ChardevPtyWrapper',
-            'null': 'ChardevCommonWrapper',
+  'data': { 'null': 'ChardevCommonWrapper',
             'mux': 'ChardevMuxWrapper',
-            'hub': 'ChardevHubWrapper',
-            'braille': { 'type': 'ChardevCommonWrapper',
-                         'if': 'CONFIG_BRLAPI' },
-            'stdio': 'ChardevStdioWrapper',
-            'console': { 'type': 'ChardevCommonWrapper',
-                         'if': 'CONFIG_WIN32' },
-            'spicevmc': { 'type': 'ChardevSpiceChannelWrapper',
-                          'if': 'CONFIG_SPICE' },
-            'spiceport': { 'type': 'ChardevSpicePortWrapper',
-                           'if': 'CONFIG_SPICE' },
-            'qemu-vdagent': { 'type': 'ChardevQemuVDAgentWrapper',
-                              'if': 'CONFIG_SPICE_PROTOCOL' },
-            'dbus': { 'type': 'ChardevDBusWrapper',
-                      'if': 'CONFIG_DBUS_DISPLAY' },
-            'vc': 'ChardevVCWrapper',
-            'ringbuf': 'ChardevRingbufWrapper',
-            'memory': 'ChardevRingbufWrapper' } }
-
-{ 'struct' : 'ChardevReturn',
-  'data': { '*pty': 'str' } }
-
-{ 'command': 'chardev-add',
-  'data': { 'id': 'str',
-            'backend': 'ChardevBackend' },
-  'returns': 'ChardevReturn' }
-
-{ 'command': 'chardev-change',
-  'data': { 'id': 'str',
-            'backend': 'ChardevBackend' },
-  'returns': 'ChardevReturn' }
-
-{ 'command': 'chardev-remove',
-  'data': { 'id': 'str' } }
-
-{ 'command': 'chardev-send-break',
-  'data': { 'id': 'str' } }
-
-{ 'event': 'VSERPORT_CHANGE',
-  'data': { 'id': 'str',
-            'open': 'bool' } }
+            'stdio': 'ChardevStdioWrapper' } }

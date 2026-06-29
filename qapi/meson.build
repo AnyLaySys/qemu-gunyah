@@ -49,7 +49,6 @@ if have_system
     'acpi',
     'audio',
     'qdev',
-    'pci',
     'tpm',
     'uefi',
   ]

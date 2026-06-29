@@ -6,7 +6,6 @@ pci_ss.add(files(
   'pci_bridge.c',
   'pci_host.c',
   'pci-hmp-cmds.c',
-  'pci-qmp-cmds.c',
   'pcie_sriov.c',
   'shpc.c',
   'slotid_cap.c'
@@ -15,5 +14,3 @@ pci_ss.add(files('pcie.c', 'pcie_aer.c'))
 pci_ss.add(files('pcie_doe.c'))
 system_ss.add(when: 'CONFIG_PCI_EXPRESS', if_true: files('pcie_port.c', 'pcie_host.c'))
 system_ss.add_all(when: 'CONFIG_PCI', if_true: pci_ss)
-
-system_ss.add(when: 'CONFIG_PCI', if_false: files('pci-stub.c'))

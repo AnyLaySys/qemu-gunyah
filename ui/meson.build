@@ -4,28 +4,24 @@ specific_ss.add(when: ['CONFIG_SYSTEM_ONLY'], if_true: opengl)   # for the inclu
 
 system_ss.add(png)
 system_ss.add(files(
-  'clipboard.c',
   'console.c',
   'cursor.c',
   'dmabuf.c',
   'input-keymap.c',
   'input-legacy.c',
-  'input-barrier.c',
   'input.c',
   'kbd-state.c',
   'keymaps.c',
   'qemu-pixman.c',
-  'ui-hmp-cmds.c',
-  'ui-qmp-cmds.c',
   'util.c',
 ))
-system_ss.add(when: pixman, if_true: files('console-vc.c'), if_false: files('console-vc-stubs.c'))
+system_ss.add(files('console-vc-stubs.c'))
 if dbus_display
   error('DBus display was removed from this trimmed build')
 endif
 
 if host_os == 'linux'
-  system_ss.add(files('input-linux.c', 'udmabuf.c'))
+  system_ss.add(files('udmabuf.c'))
 endif
 if cocoa.found()
   error('Cocoa UI was removed from this trimmed build')

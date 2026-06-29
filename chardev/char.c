@@ -169,12 +169,6 @@ void qemu_chr_be_update_read_handlers(Chardev *s,
     }
 }
 
-int qemu_chr_add_client(Chardev *s, int fd)
-{
-    return CHARDEV_GET_CLASS(s)->chr_add_client ?
-        CHARDEV_GET_CLASS(s)->chr_add_client(s, fd) : -1;
-}
-
 static void qemu_char_open(Chardev *chr, ChardevBackend *backend,
                            bool *be_opened, Error **errp)
 {
@@ -253,16 +247,6 @@ static const TypeInfo char_type_info = {
     .class_init = char_class_init,
 };
 
-static bool qemu_chr_is_busy(Chardev *s)
-{
-    if (CHARDEV_IS_MUX(s)) {
-        MuxChardev *d = MUX_CHARDEV(s);
-        return d->mux_bitset != 0;
-    } else {
-        return s->be != NULL;
-    }
-}
-
 int qemu_chr_wait_connected(Chardev *chr, Error **errp)
 {
     ChardevClass *cc = CHARDEV_GET_CLASS(chr);
@@ -277,8 +261,6 @@ int qemu_chr_wait_connected(Chardev *chr, Error **errp)
 QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
                                 bool permit_mux_mon)
 {
-    char host[65], port[33], width[8], height[8];
-    int pos;
     const char *p;
     QemuOpts *opts;
     Error *local_err = NULL;
@@ -301,125 +283,13 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
         }
     }
 
-    if (strcmp(filename, "null")    == 0 ||
-        strcmp(filename, "pty")     == 0 ||
-        strcmp(filename, "braille") == 0 ||
-        strcmp(filename, "stdio")   == 0) {
+    if (strcmp(filename, "null") == 0 ||
+        strcmp(filename, "stdio") == 0) {
         qemu_opt_set(opts, "backend", filename, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "vc", &p)) {
-        qemu_opt_set(opts, "backend", "vc", &error_abort);
-        if (*p == ':') {
-            if (sscanf(p+1, "%7[0-9]x%7[0-9]", width, height) == 2) {
-                qemu_opt_set(opts, "width", width, &error_abort);
-                qemu_opt_set(opts, "height", height, &error_abort);
-            } else if (sscanf(p+1, "%7[0-9]Cx%7[0-9]C", width, height) == 2) {
-                qemu_opt_set(opts, "cols", width, &error_abort);
-                qemu_opt_set(opts, "rows", height, &error_abort);
-            } else {
-                goto fail;
-            }
-        }
-        return opts;
-    }
-    if (strcmp(filename, "con:") == 0) {
-        qemu_opt_set(opts, "backend", "console", &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "COM", NULL)) {
-        qemu_opt_set(opts, "backend", "serial", &error_abort);
-        qemu_opt_set(opts, "path", filename, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "file:", &p)) {
-        qemu_opt_set(opts, "backend", "file", &error_abort);
-        qemu_opt_set(opts, "path", p, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "pipe:", &p)) {
-        qemu_opt_set(opts, "backend", "pipe", &error_abort);
-        qemu_opt_set(opts, "path", p, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "pty:", &p)) {
-        qemu_opt_set(opts, "backend", "pty", &error_abort);
-        qemu_opt_set(opts, "path", p, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "tcp:", &p) ||
-        strstart(filename, "telnet:", &p) ||
-        strstart(filename, "tn3270:", &p) ||
-        strstart(filename, "websocket:", &p)) {
-        if (sscanf(p, "%64[^:]:%32[^,]%n", host, port, &pos) < 2) {
-            host[0] = 0;
-            if (sscanf(p, ":%32[^,]%n", port, &pos) < 1)
-                goto fail;
-        }
-        qemu_opt_set(opts, "backend", "socket", &error_abort);
-        qemu_opt_set(opts, "host", host, &error_abort);
-        qemu_opt_set(opts, "port", port, &error_abort);
-        if (p[pos] == ',') {
-            if (!qemu_opts_do_parse(opts, p + pos + 1, NULL, &local_err)) {
-                error_report_err(local_err);
-                goto fail;
-            }
-        }
-        if (strstart(filename, "telnet:", &p)) {
-            qemu_opt_set(opts, "telnet", "on", &error_abort);
-        } else if (strstart(filename, "tn3270:", &p)) {
-            qemu_opt_set(opts, "tn3270", "on", &error_abort);
-        } else if (strstart(filename, "websocket:", &p)) {
-            qemu_opt_set(opts, "websocket", "on", &error_abort);
-        }
-        return opts;
-    }
-    if (strstart(filename, "udp:", &p)) {
-        qemu_opt_set(opts, "backend", "udp", &error_abort);
-        if (sscanf(p, "%64[^:]:%32[^@,]%n", host, port, &pos) < 2) {
-            host[0] = 0;
-            if (sscanf(p, ":%32[^@,]%n", port, &pos) < 1) {
-                goto fail;
-            }
-        }
-        qemu_opt_set(opts, "host", host, &error_abort);
-        qemu_opt_set(opts, "port", port, &error_abort);
-        if (p[pos] == '@') {
-            p += pos + 1;
-            if (sscanf(p, "%64[^:]:%32[^,]%n", host, port, &pos) < 2) {
-                host[0] = 0;
-                if (sscanf(p, ":%32[^,]%n", port, &pos) < 1) {
-                    goto fail;
-                }
-            }
-            qemu_opt_set(opts, "localaddr", host, &error_abort);
-            qemu_opt_set(opts, "localport", port, &error_abort);
-        }
-        return opts;
-    }
-    if (strstart(filename, "unix:", &p)) {
-        qemu_opt_set(opts, "backend", "socket", &error_abort);
-        if (!qemu_opts_do_parse(opts, p, "path", &local_err)) {
-            error_report_err(local_err);
-            goto fail;
-        }
-        return opts;
-    }
-    if (strstart(filename, "/dev/parport", NULL) ||
-        strstart(filename, "/dev/ppi", NULL)) {
-        qemu_opt_set(opts, "backend", "parallel", &error_abort);
-        qemu_opt_set(opts, "path", filename, &error_abort);
-        return opts;
-    }
-    if (strstart(filename, "/dev/", NULL)) {
-        qemu_opt_set(opts, "backend", "serial", &error_abort);
-        qemu_opt_set(opts, "path", filename, &error_abort);
         return opts;
     }
 
     error_report("'%s' is not a valid char driver", filename);
-
-fail:
     qemu_opts_del(opts);
     return NULL;
 }
@@ -669,51 +539,6 @@ Chardev *qemu_chr_new_mux_mon(const char *label, const char *filename,
     return qemu_chr_new_permit_mux_mon(label, filename, true, context);
 }
 
-static int qmp_query_chardev_foreach(Object *obj, void *data)
-{
-    Chardev *chr = CHARDEV(obj);
-    ChardevInfoList **list = data;
-    ChardevInfo *value = g_malloc0(sizeof(*value));
-
-    value->label = g_strdup(chr->label);
-    value->filename = g_strdup(chr->filename);
-    value->frontend_open = chr->be && chr->be->fe_is_open;
-
-    QAPI_LIST_PREPEND(*list, value);
-
-    return 0;
-}
-
-ChardevInfoList *qmp_query_chardev(Error **errp)
-{
-    ChardevInfoList *chr_list = NULL;
-
-    object_child_foreach(get_chardevs_root(),
-                         qmp_query_chardev_foreach, &chr_list);
-
-    return chr_list;
-}
-
-static void
-qmp_prepend_backend(const char *name, void *opaque)
-{
-    ChardevBackendInfoList **list = opaque;
-    ChardevBackendInfo *value;
-
-    value = g_new0(ChardevBackendInfo, 1);
-    value->name = g_strdup(name);
-    QAPI_LIST_PREPEND(*list, value);
-}
-
-ChardevBackendInfoList *qmp_query_chardev_backends(Error **errp)
-{
-    ChardevBackendInfoList *backend_list = NULL;
-
-    chardev_name_foreach(qmp_prepend_backend, &backend_list);
-
-    return backend_list;
-}
-
 Chardev *qemu_chr_find(const char *name)
 {
     Object *obj = object_resolve_path_component(get_chardevs_root(), name);
@@ -730,134 +555,20 @@ QemuOptsList qemu_chardev_opts = {
             .name = "backend",
             .type = QEMU_OPT_STRING,
         },{
-            .name = "path",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "input-path",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "host",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "port",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "fd",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "localaddr",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "localport",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "to",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "ipv4",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "ipv6",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "wait",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "server",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "delay",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "nodelay",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "reconnect",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "reconnect-ms",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "telnet",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "tn3270",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "tls-creds",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "websocket",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "width",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "height",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "cols",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "rows",
-            .type = QEMU_OPT_NUMBER,
-        },{
             .name = "mux",
             .type = QEMU_OPT_BOOL,
         },{
             .name = "signal",
             .type = QEMU_OPT_BOOL,
         },{
-            .name = "name",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "debug",
-            .type = QEMU_OPT_NUMBER,
-        },{
-            .name = "size",
-            .type = QEMU_OPT_SIZE,
-        },{
             .name = "chardev",
             .type = QEMU_OPT_STRING,
-        },
-        {
-            .name = "chardevs.0",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "chardevs.1",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "chardevs.2",
-            .type = QEMU_OPT_STRING,
-        },{
-            .name = "chardevs.3",
-            .type = QEMU_OPT_STRING,
-        },
-
-        {
-            .name = "append",
-            .type = QEMU_OPT_BOOL,
         },{
             .name = "logfile",
             .type = QEMU_OPT_STRING,
         },{
             .name = "logappend",
             .type = QEMU_OPT_BOOL,
-        },{
-            .name = "mouse",
-            .type = QEMU_OPT_BOOL,
-        },{
-            .name = "clipboard",
-            .type = QEMU_OPT_BOOL,
-#ifdef CONFIG_LINUX
-        },{
-            .name = "tight",
-            .type = QEMU_OPT_BOOL,
-            .def_value_str = "on",
-        },{
-            .name = "abstract",
-            .type = QEMU_OPT_BOOL,
-#endif
         },
         { /* end of list */ }
     },
@@ -938,174 +649,6 @@ Chardev *qemu_chardev_new(const char *id, const char *typename,
     object_unref(OBJECT(chr));
 
     return chr;
-}
-
-ChardevReturn *qmp_chardev_add(const char *id, ChardevBackend *backend,
-                               Error **errp)
-{
-    ERRP_GUARD();
-    const ChardevClass *cc;
-    ChardevReturn *ret;
-    g_autoptr(Chardev) chr = NULL;
-
-    if (qemu_chr_find(id)) {
-        error_setg(errp, "Chardev with id '%s' already exists", id);
-        return NULL;
-    }
-
-    cc = char_get_class(ChardevBackendKind_str(backend->type), errp);
-    if (!cc) {
-        goto err;
-    }
-
-    chr = chardev_new(id, object_class_get_name(OBJECT_CLASS(cc)),
-                      backend, NULL, false, errp);
-    if (!chr) {
-        goto err;
-    }
-
-    if (!object_property_try_add_child(get_chardevs_root(), id, OBJECT(chr),
-                                       errp)) {
-        goto err;
-    }
-
-    ret = g_new0(ChardevReturn, 1);
-    if (CHARDEV_IS_PTY(chr)) {
-        ret->pty = g_strdup(chr->filename + 4);
-    }
-
-    return ret;
-
-err:
-    error_prepend(errp, "Failed to add chardev '%s': ", id);
-    return NULL;
-}
-
-ChardevReturn *qmp_chardev_change(const char *id, ChardevBackend *backend,
-                                  Error **errp)
-{
-    CharBackend *be;
-    const ChardevClass *cc, *cc_new;
-    Chardev *chr, *chr_new;
-    bool closed_sent = false;
-    bool handover_yank_instance;
-    ChardevReturn *ret;
-
-    chr = qemu_chr_find(id);
-    if (!chr) {
-        error_setg(errp, "Chardev '%s' does not exist", id);
-        return NULL;
-    }
-
-    if (CHARDEV_IS_MUX(chr) || CHARDEV_IS_HUB(chr)) {
-        error_setg(errp, "For mux or hub device hotswap is not supported yet");
-        return NULL;
-    }
-
-    be = chr->be;
-    if (!be) {
-        object_unparent(OBJECT(chr));
-        return qmp_chardev_add(id, backend, errp);
-    }
-
-    if (!be->chr_be_change) {
-        error_setg(errp, "Chardev user does not support chardev hotswap");
-        return NULL;
-    }
-
-    cc = CHARDEV_GET_CLASS(chr);
-    cc_new = char_get_class(ChardevBackendKind_str(backend->type), errp);
-    if (!cc_new) {
-        return NULL;
-    }
-
-    handover_yank_instance = cc->supports_yank && cc_new->supports_yank;
-
-    chr_new = chardev_new(id, object_class_get_name(OBJECT_CLASS(cc_new)),
-                          backend, chr->gcontext, handover_yank_instance, errp);
-    if (!chr_new) {
-        return NULL;
-    }
-
-    if (chr->be_open && !chr_new->be_open) {
-        qemu_chr_be_event(chr, CHR_EVENT_CLOSED);
-        closed_sent = true;
-    }
-
-    chr->be = NULL;
-    qemu_chr_fe_init(be, chr_new, &error_abort);
-
-    if (be->chr_be_change(be->opaque) < 0) {
-        error_setg(errp, "Chardev '%s' change failed", chr_new->label);
-        chr_new->be = NULL;
-        qemu_chr_fe_init(be, chr, &error_abort);
-        if (closed_sent) {
-            qemu_chr_be_event(chr, CHR_EVENT_OPENED);
-        }
-        object_unref(OBJECT(chr_new));
-        return NULL;
-    }
-
-    chr_new->handover_yank_instance = false;
-
-    chr->handover_yank_instance = handover_yank_instance;
-
-    object_unparent(OBJECT(chr));
-    object_property_add_child(get_chardevs_root(), chr_new->label,
-                              OBJECT(chr_new));
-    object_unref(OBJECT(chr_new));
-
-    ret = g_new0(ChardevReturn, 1);
-    if (CHARDEV_IS_PTY(chr_new)) {
-        ret->pty = g_strdup(chr_new->filename + 4);
-    }
-
-    return ret;
-}
-
-void qmp_chardev_remove(const char *id, Error **errp)
-{
-    Chardev *chr;
-
-    chr = qemu_chr_find(id);
-    if (chr == NULL) {
-        error_setg(errp, "Chardev '%s' not found", id);
-        return;
-    }
-    if (qemu_chr_is_busy(chr)) {
-        error_setg(errp, "Chardev '%s' is busy", id);
-        return;
-    }
-    object_unparent(OBJECT(chr));
-}
-
-void qmp_chardev_send_break(const char *id, Error **errp)
-{
-    Chardev *chr;
-
-    chr = qemu_chr_find(id);
-    if (chr == NULL) {
-        error_setg(errp, "Chardev '%s' not found", id);
-        return;
-    }
-    qemu_chr_be_event(chr, CHR_EVENT_BREAK);
-}
-
-bool qmp_add_client_char(int fd, bool has_skipauth, bool skipauth,
-                         bool has_tls, bool tls, const char *protocol,
-                         Error **errp)
-{
-    Chardev *s = qemu_chr_find(protocol);
-
-    if (!s) {
-        error_setg(errp, "protocol '%s' is invalid", protocol);
-        return false;
-    }
-    if (qemu_chr_add_client(s, fd) < 0) {
-        error_setg(errp, "failed to add client");
-        return false;
-    }
-    return true;
 }
 
 GSource *qemu_chr_timeout_add_ms(Chardev *chr, guint ms,

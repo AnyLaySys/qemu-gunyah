@@ -41,22 +41,6 @@
   'data': { 'addr': 'str' ,
             '*id-list': 'str' } }
 
-{ 'struct': 'InputBarrierProperties',
-  'data': { 'name': 'str',
-            '*server': 'str',
-            '*port': 'str',
-            '*x-origin': 'str',
-            '*y-origin': 'str',
-            '*width': 'str',
-            '*height': 'str' } }
-
-{ 'struct': 'InputLinuxProperties',
-  'data': { 'evdev': 'str',
-            '*grab_all': 'bool',
-            '*repeat': 'bool',
-            '*grab-toggle': 'GrabToggleKeys' },
-  'if': 'CONFIG_LINUX' }
-
 { 'struct': 'EventLoopBaseProperties',
   'data': { '*aio-max-batch': 'int',
             '*thread-pool-min': 'int',
@@ -180,9 +164,6 @@
     'acpi-generic-initiator',
     'acpi-generic-port',
     'dbus-vmstate',
-    'input-barrier',
-    { 'name': 'input-linux',
-      'if': 'CONFIG_LINUX' },
     'iommufd',
     'iothread',
     'main-loop',
@@ -225,9 +206,6 @@
       'acpi-generic-port':          'AcpiGenericPortProperties',
       'arm-confidential-guest':     'ArmConfidentialGuestProperties',
       'dbus-vmstate':               'DBusVMStateProperties',
-      'input-barrier':              'InputBarrierProperties',
-      'input-linux':                { 'type': 'InputLinuxProperties',
-                                      'if': 'CONFIG_LINUX' },
       'iommufd':                    'IOMMUFDProperties',
       'iothread':                   'IothreadProperties',
       'main-loop':                  'MainLoopProperties',
