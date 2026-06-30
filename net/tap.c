@@ -140,9 +140,9 @@ static bool tap_dhcp(TAPState *s, const struct iovec *iov, int iovcnt,
 {
     uint8_t pkt[2048], out[512];
     static const uint8_t mac[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x57 };
-    static const uint8_t srv[4] = { 172, 20, 0, 1 };
-    static const uint8_t cli[4] = { 172, 20, 0, 2 };
-    static const uint8_t bcast[4] = { 172, 20, 0, 255 };
+    static const uint8_t srv[4] = { 100, 99, 99, 1 };
+    static const uint8_t cli[4] = { 100, 99, 99, 99 };
+    static const uint8_t bcast[4] = { 100, 99, 99, 255 };
     static const uint8_t mask[4] = { 255, 255, 255, 0 };
     static const uint8_t dns[8] = { 223, 5, 5, 5, 119, 29, 29, 29 };
     size_t n, off, base, opt, end, o, bp_len, len;
