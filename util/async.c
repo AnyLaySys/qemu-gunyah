@@ -286,14 +286,6 @@ aio_ctx_finalize(GSource     *source)
 
     thread_pool_free_aio(ctx->thread_pool);
 
-#ifdef CONFIG_LINUX_AIO
-    if (ctx->linux_aio) {
-        laio_detach_aio_context(ctx->linux_aio, ctx);
-        laio_cleanup(ctx->linux_aio);
-        ctx->linux_aio = NULL;
-    }
-#endif
-
 #ifdef CONFIG_LINUX_IO_URING
     if (ctx->linux_io_uring) {
         luring_detach_aio_context(ctx->linux_io_uring, ctx);
@@ -347,25 +339,6 @@ ThreadPoolAio *aio_get_thread_pool(AioContext *ctx)
     }
     return ctx->thread_pool;
 }
-
-#ifdef CONFIG_LINUX_AIO
-LinuxAioState *aio_setup_linux_aio(AioContext *ctx, Error **errp)
-{
-    if (!ctx->linux_aio) {
-        ctx->linux_aio = laio_init(errp);
-        if (ctx->linux_aio) {
-            laio_attach_aio_context(ctx->linux_aio, ctx);
-        }
-    }
-    return ctx->linux_aio;
-}
-
-LinuxAioState *aio_get_linux_aio(AioContext *ctx)
-{
-    assert(ctx->linux_aio);
-    return ctx->linux_aio;
-}
-#endif
 
 #ifdef CONFIG_LINUX_IO_URING
 LuringState *aio_setup_linux_io_uring(AioContext *ctx, Error **errp)
@@ -481,10 +454,6 @@ AioContext *aio_context_new(Error **errp)
                            aio_context_notifier_cb,
                            aio_context_notifier_poll,
                            aio_context_notifier_poll_ready);
-#ifdef CONFIG_LINUX_AIO
-    ctx->linux_aio = NULL;
-#endif
-
 #ifdef CONFIG_LINUX_IO_URING
     ctx->linux_io_uring = NULL;
 #endif

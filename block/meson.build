@@ -21,6 +21,7 @@ block_ss.add(files(
 system_ss.add(files('block-ram-registrar.c'))
 
 block_ss.add(files('file-posix.c'), coref, iokit)
+block_ss.add(when: linux_io_uring, if_true: files('io_uring.c'))
 
 module_block_py = find_program('../scripts/modules/module_block.py')
 module_block_h = custom_target('module_block.h',

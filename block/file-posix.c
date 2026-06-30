@@ -119,16 +119,12 @@ typedef struct BDRVRawState {
     uint64_t locked_perm;
     uint64_t locked_shared_perm;
 
-    uint64_t aio_max_batch;
-
     int perm_change_fd;
     int perm_change_flags;
     BDRVReopenState *reopen_state;
 
     bool has_discard:1;
     bool has_write_zeroes:1;
-    bool use_linux_aio:1;
-    bool has_laio_fdsync:1;
     bool use_linux_io_uring:1;
     int page_cache_inconsistent; /* errno from fdatasync failure */
     bool has_fallocate;
@@ -464,12 +460,7 @@ static QemuOptsList raw_runtime_opts = {
         {
             .name = "aio",
             .type = QEMU_OPT_STRING,
-            .help = "host AIO implementation (threads, native, io_uring)",
-        },
-        {
-            .name = "aio-max-batch",
-            .type = QEMU_OPT_NUMBER,
-            .help = "AIO max batch size (0 = auto handled by AIO backend, default: 0)",
+            .help = "host AIO implementation (io_uring)",
         },
         {
             .name = "locking",
@@ -526,15 +517,7 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
         goto fail;
     }
 
-    if (bdrv_flags & BDRV_O_NATIVE_AIO) {
-        aio_default = BLOCKDEV_AIO_OPTIONS_NATIVE;
-#ifdef CONFIG_LINUX_IO_URING
-    } else if (bdrv_flags & BDRV_O_IO_URING) {
-        aio_default = BLOCKDEV_AIO_OPTIONS_IO_URING;
-#endif
-    } else {
-        aio_default = BLOCKDEV_AIO_OPTIONS_THREADS;
-    }
+    aio_default = BLOCKDEV_AIO_OPTIONS_IO_URING;
 
     aio = qapi_enum_parse(&BlockdevAioOptions_lookup,
                           qemu_opt_get(opts, "aio"),
@@ -545,12 +528,7 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
         goto fail;
     }
 
-    s->use_linux_aio = (aio == BLOCKDEV_AIO_OPTIONS_NATIVE);
-#ifdef CONFIG_LINUX_IO_URING
     s->use_linux_io_uring = (aio == BLOCKDEV_AIO_OPTIONS_IO_URING);
-#endif
-
-    s->aio_max_batch = qemu_opt_get_number(opts, "aio-max-batch", 0);
 
     locking = qapi_enum_parse(&OnOffAuto_lookup,
                               qemu_opt_get(opts, "locking"),
@@ -620,25 +598,6 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
     s->perm = 0;
     s->shared_perm = BLK_PERM_ALL;
 
-#ifdef CONFIG_LINUX_AIO
-    if (s->use_linux_aio && !(s->open_flags & O_DIRECT)) {
-        error_setg(errp, "aio=native was specified, but it requires "
-                         "cache.direct=on, which was not specified.");
-        ret = -EINVAL;
-        goto fail;
-    }
-    if (s->use_linux_aio) {
-        s->has_laio_fdsync = laio_has_fdsync(s->fd);
-    }
-#else
-    if (s->use_linux_aio) {
-        error_setg(errp, "aio=native was specified, but is not supported "
-                         "in this build.");
-        ret = -EINVAL;
-        goto fail;
-    }
-#endif /* !defined(CONFIG_LINUX_AIO) */
-
 #ifndef CONFIG_LINUX_IO_URING
     if (s->use_linux_io_uring) {
         error_setg(errp, "aio=io_uring was specified, but is not supported "
@@ -699,9 +658,7 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
     s->needs_alignment = raw_needs_alignment(bs);
 
     bs->supported_write_flags = BDRV_REQ_FUA;
-    if (s->use_linux_aio && !laio_has_fua()) {
-        bs->supported_write_flags &= ~BDRV_REQ_FUA;
-    } else if (s->use_linux_io_uring && !luring_has_fua()) {
+    if (s->use_linux_io_uring && !luring_has_fua()) {
         bs->supported_write_flags &= ~BDRV_REQ_FUA;
     }
 
@@ -2145,30 +2102,8 @@ static inline bool raw_check_linux_io_uring(BDRVRawState *s)
 
     ctx = qemu_get_current_aio_context();
     if (unlikely(!aio_setup_linux_io_uring(ctx, &local_err))) {
-        error_reportf_err(local_err, "Unable to use linux io_uring, "
-                                     "falling back to thread pool: ");
+        error_reportf_err(local_err, "Unable to use linux io_uring: ");
         s->use_linux_io_uring = false;
-        return false;
-    }
-    return true;
-}
-#endif
-
-#ifdef CONFIG_LINUX_AIO
-static inline bool raw_check_linux_aio(BDRVRawState *s)
-{
-    Error *local_err = NULL;
-    AioContext *ctx;
-
-    if (!s->use_linux_aio) {
-        return false;
-    }
-
-    ctx = qemu_get_current_aio_context();
-    if (unlikely(!aio_setup_linux_aio(ctx, &local_err))) {
-        error_reportf_err(local_err, "Unable to use Linux AIO, "
-                                     "falling back to thread pool: ");
-        s->use_linux_aio = false;
         return false;
     }
     return true;
@@ -2198,40 +2133,22 @@ static int coroutine_fn raw_co_prw(BlockDriverState *bs, int64_t *offset_ptr,
 #endif
 
     if (s->needs_alignment && !bdrv_qiov_is_aligned(bs, qiov)) {
-        type |= QEMU_AIO_MISALIGNED;
+        ret = -EINVAL;
+        goto out;
 #ifdef CONFIG_LINUX_IO_URING
     } else if (raw_check_linux_io_uring(s)) {
         assert(qiov->size == bytes);
         ret = luring_co_submit(bs, s->fd, offset, qiov, type, flags);
         goto out;
-#endif
-#ifdef CONFIG_LINUX_AIO
-    } else if (raw_check_linux_aio(s)) {
-        assert(qiov->size == bytes);
-        ret = laio_co_submit(s->fd, offset, qiov, type, flags,
-                              s->aio_max_batch);
+    } else {
+        ret = -EIO;
+        goto out;
+#else
+    } else {
+        ret = -ENOTSUP;
         goto out;
 #endif
     }
-
-    acb = (RawPosixAIOData) {
-        .bs             = bs,
-        .aio_fildes     = s->fd,
-        .aio_type       = type,
-        .aio_offset     = offset,
-        .aio_nbytes     = bytes,
-        .io             = {
-            .iov            = qiov->iov,
-            .niov           = qiov->niov,
-        },
-    };
-
-    assert(qiov->size == bytes);
-    ret = raw_thread_pool_submit(handle_aiocb_rw, &acb);
-    if (ret == 0 && (flags & BDRV_REQ_FUA)) {
-        ret = raw_co_flush_to_disk(bs);
-    }
-    goto out; /* Avoid the compiler err of unused label */
 
 out:
 #if defined(CONFIG_BLKZONED)
@@ -2277,7 +2194,6 @@ static int coroutine_fn raw_co_pwritev(BlockDriverState *bs, int64_t offset,
 static int coroutine_fn raw_co_flush_to_disk(BlockDriverState *bs)
 {
     BDRVRawState *s = bs->opaque;
-    RawPosixAIOData acb;
     int ret;
 
     ret = fd_open(bs);
@@ -2285,23 +2201,14 @@ static int coroutine_fn raw_co_flush_to_disk(BlockDriverState *bs)
         return ret;
     }
 
-    acb = (RawPosixAIOData) {
-        .bs             = bs,
-        .aio_fildes     = s->fd,
-        .aio_type       = QEMU_AIO_FLUSH,
-    };
-
 #ifdef CONFIG_LINUX_IO_URING
     if (raw_check_linux_io_uring(s)) {
         return luring_co_submit(bs, s->fd, 0, NULL, QEMU_AIO_FLUSH, 0);
     }
+    return -EIO;
+#else
+    return -ENOTSUP;
 #endif
-#ifdef CONFIG_LINUX_AIO
-    if (s->has_laio_fdsync && raw_check_linux_aio(s)) {
-        return laio_co_submit(s->fd, 0, NULL, QEMU_AIO_FLUSH, 0, 0);
-    }
-#endif
-    return raw_thread_pool_submit(handle_aiocb_flush, &acb);
 }
 
 static void raw_close(BlockDriverState *bs)

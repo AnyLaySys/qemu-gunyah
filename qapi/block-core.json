@@ -242,8 +242,7 @@
   'data': [ 'off', 'on', 'unmap' ] }
 
 { 'enum': 'BlockdevAioOptions',
-  'data': [ 'threads', 'native',
-            { 'name': 'io_uring', 'if': 'CONFIG_LINUX_IO_URING' } ] }
+  'data': [ 'io_uring' ] }
 
 { 'struct': 'BlockdevCacheOptions',
   'data': { '*direct': 'bool',
@@ -274,7 +273,6 @@
             '*pr-manager': 'str',
             '*locking': 'OnOffAuto',
             '*aio': 'BlockdevAioOptions',
-            '*aio-max-batch': 'int',
             '*drop-cache': {'type': 'bool',
                             'if': 'CONFIG_LINUX'},
             '*x-check-cache-dropped': { 'type': 'bool',

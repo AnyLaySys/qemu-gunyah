@@ -43,7 +43,6 @@ typedef bool AioPollFn(void *opaque);
 typedef void IOHandler(void *opaque);
 
 struct ThreadPoolAio;
-struct LinuxAioState;
 typedef struct LuringState LuringState;
 
 bool aio_poll_disabled(AioContext *ctx);
@@ -98,9 +97,6 @@ struct AioContext {
     int thread_pool_max;
     struct ThreadPoolAio *thread_pool;
 
-#ifdef CONFIG_LINUX_AIO
-    struct LinuxAioState *linux_aio;
-#endif
 #ifdef CONFIG_LINUX_IO_URING
     LuringState *linux_io_uring;
 
@@ -192,10 +188,6 @@ void aio_set_event_notifier_poll(AioContext *ctx,
 GSource *aio_get_g_source(AioContext *ctx);
 
 struct ThreadPoolAio *aio_get_thread_pool(AioContext *ctx);
-
-struct LinuxAioState *aio_setup_linux_aio(AioContext *ctx, Error **errp);
-
-struct LinuxAioState *aio_get_linux_aio(AioContext *ctx);
 
 LuringState *aio_setup_linux_io_uring(AioContext *ctx, Error **errp);
 

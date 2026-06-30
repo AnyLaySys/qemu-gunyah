@@ -11,6 +11,7 @@ util_ss.add(files('fdmon-poll.c'))
 if config_host_data.get('CONFIG_EPOLL_CREATE1')
   util_ss.add(files('fdmon-epoll.c'))
 endif
+util_ss.add(when: linux_io_uring, if_true: files('fdmon-io_uring.c'))
 util_ss.add(files('compatfd.c'))
 util_ss.add(files('event_notifier-posix.c'))
 util_ss.add(files('mmap-alloc.c'))

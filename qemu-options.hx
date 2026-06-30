@@ -1173,7 +1173,7 @@ SRST
     be given in two ways. Either you specify the node name of an already
     existing node (file=node-name), or you define a new node inline,
     adding options for the referenced node after a dot
-    (file.filename=path,file.aio=native).
+    (file.filename=path,file.aio=io_uring).
 
     A block driver node created with ``-blockdev`` can be used for a
     guest device by specifying its node name for the ``drive`` property
@@ -1395,7 +1395,7 @@ DEF("drive", HAS_ARG, QEMU_OPTION_drive,
     "       [,cache=writethrough|writeback|none|directsync|unsafe][,format=f]\n"
     "       [,snapshot=on|off][,rerror=ignore|stop|report]\n"
     "       [,werror=ignore|stop|report|enospc][,id=name]\n"
-    "       [,aio=threads|native|io_uring]\n"
+    "       [,aio=io_uring]\n"
     "       [,readonly=on|off][,copy-on-read=on|off]\n"
     "       [,discard=ignore|unmap][,detect-zeroes=on|off|unmap]\n"
     "       [[,bps=b]|[[,bps_rd=r][,bps_wr=w]]]\n"
@@ -1467,8 +1467,7 @@ SRST
         The default mode is ``cache=writeback``.
 
     ``aio=aio``
-        aio is "threads", "native", or "io_uring" and selects between pthread
-        based disk I/O, native Linux AIO, or Linux io_uring API.
+        aio is "io_uring" and selects the Linux io_uring API.
 
     ``format=format``
         Specify which disk format will be used rather than detecting the

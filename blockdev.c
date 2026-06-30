@@ -837,7 +837,7 @@ QemuOptsList qemu_common_drive_opts = {
         {
             .name = "aio",
             .type = QEMU_OPT_STRING,
-            .help = "host AIO implementation (threads, native, io_uring)",
+            .help = "host AIO implementation (io_uring)",
         },{
             .name = BDRV_OPT_CACHE_WB,
             .type = QEMU_OPT_BOOL,

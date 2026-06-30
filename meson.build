@@ -823,12 +823,6 @@ endif
 
 zlib = dependency('zlib', required: true)
 
-libaio = not_found
-if not get_option('linux_aio').auto() or have_block
-  libaio = cc.find_library('aio', has_headers: ['libaio.h'],
-                           required: get_option('linux_aio'))
-endif
-
 linux_io_uring_test = '''
   #include <liburing.h>
   #include <linux/errqueue.h>
@@ -1933,7 +1927,6 @@ config_host_data.set('CONFIG_LIBDAXCTL', libdaxctl.found())
 config_host_data.set('CONFIG_LIBISCSI', libiscsi.found())
 config_host_data.set('CONFIG_LIBNFS', libnfs.found())
 config_host_data.set('CONFIG_LIBSSH', libssh.found())
-config_host_data.set('CONFIG_LINUX_AIO', libaio.found())
 config_host_data.set('CONFIG_LINUX_IO_URING', linux_io_uring.found())
 config_host_data.set('CONFIG_LIBPMEM', libpmem.found())
 config_host_data.set('CONFIG_MODULES', enable_modules)
@@ -2149,10 +2142,6 @@ config_host_data.set('HAVE_OPTRESET',
                      cc.has_header_symbol('getopt.h', 'optreset'))
 config_host_data.set('HAVE_IPPROTO_MPTCP',
                      cc.has_header_symbol('netinet/in.h', 'IPPROTO_MPTCP'))
-if libaio.found()
-  config_host_data.set('HAVE_IO_PREP_PWRITEV2',
-                       cc.has_header_symbol('libaio.h', 'io_prep_pwritev2'))
-endif
 if linux_io_uring.found()
   config_host_data.set('HAVE_IO_URING_PREP_WRITEV2',
                        cc.has_header_symbol('liburing.h', 'io_uring_prep_writev2'))
@@ -3803,7 +3792,6 @@ summary_info += {'iconv support':     iconv}
 summary_info += {'blkio support':     blkio}
 summary_info += {'curl support':      curl}
 summary_info += {'Multipath support': mpathpersist}
-summary_info += {'Linux AIO support': libaio}
 summary_info += {'Linux io_uring support': linux_io_uring}
 summary_info += {'ATTR/XATTR support': libattr}
 summary_info += {'RDMA support':      rdma}
