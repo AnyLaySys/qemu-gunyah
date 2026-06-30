@@ -7,8 +7,6 @@ option('qemu_firmwarepath', type : 'array', value : ['share/qemu-firmware'],
        description: 'search PATH for firmware files')
 option('pkgversion', type : 'string', value : '',
        description: 'use specified string as sub-version of the package')
-option('smbd', type : 'string', value : '',
-       description: 'Path to smbd for slirp networking')
 option('iasl', type : 'string', value : '',
        description: 'Path to ACPI disassembler')
 option('tls_priority', type : 'string', value : 'NORMAL',
@@ -200,16 +198,10 @@ option('usb_redir', type : 'feature', value : 'auto',
        description: 'libusbredir support')
 option('l2tpv3', type : 'feature', value : 'auto',
        description: 'l2tpv3 network backend support')
-option('netmap', type : 'feature', value : 'auto',
-       description: 'netmap network backend support')
 option('pixman', type : 'feature', value : 'auto',
        description: 'pixman support')
-option('slirp', type: 'feature', value: 'auto',
-       description: 'libslirp user mode network backend support')
 option('vde', type : 'feature', value : 'auto',
        description: 'vde network backend support')
-option('vmnet', type : 'feature', value : 'auto',
-       description: 'vmnet.framework network backend support')
 option('virglrenderer', type : 'feature', value : 'auto',
        description: 'virgl rendering support')
 option('png', type : 'feature', value : 'auto',
@@ -247,8 +239,6 @@ option('sndio', type: 'feature', value: 'auto',
 
 option('vhost_kernel', type: 'feature', value: 'auto',
        description: 'vhost kernel backend support')
-option('vhost_net', type: 'feature', value: 'auto',
-       description: 'vhost-net kernel acceleration support')
 option('vhost_user', type: 'feature', value: 'auto',
        description: 'vhost-user backend support')
 option('vhost_crypto', type: 'feature', value: 'auto',
@@ -306,9 +296,6 @@ option('debug_stack_usage', type: 'boolean', value: false,
        description: 'measure coroutine stack usage')
 option('qom_cast_debug', type: 'boolean', value: true,
        description: 'cast debugging support')
-option('slirp_smbd', type : 'feature', value : 'auto',
-       description: 'use smbd (at path --smbd=*) in slirp networking')
-
 option('qemu_ga_manufacturer', type: 'string', value: 'QEMU',
        description: '"manufacturer" name for qemu-ga registry entries')
 option('qemu_ga_distro', type: 'string', value: 'Linux',

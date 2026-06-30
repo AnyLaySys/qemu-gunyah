@@ -114,8 +114,6 @@ struct vhost_vdpa_iova_range {
 };
 
 #define VHOST_F_LOG_ALL 26
-#define VHOST_NET_F_VIRTIO_NET_HDR 27
-
 #define VHOST_BACKEND_F_IOTLB_MSG_V2 0x1
 #define VHOST_BACKEND_F_IOTLB_BATCH  0x2
 #define VHOST_BACKEND_F_IOTLB_ASID  0x3

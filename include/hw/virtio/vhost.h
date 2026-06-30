@@ -107,13 +107,6 @@ extern const VhostOps kernel_ops;
 extern const VhostOps user_ops;
 extern const VhostOps vdpa_ops;
 
-struct vhost_net {
-    struct vhost_dev dev;
-    struct vhost_virtqueue vqs[2];
-    int backend;
-    NetClientState *nc;
-};
-
 int vhost_dev_init(struct vhost_dev *hdev, void *opaque,
                    VhostBackendType backend_type,
                    uint32_t busyloop_timeout, Error **errp);
@@ -162,9 +155,6 @@ void vhost_ack_features(struct vhost_dev *hdev, const int *feature_bits,
                         uint64_t features);
 unsigned int vhost_get_max_memslots(void);
 unsigned int vhost_get_free_memslots(void);
-
-int vhost_net_set_backend(struct vhost_dev *hdev,
-                          struct vhost_vring_file *file);
 
 void vhost_toggle_device_iotlb(VirtIODevice *vdev);
 int vhost_device_iotlb_miss(struct vhost_dev *dev, uint64_t iova, int write);

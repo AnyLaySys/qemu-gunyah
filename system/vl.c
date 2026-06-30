@@ -1103,9 +1103,6 @@ static void qemu_create_default_devices(void)
     if (default_net) {
         QemuOptsList *net = qemu_find_opts("net");
         qemu_opts_parse(net, "nic", true, &error_abort);
-#ifdef CONFIG_SLIRP
-        qemu_opts_parse(net, "user", true, &error_abort);
-#endif
     }
 
     if (default_vga) {

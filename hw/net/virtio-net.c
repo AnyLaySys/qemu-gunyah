@@ -15,7 +15,6 @@
 #include "qemu/config-file.h"
 #include "qobject/qdict.h"
 #include "hw/virtio/virtio-net.h"
-#include "net/vhost_net.h"
 #include "net/announce.h"
 #include "hw/virtio/virtio-bus.h"
 #include "qapi/error.h"
@@ -41,7 +40,6 @@ static AnnounceParameters virtio_net_announce_params = {
     .step = VIRTIO_NET_ANNOUNCE_STEP,
 };
 #include "net_rx_pkt.h"
-#include "hw/virtio/vhost.h"
 
 #define VIRTIO_NET_VM_VERSION    11
 
@@ -200,62 +198,6 @@ static void virtio_net_announce(NetClientState *nc)
     }
 }
 
-static void virtio_net_vhost_status(VirtIONet *n, uint8_t status)
-{
-    VirtIODevice *vdev = VIRTIO_DEVICE(n);
-    NetClientState *nc = qemu_get_queue(n->nic);
-    int queue_pairs = n->multiqueue ? n->max_queue_pairs : 1;
-    int cvq = virtio_vdev_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ) ?
-              n->max_ncs - n->max_queue_pairs : 0;
-
-    if (!get_vhost_net(nc->peer)) {
-        return;
-    }
-
-    if ((virtio_net_started(n, status) && !nc->peer->link_down) ==
-        !!n->vhost_started) {
-        return;
-    }
-    if (!n->vhost_started) {
-        int r, i;
-
-        if (n->needs_vnet_hdr_swap) {
-            error_report("backend does not support %s vnet headers; "
-                         "falling back on userspace virtio",
-                         virtio_is_big_endian(vdev) ? "BE" : "LE");
-            return;
-        }
-
-        for (i = 0;  i < queue_pairs; i++) {
-            NetClientState *qnc = qemu_get_subqueue(n->nic, i);
-
-            qemu_net_queue_purge(qnc->peer->incoming_queue, qnc);
-            qemu_net_queue_purge(qnc->incoming_queue, qnc->peer);
-        }
-
-        if (virtio_has_feature(vdev->guest_features, VIRTIO_NET_F_MTU)) {
-            r = vhost_net_set_mtu(get_vhost_net(nc->peer), n->net_conf.mtu);
-            if (r < 0) {
-                error_report("%uBytes MTU not supported by the backend",
-                             n->net_conf.mtu);
-
-                return;
-            }
-        }
-
-        n->vhost_started = 1;
-        r = vhost_net_start(vdev, n->nic->ncs, queue_pairs, cvq);
-        if (r < 0) {
-            error_report("unable to start vhost net: %d: "
-                         "falling back on userspace virtio", -r);
-            n->vhost_started = 0;
-        }
-    } else {
-        vhost_net_stop(vdev, n->nic->ncs, queue_pairs, cvq);
-        n->vhost_started = 0;
-    }
-}
-
 static int virtio_net_set_vnet_endian_one(VirtIODevice *vdev,
                                           NetClientState *peer,
                                           bool enable)
@@ -316,8 +258,6 @@ static void virtio_net_set_status(struct VirtIODevice *vdev, uint8_t status)
     uint8_t queue_status;
 
     virtio_net_vnet_endian_status(n, status);
-    virtio_net_vhost_status(n, status);
-
     for (i = 0; i < n->max_queue_pairs; i++) {
         NetClientState *ncs = qemu_get_subqueue(n->nic, i);
         bool queue_started;
@@ -328,8 +268,7 @@ static void virtio_net_set_status(struct VirtIODevice *vdev, uint8_t status)
         } else {
             queue_status = status;
         }
-        queue_started =
-            virtio_net_started(n, queue_status) && !n->vhost_started;
+        queue_started = virtio_net_started(n, queue_status);
 
         if (queue_started) {
             qemu_flush_queued_packets(ncs);
@@ -487,35 +426,15 @@ static void virtio_net_queue_reset(VirtIODevice *vdev, uint32_t queue_index)
         return;
     }
 
-    if (get_vhost_net(nc->peer)) {
-        vhost_net_virtqueue_reset(vdev, nc, queue_index);
-    }
-
     flush_or_purge_queued_packets(nc);
 }
 
 static void virtio_net_queue_enable(VirtIODevice *vdev, uint32_t queue_index)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc;
-    int r;
 
     if (queue_index >= n->max_queue_pairs * 2) {
         return;
-    }
-
-    nc = qemu_get_subqueue(n->nic, vq2q(queue_index));
-
-    if (!nc->peer || !vdev->vhost_started) {
-        return;
-    }
-
-    if (get_vhost_net(nc->peer)) {
-        r = vhost_net_virtqueue_restart(vdev, nc, queue_index);
-        if (r < 0) {
-            error_report("unable to restart vhost net virtqueue: %d, "
-                            "when resetting the queue", queue_index);
-        }
     }
 }
 
@@ -630,7 +549,6 @@ static uint64_t virtio_net_get_features(VirtIODevice *vdev, uint64_t features,
                                         Error **errp)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc = qemu_get_queue(n->nic);
 
     features |= n->host_features;
 
@@ -664,13 +582,6 @@ static uint64_t virtio_net_get_features(VirtIODevice *vdev, uint64_t features,
         virtio_clear_feature(&features, VIRTIO_NET_F_GUEST_USO4);
         virtio_clear_feature(&features, VIRTIO_NET_F_GUEST_USO6);
     }
-
-    if (!get_vhost_net(nc->peer)) {
-        return features;
-    }
-
-    features = vhost_net_get_features(get_vhost_net(nc->peer), features);
-    vdev->backend_features = features;
 
     if (n->mtu_bypass_backend &&
             (n->host_features & 1ULL << VIRTIO_NET_F_MTU)) {
@@ -796,7 +707,6 @@ static void virtio_net_set_features(VirtIODevice *vdev, uint64_t features)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
     Error *err = NULL;
-    int i;
 
     if (n->mtu_bypass_backend &&
             !virtio_has_feature(vdev->backend_features, VIRTIO_NET_F_MTU)) {
@@ -825,17 +735,6 @@ static void virtio_net_set_features(VirtIODevice *vdev, uint64_t features)
         n->curr_guest_offloads =
             virtio_net_guest_offloads_by_features(features);
         virtio_net_apply_guest_offloads(n);
-    }
-
-    for (i = 0;  i < n->max_queue_pairs; i++) {
-        NetClientState *nc = qemu_get_subqueue(n->nic, i);
-
-        if (!get_vhost_net(nc->peer)) {
-            continue;
-        }
-        vhost_net_ack_features(get_vhost_net(nc->peer), features);
-
-        vhost_net_save_acked_features(nc->peer);
     }
 
     if (!virtio_has_feature(features, VIRTIO_NET_F_CTRL_VLAN)) {
@@ -2491,10 +2390,6 @@ static void virtio_net_handle_tx_bh(VirtIODevice *vdev, VirtQueue *vq)
     VirtIONet *n = VIRTIO_NET(vdev);
     VirtIONetQueue *q = &n->vqs[vq2q(virtio_get_queue_index(vq))];
 
-    if (unlikely(n->vhost_started)) {
-        return;
-    }
-
     if (unlikely((n->status & VIRTIO_NET_S_LINK_UP) == 0)) {
         virtio_net_drop_tx_queue_data(vdev, vq);
         return;
@@ -2915,117 +2810,6 @@ static const VMStateDescription vmstate_virtio_net_rss = {
     },
 };
 
-static struct vhost_dev *virtio_net_get_vhost(VirtIODevice *vdev)
-{
-    VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc;
-    struct vhost_net *net;
-
-    if (!n->nic) {
-        return NULL;
-    }
-
-    nc = qemu_get_queue(n->nic);
-    if (!nc) {
-        return NULL;
-    }
-
-    net = get_vhost_net(nc->peer);
-    if (!net) {
-        return NULL;
-    }
-
-    return &net->dev;
-}
-
-static int vhost_user_net_save_state(QEMUFile *f, void *pv, size_t size,
-                                     const VMStateField *field,
-                                     JSONWriter *vmdesc)
-{
-    VirtIONet *n = pv;
-    VirtIODevice *vdev = VIRTIO_DEVICE(n);
-    struct vhost_dev *vhdev;
-    Error *local_error = NULL;
-    int ret;
-
-    vhdev = virtio_net_get_vhost(vdev);
-    if (vhdev == NULL) {
-        error_reportf_err(local_error,
-                          "Error getting vhost back-end of %s device %s: ",
-                          vdev->name, vdev->parent_obj.canonical_path);
-        return -1;
-    }
-
-    ret = vhost_save_backend_state(vhdev, f, &local_error);
-    if (ret < 0) {
-        error_reportf_err(local_error,
-                          "Error saving back-end state of %s device %s: ",
-                          vdev->name, vdev->parent_obj.canonical_path);
-        return ret;
-    }
-
-    return 0;
-}
-
-static int vhost_user_net_load_state(QEMUFile *f, void *pv, size_t size,
-                                     const VMStateField *field)
-{
-    VirtIONet *n = pv;
-    VirtIODevice *vdev = VIRTIO_DEVICE(n);
-    struct vhost_dev *vhdev;
-    Error *local_error = NULL;
-    int ret;
-
-    vhdev = virtio_net_get_vhost(vdev);
-    if (vhdev == NULL) {
-        error_reportf_err(local_error,
-                          "Error getting vhost back-end of %s device %s: ",
-                          vdev->name, vdev->parent_obj.canonical_path);
-        return -1;
-    }
-
-    ret = vhost_load_backend_state(vhdev, f, &local_error);
-    if (ret < 0) {
-        error_reportf_err(local_error,
-                          "Error loading  back-end state of %s device %s: ",
-                          vdev->name, vdev->parent_obj.canonical_path);
-        return ret;
-    }
-
-    return 0;
-}
-
-static bool vhost_user_net_is_internal_migration(void *opaque)
-{
-    VirtIONet *n = opaque;
-    VirtIODevice *vdev = VIRTIO_DEVICE(n);
-    struct vhost_dev *vhdev;
-
-    vhdev = virtio_net_get_vhost(vdev);
-    if (vhdev == NULL) {
-        return false;
-    }
-
-    return vhost_supports_device_state(vhdev);
-}
-
-static const VMStateDescription vhost_user_net_backend_state = {
-    .name = "virtio-net-device/backend",
-    .version_id = 0,
-    .needed = vhost_user_net_is_internal_migration,
-    .fields = (const VMStateField[]) {
-        {
-            .name = "backend",
-            .info = &(const VMStateInfo) {
-                .name = "virtio-net vhost-user backend state",
-                .get = vhost_user_net_load_state,
-                .put = vhost_user_net_save_state,
-            },
-         },
-         VMSTATE_END_OF_LIST()
-    }
-};
-
 static const VMStateDescription vmstate_virtio_net_device = {
     .name = "virtio-net-device",
     .version_id = VIRTIO_NET_VM_VERSION,
@@ -3070,7 +2854,6 @@ static const VMStateDescription vmstate_virtio_net_device = {
     },
     .subsections = (const VMStateDescription * const []) {
         &vmstate_virtio_net_rss,
-        &vhost_user_net_backend_state,
         NULL
     }
 };
@@ -3084,52 +2867,6 @@ static NetClientInfo net_virtio_info = {
     .query_rx_filter = virtio_net_query_rxfilter,
     .announce = virtio_net_announce,
 };
-
-static bool virtio_net_guest_notifier_pending(VirtIODevice *vdev, int idx)
-{
-    VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc;
-    assert(n->vhost_started);
-    if (!n->multiqueue && idx == 2) {
-        if (!virtio_vdev_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ)) {
-            qemu_log_mask(LOG_GUEST_ERROR,
-                          "%s: bogus vq index ignored\n", __func__);
-            return false;
-        }
-        nc = qemu_get_subqueue(n->nic, n->max_queue_pairs);
-    } else {
-        nc = qemu_get_subqueue(n->nic, vq2q(idx));
-    }
-
-    if (idx == VIRTIO_CONFIG_IRQ_IDX) {
-        return vhost_net_config_pending(get_vhost_net(nc->peer));
-    }
-    return vhost_net_virtqueue_pending(get_vhost_net(nc->peer), idx);
-}
-
-static void virtio_net_guest_notifier_mask(VirtIODevice *vdev, int idx,
-                                           bool mask)
-{
-    VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc;
-    assert(n->vhost_started);
-    if (!n->multiqueue && idx == 2) {
-        if (!virtio_vdev_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ)) {
-            qemu_log_mask(LOG_GUEST_ERROR,
-                          "%s: bogus vq index ignored\n", __func__);
-            return;
-        }
-        nc = qemu_get_subqueue(n->nic, n->max_queue_pairs);
-    } else {
-        nc = qemu_get_subqueue(n->nic, vq2q(idx));
-    }
-
-    if (idx == VIRTIO_CONFIG_IRQ_IDX) {
-        vhost_net_config_mask(get_vhost_net(nc->peer), vdev, mask);
-        return;
-    }
-    vhost_net_virtqueue_mask(get_vhost_net(nc->peer), vdev, idx, mask);
-}
 
 static void virtio_net_set_config_size(VirtIONet *n, uint64_t host_features)
 {
@@ -3425,10 +3162,6 @@ static void virtio_net_instance_init(Object *obj)
 
 static int virtio_net_pre_save(void *opaque)
 {
-    VirtIONet *n = opaque;
-
-    assert(!n->vhost_started);
-
     return 0;
 }
 
@@ -3558,15 +3291,11 @@ static void virtio_net_class_init(ObjectClass *klass, void *data)
     vdc->queue_reset = virtio_net_queue_reset;
     vdc->queue_enable = virtio_net_queue_enable;
     vdc->set_status = virtio_net_set_status;
-    vdc->guest_notifier_mask = virtio_net_guest_notifier_mask;
-    vdc->guest_notifier_pending = virtio_net_guest_notifier_pending;
     vdc->legacy_features |= (0x1 << VIRTIO_NET_F_GSO);
     vdc->pre_load_queues = virtio_net_pre_load_queues;
     vdc->post_load = virtio_net_post_load_virtio;
     vdc->vmsd = &vmstate_virtio_net_device;
     vdc->primary_unplug_pending = primary_unplug_pending;
-    vdc->get_vhost = virtio_net_get_vhost;
-    vdc->toggle_device_iotlb = vhost_toggle_device_iotlb;
 }
 
 static const TypeInfo virtio_net_info = {

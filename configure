@@ -1859,9 +1859,6 @@ if test "$skip_meson" = no; then
       echo 'werror = true' >> $cross
   fi
   echo "[project options]" >> $cross
-  if test "$SMBD" != ''; then
-    echo "smbd = $(meson_quote "$SMBD")" >> $cross
-  fi
   if test "${QEMU_GA_MANUFACTURER}" != ''; then
     echo "qemu_ga_manufacturer = $(meson_quote "${QEMU_GA_MANUFACTURER}")" >> $cross
   fi
@@ -2012,7 +2009,6 @@ preserve_env QEMU_GA_MANUFACTURER
 preserve_env QEMU_GA_DISTRO
 preserve_env QEMU_GA_VERSION
 preserve_env SDL2_CONFIG
-preserve_env SMBD
 preserve_env STRIP
 preserve_env WIDL
 preserve_env WINDRES

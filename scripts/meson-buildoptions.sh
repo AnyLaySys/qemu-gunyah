@@ -72,7 +72,6 @@ meson_options_help() {
   printf "%s\n" '                           [QEMU]'
   printf "%s\n" '  --qemu-ga-version=VALUE  version number for qemu-ga installer'
   printf "%s\n" '  --rtsig-map=VALUE        default value of QEMU_RTSIG_MAP [NULL]'
-  printf "%s\n" '  --smbd=VALUE             Path to smbd for slirp networking'
   printf "%s\n" '  --sysconfdir=VALUE       Sysconf data directory [etc]'
   printf "%s\n" '  --tls-priority=VALUE     Default TLS protocol/cipher priority string'
   printf "%s\n" '                           [NORMAL]'
@@ -141,7 +140,6 @@ meson_options_help() {
   printf "%s\n" '  modules         modules support (non Windows)'
   printf "%s\n" '  mpath           Multipath persistent reservation passthrough'
   printf "%s\n" '  multiprocess    Out of process device emulation support'
-  printf "%s\n" '  netmap          netmap network backend support'
   printf "%s\n" '  nettle          nettle cryptography support'
   printf "%s\n" '  numa            libnuma support'
   printf "%s\n" '  opengl          OpenGL support'
@@ -164,8 +162,6 @@ meson_options_help() {
   printf "%s\n" '  rust            Rust support'
   printf "%s\n" '  sdl             SDL user interface'
   printf "%s\n" '  seccomp         seccomp support'
-  printf "%s\n" '  slirp           libslirp user mode network backend support'
-  printf "%s\n" '  slirp-smbd      use smbd (at path --smbd=*) in slirp networking'
   printf "%s\n" '  smartcard       CA smartcard emulation support'
   printf "%s\n" '  snappy          snappy compression support'
   printf "%s\n" '  sndio           sndio sound support'
@@ -184,7 +180,6 @@ meson_options_help() {
   printf "%s\n" '  vhdx            vhdx image format support'
   printf "%s\n" '  vhost-crypto    vhost-user crypto backend support'
   printf "%s\n" '  vhost-kernel    vhost kernel backend support'
-  printf "%s\n" '  vhost-net       vhost-net kernel acceleration support'
   printf "%s\n" '  vhost-user      vhost-user backend support'
   printf "%s\n" '  vhost-user-blk-server'
   printf "%s\n" '                  build vhost-user-blk server'
@@ -192,7 +187,6 @@ meson_options_help() {
   printf "%s\n" '  virglrenderer   virgl rendering support'
   printf "%s\n" '  virtfs          virtio-9p support'
   printf "%s\n" '  vmdk            vmdk image format support'
-  printf "%s\n" '  vmnet           vmnet.framework network backend support'
   printf "%s\n" '  vpc             vpc image format support'
   printf "%s\n" '  vvfat           vvfat image format support'
   printf "%s\n" '  werror          Treat warnings as errors'
@@ -355,8 +349,6 @@ _meson_option_parse() {
     --disable-mpath) printf "%s" -Dmpath=disabled ;;
     --enable-multiprocess) printf "%s" -Dmultiprocess=enabled ;;
     --disable-multiprocess) printf "%s" -Dmultiprocess=disabled ;;
-    --enable-netmap) printf "%s" -Dnetmap=enabled ;;
-    --disable-netmap) printf "%s" -Dnetmap=disabled ;;
     --enable-nettle) printf "%s" -Dnettle=enabled ;;
     --disable-nettle) printf "%s" -Dnettle=disabled ;;
     --enable-numa) printf "%s" -Dnuma=enabled ;;
@@ -417,13 +409,8 @@ _meson_option_parse() {
     --disable-sdl) printf "%s" -Dsdl=disabled ;;
     --enable-seccomp) printf "%s" -Dseccomp=enabled ;;
     --disable-seccomp) printf "%s" -Dseccomp=disabled ;;
-    --enable-slirp) printf "%s" -Dslirp=enabled ;;
-    --disable-slirp) printf "%s" -Dslirp=disabled ;;
-    --enable-slirp-smbd) printf "%s" -Dslirp_smbd=enabled ;;
-    --disable-slirp-smbd) printf "%s" -Dslirp_smbd=disabled ;;
     --enable-smartcard) printf "%s" -Dsmartcard=enabled ;;
     --disable-smartcard) printf "%s" -Dsmartcard=disabled ;;
-    --smbd=*) quote_sh "-Dsmbd=$2" ;;
     --enable-snappy) printf "%s" -Dsnappy=enabled ;;
     --disable-snappy) printf "%s" -Dsnappy=disabled ;;
     --enable-sndio) printf "%s" -Dsndio=enabled ;;
@@ -472,8 +459,6 @@ _meson_option_parse() {
     --disable-vhost-crypto) printf "%s" -Dvhost_crypto=disabled ;;
     --enable-vhost-kernel) printf "%s" -Dvhost_kernel=enabled ;;
     --disable-vhost-kernel) printf "%s" -Dvhost_kernel=disabled ;;
-    --enable-vhost-net) printf "%s" -Dvhost_net=enabled ;;
-    --disable-vhost-net) printf "%s" -Dvhost_net=disabled ;;
     --enable-vhost-user) printf "%s" -Dvhost_user=enabled ;;
     --disable-vhost-user) printf "%s" -Dvhost_user=disabled ;;
     --enable-vhost-user-blk-server) printf "%s" -Dvhost_user_blk_server=enabled ;;
@@ -486,8 +471,6 @@ _meson_option_parse() {
     --disable-virtfs) printf "%s" -Dvirtfs=disabled ;;
     --enable-vmdk) printf "%s" -Dvmdk=enabled ;;
     --disable-vmdk) printf "%s" -Dvmdk=disabled ;;
-    --enable-vmnet) printf "%s" -Dvmnet=enabled ;;
-    --disable-vmnet) printf "%s" -Dvmnet=disabled ;;
     --enable-vpc) printf "%s" -Dvpc=enabled ;;
     --disable-vpc) printf "%s" -Dvpc=disabled ;;
     --enable-vvfat) printf "%s" -Dvvfat=enabled ;;

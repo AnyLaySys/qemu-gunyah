@@ -10,6 +10,29 @@
 #include "system/device_tree.h"
 #include "hw/arm/fdt.h"
 
+typedef struct GunyahDoorbell {
+    int label;
+    int spi;
+    int flags;
+} GunyahDoorbell;
+
+static void gunyah_fdt_add_doorbell(void *fdt, const GunyahDoorbell *bell)
+{
+    g_autofree char *nodename = g_strdup_printf(
+        "/gunyah-vm-config/vdevices/bell-%x", bell->label);
+    g_autofree char *generate = g_strdup_printf(
+        "/hypervisor/bell-%x", bell->label);
+
+    qemu_fdt_add_subnode(fdt, nodename);
+    qemu_fdt_setprop_string(fdt, nodename, "vdevice-type", "doorbell");
+    qemu_fdt_setprop_string(fdt, nodename, "generate", generate);
+    qemu_fdt_setprop_cell(fdt, nodename, "label", bell->label);
+    qemu_fdt_setprop(fdt, nodename, "peer-default", NULL, 0);
+    qemu_fdt_setprop(fdt, nodename, "source-can-clear", NULL, 0);
+    qemu_fdt_setprop_cells(fdt, nodename, "interrupts",
+                           GIC_FDT_IRQ_TYPE_SPI, bell->spi, bell->flags);
+}
+
 int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size)
 {
     GUNYAHState *state = get_gunyah_state();
@@ -101,39 +124,22 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
 
 
     {
-        struct { int label; int spi; int flags; } bells[] = {
-            { 0x0, 0x0, 0x01 },  /* EDGE_RISING */
-            { 0x1, 0x1, 0x04 },  /* LEVEL_HIGH - PL011 UART */
-            { 0x2, 0x2, 0x01 },  /* EDGE_RISING */
-            { 0x3, 0x3, 0x04 },  /* LEVEL_HIGH - PCI INTA */
-            { 0x4, 0x4, 0x04 },  /* LEVEL_HIGH - PCI INTB */
-            { 0x5, 0x5, 0x04 },  /* LEVEL_HIGH - PCI INTC */
-            { 0x6, 0x6, 0x04 },  /* LEVEL_HIGH - PCI INTD */
-            { 0xf, 0xf, 0x01 },  /* EDGE_RISING */
+        static const GunyahDoorbell bells[] = {
+            { 0x0, 0x0, 0x01 },
+            { 0x1, 0x1, 0x04 },
+            { 0x2, 0x2, 0x01 },
+            { 0x3, 0x3, 0x04 },
+            { 0x4, 0x4, 0x04 },
+            { 0x5, 0x5, 0x04 },
+            { 0x6, 0x6, 0x04 },
+            { 0xf, 0xf, 0x01 },
         };
-        int nbell = sizeof(bells) / sizeof(bells[0]);
 
-        gh_report("creating %d doorbell DTB nodes (matching CrosVM)",
-                     nbell);
+        gh_report("creating %zu doorbell DTB nodes (matching CrosVM)",
+                  ARRAY_SIZE(bells));
 
-        for (i = 0; i < nbell; ++i) {
-            char *p;
-            nodename = g_strdup_printf(
-                "/gunyah-vm-config/vdevices/bell-%x", bells[i].label);
-            qemu_fdt_add_subnode(fdt, nodename);
-            qemu_fdt_setprop_string(fdt, nodename,
-                                    "vdevice-type", "doorbell");
-            p = g_strdup_printf("/hypervisor/bell-%x", bells[i].label);
-            qemu_fdt_setprop_string(fdt, nodename, "generate", p);
-            g_free(p);
-            qemu_fdt_setprop_cell(fdt, nodename, "label", bells[i].label);
-            qemu_fdt_setprop(fdt, nodename, "peer-default", NULL, 0);
-            qemu_fdt_setprop(fdt, nodename, "source-can-clear", NULL, 0);
-
-            qemu_fdt_setprop_cells(fdt, nodename, "interrupts",
-                    GIC_FDT_IRQ_TYPE_SPI, bells[i].spi, bells[i].flags);
-
-            g_free(nodename);
+        for (i = 0; i < ARRAY_SIZE(bells); ++i) {
+            gunyah_fdt_add_doorbell(fdt, &bells[i]);
         }
     }
 
@@ -141,43 +147,15 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
         gh_report("creating 32 virtio doorbell DTB nodes "
                      "(labels 0x10-0x2f, SPIs 16-47)");
         for (i = 0; i < 32; i++) {
-            char *p;
-            int label = 0x10 + i;
-            int spi = 16 + i;
+            GunyahDoorbell bell = {
+                .label = 0x10 + i,
+                .spi = 16 + i,
+                .flags = 0x01,
+            };
 
-            nodename = g_strdup_printf(
-                "/gunyah-vm-config/vdevices/bell-%x", label);
-            qemu_fdt_add_subnode(fdt, nodename);
-            qemu_fdt_setprop_string(fdt, nodename,
-                                    "vdevice-type", "doorbell");
-            p = g_strdup_printf("/hypervisor/bell-%x", label);
-            qemu_fdt_setprop_string(fdt, nodename, "generate", p);
-            g_free(p);
-            qemu_fdt_setprop_cell(fdt, nodename, "label", label);
-            qemu_fdt_setprop(fdt, nodename, "peer-default", NULL, 0);
-            qemu_fdt_setprop(fdt, nodename, "source-can-clear", NULL, 0);
-
-            qemu_fdt_setprop_cells(fdt, nodename, "interrupts",
-                    GIC_FDT_IRQ_TYPE_SPI, spi, 0x01 /* EDGE_RISING */);
-
-            g_free(nodename);
+            gunyah_fdt_add_doorbell(fdt, &bell);
         }
     }
-}
-
-#define GUNYAH_SIMPLEFB_SIZE  (8 * 1024 * 1024)  /* 8MB, enough for 1920x1080x4 */
-
-uint64_t gunyah_get_simplefb_addr(void)
-{
-    MachineState *ms = MACHINE(qdev_get_machine());
-    GUNYAHState *s = get_gunyah_state();
-    uint64_t mem_base = 0x80000000;  /* AARCH64_PHYS_MEM_START */
-    return mem_base + ms->ram_size - s->swiotlb_size;
-}
-
-uint64_t gunyah_get_simplefb_size(void)
-{
-    return GUNYAH_SIMPLEFB_SIZE;
 }
 
 int gunyah_arch_put_registers(CPUState *cs, int level)

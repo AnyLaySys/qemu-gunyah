@@ -10,7 +10,6 @@
 #include "hw/resettable.h"
 #include "monitor/monitor.h"
 #include "net/net.h"
-#include "net/vhost_net.h"
 #include "qapi/error.h"
 #include "qapi/qapi-commands-run-state.h"
 #include "qapi/qapi-events-run-state.h"

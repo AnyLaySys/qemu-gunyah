@@ -206,11 +206,6 @@ have_vhost_user_crypto = get_option('vhost_crypto') \
 
 have_vhost = have_vhost_user or have_vhost_vdpa or have_vhost_kernel
 
-have_vhost_net_user = have_vhost_user and get_option('vhost_net').allowed()
-have_vhost_net_vdpa = have_vhost_vdpa and get_option('vhost_net').allowed()
-have_vhost_net_kernel = have_vhost_kernel and get_option('vhost_net').allowed()
-have_vhost_net = have_vhost_net_kernel or have_vhost_net_user or have_vhost_net_vdpa
-
 have_tools = get_option('tools') \
   .disable_auto_if(not have_system) \
   .allowed()
@@ -882,18 +877,6 @@ cocoa = dependency('appleframeworks',
                    modules: ['Cocoa', 'CoreVideo', 'QuartzCore'],
                    required: get_option('cocoa'))
 
-vmnet = dependency('appleframeworks', modules: 'vmnet', required: get_option('vmnet'))
-if vmnet.found() and not cc.has_header_symbol('vmnet/vmnet.h',
-                                              'VMNET_BRIDGED_MODE',
-                                              dependencies: vmnet)
-  vmnet = not_found
-  if get_option('vmnet').enabled()
-    error('vmnet.framework API is outdated')
-  else
-    warning('vmnet.framework API is outdated, disabling')
-  endif
-endif
-
 seccomp = not_found
 seccomp_has_sysrawrc = false
 if not get_option('seccomp').auto() or have_system or have_tools
@@ -932,20 +915,6 @@ if get_option('xkbcommon').auto() and not have_system and not have_tools
 else
   xkbcommon = dependency('xkbcommon', required: get_option('xkbcommon'),
                          method: 'pkg-config')
-endif
-
-slirp = not_found
-if not get_option('slirp').auto() or have_system
-  slirp = dependency('slirp', required: get_option('slirp'),
-                     method: 'pkg-config')
-  if get_option('cfi') and slirp.found() and slirp.version().version_compare('<4.7')
-    if get_option('slirp').enabled()
-      error('Control-Flow Integrity requires libslirp 4.7.')
-    else
-      warning('Cannot use libslirp since Control-Flow Integrity requires libslirp >= 4.7.')
-      slirp = not_found
-    endif
-  endif
 endif
 
 vde = not_found
@@ -1865,17 +1834,6 @@ if enable_modules
       capture: true, check: true).stdout().strip())
 endif
 
-have_slirp_smbd = get_option('slirp_smbd') \
-  .require(host_os != 'windows', error_message: 'Host smbd not supported on this platform.') \
-  .allowed()
-if have_slirp_smbd
-  smbd_path = get_option('smbd')
-  if smbd_path == ''
-    smbd_path = (host_os == 'sunos' ? '/usr/sfw/sbin/smbd' : '/usr/sbin/smbd')
-  endif
-  config_host_data.set_quoted('CONFIG_SMBD_COMMAND', smbd_path)
-endif
-
 config_host_data.set('HOST_' + host_arch.to_upper(), 1)
 
 if get_option('module_upgrades') and not enable_modules
@@ -1948,7 +1906,6 @@ if seccomp.found()
   config_host_data.set('CONFIG_SECCOMP_SYSRAWRC', seccomp_has_sysrawrc)
 endif
 config_host_data.set('CONFIG_PIXMAN', pixman.found())
-config_host_data.set('CONFIG_SLIRP', slirp.found())
 config_host_data.set('CONFIG_SNAPPY', snappy.found())
 config_host_data.set('CONFIG_SOLARIS', host_os == 'sunos')
 if get_option('tcg').allowed()
@@ -1960,14 +1917,10 @@ config_host_data.set('CONFIG_TSAN', get_option('tsan'))
 config_host_data.set('CONFIG_USB_LIBUSB', libusb.found())
 config_host_data.set('CONFIG_VDE', vde.found())
 config_host_data.set('CONFIG_VHOST', have_vhost)
-config_host_data.set('CONFIG_VHOST_NET', have_vhost_net)
-config_host_data.set('CONFIG_VHOST_NET_USER', have_vhost_net_user)
-config_host_data.set('CONFIG_VHOST_NET_VDPA', have_vhost_net_vdpa)
 config_host_data.set('CONFIG_VHOST_KERNEL', have_vhost_kernel)
 config_host_data.set('CONFIG_VHOST_USER', have_vhost_user)
 config_host_data.set('CONFIG_VHOST_CRYPTO', have_vhost_user_crypto)
 config_host_data.set('CONFIG_VHOST_VDPA', have_vhost_vdpa)
-config_host_data.set('CONFIG_VMNET', vmnet.found())
 config_host_data.set('CONFIG_VHOST_USER_BLK_SERVER', have_vhost_user_blk_server)
 config_host_data.set('CONFIG_PNG', png.found())
 if virgl.found()
@@ -2297,23 +2250,6 @@ if get_option('l2tpv3').allowed() and have_system
       #include <linux/ip.h>''')
 endif
 config_host_data.set('CONFIG_L2TPV3', have_l2tpv3)
-
-have_netmap = false
-if get_option('netmap').allowed() and have_system
-  have_netmap = cc.compiles('''
-    #include <inttypes.h>
-    #include <net/if.h>
-    #include <net/netmap.h>
-    #include <net/netmap_user.h>
-    #if (NETMAP_API < 11) || (NETMAP_API > 15)
-    #error
-    #endif
-    int main(void) { return 0; }''')
-  if not have_netmap and get_option('netmap').enabled()
-    error('Netmap headers not available')
-  endif
-endif
-config_host_data.set('CONFIG_NETMAP', have_netmap)
 
 config_host_data.set('HAVE_FSXATTR', cc.links('''
   #include <linux/fs.h>
@@ -3596,9 +3532,6 @@ summary_info += {'genisoimage':       config_host['GENISOIMAGE']}
 if host_os == 'windows' and have_ga
   summary_info += {'wixl':            wixl}
 endif
-if slirp.found() and have_system
-  summary_info += {'smbd':            have_slirp_smbd ? smbd_path : false}
-endif
 summary(summary_info, bool_yn: true, section: 'Host binaries')
 
 summary_info = {}
@@ -3722,12 +3655,7 @@ endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
 
 summary_info = {}
-if host_os == 'darwin'
-  summary_info += {'vmnet.framework support': vmnet}
-endif
-summary_info += {'slirp support':     slirp}
 summary_info += {'vde support':       vde}
-summary_info += {'netmap support':    have_netmap}
 summary_info += {'l2tpv3 support':    have_l2tpv3}
 summary(summary_info, bool_yn: true, section: 'Network backends')
 
@@ -3860,7 +3788,6 @@ summary_info += {'D-Bus display':     dbus_display}
 summary_info += {'QOM debugging':     get_option('qom_cast_debug')}
 summary_info += {'Relocatable install': get_option('relocatable')}
 summary_info += {'vhost-kernel support': have_vhost_kernel}
-summary_info += {'vhost-net support': have_vhost_net}
 summary_info += {'vhost-user support': have_vhost_user}
 summary_info += {'vhost-user-crypto support': have_vhost_user_crypto}
 summary_info += {'vhost-user-blk server support': have_vhost_user_blk_server}

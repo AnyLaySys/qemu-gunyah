@@ -488,8 +488,3 @@ int tap_get_fd(NetClientState *nc)
 {
     return DO_UPCAST(TAPState, nc, nc)->fd;
 }
-
-struct vhost_net *tap_get_vhost_net(NetClientState *nc)
-{
-    return NULL;
-}

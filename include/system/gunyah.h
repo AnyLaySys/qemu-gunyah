@@ -27,9 +27,6 @@ bool gunyah_addr_is_lend(uint64_t gpa);
 void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
                 uint32_t gic_phandle);
 
-uint64_t gunyah_get_simplefb_addr(void);
-uint64_t gunyah_get_simplefb_size(void);
-
 #include "qemu/event_notifier.h"
 void gunyah_gic_register_irq_notifiers(EventNotifier *notifiers,
                                         int count, int base_spi);

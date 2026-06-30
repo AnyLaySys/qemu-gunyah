@@ -6,6 +6,5 @@
 int tap_enable(NetClientState *nc);
 int tap_disable(NetClientState *nc);
 int tap_get_fd(NetClientState *nc);
-struct vhost_net *tap_get_vhost_net(NetClientState *nc);
 
 #endif

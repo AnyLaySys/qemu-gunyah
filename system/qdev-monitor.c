@@ -48,7 +48,6 @@ typedef struct QDevAlias
 
 static const QDevAlias qdev_alias_table[] = {
     { "virtio-blk-pci", "virtio-blk", QEMU_ARCH_VIRTIO_PCI },
-    { "virtio-gpu-pci", "virtio-gpu", QEMU_ARCH_VIRTIO_PCI },
     { "virtio-keyboard-pci", "virtio-keyboard", QEMU_ARCH_VIRTIO_PCI },
     { "virtio-net-pci", "virtio-net", QEMU_ARCH_VIRTIO_PCI },
     { "virtio-tablet-pci", "virtio-tablet", QEMU_ARCH_VIRTIO_PCI },
