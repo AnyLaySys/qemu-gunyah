@@ -19,6 +19,7 @@ OBJECT_DECLARE_TYPE(VirtIOGPUBase, VirtIOGPUBaseClass,
 
 #define TYPE_VIRTIO_GPU "virtio-gpu-device"
 OBJECT_DECLARE_TYPE(VirtIOGPU, VirtIOGPUClass, VIRTIO_GPU)
+#define TYPE_VIRTIO_GPU_GL "virtio-gpu-gl-device"
 
 struct virtio_gpu_simple_resource {
     uint32_t resource_id;
@@ -37,6 +38,7 @@ struct virtio_gpu_simple_resource {
     void *blob;
     int dmabuf_fd;
     uint8_t *remapped;
+    bool virgl;
 
     QTAILQ_ENTRY(virtio_gpu_simple_resource) next;
 };
@@ -75,6 +77,7 @@ enum virtio_gpu_base_conf_flags {
     VIRTIO_GPU_FLAG_BLOB_ENABLED,
     VIRTIO_GPU_FLAG_CONTEXT_INIT_ENABLED,
     VIRTIO_GPU_FLAG_RESOURCE_UUID_ENABLED,
+    VIRTIO_GPU_FLAG_VIRGL_ENABLED,
 };
 
 #define virtio_gpu_stats_enabled(_cfg) \
@@ -91,6 +94,8 @@ enum virtio_gpu_base_conf_flags {
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_RESOURCE_UUID_ENABLED))
 #define virtio_gpu_hostmem_enabled(_cfg) \
     (_cfg.hostmem > 0)
+#define virtio_gpu_virgl_enabled(_cfg) \
+    (_cfg.flags & (1 << VIRTIO_GPU_FLAG_VIRGL_ENABLED))
 
 struct virtio_gpu_base_conf {
     uint32_t max_outputs;
@@ -180,6 +185,7 @@ struct VirtIOGPU {
     } dmabuf;
 
     GArray *capset_ids;
+    bool virgl_inited;
 };
 
 struct VirtIOGPUClass {
@@ -243,11 +249,19 @@ void virtio_gpu_cleanup_mapping(VirtIOGPU *g,
                                 struct virtio_gpu_simple_resource *res);
 void virtio_gpu_process_cmdq(VirtIOGPU *g);
 void virtio_gpu_device_realize(DeviceState *qdev, Error **errp);
+void virtio_gpu_device_unrealize(DeviceState *qdev);
 void virtio_gpu_reset(VirtIODevice *vdev);
 void virtio_gpu_simple_process_cmd(VirtIOGPU *g, struct virtio_gpu_ctrl_command *cmd);
 void virtio_gpu_update_cursor_data(VirtIOGPU *g,
                                    struct virtio_gpu_scanout *s,
                                    uint32_t resource_id);
+void virtio_gpu_resource_destroy(VirtIOGPU *g,
+                                 struct virtio_gpu_simple_resource *res,
+                                 Error **errp);
+void virtio_gpu_resource_attach_backing(VirtIOGPU *g,
+                                        struct virtio_gpu_ctrl_command *cmd);
+void virtio_gpu_resource_detach_backing(VirtIOGPU *g,
+                                        struct virtio_gpu_ctrl_command *cmd);
 
 bool virtio_gpu_scanout_blob_to_fb(struct virtio_gpu_framebuffer *fb,
                                    struct virtio_gpu_set_scanout_blob *ss,

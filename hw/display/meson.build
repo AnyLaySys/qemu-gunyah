@@ -12,6 +12,8 @@ if config_all_devices.has_key('CONFIG_VIRTIO_PCI')
                                         'virtio-gpu.c',
                                         'virtio-gpu-pci.c',
                                         'virtio-gpu-udmabuf.c'), pixman])
+  virtio_gpu_pci_ss.add(when: [opengl, virgl, 'CONFIG_VIRTIO_GPU', 'CONFIG_VIRTIO_PCI'],
+                        if_true: files('virtio-gpu-gl.c'))
   hw_display_modules += {'virtio-gpu-pci': virtio_gpu_pci_ss}
 endif
 

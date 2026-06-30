@@ -389,9 +389,9 @@ void virtio_gpu_disable_scanout(VirtIOGPU *g, int scanout_id)
     scanout->height = 0;
 }
 
-static void virtio_gpu_resource_destroy(VirtIOGPU *g,
-                                        struct virtio_gpu_simple_resource *res,
-                                        Error **errp)
+void virtio_gpu_resource_destroy(VirtIOGPU *g,
+                                 struct virtio_gpu_simple_resource *res,
+                                 Error **errp)
 {
     int i;
 
@@ -923,7 +923,7 @@ void virtio_gpu_cleanup_mapping(VirtIOGPU *g,
     }
 }
 
-static void
+void
 virtio_gpu_resource_attach_backing(VirtIOGPU *g,
                                    struct virtio_gpu_ctrl_command *cmd)
 {
@@ -956,7 +956,7 @@ virtio_gpu_resource_attach_backing(VirtIOGPU *g,
     }
 }
 
-static void
+void
 virtio_gpu_resource_detach_backing(VirtIOGPU *g,
                                    struct virtio_gpu_ctrl_command *cmd)
 {
@@ -1475,7 +1475,7 @@ void virtio_gpu_device_realize(DeviceState *qdev, Error **errp)
     QTAILQ_INIT(&g->fenceq);
 }
 
-static void virtio_gpu_device_unrealize(DeviceState *qdev)
+void virtio_gpu_device_unrealize(DeviceState *qdev)
 {
     VirtIOGPU *g = VIRTIO_GPU(qdev);
 

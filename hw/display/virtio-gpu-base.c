@@ -176,6 +176,9 @@ virtio_gpu_base_get_features(VirtIODevice *vdev, uint64_t features,
     if (virtio_gpu_resource_uuid_enabled(g->conf)) {
         features |= (1 << VIRTIO_GPU_F_RESOURCE_UUID);
     }
+    if (virtio_gpu_virgl_enabled(g->conf)) {
+        features |= (1 << VIRTIO_GPU_F_VIRGL);
+    }
 
     return features;
 }
