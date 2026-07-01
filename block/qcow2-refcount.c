@@ -2179,7 +2179,7 @@ int qcow2_check_metadata_overlap(BlockDriverState *bs, int ign, int64_t offset,
 {
     BDRVQcow2State *s = bs->opaque;
     int chk = s->overlap_check & ~ign;
-    int i, j;
+    int i;
 
     if (!size) {
         return 0;

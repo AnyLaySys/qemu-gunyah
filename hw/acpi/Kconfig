@@ -33,10 +33,6 @@ config ACPI_VMGENID
 config ACPI_VMCLOCK
     bool
 
-config ACPI_VIOT
-    bool
-    depends on ACPI
-
 config ACPI_HW_REDUCED
     bool
     select ACPI

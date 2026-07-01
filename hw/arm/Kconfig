@@ -18,4 +18,3 @@ config ARM_VIRT
     select ACPI_PCI
     select ACPI_HW_REDUCED
     select ACPI_APEI
-    select ACPI_VIOT

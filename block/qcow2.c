@@ -1916,7 +1916,6 @@ qcow2_co_pwritev_part(BlockDriverState *bs, int64_t offset, int64_t bytes,
                       BdrvRequestFlags flags)
 {
     BDRVQcow2State *s = bs->opaque;
-    int offset_in_cluster;
     int ret;
     unsigned int cur_bytes; /* number of sectors in current iteration */
     uint64_t host_offset;
@@ -1930,7 +1929,6 @@ qcow2_co_pwritev_part(BlockDriverState *bs, int64_t offset, int64_t bytes,
         l2meta = NULL;
 
         trace_qcow2_writev_start_part(qemu_coroutine_self());
-        offset_in_cluster = offset_into_cluster(s, offset);
         cur_bytes = MIN(bytes, INT_MAX);
 
         qemu_co_mutex_lock(&s->lock);
@@ -4062,7 +4060,6 @@ qcow2_downgrade(BlockDriverState *bs, int target_version,
     BDRVQcow2State *s = bs->opaque;
     int current_version = s->qcow_version;
     int ret;
-    int i;
 
     assert(target_version < current_version);
 

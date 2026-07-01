@@ -1981,8 +1981,6 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
     }
 
     if (!pdev->rom_bar) {
-        int class = pci_get_word(pdev->config + PCI_CLASS_DEVICE);
-
         if (DEVICE(pdev)->hotplugged) {
             error_setg(errp, "Hot-plugged device without ROM bar"
                        " can't have an option ROM");

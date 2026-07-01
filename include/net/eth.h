@@ -186,12 +186,20 @@ struct tcp_hdr {
 #define IP4_IS_FRAGMENT(ip) \
     ((be16_to_cpu((ip)->ip_off) & (IP_OFFMASK | IP_MF)) != 0)
 
+#ifndef ETH_P_IP
 #define ETH_P_IP                  (0x0800)      /* Internet Protocol packet  */
+#endif
+#ifndef ETH_P_ARP
 #define ETH_P_ARP                 (0x0806)      /* Address Resolution packet */
+#endif
+#ifndef ETH_P_IPV6
 #define ETH_P_IPV6                (0x86dd)
+#endif
 #define ETH_P_VLAN                (0x8100)
 #define ETH_P_DVLAN               (0x88a8)
+#ifndef ETH_P_NCSI
 #define ETH_P_NCSI                (0x88f8)
+#endif
 #define ETH_P_UNKNOWN             (0xffff)
 #define VLAN_VID_MASK             0x0fff
 #define IP_HEADER_VERSION_4       (4)

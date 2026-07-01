@@ -18,6 +18,7 @@
 #define AGL_MSG_FRAME 1
 #define AGL_MSG_POINTER 2
 #define AGL_MSG_KEY 3
+#define AGL_MSG_SCROLL 4
 #define AGL_HDR_WORDS 6
 #define AGL_HDR_SIZE (AGL_HDR_WORDS * sizeof(uint32_t))
 
@@ -26,8 +27,12 @@ typedef struct AglConsole {
     DisplaySurface *surface;
     int fd;
     int buttons;
+    int cursor_x;
+    int cursor_y;
+    bool cursor_on;
     bool dirty;
     gint64 reconnect_us;
+    QEMUCursor *cursor;
     GByteArray *rgba;
     uint8_t rx[AGL_HDR_SIZE * 16];
     size_t rx_len;
@@ -122,6 +127,8 @@ static void agl_send_pointer(AglConsole *ac, int x, int y, int buttons)
         [INPUT_BUTTON_LEFT] = 1,
         [INPUT_BUTTON_RIGHT] = 2,
         [INPUT_BUTTON_MIDDLE] = 4,
+        [INPUT_BUTTON_SIDE] = 8,
+        [INPUT_BUTTON_EXTRA] = 16,
     };
     int width;
     int height;
@@ -142,6 +149,28 @@ static void agl_send_pointer(AglConsole *ac, int x, int y, int buttons)
     qemu_input_event_sync();
 }
 
+static void agl_pulse_button(AglConsole *ac, InputButton btn)
+{
+    qemu_input_queue_btn(ac->dcl.con, btn, true);
+    qemu_input_event_sync();
+    qemu_input_queue_btn(ac->dcl.con, btn, false);
+    qemu_input_event_sync();
+}
+
+static void agl_send_scroll(AglConsole *ac, int x, int y)
+{
+    if (y > 0) {
+        agl_pulse_button(ac, INPUT_BUTTON_WHEEL_UP);
+    } else if (y < 0) {
+        agl_pulse_button(ac, INPUT_BUTTON_WHEEL_DOWN);
+    }
+    if (x < 0) {
+        agl_pulse_button(ac, INPUT_BUTTON_WHEEL_RIGHT);
+    } else if (x > 0) {
+        agl_pulse_button(ac, INPUT_BUTTON_WHEEL_LEFT);
+    }
+}
+
 static void agl_handle_msg(AglConsole *ac, uint32_t *w)
 {
     uint32_t type = ntohl(w[1]);
@@ -155,6 +184,9 @@ static void agl_handle_msg(AglConsole *ac, uint32_t *w)
         break;
     case AGL_MSG_KEY:
         agl_send_key(ac, a, b != 0);
+        break;
+    case AGL_MSG_SCROLL:
+        agl_send_scroll(ac, a, b);
         break;
     default:
         break;
@@ -243,6 +275,69 @@ static void agl_surface_to_rgba(AglConsole *ac)
     }
 }
 
+static void agl_blend_cursor(AglConsole *ac)
+{
+    DisplaySurface *surface = ac->surface;
+    QEMUCursor *cursor = ac->cursor;
+    int width;
+    int height;
+    int left;
+    int top;
+
+    if (!surface || !cursor || !ac->cursor_on) {
+        return;
+    }
+
+    width = surface_width(surface);
+    height = surface_height(surface);
+    left = ac->cursor_x - cursor->hot_x;
+    top = ac->cursor_y - cursor->hot_y;
+
+    for (int cy = 0; cy < cursor->height; cy++) {
+        int sy = top + cy;
+
+        if (sy < 0 || sy >= height) {
+            continue;
+        }
+        for (int cx = 0; cx < cursor->width; cx++) {
+            int sx = left + cx;
+            uint32_t pixel;
+            uint8_t a;
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
+            uint8_t *dst;
+
+            if (sx < 0 || sx >= width) {
+                continue;
+            }
+
+            pixel = cursor->data[cy * cursor->width + cx];
+            a = pixel >> 24;
+            if (!a) {
+                continue;
+            }
+
+            r = (pixel >> 16) & 0xff;
+            g = (pixel >> 8) & 0xff;
+            b = pixel & 0xff;
+            dst = ac->rgba->data + (((size_t)sy * width + sx) * 4);
+
+            if (a == 0xff) {
+                dst[0] = r;
+                dst[1] = g;
+                dst[2] = b;
+                dst[3] = 0xff;
+            } else {
+                dst[0] = (r * a + dst[0] * (0xff - a) + 127) / 0xff;
+                dst[1] = (g * a + dst[1] * (0xff - a) + 127) / 0xff;
+                dst[2] = (b * a + dst[2] * (0xff - a) + 127) / 0xff;
+                dst[3] = 0xff;
+            }
+        }
+    }
+}
+
 static void agl_send_frame(AglConsole *ac)
 {
     uint32_t hdr[AGL_HDR_WORDS];
@@ -263,6 +358,7 @@ static void agl_send_frame(AglConsole *ac)
     width = surface_width(ac->surface);
     height = surface_height(ac->surface);
     agl_surface_to_rgba(ac);
+    agl_blend_cursor(ac);
 
     hdr[0] = htonl(AGL_MAGIC);
     hdr[1] = htonl(AGL_MSG_FRAME);
@@ -291,6 +387,25 @@ static void agl_gfx_switch(DisplayChangeListener *dcl, DisplaySurface *surface)
     ac->dirty = true;
 }
 
+static void agl_mouse_set(DisplayChangeListener *dcl, int x, int y, bool on)
+{
+    AglConsole *ac = container_of(dcl, AglConsole, dcl);
+
+    ac->cursor_x = x;
+    ac->cursor_y = y;
+    ac->cursor_on = on;
+    ac->dirty = true;
+}
+
+static void agl_cursor_define(DisplayChangeListener *dcl, QEMUCursor *cursor)
+{
+    AglConsole *ac = container_of(dcl, AglConsole, dcl);
+
+    cursor_unref(ac->cursor);
+    ac->cursor = cursor ? cursor_ref(cursor) : NULL;
+    ac->dirty = true;
+}
+
 static void agl_refresh(DisplayChangeListener *dcl)
 {
     AglConsole *ac = container_of(dcl, AglConsole, dcl);
@@ -311,6 +426,8 @@ static const DisplayChangeListenerOps agl_dcl_ops = {
     .dpy_gfx_update = agl_gfx_update,
     .dpy_gfx_switch = agl_gfx_switch,
     .dpy_gfx_check_format = qemu_pixman_check_format,
+    .dpy_mouse_set = agl_mouse_set,
+    .dpy_cursor_define = agl_cursor_define,
 };
 
 static void agl_display_early_init(DisplayOptions *o)

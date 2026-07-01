@@ -854,7 +854,6 @@ static void qemu_setup_display(void)
 
 static void qemu_create_default_devices(void)
 {
-    MachineClass *machine_class = MACHINE_GET_CLASS(current_machine);
     const char *vc = qemu_display_get_vc(&dpy);
 
     if (is_daemonized()) {

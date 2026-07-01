@@ -111,22 +111,6 @@ bool parse_option_size(const char *name, const char *value,
     return true;
 }
 
-static const char *opt_type_to_string(enum QemuOptType type)
-{
-    switch (type) {
-    case QEMU_OPT_STRING:
-        return "str";
-    case QEMU_OPT_BOOL:
-        return "bool (on/off)";
-    case QEMU_OPT_NUMBER:
-        return "num";
-    case QEMU_OPT_SIZE:
-        return "size";
-    }
-
-    g_assert_not_reached();
-}
-
 QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name)
 {
     QemuOpt *opt;

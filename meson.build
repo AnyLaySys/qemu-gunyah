@@ -5,19 +5,17 @@ project('qemu', ['c'], meson_version: '>=1.5.0',
 
 meson.add_devenv({ 'MESON_BUILD_ROOT' : meson.project_build_root() })
 
-add_test_setup('quick', exclude_suites: ['slow', 'thorough'], is_default: true,
-               env: ['RUST_BACKTRACE=1'])
+add_test_setup('quick', exclude_suites: ['slow', 'thorough'], is_default: true)
 add_test_setup('slow', exclude_suites: ['thorough'],
-               env: ['G_TEST_SLOW=1', 'SPEED=slow', 'RUST_BACKTRACE=1'])
+               env: ['G_TEST_SLOW=1', 'SPEED=slow'])
 add_test_setup('thorough',
-               env: ['G_TEST_SLOW=1', 'SPEED=thorough', 'RUST_BACKTRACE=1'])
+               env: ['G_TEST_SLOW=1'])
 
 meson.add_postconf_script(find_program('scripts/symlink-install-tree.py'))
 
 
 not_found = dependency('', required: false)
 keyval = import('keyval')
-rust = import('rust')
 ss = import('sourceset')
 fs = import('fs')
 
@@ -73,59 +71,7 @@ if host_os == 'darwin' and \
   objc = meson.get_compiler('objc')
 endif
 
-have_rust = add_languages('rust', native: false,
-    required: get_option('rust').disable_auto_if(not have_system))
-have_rust = have_rust and add_languages('rust', native: true,
-    required: get_option('rust').disable_auto_if(not have_system))
-if have_rust
-  rustc = meson.get_compiler('rust')
-  if rustc.version().version_compare('<1.63.0')
-    if get_option('rust').enabled()
-      error('rustc version ' + rustc.version() + ' is unsupported. Please upgrade to at least 1.63.0')
-    else
-      warning('rustc version ' + rustc.version() + ' is unsupported, disabling Rust compilation.')
-      message('Please upgrade to at least 1.63.0 to use Rust.')
-      have_rust = false
-    endif
-  endif
-endif
-
-if have_rust
-  bindgen = find_program('bindgen', required: get_option('rust'))
-  if not bindgen.found() or bindgen.version().version_compare('<0.60.0')
-    if get_option('rust').enabled()
-      error('bindgen version ' + bindgen.version() + ' is unsupported. You can install a new version with "cargo install bindgen-cli"')
-    else
-      if bindgen.found()
-        warning('bindgen version ' + bindgen.version() + ' is unsupported, disabling Rust compilation.')
-      else
-        warning('bindgen not found, disabling Rust compilation.')
-      endif
-      message('To use Rust you can install a new version with "cargo install bindgen-cli"')
-      have_rust = false
-    endif
-  endif
-endif
-
-if have_rust
-  rustc_args = [find_program('scripts/rust/rustc_args.py'),
-    '--rustc-version', rustc.version(),
-    '--workspace', meson.project_source_root() / 'rust']
-  if get_option('strict_rust_lints')
-    rustc_args += ['--strict-lints']
-  endif
-
-  rustfmt = find_program('rustfmt', required: false)
-
-  rustc_lint_args = run_command(rustc_args, '--lints',
-     capture: true, check: true).stdout().strip().splitlines()
-
-  add_project_arguments(rustc_lint_args +
-      ['--cfg', 'MESON', '-C', 'default-linker-libraries'],
-      native: false, language: 'rust')
-  add_project_arguments(rustc_lint_args + ['--cfg', 'MESON'],
-      native: true, language: 'rust')
-endif
+have_rust = false
 
 dtrace = not_found
 stap = not_found
@@ -155,17 +101,6 @@ foreach target : edk2_targets
 endforeach
 
 
-if get_option('fuzzing') and get_option('fuzzing_engine') == '' and \
-    not cc.links('''
-          #include <stdint.h>
-          #include <sys/types.h>
-          int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
-          int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) { return 0; }
-        ''',
-        args: ['-Werror', '-fsanitize=fuzzer'])
-  error('Your compiler does not support -fsanitize=fuzzer')
-endif
-
 if 'ftrace' in get_option('trace_backends') and host_os != 'linux'
   error('ftrace is supported only on Linux')
 endif
@@ -179,26 +114,11 @@ if 'syslog' in get_option('trace_backends') and not cc.compiles('''
   error('syslog is not supported on this system')
 endif
 
-multiprocess_allowed = get_option('multiprocess') \
-  .require(host_os == 'linux', error_message: 'Multiprocess QEMU is supported only on Linux') \
-  .allowed()
-
-have_tools = get_option('tools') \
-  .disable_auto_if(not have_system) \
-  .allowed()
-have_ga = get_option('guest_agent') \
-  .disable_auto_if(not have_system and not have_tools) \
-  .require(host_os in ['sunos', 'linux', 'windows', 'freebsd', 'netbsd', 'openbsd'],
-           error_message: 'unsupported OS for QEMU guest agent') \
-  .allowed()
-have_block = have_system or have_tools
-
-enable_modules = get_option('modules') \
-  .require(host_os != 'windows',
-           error_message: 'Modules are not available for Windows') \
-  .require(not get_option('prefer_static'),
-           error_message: 'Modules are incompatible with static linking') \
-  .allowed()
+multiprocess_allowed = false
+have_tools = false
+have_ga = false
+have_block = have_system
+enable_modules = false
 
 
 if cpu not in supported_cpus
@@ -440,27 +360,6 @@ if host_os == 'windows'
   qemu_ldflags += cc.get_supported_link_arguments('-Wl,--dynamicbase', '-Wl,--high-entropy-va')
 endif
 
-if get_option('fuzzing')
-  configure_file(output: 'instrumentation-filter',
-                 input: 'scripts/oss-fuzz/instrumentation-filter-template',
-                 copy: true)
-
-  if cc.compiles('int main () { return 0; }',
-                  name: '-fsanitize-coverage-allowlist=/dev/null',
-                 args: ['-fsanitize-coverage-allowlist=/dev/null',
-                        '-fsanitize-coverage=trace-pc'] )
-    qemu_common_flags += ['-fsanitize-coverage-allowlist=instrumentation-filter']
-  endif
-
-  if get_option('fuzzing_engine') == ''
-    qemu_common_flags += ['-fsanitize=fuzzer-no-link']
-    qemu_ldflags += ['-fsanitize=fuzzer-no-link']
-    fuzz_exe_ldflags = ['-fsanitize=fuzzer']
-  else
-    fuzz_exe_ldflags = get_option('fuzzing_engine').split()
-  endif
-endif
-
 if get_option('cfi')
   cfi_flags=[]
   if not get_option('b_lto')
@@ -595,14 +494,7 @@ endif
 add_project_arguments('-iquote', host_include / 'generic',
                       language: all_languages)
 
-sparse = find_program('cgcc', required: get_option('sparse'))
-if sparse.found()
-  run_target('sparse',
-             command: [find_program('scripts/check_sparse.py'),
-                       'compile_commands.json', sparse.full_path(), '-Wbitwise',
-                       '-Wno-transparent-union', '-Wno-old-initializer',
-                       '-Wno-non-pointer-null'])
-endif
+sparse = not_found
 
 
 libm = cc.find_library('m', required: false)
@@ -635,8 +527,6 @@ elif host_os == 'darwin'
   coref = dependency('appleframeworks', modules: 'CoreFoundation')
   iokit = dependency('appleframeworks', modules: 'IOKit', required: false)
   host_dsosuf = '.dylib'
-  pvg = dependency('appleframeworks', modules: ['ParavirtualizedGraphics', 'Metal'],
-                   required: get_option('pvg'))
 elif host_os == 'sunos'
   socket = [cc.find_library('socket'),
             cc.find_library('nsl'),
@@ -645,10 +535,6 @@ elif host_os == 'haiku'
   socket = [cc.find_library('posix_error_mapper'),
             cc.find_library('network'),
             cc.find_library('bsd')]
-elif host_os == 'openbsd'
-  if get_option('tcg').allowed() and target_dirs.length() > 0
-    emulator_link_args = cc.get_supported_link_arguments('-Wl,-z,wxneeded')
-  endif
 endif
 
 
@@ -656,63 +542,19 @@ accelerators = []
 if get_option('gunyah').allowed() and host_os == 'linux'
   accelerators += 'CONFIG_GH'
 endif
-tcg_arch = host_arch
-if get_option('tcg').allowed()
-  if host_arch == 'unknown'
-    if not get_option('tcg_interpreter')
-      error('Unsupported CPU @0@, try --enable-tcg-interpreter'.format(cpu))
-    endif
-  elif get_option('tcg_interpreter')
-    warning('Use of the TCG interpreter is not recommended on this host')
-    warning('architecture. There is a native TCG execution backend available')
-    warning('which provides substantially better performance and reliability.')
-    warning('It is strongly recommended to remove the --enable-tcg-interpreter')
-    warning('configuration option on this architecture to use the native')
-    warning('backend.')
-  endif
-  if get_option('tcg_interpreter')
-    tcg_arch = 'tci'
-  elif host_arch == 'x86_64'
-    tcg_arch = 'i386'
-  elif host_arch == 'ppc64'
-    tcg_arch = 'ppc'
-  endif
-  add_project_arguments('-iquote', meson.current_source_dir() / 'tcg' / tcg_arch,
-                        language: all_languages)
-
-  accelerators += 'CONFIG_TCG'
-endif
 
 if 'CONFIG_GH' not in accelerators and get_option('gunyah').enabled()
   error('Gunyah not available on this platform')
 endif
 xen = not_found
-if get_option('xen').enabled()
-  error('Xen support was removed from this trimmed build')
-endif
-have_xen_pci_passthrough = get_option('xen_pci_passthrough') \
-  .require(xen.found(),
-           error_message: 'Xen PCI passthrough requested but Xen not enabled') \
-  .require(host_os == 'linux',
-           error_message: 'Xen PCI passthrough not available on this platform') \
-  .require(cpu == 'x86'  or cpu == 'x86_64',
-           error_message: 'Xen PCI passthrough not available on this platform') \
-  .allowed()
+have_xen_pci_passthrough = false
 
 
 glib_req_ver = '>=2.66.0'
 glib_pc = dependency('glib-2.0', version: glib_req_ver, required: true,
                     method: 'pkg-config')
 glib_cflags = []
-if enable_modules
-  gmodule = dependency('gmodule-export-2.0', version: glib_req_ver, required: true,
-                       method: 'pkg-config')
-elif get_option('plugins')
-  gmodule = dependency('gmodule-no-export-2.0', version: glib_req_ver, required: true,
-                       method: 'pkg-config')
-else
-  gmodule = not_found
-endif
+gmodule = not_found
 
 if host_os == 'windows' and get_option('prefer_static')
   glib_cflags += ['-DGLIB_STATIC_COMPILATION']
@@ -748,36 +590,6 @@ add_project_dependencies(glib.partial_dependency(compile_args: true, includes: t
                          native: false, language: all_languages)
 
 gio = not_found
-gdbus_codegen = not_found
-gdbus_codegen_error = '@0@ requires gdbus-codegen, please install libgio'
-if not get_option('gio').auto() or have_system
-  gio = dependency('gio-2.0', required: get_option('gio'),
-                   method: 'pkg-config')
-  if gio.found() and not cc.links('''
-    #include <gio/gio.h>
-    int main(void)
-    {
-      g_dbus_proxy_new_sync(0, 0, 0, 0, 0, 0, 0, 0);
-      return 0;
-    }''', dependencies: [glib, gio])
-    if get_option('gio').enabled()
-      error('The installed libgio is broken for static linking')
-    endif
-    gio = not_found
-  endif
-  if gio.found()
-    gdbus_codegen = find_program('gdbus-codegen',
-                                 required: get_option('gio'))
-    gio_unix = dependency('gio-unix-2.0', required: get_option('gio'),
-                          method: 'pkg-config')
-    gio = declare_dependency(dependencies: [gio, gio_unix],
-                             version: gio.version())
-  endif
-endif
-if gdbus_codegen.found() and get_option('cfi')
-  gdbus_codegen = not_found
-  gdbus_codegen_error = '@0@ uses gdbus-codegen, which does not support control flow integrity'
-endif
 
 xml_pp = find_program('scripts/xml-preprocess.py')
 
@@ -810,130 +622,21 @@ if not get_option('linux_io_uring').auto() or have_block
   endif
 endif
 
-libattr_test = '''
-  #include <stddef.h>
-  #include <sys/types.h>
-  #ifdef CONFIG_LIBATTR
-  #include <attr/xattr.h>
-  #else
-  #include <sys/xattr.h>
-  #endif
-  int main(void) { getxattr(NULL, NULL, NULL, 0); setxattr(NULL, NULL, NULL, 0, 0); return 0; }'''
-
 libattr = not_found
 have_old_libattr = false
-if get_option('attr').allowed()
-  if cc.links(libattr_test)
-    libattr = declare_dependency()
-  else
-    libattr = cc.find_library('attr', has_headers: ['attr/xattr.h'],
-                              required: get_option('attr'))
-    if libattr.found() and not \
-      cc.links(libattr_test, dependencies: libattr, args: '-DCONFIG_LIBATTR')
-      libattr = not_found
-      if get_option('attr').enabled()
-        error('could not link libattr')
-      else
-        warning('could not link libattr, disabling')
-      endif
-    else
-      have_old_libattr = libattr.found()
-    endif
-  endif
-endif
 
-cocoa = dependency('appleframeworks',
-                   modules: ['Cocoa', 'CoreVideo', 'QuartzCore'],
-                   required: get_option('cocoa'))
-
+cocoa = not_found
 seccomp = not_found
 seccomp_has_sysrawrc = false
-if not get_option('seccomp').auto() or have_system or have_tools
-  seccomp = dependency('libseccomp', version: '>=2.3.0',
-                       required: get_option('seccomp'),
-                       method: 'pkg-config')
-  if seccomp.found()
-    seccomp_has_sysrawrc = cc.has_header_symbol('seccomp.h',
-                                                'SCMP_FLTATR_API_SYSRAWRC',
-                                                dependencies: seccomp)
-  endif
-endif
-
 libcap_ng = not_found
-if not get_option('cap_ng').auto() or have_system or have_tools
-  libcap_ng = cc.find_library('cap-ng', has_headers: ['cap-ng.h'],
-                              required: get_option('cap_ng'))
-endif
-if libcap_ng.found() and not cc.links('''
-   #include <cap-ng.h>
-   int main(void)
-   {
-     capng_capability_to_name(CAPNG_EFFECTIVE);
-     return 0;
-   }''', dependencies: libcap_ng)
-  libcap_ng = not_found
-  if get_option('cap_ng').enabled()
-    error('could not link libcap-ng')
-  else
-    warning('could not link libcap-ng, disabling')
-  endif
-endif
-
-if get_option('xkbcommon').auto() and not have_system and not have_tools
-  xkbcommon = not_found
-else
-  xkbcommon = dependency('xkbcommon', required: get_option('xkbcommon'),
-                         method: 'pkg-config')
-endif
-
+xkbcommon = not_found
 vde = not_found
-if not get_option('vde').auto() or have_system or have_tools
-  vde = cc.find_library('vdeplug', has_headers: ['libvdeplug.h'],
-                           required: get_option('vde'))
-endif
-if vde.found() and not cc.links('''
-   #include <libvdeplug.h>
-   int main(void)
-   {
-     struct vde_open_args a = {0, 0, 0};
-     char s[] = "";
-     vde_open(s, s, &a);
-     return 0;
-   }''', dependencies: vde)
-  vde = not_found
-  if get_option('cap_ng').enabled()
-    error('could not link libvdeplug')
-  else
-    warning('could not link libvdeplug, disabling')
-  endif
-endif
 
 pulse = not_found
-if not get_option('pa').auto() or (host_os == 'linux' and have_system)
-  pulse = dependency('libpulse', required: get_option('pa'),
-                     method: 'pkg-config')
-endif
 alsa = not_found
-if not get_option('alsa').auto() or (host_os == 'linux' and have_system)
-  alsa = dependency('alsa', required: get_option('alsa'),
-                    method: 'pkg-config')
-endif
 jack = not_found
-if not get_option('jack').auto() or have_system
-  jack = dependency('jack', required: get_option('jack'),
-                    method: 'pkg-config')
-endif
 pipewire = not_found
-if not get_option('pipewire').auto() or (host_os == 'linux' and have_system)
-  pipewire = dependency('libpipewire-0.3', version: '>=0.3.60',
-                    required: get_option('pipewire'),
-                    method: 'pkg-config')
-endif
 sndio = not_found
-if not get_option('sndio').auto() or have_system
-  sndio = dependency('sndio', required: get_option('sndio'),
-                    method: 'pkg-config')
-endif
 
 aaudio = not_found
 if host_os == 'linux' and have_system
@@ -941,56 +644,15 @@ if host_os == 'linux' and have_system
 endif
 
 spice_protocol = not_found
-if not get_option('spice_protocol').auto() or have_system
-  spice_protocol = dependency('spice-protocol', version: '>=0.14.0',
-                              required: get_option('spice_protocol'),
-                              method: 'pkg-config')
-endif
 spice = not_found
-if get_option('spice') \
-             .disable_auto_if(not have_system) \
-             .require(pixman.found(),
-                      error_message: 'cannot enable SPICE if pixman is not available') \
-             .allowed()
-  spice = dependency('spice-server', version: '>=0.14.0',
-                     required: get_option('spice'),
-                     method: 'pkg-config')
-endif
 spice_headers = spice.partial_dependency(compile_args: true, includes: true)
 
 rt = cc.find_library('rt', required: false)
 
 zstd = not_found
-if not get_option('zstd').auto() or have_block
-  zstd = dependency('libzstd', version: '>=1.4.0',
-                    required: get_option('zstd'),
-                    method: 'pkg-config')
-endif
 qpl = not_found
-if not get_option('qpl').auto() or have_system
-  qpl = dependency('qpl', version: '>=1.5.0',
-                    required: get_option('qpl'),
-                    method: 'pkg-config')
-endif
 uadk = not_found
-if not get_option('uadk').auto() or have_system
-  libwd = dependency('libwd', version: '>=2.6',
-                      required: get_option('uadk'),
-                      method: 'pkg-config')
-  libwd_comp = dependency('libwd_comp', version: '>=2.6',
-                           required: get_option('uadk'),
-                           method: 'pkg-config')
-  if libwd.found() and libwd_comp.found()
-     uadk = declare_dependency(dependencies: [libwd, libwd_comp])
-  endif
-endif
-
 qatzip = not_found
-if not get_option('qatzip').auto() or have_system
-  qatzip = dependency('qatzip', version: '>=1.1.2',
-                      required: get_option('qatzip'),
-                      method: 'pkg-config')
-endif
 
 virgl = not_found
 
@@ -1000,128 +662,12 @@ if not get_option('virglrenderer').auto() or have_system
                      required: get_option('virglrenderer'))
 endif
 blkio = not_found
-if not get_option('blkio').auto() or have_block
-  blkio = dependency('blkio',
-                     method: 'pkg-config',
-                     required: get_option('blkio'))
-endif
 curl = not_found
-if not get_option('curl').auto() or have_block
-  curl = dependency('libcurl', version: '>=7.29.0',
-                    method: 'pkg-config',
-                    required: get_option('curl'))
-endif
 libudev = not_found
-if host_os == 'linux' and (have_system or have_tools)
-  libudev = dependency('libudev',
-                       method: 'pkg-config',
-                       required: get_option('libudev'))
-endif
 
 iconv = not_found
 curses = not_found
-if have_system and get_option('curses').allowed()
-  curses_test = '''
-    #ifdef __APPLE__
-    #define _XOPEN_SOURCE_EXTENDED 1
-    #endif
-    #include <locale.h>
-    #include <curses.h>
-    #include <wchar.h>
-    int main(void) {
-      wchar_t wch = L'w';
-      setlocale(LC_ALL, "");
-      resize_term(0, 0);
-      addwstr(L"wide chars\n");
-      addnwstr(&wch, 1);
-      add_wch(WACS_DEGREE);
-      return 0;
-    }'''
-
-  curses_dep_list = host_os == 'windows' ? ['ncurses', 'ncursesw'] : ['ncursesw']
-  curses = dependency(curses_dep_list,
-                      required: false,
-                      method: 'pkg-config')
-  msg = get_option('curses').enabled() ? 'curses library not found' : ''
-  curses_compile_args = ['-DNCURSES_WIDECHAR=1']
-  if curses.found()
-    if cc.links(curses_test, args: curses_compile_args, dependencies: [curses])
-      curses = declare_dependency(compile_args: curses_compile_args, dependencies: [curses],
-                                  version: curses.version())
-    else
-      msg = 'curses package not usable'
-      curses = not_found
-    endif
-  endif
-  if not curses.found()
-    has_curses_h = cc.has_header('curses.h', args: curses_compile_args)
-    if host_os != 'windows' and not has_curses_h
-      message('Trying with /usr/include/ncursesw')
-      curses_compile_args += ['-I/usr/include/ncursesw']
-      has_curses_h = cc.has_header('curses.h', args: curses_compile_args)
-    endif
-    if has_curses_h
-      curses_libname_list = (host_os == 'windows' ? ['pdcurses'] : ['ncursesw', 'cursesw'])
-      foreach curses_libname : curses_libname_list
-        libcurses = cc.find_library(curses_libname,
-                                    required: false)
-        if libcurses.found()
-          if cc.links(curses_test, args: curses_compile_args, dependencies: libcurses)
-            curses = declare_dependency(compile_args: curses_compile_args,
-                                        dependencies: [libcurses])
-            break
-          else
-            msg = 'curses library not usable'
-          endif
-        endif
-      endforeach
-    endif
-  endif
-  if get_option('iconv').allowed()
-    foreach link_args : [ ['-liconv'], [] ]
-      if cc.links('''
-        #include <iconv.h>
-        int main(void) {
-          iconv_t conv = iconv_open("WCHAR_T", "UCS-2");
-          return conv != (iconv_t) -1;
-        }''', args: link_args, dependencies: glib)
-        iconv = declare_dependency(link_args: link_args, dependencies: glib)
-        break
-      endif
-    endforeach
-  endif
-  if curses.found() and not iconv.found()
-    if get_option('iconv').enabled()
-      error('iconv not available')
-    endif
-    msg = 'iconv required for curses UI but not available'
-    curses = not_found
-  endif
-  if not curses.found() and msg != ''
-    if get_option('curses').enabled()
-      error(msg)
-    else
-      warning(msg + ', disabling')
-    endif
-  endif
-endif
-
 brlapi = not_found
-if not get_option('brlapi').auto() or have_system
-  brlapi = cc.find_library('brlapi', has_headers: ['brlapi.h'],
-                         required: get_option('brlapi'))
-  if brlapi.found() and not cc.links('''
-     #include <brlapi.h>
-     #include <stddef.h>
-     int main(void) { return brlapi__openConnection (NULL, NULL, NULL); }''', dependencies: brlapi)
-    brlapi = not_found
-    if get_option('brlapi').enabled()
-      error('could not link brlapi')
-    else
-      warning('could not link brlapi, disabling')
-    endif
-  endif
-endif
 
 sdl = not_found
 if not get_option('sdl').auto() or have_system
@@ -1140,70 +686,11 @@ if sdl.found()
 endif
 
 libbzip2 = not_found
-if not get_option('bzip2').auto() or have_block
-  libbzip2 = cc.find_library('bz2', has_headers: ['bzlib.h'],
-                             required: get_option('bzip2'))
-  if libbzip2.found() and not cc.links('''
-     #include <bzlib.h>
-     int main(void) { BZ2_bzlibVersion(); return 0; }''', dependencies: libbzip2)
-    libbzip2 = not_found
-    if get_option('bzip2').enabled()
-      error('could not link libbzip2')
-    else
-      warning('could not link libbzip2, disabling')
-    endif
-  endif
-endif
-
 liblzfse = not_found
-if not get_option('lzfse').auto() or have_block
-  liblzfse = cc.find_library('lzfse', has_headers: ['lzfse.h'],
-                             required: get_option('lzfse'))
-endif
-if liblzfse.found() and not cc.links('''
-   #include <lzfse.h>
-   int main(void) { lzfse_decode_scratch_size(); return 0; }''', dependencies: liblzfse)
-  liblzfse = not_found
-  if get_option('lzfse').enabled()
-    error('could not link liblzfse')
-  else
-    warning('could not link liblzfse, disabling')
-  endif
-endif
 
 oss = not_found
-if get_option('oss').allowed() and have_system
-  if not cc.has_header('sys/soundcard.h')
-  elif host_os == 'netbsd'
-    oss = cc.find_library('ossaudio', required: get_option('oss'))
-  else
-    oss = declare_dependency()
-  endif
-
-  if not oss.found()
-    if get_option('oss').enabled()
-      error('OSS not found')
-    endif
-  endif
-endif
 dsound = not_found
-if not get_option('dsound').auto() or (host_os == 'windows' and have_system)
-  if cc.has_header('dsound.h')
-    dsound = declare_dependency(link_args: ['-lole32', '-ldxguid'])
-  endif
-
-  if not dsound.found()
-    if get_option('dsound').enabled()
-      error('DirectSound not found')
-    endif
-  endif
-endif
-
 coreaudio = not_found
-if not get_option('coreaudio').auto() or (host_os == 'darwin' and have_system)
-  coreaudio = dependency('appleframeworks', modules: 'CoreAudio',
-                         required: get_option('coreaudio'))
-endif
 
 opengl = not_found
 if not get_option('opengl').auto() or have_system
@@ -1216,31 +703,11 @@ if not get_option('opengl').auto() or have_system
   endif
 endif
 gbm = not_found
-if (have_system or have_tools) and (virgl.found() or opengl.found())
-  gbm = dependency('gbm', method: 'pkg-config', required: false)
-endif
 
 libcbor = not_found
-if not get_option('libcbor').auto() or have_system
-  libcbor = dependency('libcbor', version: '>=0.7.0',
-                       required: get_option('libcbor'))
-endif
 
 gnutls = not_found
 gnutls_crypto = not_found
-if get_option('gnutls').enabled() or (get_option('gnutls').auto() and have_system)
-  gnutls_crypto = dependency('gnutls', version: '>=3.6.14',
-                             method: 'pkg-config',
-                             required: false)
-  if gnutls_crypto.found()
-    gnutls = gnutls_crypto
-  else
-    gnutls = dependency('gnutls', version: '>=3.5.18',
-                        method: 'pkg-config',
-                        required: get_option('gnutls'))
-  endif
-endif
-
 gcrypt = not_found
 nettle = not_found
 hogweed = not_found
@@ -1248,150 +715,14 @@ crypto_sm4 = not_found
 crypto_sm3 = not_found
 xts = 'none'
 
-if get_option('nettle').enabled() and get_option('gcrypt').enabled()
-  error('Only one of gcrypt & nettle can be enabled')
-endif
-
-if get_option('nettle').enabled() or get_option('gcrypt').enabled()
-  gnutls_crypto = not_found
-endif
-
-if not gnutls_crypto.found()
-  if (not get_option('gcrypt').auto() or have_system) and not get_option('nettle').enabled()
-    gcrypt = dependency('libgcrypt', version: '>=1.8',
-                        required: get_option('gcrypt'))
-    if gcrypt.found() and get_option('prefer_static')
-      gcrypt = declare_dependency(dependencies:
-        [gcrypt,
-         cc.find_library('gpg-error', required: true)],
-        version: gcrypt.version())
-    endif
-    crypto_sm4 = gcrypt
-    if gcrypt.found() and not cc.links('''
-      #include <gcrypt.h>
-      int main(void) {
-        gcry_cipher_hd_t handler;
-        gcry_cipher_open(&handler, GCRY_CIPHER_SM4, GCRY_CIPHER_MODE_ECB, 0);
-        return 0;
-      }''', dependencies: gcrypt)
-      crypto_sm4 = not_found
-    endif
-    crypto_sm3 = gcrypt
-    if gcrypt.found() and not cc.links('''
-      #include <gcrypt.h>
-      int main(void) {
-        gcry_md_hd_t handler;
-        gcry_md_open(&handler, GCRY_MD_SM3, 0);
-        return 0;
-      }''', dependencies: gcrypt)
-      crypto_sm3 = not_found
-    endif
-  endif
-  if (not get_option('nettle').auto() or have_system) and not gcrypt.found()
-    nettle = dependency('nettle', version: '>=3.4',
-                        method: 'pkg-config',
-                        required: get_option('nettle'))
-    if nettle.found() and not cc.has_header('nettle/xts.h', dependencies: nettle)
-      xts = 'private'
-    endif
-    crypto_sm4 = nettle
-    if nettle.found() and not cc.links('''
-      #include <nettle/sm4.h>
-      int main(void) {
-        struct sm4_ctx ctx;
-        unsigned char key[16] = {0};
-        sm4_set_encrypt_key(&ctx, key);
-        return 0;
-      }''', dependencies: nettle)
-      crypto_sm4 = not_found
-    endif
-    crypto_sm3 = nettle
-    if nettle.found() and not cc.links('''
-      #include <nettle/sm3.h>
-      #include <nettle/hmac.h>
-      int main(void) {
-      struct sm3_ctx ctx;
-      struct hmac_sm3_ctx hmac_ctx;
-      unsigned char data[64] = {0};
-      unsigned char output[32];
-
-      // SM3 hash function test
-      sm3_init(&ctx);
-      sm3_update(&ctx, 64, data);
-      sm3_digest(&ctx, 32, data);
-
-      // HMAC-SM3 test
-      hmac_sm3_set_key(&hmac_ctx, 32, data);
-      hmac_sm3_update(&hmac_ctx, 64, data);
-      hmac_sm3_digest(&hmac_ctx, 32, output);
-
-      return 0;
-      }''', dependencies: nettle)
-      crypto_sm3 = not_found
-    endif
-  endif
-endif
-
 capstone = not_found
-if not get_option('capstone').auto() or have_system or have_user
-  capstone = dependency('capstone', version: '>=3.0.5',
-                        method: 'pkg-config',
-                        required: get_option('capstone'))
-
-  if capstone.found() and not cc.compiles('#include <capstone.h>',
-                                          dependencies: [capstone])
-    capstone = not_found
-    if get_option('capstone').enabled()
-      error('capstone requested, but it does not appear to work')
-    endif
-  endif
-endif
-
-gmp = dependency('gmp', required: false, method: 'pkg-config')
-if nettle.found() and gmp.found()
-  hogweed = dependency('hogweed', version: '>=3.4',
-                       method: 'pkg-config',
-                       required: get_option('nettle'))
-endif
+gmp = not_found
 
 
 x11 = not_found
 png = not_found
-if get_option('png').allowed() and have_system
-   png = dependency('libpng', version: '>=1.6.34', required: get_option('png'),
-                    method: 'pkg-config')
-endif
 snappy = not_found
-if not get_option('snappy').auto() or have_system
-  snappy = cc.find_library('snappy', has_headers: ['snappy-c.h'],
-                           required: get_option('snappy'))
-endif
-if snappy.found() and not cc.links('''
-   #include <snappy-c.h>
-   int main(void) { snappy_max_compressed_length(4096); return 0; }''', dependencies: snappy)
-  snappy = not_found
-  if get_option('snappy').enabled()
-    error('could not link libsnappy')
-  else
-    warning('could not link libsnappy, disabling')
-  endif
-endif
-
 lzo = not_found
-if not get_option('lzo').auto() or have_system
-  lzo = cc.find_library('lzo2', has_headers: ['lzo/lzo1x.h'],
-                        required: get_option('lzo'))
-endif
-if lzo.found() and not cc.links('''
-   #include <lzo/lzo1x.h>
-   int main(void) { lzo_version(); return 0; }''', dependencies: lzo)
-  lzo = not_found
-  if get_option('lzo').enabled()
-    error('could not link liblzo2')
-  else
-    warning('could not link liblzo2, disabling')
-  endif
-endif
 
 fdt = not_found
 fdt_opt = get_option('fdt')
@@ -1546,22 +877,8 @@ config_host_data.set('CONFIG_AUDIO_DRIVERS',
 have_host_block_device = (host_os != 'darwin' or
     cc.has_header('IOKit/storage/IOMedia.h'))
 
-dbus_display = get_option('dbus_display') \
-  .require(gio.version().version_compare('>=2.64'),
-           error_message: '-display dbus requires glib>=2.64') \
-  .require(gdbus_codegen.found(),
-           error_message: gdbus_codegen_error.format('-display dbus')) \
-  .allowed()
-
-have_virtfs = get_option('virtfs') \
-    .require(host_os == 'linux' or host_os == 'darwin',
-             error_message: 'virtio-9p (virtfs) requires Linux or macOS') \
-    .require(host_os == 'linux' or cc.has_function('pthread_fchdir_np'),
-             error_message: 'virtio-9p (virtfs) on macOS requires the presence of pthread_fchdir_np') \
-    .require(host_os == 'darwin' or libattr.found(),
-             error_message: 'virtio-9p (virtfs) on Linux requires libattr-devel') \
-    .disable_auto_if(not have_tools and not have_system) \
-    .allowed()
+dbus_display = false
+have_virtfs = false
 
 qga_fsfreeze = false
 qga_fstrim = false
@@ -3234,9 +2551,6 @@ summary(summary_info, bool_yn: true, section: 'Build environment')
 summary_info = {}
 summary_info += {'python':            '@0@ (version: @1@)'.format(python.full_path(), python.language_version())}
 
-if config_host.has_key('GDB')
-  summary_info += {'gdb':             config_host['GDB']}
-endif
 summary_info += {'iasl':              iasl}
 summary_info += {'genisoimage':       config_host['GENISOIMAGE']}
 if host_os == 'windows' and have_ga
@@ -3251,15 +2565,10 @@ summary_info += {'C compiler':        ' '.join(meson.get_compiler('c').cmd_array
 summary_info += {'Host C compiler':   ' '.join(meson.get_compiler('c', native: true).cmd_array())}
 if 'cpp' in all_languages
   summary_info += {'C++ compiler':    ' '.join(meson.get_compiler('cpp').cmd_array())}
-else
-  summary_info += {'C++ compiler':      false}
 endif
 if 'objc' in all_languages
   summary_info += {'Objective-C compiler': ' '.join(meson.get_compiler('objc').cmd_array())}
-else
-  summary_info += {'Objective-C compiler': false}
 endif
-summary_info += {'Rust support':      have_rust}
 if have_rust
   summary_info += {'Rust target':     config_host['RUST_TARGET_TRIPLE']}
   summary_info += {'rustc':           ' '.join(rustc.cmd_array())}
@@ -3290,73 +2599,22 @@ if 'objc' in all_languages
   summary_info += {'QEMU_OBJCFLAGS':    ' '.join(qemu_common_flags)}
 endif
 summary_info += {'QEMU_LDFLAGS':      ' '.join(qemu_ldflags)}
-summary_info += {'link-time optimization (LTO)': get_option('b_lto')}
-summary_info += {'PIE':               get_option('b_pie')}
-summary_info += {'static build':      get_option('prefer_static')}
-summary_info += {'malloc trim support': has_malloc_trim}
-summary_info += {'membarrier':        have_membarrier}
-summary_info += {'debug graph lock':  get_option('debug_graph_lock')}
-summary_info += {'debug stack usage': get_option('debug_stack_usage')}
-summary_info += {'mutex debugging':   get_option('debug_mutex')}
 summary_info += {'memory allocator':  get_option('malloc')}
-summary_info += {'avx2 optimization': config_host_data.get('CONFIG_AVX2_OPT')}
-summary_info += {'avx512bw optimization': config_host_data.get('CONFIG_AVX512BW_OPT')}
-summary_info += {'gcov':              get_option('b_coverage')}
-summary_info += {'thread sanitizer':  get_option('tsan')}
-summary_info += {'CFI support':       get_option('cfi')}
-if get_option('cfi')
-  summary_info += {'CFI debug support': get_option('cfi_debug')}
-endif
-summary_info += {'strip binaries':    get_option('strip')}
-summary_info += {'sparse':            sparse}
-summary_info += {'mingw32 support':   host_os == 'windows'}
 summary(summary_info, bool_yn: true, section: 'Compilation')
 
 summary_info = {}
 if have_system
   summary_info += {'GH support':        config_all_accel.has_key('CONFIG_GH')}
-  summary_info += {'Xen support':       xen.found()}
-  if xen.found()
-    summary_info += {'xen ctrl version':  xen.version()}
-  endif
-  summary_info += {'Xen emulation':     config_all_devices.has_key('CONFIG_XEN_EMU')}
-endif
-summary_info += {'TCG support':       config_all_accel.has_key('CONFIG_TCG')}
-if config_all_accel.has_key('CONFIG_TCG')
-  if get_option('tcg_interpreter')
-    summary_info += {'TCG backend':   'TCI (TCG with bytecode interpreter, slow)'}
-  else
-    summary_info += {'TCG backend':   'native (@0@)'.format(cpu)}
-  endif
-  summary_info += {'TCG plugins':       get_option('plugins')}
-  summary_info += {'TCG debug enabled': get_option('debug_tcg')}
-  if have_linux_user or have_bsd_user
-    summary_info += {'syscall buffer debugging support': get_option('debug_remap')}
-  endif
 endif
 summary_info += {'target list':       ' '.join(target_dirs)}
 if have_system
   summary_info += {'default devices':   get_option('default_devices')}
-  summary_info += {'out of process emulation': multiprocess_allowed}
 endif
 summary(summary_info, bool_yn: true, section: 'Targets and accelerators')
 
 summary_info = {}
 summary_info += {'coroutine backend': coroutine_backend}
-summary_info += {'coroutine pool':    have_coroutine_pool}
-if have_block
-  summary_info += {'Block whitelist (rw)': get_option('block_drv_rw_whitelist')}
-  summary_info += {'Block whitelist (ro)': get_option('block_drv_ro_whitelist')}
-  summary_info += {'Use block whitelist in tools': get_option('block_drv_whitelist_in_tools')}
-  summary_info += {'VirtFS (9P) support':    have_virtfs}
-  summary_info += {'replication support': config_host_data.get('CONFIG_REPLICATION')}
-endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
-
-summary_info = {}
-summary_info += {'vde support':       vde}
-summary_info += {'l2tpv3 support':    have_l2tpv3}
-summary(summary_info, bool_yn: true, section: 'Network backends')
 
 summary_info = {}
 if host_os == 'darwin'
@@ -3364,13 +2622,6 @@ if host_os == 'darwin'
 endif
 summary_info += {'SDL support':       sdl}
 summary_info += {'pixman':            pixman}
-summary_info += {'PNG support':       png}
-summary_info += {'spice protocol support': spice_protocol}
-if spice_protocol.found()
-  summary_info += {'  spice server support': spice}
-endif
-summary_info += {'curses support':    curses}
-summary_info += {'brlapi support':    brlapi}
 summary(summary_info, bool_yn: true, section: 'User interface')
 
 summary_info = {}
@@ -3378,92 +2629,15 @@ summary_info += {'VirGL support':     virgl}
 summary(summary_info, bool_yn: true, section: 'Graphics backends')
 
 summary_info = {}
-if host_os not in ['darwin', 'haiku', 'windows']
-  summary_info += {'OSS support':     oss}
-  summary_info += {'sndio support':   sndio}
-elif host_os == 'darwin'
-  summary_info += {'CoreAudio support': coreaudio}
-elif host_os == 'windows'
-  summary_info += {'DirectSound support': dsound}
-endif
-if host_os == 'linux'
-  summary_info += {'ALSA support':    alsa}
-  summary_info += {'PulseAudio support': pulse}
-endif
-summary_info += {'PipeWire support':  pipewire}
-summary_info += {'JACK support':      jack}
-summary(summary_info, bool_yn: true, section: 'Audio backends')
-
-summary_info = {}
-summary_info += {'TLS priority':      get_option('tls_priority')}
-summary_info += {'GNUTLS support':    gnutls}
-if gnutls.found()
-  summary_info += {'  GNUTLS crypto':   gnutls_crypto.found()}
-endif
-summary_info += {'libgcrypt':         gcrypt}
-summary_info += {'nettle':            nettle}
-if nettle.found()
-   summary_info += {'  XTS':             xts != 'private'}
-endif
-summary_info += {'SM4 ALG support':   crypto_sm4}
-summary_info += {'SM3 ALG support':   crypto_sm3}
-summary_info += {'AF_ALG support':    have_afalg}
-summary_info += {'rng-none':          get_option('rng_none')}
-summary(summary_info, bool_yn: true, section: 'Crypto')
-
-summary_info = {}
-summary_info += {'libtasn1':          tasn1}
-summary_info += {'iconv support':     iconv}
-summary_info += {'blkio support':     blkio}
-summary_info += {'curl support':      curl}
 summary_info += {'Linux io_uring support': linux_io_uring}
-summary_info += {'ATTR/XATTR support': libattr}
 summary_info += {'fdt support':       fdt_opt == 'internal' ? 'internal' : fdt}
-summary_info += {'libcap-ng support': libcap_ng}
-summary_info += {'smartcard support': cacard}
-summary_info += {'U2F support':       u2f}
-summary_info += {'libusb':            libusb}
 summary_info += {'OpenGL support (epoxy)': opengl}
-summary_info += {'GBM':               gbm}
-if host_os == 'windows'
-  if have_ga
-    summary_info += {'QGA VSS support':   have_qga_vss}
-  endif
-endif
-summary_info += {'seccomp support':   seccomp}
-summary_info += {'lzo support':       lzo}
-summary_info += {'snappy support':    snappy}
-summary_info += {'bzip2 support':     libbzip2}
-summary_info += {'lzfse support':     liblzfse}
-summary_info += {'zstd support':      zstd}
-summary_info += {'Query Processing Library support': qpl}
-summary_info += {'UADK Library support': uadk}
-summary_info += {'qatzip support':    qatzip}
-summary_info += {'capstone':          capstone}
-summary_info += {'libpmem support':   libpmem}
-summary_info += {'libdaxctl support': libdaxctl}
-summary_info += {'libcbor support':   libcbor}
-summary_info += {'libudev':           libudev}
-summary_info += {'libdw':             libdw}
-if host_os == 'freebsd'
-  summary_info += {'libinotify-kqueue': inotify}
-endif
-if host_os == 'darwin'
-  summary_info += {'ParavirtualizedGraphics support': pvg}
-endif
 summary(summary_info, bool_yn: true, section: 'Dependencies')
 
 summary_info = {}
-summary_info += {'Documentation':     get_option('docs').enabled()}
 summary_info += {'system-mode emulation': have_system}
-summary_info += {'user-mode emulation': have_user}
 summary_info += {'block layer':       have_block}
 summary_info += {'Install blobs':     get_option('install_blobs')}
-summary_info += {'module support':    enable_modules}
-if enable_modules
-  summary_info += {'alternative module path': get_option('module_upgrades')}
-endif
-summary_info += {'fuzzing support':   get_option('fuzzing')}
 if have_system
   summary_info += {'Audio drivers':     ' '.join(audio_drivers_selected)}
 endif
@@ -3471,10 +2645,7 @@ summary_info += {'Trace backends':    ','.join(get_option('trace_backends'))}
 if 'simple' in get_option('trace_backends')
   summary_info += {'Trace output file': get_option('trace_file') + '-<pid>'}
 endif
-summary_info += {'D-Bus display':     dbus_display}
-summary_info += {'QOM debugging':     get_option('qom_cast_debug')}
 summary_info += {'Relocatable install': get_option('relocatable')}
-summary_info += {'build guest agent': have_ga}
 summary(summary_info, bool_yn: true, section: 'Configurable features')
 
 summary_info = {}

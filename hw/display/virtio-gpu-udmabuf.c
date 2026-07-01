@@ -8,7 +8,7 @@
 #include "hw/virtio/virtio-gpu-pixman.h"
 #include "trace.h"
 #include "exec/ramblock.h"
-#include "system/hostmem.h"
+#include "exec/ramlist.h"
 #include <sys/ioctl.h>
 #include <linux/memfd.h>
 #include "qemu/memfd.h"
@@ -78,41 +78,24 @@ static void virtio_gpu_destroy_udmabuf(struct virtio_gpu_simple_resource *res)
     }
 }
 
-static int find_memory_backend_type(Object *obj, void *opaque)
-{
-    bool *memfd_backend = opaque;
-    int ret;
-
-    if (object_dynamic_cast(obj, TYPE_MEMORY_BACKEND)) {
-        HostMemoryBackend *backend = MEMORY_BACKEND(obj);
-        RAMBlock *rb = backend->mr.ram_block;
-
-        if (rb && rb->fd > 0) {
-            ret = fcntl(rb->fd, F_GET_SEALS);
-            if (ret > 0) {
-                *memfd_backend = true;
-            }
-        }
-    }
-
-    return 0;
-}
-
 bool virtio_gpu_have_udmabuf(void)
 {
-    Object *memdev_root;
+    RAMBlock *rb;
     int udmabuf;
-    bool memfd_backend = false;
 
     udmabuf = udmabuf_fd();
     if (udmabuf < 0) {
         return false;
     }
 
-    memdev_root = object_resolve_path("/objects", NULL);
-    object_child_foreach(memdev_root, find_memory_backend_type, &memfd_backend);
+    RCU_READ_LOCK_GUARD();
+    RAMBLOCK_FOREACH(rb) {
+        if (rb->fd > 0 && fcntl(rb->fd, F_GET_SEALS) > 0) {
+            return true;
+        }
+    }
 
-    return memfd_backend;
+    return false;
 }
 
 void virtio_gpu_init_udmabuf(struct virtio_gpu_simple_resource *res)
