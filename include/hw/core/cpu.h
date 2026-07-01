@@ -173,8 +173,6 @@ typedef void (*run_on_cpu_func)(CPUState *cpu, run_on_cpu_data data);
 
 struct qemu_work_item;
 
-#define CPU_UNSET_NUMA_NODE_ID -1
-
 struct CPUState {
     DeviceState parent_obj;
     CPUClass *cc;

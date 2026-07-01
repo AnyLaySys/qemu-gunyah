@@ -3,7 +3,6 @@
 #include "qemu/cutils.h"
 #include "qapi/error.h"
 #include "qemu/guest-random.h"
-#include "crypto/random.h"
 
 #ifdef __ANDROID__
 #include <pthread.h>
@@ -58,12 +57,45 @@ static int glib_random_bytes(void *buf, size_t len)
     return 0;
 }
 
+static int os_random_bytes(void *buf, size_t len, Error **errp)
+{
+    uint8_t *p = buf;
+    int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+
+    if (fd < 0) {
+        error_setg_errno(errp, errno, "/dev/urandom");
+        return -1;
+    }
+    while (len) {
+        ssize_t n = read(fd, p, len);
+
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            error_setg_errno(errp, errno, "/dev/urandom");
+            close(fd);
+            return -1;
+        }
+        if (n == 0) {
+            error_setg(errp, "/dev/urandom returned no data");
+            close(fd);
+            return -1;
+        }
+        p += n;
+        len -= n;
+    }
+
+    close(fd);
+    return 0;
+}
+
 int qemu_guest_getrandom(void *buf, size_t len, Error **errp)
 {
     if (unlikely(deterministic)) {
         return glib_random_bytes(buf, len);
     }
-    return qcrypto_random_bytes(buf, len, errp);
+    return os_random_bytes(buf, len, errp);
 }
 
 void qemu_guest_getrandom_nofail(void *buf, size_t len)

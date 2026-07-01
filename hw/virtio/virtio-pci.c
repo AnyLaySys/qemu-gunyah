@@ -13,7 +13,7 @@
 #include "hw/virtio/virtio-bus.h"
 #include "hw/virtio/virtio-pci.h"
 #include "hw/virtio/virtio.h"
-#include "migration/qemu-file-types.h"
+#include "state/qemu-file-types.h"
 #include "qapi/error.h"
 #include "qapi/visitor.h"
 #include "qemu/error-report.h"
@@ -217,39 +217,13 @@ typedef struct VirtIOPCIIDInfo {
 
 static const VirtIOPCIIDInfo virtio_pci_id_info[] = {
     {
-        .vdev_id = VIRTIO_ID_CRYPTO,
-        .class_id = PCI_CLASS_OTHERS,
-    }, {
-        .vdev_id = VIRTIO_ID_FS,
-        .class_id = PCI_CLASS_STORAGE_OTHER,
-    }, {
         .vdev_id = VIRTIO_ID_NET,
         .trans_devid = PCI_DEVICE_ID_VIRTIO_NET,
         .class_id = PCI_CLASS_NETWORK_ETHERNET,
     }, {
         .vdev_id = VIRTIO_ID_BLOCK,
         .trans_devid = PCI_DEVICE_ID_VIRTIO_BLOCK,
-        .class_id = PCI_CLASS_STORAGE_SCSI,
-    }, {
-        .vdev_id = VIRTIO_ID_CONSOLE,
-        .trans_devid = PCI_DEVICE_ID_VIRTIO_CONSOLE,
-        .class_id = PCI_CLASS_COMMUNICATION_OTHER,
-    }, {
-        .vdev_id = VIRTIO_ID_SCSI,
-        .trans_devid = PCI_DEVICE_ID_VIRTIO_SCSI,
-        .class_id = PCI_CLASS_STORAGE_SCSI
-    }, {
-        .vdev_id = VIRTIO_ID_9P,
-        .trans_devid = PCI_DEVICE_ID_VIRTIO_9P,
-        .class_id = PCI_BASE_CLASS_NETWORK,
-    }, {
-        .vdev_id = VIRTIO_ID_BALLOON,
-        .trans_devid = PCI_DEVICE_ID_VIRTIO_BALLOON,
-        .class_id = PCI_CLASS_OTHERS,
-    }, {
-        .vdev_id = VIRTIO_ID_RNG,
-        .trans_devid = PCI_DEVICE_ID_VIRTIO_RNG,
-        .class_id = PCI_CLASS_OTHERS,
+        .class_id = PCI_CLASS_STORAGE_GENERIC,
     },
 };
 
@@ -671,19 +645,6 @@ virtio_address_space_read(VirtIOPCIProxy *proxy, hwaddr addr,
     }
 }
 
-static void virtio_pci_ats_ctrl_trigger(PCIDevice *pci_dev, bool enable)
-{
-    VirtIOPCIProxy *proxy = VIRTIO_PCI(pci_dev);
-    VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
-    VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
-
-    vdev->device_iotlb_enabled = enable;
-
-    if (k->toggle_device_iotlb) {
-        k->toggle_device_iotlb(vdev);
-    }
-}
-
 static void pcie_ats_config_write(PCIDevice *dev, uint32_t address,
                                   uint32_t val, int len)
 {
@@ -698,9 +659,6 @@ static void pcie_ats_config_write(PCIDevice *dev, uint32_t address,
         return;
     }
 
-    if (range_covers_byte(off, len, PCI_ATS_CTRL + 1)) {
-        virtio_pci_ats_ctrl_trigger(dev, !!(val & PCI_ATS_CTRL_ENABLE));
-    }
 }
 
 static void virtio_write_config(PCIDevice *pci_dev, uint32_t address,
@@ -2077,7 +2035,7 @@ static void virtio_pci_bus_reset_hold(Object *obj, ResetType type)
 }
 
 static const Property virtio_pci_properties[] = {
-    DEFINE_PROP_BIT("virtio-pci-bus-master-bug-migration", VirtIOPCIProxy, flags,
+    DEFINE_PROP_BIT("virtio-pci-bus-master-bug-state", VirtIOPCIProxy, flags,
                     VIRTIO_PCI_FLAG_BUS_MASTER_BUG_MIGRATION_BIT, false),
     DEFINE_PROP_BIT("migrate-extra", VirtIOPCIProxy, flags,
                     VIRTIO_PCI_FLAG_MIGRATE_EXTRA_BIT, true),

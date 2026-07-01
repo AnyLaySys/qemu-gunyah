@@ -3,7 +3,6 @@
 #include "qemu/hbitmap.h"
 #include "qemu/host-utils.h"
 #include "trace.h"
-#include "crypto/hash.h"
 
 
 struct HBitmap {
@@ -761,9 +760,14 @@ void hbitmap_merge(const HBitmap *a, const HBitmap *b, HBitmap *result)
 char *hbitmap_sha256(const HBitmap *bitmap, Error **errp)
 {
     size_t size = bitmap->sizes[HBITMAP_LEVELS - 1] * sizeof(unsigned long);
-    char *data = (char *)bitmap->levels[HBITMAP_LEVELS - 1];
-    char *hash = NULL;
-    qcrypto_hash_digest(QCRYPTO_HASH_ALGO_SHA256, data, size, &hash, errp);
+    const uint8_t *data = (const uint8_t *)bitmap->levels[HBITMAP_LEVELS - 1];
+    uint64_t hash = 1469598103934665603ULL;
+    size_t i;
 
-    return hash;
+    for (i = 0; i < size; i++) {
+        hash ^= data[i];
+        hash *= 1099511628211ULL;
+    }
+
+    return g_strdup_printf("%016" PRIx64, hash);
 }

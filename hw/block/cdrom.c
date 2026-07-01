@@ -1,7 +1,8 @@
 
 
 #include "qemu/osdep.h"
-#include "hw/scsi/scsi.h"
+#include "qemu/bswap.h"
+#include "hw/block/cdrom.h"
 
 static void lba_to_msf(uint8_t *buf, int lba)
 {

@@ -167,7 +167,7 @@ static void luring_process_completions(LuringState *s)
             /*
              * Only writev/readv/fsync requests on regular files or host block
              * devices are submitted. Therefore -EAGAIN is not expected but it's
-             * known to happen sometimes with Linux SCSI. Submit again and hope
+             * known to happen sometimes with host block devices. Submit again and hope
              * the request completes successfully.
              *
              * For more information, see:

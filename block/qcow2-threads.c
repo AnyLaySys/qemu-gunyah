@@ -12,7 +12,6 @@
 #include "qcow2.h"
 #include "block/block-io.h"
 #include "block/thread-pool.h"
-#include "crypto.h"
 
 static int coroutine_fn
 qcow2_co_process(BlockDriverState *bs, ThreadPoolFunc *func, void *arg)
@@ -270,66 +269,4 @@ qcow2_co_decompress(BlockDriverState *bs, void *dest, size_t dest_size,
     }
 
     return qcow2_co_do_compress(bs, dest, dest_size, src, src_size, fn);
-}
-
-
-
-typedef int (*Qcow2EncDecFunc)(QCryptoBlock *block, uint64_t offset,
-                               uint8_t *buf, size_t len, Error **errp);
-
-typedef struct Qcow2EncDecData {
-    QCryptoBlock *block;
-    uint64_t offset;
-    uint8_t *buf;
-    size_t len;
-
-    Qcow2EncDecFunc func;
-} Qcow2EncDecData;
-
-static int qcow2_encdec_pool_func(void *opaque)
-{
-    Qcow2EncDecData *data = opaque;
-
-    return data->func(data->block, data->offset, data->buf, data->len, NULL);
-}
-
-static int coroutine_fn
-qcow2_co_encdec(BlockDriverState *bs, uint64_t host_offset,
-                uint64_t guest_offset, void *buf, size_t len,
-                Qcow2EncDecFunc func)
-{
-    BDRVQcow2State *s = bs->opaque;
-    Qcow2EncDecData arg = {
-        .block = s->crypto,
-        .offset = s->crypt_physical_offset ? host_offset : guest_offset,
-        .buf = buf,
-        .len = len,
-        .func = func,
-    };
-    uint64_t sector_size;
-
-    assert(s->crypto);
-
-    sector_size = qcrypto_block_get_sector_size(s->crypto);
-    assert(QEMU_IS_ALIGNED(guest_offset, sector_size));
-    assert(QEMU_IS_ALIGNED(host_offset, sector_size));
-    assert(QEMU_IS_ALIGNED(len, sector_size));
-
-    return len == 0 ? 0 : qcow2_co_process(bs, qcow2_encdec_pool_func, &arg);
-}
-
-int coroutine_fn
-qcow2_co_encrypt(BlockDriverState *bs, uint64_t host_offset,
-                 uint64_t guest_offset, void *buf, size_t len)
-{
-    return qcow2_co_encdec(bs, host_offset, guest_offset, buf, len,
-                           qcrypto_block_encrypt);
-}
-
-int coroutine_fn
-qcow2_co_decrypt(BlockDriverState *bs, uint64_t host_offset,
-                 uint64_t guest_offset, void *buf, size_t len)
-{
-    return qcow2_co_encdec(bs, host_offset, guest_offset, buf, len,
-                           qcrypto_block_decrypt);
 }

@@ -58,28 +58,20 @@ def create_backend(path: str) -> QAPIBackend:
 def main() -> int:
     """
     gapi-gen executable entry point.
-    Expects arguments via sys.argv, see --help for details.
 
     :return: int, 0 on success, 1 on failure.
     """
-    parser = argparse.ArgumentParser(
-        description='Generate code from a QAPI schema')
-    parser.add_argument('-b', '--builtins', action='store_true',
-                        help="generate code for built-in types")
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('-b', '--builtins', action='store_true')
     parser.add_argument('-o', '--output-dir', action='store',
-                        default='',
-                        help="write output to directory OUTPUT_DIR")
+                        default='')
     parser.add_argument('-p', '--prefix', action='store',
-                        default='',
-                        help="prefix for symbols")
+                        default='')
     parser.add_argument('-u', '--unmask-non-abi-names', action='store_true',
-                        dest='unmask',
-                        help="expose non-ABI names in introspection")
-    parser.add_argument('-B', '--backend', default=None,
-                        help="Python module name for code generator")
+                        dest='unmask')
+    parser.add_argument('-B', '--backend', default=None)
 
-    parser.add_argument('--suppress-tracing', action='store_true',
-                        help="suppress adding trace events to qmp marshals")
+    parser.add_argument('--suppress-tracing', action='store_true')
 
     parser.add_argument('schema', action='store')
     args = parser.parse_args()

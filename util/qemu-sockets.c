@@ -1,10 +1,5 @@
 #include "qemu/osdep.h"
 
-#ifdef CONFIG_AF_VSOCK
-#include <linux/vm_sockets.h>
-#endif /* CONFIG_AF_VSOCK */
-
-#include "monitor/monitor.h"
 #include "qapi/clone-visitor.h"
 #include "qapi/error.h"
 #include "qapi/qapi-visit-sockets.h"
@@ -68,9 +63,6 @@ NetworkAddressFamily inet_netfamily(int family)
     case PF_INET6: return NETWORK_ADDRESS_FAMILY_IPV6;
     case PF_INET:  return NETWORK_ADDRESS_FAMILY_IPV4;
     case PF_UNIX:  return NETWORK_ADDRESS_FAMILY_UNIX;
-#ifdef CONFIG_AF_VSOCK
-    case PF_VSOCK: return NETWORK_ADDRESS_FAMILY_VSOCK;
-#endif /* CONFIG_AF_VSOCK */
     }
     return NETWORK_ADDRESS_FAMILY_UNKNOWN;
 }
@@ -610,152 +602,6 @@ int inet_parse(InetSocketAddress *addr, const char *str, Error **errp)
 }
 
 
-#ifdef CONFIG_AF_VSOCK
-static bool vsock_parse_vaddr_to_sockaddr(const VsockSocketAddress *vaddr,
-                                          struct sockaddr_vm *svm,
-                                          Error **errp)
-{
-    uint64_t val;
-
-    memset(svm, 0, sizeof(*svm));
-    svm->svm_family = AF_VSOCK;
-
-    if (parse_uint_full(vaddr->cid, 10, &val) < 0 ||
-        val > UINT32_MAX) {
-        error_setg(errp, "Failed to parse cid '%s'", vaddr->cid);
-        return false;
-    }
-    svm->svm_cid = val;
-
-    if (parse_uint_full(vaddr->port, 10, &val) < 0 ||
-        val > UINT32_MAX) {
-        error_setg(errp, "Failed to parse port '%s'", vaddr->port);
-        return false;
-    }
-    svm->svm_port = val;
-
-    return true;
-}
-
-static int vsock_connect_addr(const VsockSocketAddress *vaddr,
-                              const struct sockaddr_vm *svm, Error **errp)
-{
-    int sock, rc;
-
-    sock = qemu_socket(AF_VSOCK, SOCK_STREAM, 0);
-    if (sock < 0) {
-        error_setg_errno(errp, errno, "Failed to create socket family %d",
-                         AF_VSOCK);
-        return -1;
-    }
-
-    do {
-        rc = 0;
-        if (connect(sock, (const struct sockaddr *)svm, sizeof(*svm)) < 0) {
-            rc = -errno;
-        }
-    } while (rc == -EINTR);
-
-    if (rc < 0) {
-        error_setg_errno(errp, errno, "Failed to connect to '%s:%s'",
-                         vaddr->cid, vaddr->port);
-        close(sock);
-        return -1;
-    }
-
-    return sock;
-}
-
-static int vsock_connect_saddr(VsockSocketAddress *vaddr, Error **errp)
-{
-    struct sockaddr_vm svm;
-
-    if (!vsock_parse_vaddr_to_sockaddr(vaddr, &svm, errp)) {
-        return -1;
-    }
-
-    return vsock_connect_addr(vaddr, &svm, errp);
-}
-
-static int vsock_listen_saddr(VsockSocketAddress *vaddr,
-                              int num,
-                              Error **errp)
-{
-    struct sockaddr_vm svm;
-    int slisten;
-
-    if (!vsock_parse_vaddr_to_sockaddr(vaddr, &svm, errp)) {
-        return -1;
-    }
-
-    slisten = qemu_socket(AF_VSOCK, SOCK_STREAM, 0);
-    if (slisten < 0) {
-        error_setg_errno(errp, errno, "Failed to create socket");
-        return -1;
-    }
-
-    if (bind(slisten, (const struct sockaddr *)&svm, sizeof(svm)) != 0) {
-        error_setg_errno(errp, errno, "Failed to bind socket");
-        close(slisten);
-        return -1;
-    }
-
-    if (listen(slisten, num) != 0) {
-        error_setg_errno(errp, errno, "Failed to listen on socket");
-        close(slisten);
-        return -1;
-    }
-    return slisten;
-}
-
-static int vsock_parse(VsockSocketAddress *addr, const char *str,
-                       Error **errp)
-{
-    char cid[33];
-    char port[33];
-    int n;
-
-    if (sscanf(str, "%32[^:]:%32[^,]%n", cid, port, &n) != 2) {
-        error_setg(errp, "error parsing address '%s'", str);
-        return -1;
-    }
-    if (str[n] != '\0') {
-        error_setg(errp, "trailing characters in address '%s'", str);
-        return -1;
-    }
-
-    addr->cid = g_strdup(cid);
-    addr->port = g_strdup(port);
-    return 0;
-}
-#else
-static void vsock_unsupported(Error **errp)
-{
-    error_setg(errp, "socket family AF_VSOCK unsupported");
-}
-
-static int vsock_connect_saddr(VsockSocketAddress *vaddr, Error **errp)
-{
-    vsock_unsupported(errp);
-    return -1;
-}
-
-static int vsock_listen_saddr(VsockSocketAddress *vaddr,
-                              int num,
-                              Error **errp)
-{
-    vsock_unsupported(errp);
-    return -1;
-}
-
-static int vsock_parse(VsockSocketAddress *addr, const char *str,
-                        Error **errp)
-{
-    vsock_unsupported(errp);
-    return -1;
-}
-#endif /* CONFIG_AF_VSOCK */
-
 static bool saddr_is_abstract(UnixSocketAddress *saddr)
 {
 #ifdef CONFIG_LINUX
@@ -955,10 +801,6 @@ char *socket_uri(SocketAddress *addr)
                                addr->u.q_unix.path);
     case SOCKET_ADDRESS_TYPE_FD:
         return g_strdup_printf("fd:%s", addr->u.fd.str);
-    case SOCKET_ADDRESS_TYPE_VSOCK:
-        return g_strdup_printf("vsock:%s:%s",
-                               addr->u.vsock.cid,
-                               addr->u.vsock.port);
     default:
         return g_strdup("unknown address type");
     }
@@ -985,11 +827,6 @@ SocketAddress *socket_parse(const char *str, Error **errp)
             addr->type = SOCKET_ADDRESS_TYPE_FD;
             addr->u.fd.str = g_strdup(str + 3);
         }
-    } else if (strstart(str, "vsock:", NULL)) {
-        addr->type = SOCKET_ADDRESS_TYPE_VSOCK;
-        if (vsock_parse(&addr->u.vsock, str + strlen("vsock:"), errp)) {
-            goto fail;
-        }
     } else if (strstart(str, "tcp:", NULL)) {
         addr->type = SOCKET_ADDRESS_TYPE_INET;
         if (inet_parse(&addr->u.inet, str + strlen("tcp:"), errp)) {
@@ -1010,21 +847,15 @@ fail:
 
 static int socket_get_fd(const char *fdstr, Error **errp)
 {
-    Monitor *cur_mon = monitor_cur();
     int fd;
-    if (cur_mon) {
-        fd = monitor_get_fd(cur_mon, fdstr, errp);
-        if (fd < 0) {
-            return -1;
-        }
-    } else {
-        if (qemu_strtoi(fdstr, NULL, 10, &fd) < 0) {
-            error_setg_errno(errp, errno,
-                             "Unable to parse FD number %s",
-                             fdstr);
-            return -1;
-        }
+
+    if (qemu_strtoi(fdstr, NULL, 10, &fd) < 0) {
+        error_setg_errno(errp, errno,
+                         "Unable to parse FD number %s",
+                         fdstr);
+        return -1;
     }
+
     if (!fd_is_socket(fd)) {
         error_setg(errp, "File descriptor '%s' is not a socket", fdstr);
         close(fd);
@@ -1069,10 +900,6 @@ int socket_connect(SocketAddress *addr, Error **errp)
         fd = socket_get_fd(addr->u.fd.str, errp);
         break;
 
-    case SOCKET_ADDRESS_TYPE_VSOCK:
-        fd = vsock_connect_saddr(&addr->u.vsock, errp);
-        break;
-
     default:
         abort();
     }
@@ -1104,10 +931,6 @@ int socket_listen(SocketAddress *addr, int num, Error **errp)
             close(fd);
             return -1;
         }
-        break;
-
-    case SOCKET_ADDRESS_TYPE_VSOCK:
-        fd = vsock_listen_saddr(&addr->u.vsock, num, errp);
         break;
 
     default:
@@ -1217,26 +1040,6 @@ socket_sockaddr_to_address_unix(struct sockaddr_storage *sa,
     return addr;
 }
 
-#ifdef CONFIG_AF_VSOCK
-static SocketAddress *
-socket_sockaddr_to_address_vsock(struct sockaddr_storage *sa,
-                                 socklen_t salen,
-                                 Error **errp)
-{
-    SocketAddress *addr;
-    VsockSocketAddress *vaddr;
-    struct sockaddr_vm *svm = (struct sockaddr_vm *)sa;
-
-    addr = g_new0(SocketAddress, 1);
-    addr->type = SOCKET_ADDRESS_TYPE_VSOCK;
-    vaddr = &addr->u.vsock;
-    vaddr->cid = g_strdup_printf("%u", svm->svm_cid);
-    vaddr->port = g_strdup_printf("%u", svm->svm_port);
-
-    return addr;
-}
-#endif /* CONFIG_AF_VSOCK */
-
 SocketAddress *
 socket_sockaddr_to_address(struct sockaddr_storage *sa,
                            socklen_t salen,
@@ -1249,11 +1052,6 @@ socket_sockaddr_to_address(struct sockaddr_storage *sa,
 
     case AF_UNIX:
         return socket_sockaddr_to_address_unix(sa, salen, errp);
-
-#ifdef CONFIG_AF_VSOCK
-    case AF_VSOCK:
-        return socket_sockaddr_to_address_vsock(sa, salen, errp);
-#endif
 
     default:
         error_setg(errp, "socket family %d unsupported",
@@ -1299,11 +1097,6 @@ SocketAddress *socket_address_flatten(SocketAddressLegacy *addr_legacy)
         addr->type = SOCKET_ADDRESS_TYPE_UNIX;
         QAPI_CLONE_MEMBERS(UnixSocketAddress, &addr->u.q_unix,
                            addr_legacy->u.q_unix.data);
-        break;
-    case SOCKET_ADDRESS_TYPE_VSOCK:
-        addr->type = SOCKET_ADDRESS_TYPE_VSOCK;
-        QAPI_CLONE_MEMBERS(VsockSocketAddress, &addr->u.vsock,
-                           addr_legacy->u.vsock.data);
         break;
     case SOCKET_ADDRESS_TYPE_FD:
         addr->type = SOCKET_ADDRESS_TYPE_FD;

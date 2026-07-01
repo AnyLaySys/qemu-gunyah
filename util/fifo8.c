@@ -1,6 +1,6 @@
 
 #include "qemu/osdep.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qemu/fifo8.h"
 
 void fifo8_reset(Fifo8 *fifo)

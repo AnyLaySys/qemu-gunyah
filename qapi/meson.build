@@ -27,7 +27,6 @@ qapi_all_modules = [
   'common',
   'compat',
   'control',
-  'crypto',
   'error',
   'job',
   'machine-common',
@@ -49,7 +48,6 @@ if have_system
     'acpi',
     'audio',
     'qdev',
-    'tpm',
     'uefi',
   ]
 endif

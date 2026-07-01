@@ -12,24 +12,17 @@
 #include "hw/acpi/aml-build.h"
 #include "hw/acpi/utils.h"
 #include "hw/acpi/pci.h"
-#include "hw/acpi/memory_hotplug.h"
 #include "hw/acpi/generic_event_device.h"
-#include "hw/acpi/tpm.h"
-#include "hw/acpi/hmat.h"
 #include "hw/pci/pcie_host.h"
 #include "hw/pci/pci.h"
 #include "hw/pci/pci_bus.h"
 #include "hw/pci-host/gpex.h"
 #include "hw/arm/virt.h"
 #include "hw/intc/arm_gicv3_its_common.h"
-#include "hw/mem/nvdimm.h"
 #include "hw/platform-bus.h"
-#include "system/numa.h"
 #include "system/reset.h"
-#include "system/tpm.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "hw/acpi/ghes.h"
-#include "hw/acpi/viot.h"
 #include "hw/virtio/virtio-acpi.h"
 #include "target/arm/cpu.h"
 #include "target/arm/arm-powerctl.h"
@@ -142,43 +135,7 @@ static void acpi_dsdt_add_gpio(Aml *scope, const MemMapEntry *gpio_memmap,
     aml_append(scope, dev);
 }
 
-#ifdef CONFIG_TPM
-static void acpi_dsdt_add_tpm(Aml *scope, VirtMachineState *vms)
-{
-    PlatformBusDevice *pbus = PLATFORM_BUS_DEVICE(vms->platform_bus_dev);
-    hwaddr pbus_base = vms->memmap[VIRT_PLATFORM_BUS].base;
-    SysBusDevice *sbdev = SYS_BUS_DEVICE(tpm_find());
-    MemoryRegion *sbdev_mr;
-    hwaddr tpm_base;
-
-    if (!sbdev) {
-        return;
-    }
-
-    tpm_base = platform_bus_get_mmio_addr(pbus, sbdev, 0);
-    assert(tpm_base != -1);
-
-    tpm_base += pbus_base;
-
-    sbdev_mr = sysbus_mmio_get_region(sbdev, 0);
-
-    Aml *dev = aml_device("TPM0");
-    aml_append(dev, aml_name_decl("_HID", aml_string("MSFT0101")));
-    aml_append(dev, aml_name_decl("_STR", aml_string("TPM 2.0 Device")));
-    aml_append(dev, aml_name_decl("_UID", aml_int(0)));
-
-    Aml *crs = aml_resource_template();
-    aml_append(crs,
-               aml_memory32_fixed(tpm_base,
-                                  (uint32_t)memory_region_size(sbdev_mr),
-                                  AML_READ_WRITE));
-    aml_append(dev, aml_name_decl("_CRS", crs));
-    aml_append(scope, dev);
-}
-#endif
-
 #define ID_MAPPING_ENTRY_SIZE 20
-#define SMMU_V3_ENTRY_SIZE 68
 #define ROOT_COMPLEX_ENTRY_SIZE 36
 #define IORT_NODE_OFFSET 48
 
@@ -192,89 +149,17 @@ static void build_iort_id_mapping(GArray *table_data, uint32_t input_base,
     build_append_int_noprefix(table_data, 0 /* Single mapping (disabled) */, 4);
 }
 
-struct AcpiIortIdMapping {
-    uint32_t input_base;
-    uint32_t id_count;
-};
-typedef struct AcpiIortIdMapping AcpiIortIdMapping;
-
-static int
-iort_host_bridges(Object *obj, void *opaque)
-{
-    GArray *idmap_blob = opaque;
-
-    if (object_dynamic_cast(obj, TYPE_PCI_HOST_BRIDGE)) {
-        PCIBus *bus = PCI_HOST_BRIDGE(obj)->bus;
-
-        if (bus && !pci_bus_bypass_iommu(bus)) {
-            int min_bus, max_bus;
-
-            pci_bus_range(bus, &min_bus, &max_bus);
-
-            AcpiIortIdMapping idmap = {
-                .input_base = min_bus << 8,
-                .id_count = (max_bus - min_bus + 1) << 8,
-            };
-            g_array_append_val(idmap_blob, idmap);
-        }
-    }
-
-    return 0;
-}
-
-static int iort_idmap_compare(gconstpointer a, gconstpointer b)
-{
-    AcpiIortIdMapping *idmap_a = (AcpiIortIdMapping *)a;
-    AcpiIortIdMapping *idmap_b = (AcpiIortIdMapping *)b;
-
-    return idmap_a->input_base - idmap_b->input_base;
-}
-
 static void
 build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
-    int i, nb_nodes, rc_mapping_count;
-    size_t node_size, smmu_offset = 0;
-    AcpiIortIdMapping *idmap;
+    size_t node_size;
     uint32_t id = 0;
-    GArray *smmu_idmaps = g_array_new(false, true, sizeof(AcpiIortIdMapping));
-    GArray *its_idmaps = g_array_new(false, true, sizeof(AcpiIortIdMapping));
 
     AcpiTable table = { .sig = "IORT", .rev = 3, .oem_id = vms->oem_id,
                         .oem_table_id = vms->oem_table_id };
     acpi_table_begin(&table, table_data);
 
-    if (vms->iommu == VIRT_IOMMU_SMMUV3) {
-        AcpiIortIdMapping next_range = {0};
-
-        object_child_foreach_recursive(object_get_root(),
-                                       iort_host_bridges, smmu_idmaps);
-
-        g_array_sort(smmu_idmaps, iort_idmap_compare);
-
-        for (i = 0; i < smmu_idmaps->len; i++) {
-            idmap = &g_array_index(smmu_idmaps, AcpiIortIdMapping, i);
-
-            if (next_range.input_base < idmap->input_base) {
-                next_range.id_count = idmap->input_base - next_range.input_base;
-                g_array_append_val(its_idmaps, next_range);
-            }
-
-            next_range.input_base = idmap->input_base + idmap->id_count;
-        }
-
-        if (next_range.input_base < 0x10000) {
-            next_range.id_count = 0x10000 - next_range.input_base;
-            g_array_append_val(its_idmaps, next_range);
-        }
-
-        nb_nodes = 3; /* RC, ITS, SMMUv3 */
-        rc_mapping_count = smmu_idmaps->len + its_idmaps->len;
-    } else {
-        nb_nodes = 2; /* RC, ITS */
-        rc_mapping_count = 1;
-    }
-    build_append_int_noprefix(table_data, nb_nodes, 4);
+    build_append_int_noprefix(table_data, 2 /* RC, ITS */, 4);
 
     build_append_int_noprefix(table_data, IORT_NODE_OFFSET, 4);
     build_append_int_noprefix(table_data, 0, 4); /* Reserved */
@@ -289,39 +174,12 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     build_append_int_noprefix(table_data, 1, 4); /* Number of ITSs */
     build_append_int_noprefix(table_data, 0 /* MADT translation_id */, 4);
 
-    if (vms->iommu == VIRT_IOMMU_SMMUV3) {
-        int irq =  vms->irqmap[VIRT_SMMU] + ARM_SPI_BASE;
-
-        smmu_offset = table_data->len - table.table_offset;
-        build_append_int_noprefix(table_data, 4 /* SMMUv3 */, 1); /* Type */
-        node_size =  SMMU_V3_ENTRY_SIZE + ID_MAPPING_ENTRY_SIZE;
-        build_append_int_noprefix(table_data, node_size, 2); /* Length */
-        build_append_int_noprefix(table_data, 4, 1); /* Revision */
-        build_append_int_noprefix(table_data, id++, 4); /* Identifier */
-        build_append_int_noprefix(table_data, 1, 4); /* Number of ID mappings */
-        build_append_int_noprefix(table_data, SMMU_V3_ENTRY_SIZE, 4);
-        build_append_int_noprefix(table_data, vms->memmap[VIRT_SMMU].base, 8);
-        build_append_int_noprefix(table_data, 1 /* COHACC Override */, 4);
-        build_append_int_noprefix(table_data, 0, 4); /* Reserved */
-        build_append_int_noprefix(table_data, 0, 8); /* VATOS address */
-        build_append_int_noprefix(table_data, 0 /* Generic SMMU-v3 */, 4);
-        build_append_int_noprefix(table_data, irq, 4); /* Event */
-        build_append_int_noprefix(table_data, irq + 1, 4); /* PRI */
-        build_append_int_noprefix(table_data, irq + 3, 4); /* GERR */
-        build_append_int_noprefix(table_data, irq + 2, 4); /* Sync */
-        build_append_int_noprefix(table_data, 0, 4); /* Proximity domain */
-        build_append_int_noprefix(table_data, 0, 4);
-
-        build_iort_id_mapping(table_data, 0, 0x10000, IORT_NODE_OFFSET);
-    }
-
     build_append_int_noprefix(table_data, 2 /* Root complex */, 1); /* Type */
-    node_size =  ROOT_COMPLEX_ENTRY_SIZE +
-                 ID_MAPPING_ENTRY_SIZE * rc_mapping_count;
+    node_size =  ROOT_COMPLEX_ENTRY_SIZE + ID_MAPPING_ENTRY_SIZE;
     build_append_int_noprefix(table_data, node_size, 2); /* Length */
     build_append_int_noprefix(table_data, 3, 1); /* Revision */
     build_append_int_noprefix(table_data, id++, 4); /* Identifier */
-    build_append_int_noprefix(table_data, rc_mapping_count, 4);
+    build_append_int_noprefix(table_data, 1, 4);
     build_append_int_noprefix(table_data, ROOT_COMPLEX_ENTRY_SIZE, 4);
 
     build_append_int_noprefix(table_data, 1 /* fully coherent */, 4);
@@ -336,27 +194,9 @@ build_iort(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 
     build_append_int_noprefix(table_data, 0, 3); /* Reserved */
 
-    if (vms->iommu == VIRT_IOMMU_SMMUV3) {
-        AcpiIortIdMapping *range;
-
-        for (i = 0; i < smmu_idmaps->len; i++) {
-            range = &g_array_index(smmu_idmaps, AcpiIortIdMapping, i);
-            build_iort_id_mapping(table_data, range->input_base,
-                                  range->id_count, smmu_offset);
-        }
-
-        for (i = 0; i < its_idmaps->len; i++) {
-            range = &g_array_index(its_idmaps, AcpiIortIdMapping, i);
-            build_iort_id_mapping(table_data, range->input_base,
-                                  range->id_count, IORT_NODE_OFFSET);
-        }
-    } else {
-        build_iort_id_mapping(table_data, 0, 0x10000, IORT_NODE_OFFSET);
-    }
+    build_iort_id_mapping(table_data, 0, 0x10000, IORT_NODE_OFFSET);
 
     acpi_table_end(linker, &table);
-    g_array_free(smmu_idmaps, true);
-    g_array_free(its_idmaps, true);
 }
 
 static void
@@ -388,59 +228,6 @@ spcr_setup(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
     };
     build_spcr(table_data, linker, &serial, 2, vms->oem_id, vms->oem_table_id,
                NULL);
-}
-
-static void
-build_srat(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
-{
-    int i;
-    uint64_t mem_base;
-    MachineClass *mc = MACHINE_GET_CLASS(vms);
-    MachineState *ms = MACHINE(vms);
-    const CPUArchIdList *cpu_list = mc->possible_cpu_arch_ids(ms);
-    AcpiTable table = { .sig = "SRAT", .rev = 3, .oem_id = vms->oem_id,
-                        .oem_table_id = vms->oem_table_id };
-
-    acpi_table_begin(&table, table_data);
-    build_append_int_noprefix(table_data, 1, 4); /* Reserved */
-    build_append_int_noprefix(table_data, 0, 8); /* Reserved */
-
-    for (i = 0; i < cpu_list->len; ++i) {
-        uint32_t nodeid = cpu_list->cpus[i].props.node_id;
-        build_append_int_noprefix(table_data, 3, 1);      /* Type */
-        build_append_int_noprefix(table_data, 18, 1);     /* Length */
-        build_append_int_noprefix(table_data, nodeid, 4); /* Proximity Domain */
-        build_append_int_noprefix(table_data, i, 4); /* ACPI Processor UID */
-        build_append_int_noprefix(table_data, 1 /* Enabled */, 4);
-        build_append_int_noprefix(table_data, 0, 4); /* Clock Domain */
-    }
-
-    mem_base = vms->memmap[VIRT_MEM].base;
-    for (i = 0; i < ms->numa_state->num_nodes; ++i) {
-        if (ms->numa_state->nodes[i].node_mem > 0) {
-            build_srat_memory(table_data, mem_base,
-                              ms->numa_state->nodes[i].node_mem, i,
-                              MEM_AFFINITY_ENABLED);
-            mem_base += ms->numa_state->nodes[i].node_mem;
-        }
-    }
-
-    build_srat_generic_affinity_structures(table_data);
-
-#ifdef CONFIG_NVDIMM
-    if (ms->nvdimms_state->is_enabled) {
-        nvdimm_build_srat(table_data);
-    }
-#endif
-
-    if (ms->device_memory) {
-        build_srat_memory(table_data, ms->device_memory->base,
-                          memory_region_size(&ms->device_memory->mr),
-                          ms->numa_state->num_nodes - 1,
-                          MEM_AFFINITY_HOTPLUGGABLE | MEM_AFFINITY_ENABLED);
-    }
-
-    acpi_table_end(linker, &table);
 }
 
 static void
@@ -651,7 +438,6 @@ build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
 {
     VirtMachineClass *vmc = VIRT_MACHINE_GET_CLASS(vms);
     Aml *scope, *dsdt;
-    MachineState *ms = MACHINE(vms);
     const MemMapEntry *memmap = vms->memmap;
     const int *irqmap = vms->irqmap;
     AcpiTable table = { .sig = "DSDT", .rev = 2, .oem_id = vms->oem_id,
@@ -686,21 +472,7 @@ build_dsdt(GArray *table_data, BIOSLinker *linker, VirtMachineState *vms)
                            (irqmap[VIRT_GPIO] + ARM_SPI_BASE));
     }
 
-    if (vms->acpi_dev) {
-        uint32_t event = object_property_get_uint(OBJECT(vms->acpi_dev),
-                                                  "ged-event", &error_abort);
-
-        if (event & ACPI_GED_MEM_HOTPLUG_EVT) {
-            build_memory_hotplug_aml(scope, ms->ram_slots, "\\_SB", NULL,
-                                     AML_SYSTEM_MEMORY,
-                                     memmap[VIRT_PCDIMM_ACPI].base);
-        }
-    }
-
     acpi_dsdt_add_power_button(scope);
-#ifdef CONFIG_TPM
-    acpi_dsdt_add_tpm(scope, vms);
-#endif
 
     aml_append(dsdt, scope);
 
@@ -779,49 +551,9 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
                         vms->oem_id, vms->oem_table_id);
     }
 
-    if (ms->numa_state->num_nodes > 0) {
-        acpi_add_table(table_offsets, tables_blob);
-        build_srat(tables_blob, tables->linker, vms);
-        if (ms->numa_state->have_numa_distance) {
-            acpi_add_table(table_offsets, tables_blob);
-            build_slit(tables_blob, tables->linker, ms, vms->oem_id,
-                       vms->oem_table_id);
-        }
-
-#ifdef CONFIG_ACPI_HMAT
-        if (ms->numa_state->hmat_enabled) {
-            acpi_add_table(table_offsets, tables_blob);
-            build_hmat(tables_blob, tables->linker, ms->numa_state,
-                       vms->oem_id, vms->oem_table_id);
-        }
-#endif
-    }
-
-#ifdef CONFIG_NVDIMM
-    if (ms->nvdimms_state->is_enabled) {
-        nvdimm_build_acpi(table_offsets, tables_blob, tables->linker,
-                          ms->nvdimms_state, ms->ram_slots, vms->oem_id,
-                          vms->oem_table_id);
-    }
-#endif
-
     if (its_class_name() && !vmc->no_its) {
         acpi_add_table(table_offsets, tables_blob);
         build_iort(tables_blob, tables->linker, vms);
-    }
-
-#ifdef CONFIG_TPM
-    if (tpm_get_version(tpm_find()) == TPM_VERSION_2_0) {
-        acpi_add_table(table_offsets, tables_blob);
-        build_tpm2(tables_blob, tables->linker, tables->tcpalog, vms->oem_id,
-                   vms->oem_table_id);
-    }
-#endif
-
-    if (vms->iommu == VIRT_IOMMU_VIRTIO) {
-        acpi_add_table(table_offsets, tables_blob);
-        build_viot(ms, tables_blob, tables->linker, vms->virtio_iommu_bdf,
-                   vms->oem_id, vms->oem_table_id);
     }
 
     xsdt = tables_blob->len;
@@ -839,11 +571,9 @@ void virt_acpi_build(VirtMachineState *vms, AcpiBuildTables *tables)
     }
 
     if (tables_blob->len > ACPI_BUILD_TABLE_SIZE / 2) {
-        warn_report("ACPI table size %u exceeds %d bytes,"
-                    " migration may not work",
+        warn_report("ACPI table size %u exceeds %d bytes",
                     tables_blob->len, ACPI_BUILD_TABLE_SIZE / 2);
-        error_printf("Try removing CPUs, NUMA nodes, memory slots"
-                     " or PCI bridges.\n");
+        error_printf("Try removing CPUs, memory slots or PCI bridges.\n");
     }
     acpi_align_size(tables_blob, ACPI_BUILD_TABLE_SIZE);
 
@@ -928,9 +658,6 @@ void virt_acpi_setup(VirtMachineState *vms)
                                                build_state,
                                                tables.linker->cmd_blob,
                                                ACPI_BUILD_LOADER_FILE);
-
-    fw_cfg_add_file(vms->fw_cfg, ACPI_BUILD_TPMLOG_FILE, tables.tcpalog->data,
-                    acpi_data_len(tables.tcpalog));
 
     if (vms->ras) {
         assert(vms->acpi_dev);

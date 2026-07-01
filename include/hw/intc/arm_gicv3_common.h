@@ -133,7 +133,7 @@ struct GICv3State {
     bool security_extn;
     bool force_8bit_prio;
     bool irq_reset_nonsecure;
-    bool gicd_no_migration_shift_bug;
+    bool gicd_state_shift_bug;
 
     int dev_fd; /* kvm device fd if backed by kvm vgic support */
     Error *migration_blocker;

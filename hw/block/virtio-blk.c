@@ -15,12 +15,8 @@
 #include "system/system.h"
 #include "system/runstate.h"
 #include "hw/virtio/virtio-blk.h"
-#include "scsi/constants.h"
-#ifdef __linux__
-# include <scsi/sg.h>
-#endif
 #include "hw/virtio/virtio-bus.h"
-#include "migration/qemu-file-types.h"
+#include "state/qemu-file-types.h"
 #include "hw/virtio/iothread-vq-mapping.h"
 #include "hw/virtio/virtio-access.h"
 #include "hw/virtio/virtio-blk-common.h"
@@ -151,28 +147,6 @@ static VirtIOBlockReq *virtio_blk_get_request(VirtIOBlock *s, VirtQueue *vq)
         virtio_blk_init_request(s, vq, req);
     }
     return req;
-}
-
-static void virtio_blk_handle_scsi(VirtIOBlockReq *req)
-{
-    int status;
-    struct virtio_scsi_inhdr *scsi;
-    VirtIOBlock *blk = req->dev;
-    VirtIODevice *vdev = VIRTIO_DEVICE(blk);
-    VirtQueueElement *elem = &req->elem;
-
-    if (elem->out_num < 2 || elem->in_num < 3) {
-        status = VIRTIO_BLK_S_IOERR;
-        goto fail;
-    }
-
-    scsi = (void *)elem->in_sg[elem->in_num - 2].iov_base;
-    virtio_stl_p(vdev, &scsi->errors, 255);
-    status = VIRTIO_BLK_S_UNSUPP;
-
-fail:
-    virtio_blk_req_complete(req, status);
-    g_free(req);
 }
 
 static inline void submit_requests(VirtIOBlock *s, MultiReqBuffer *mrb,
@@ -810,9 +784,6 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
     case VIRTIO_BLK_T_ZONE_RESET_ALL:
         virtio_blk_handle_zone_mgmt(req, BLK_ZO_RESET);
         break;
-    case VIRTIO_BLK_T_SCSI_CMD:
-        virtio_blk_handle_scsi(req);
-        break;
     case VIRTIO_BLK_T_GET_ID:
     {
         const char *serial = s->conf.serial ? s->conf.serial : "";
@@ -1021,7 +992,6 @@ static void virtio_blk_update_config(VirtIODevice *vdev, uint8_t *config)
     BlockDriverState *bs = blk_bs(s->blk);
     struct virtio_blk_config blkcfg;
     uint64_t capacity;
-    int64_t length;
     int blk_size = conf->logical_block_size;
 
     blk_get_geometry(s->blk, &capacity);
@@ -1029,17 +999,9 @@ static void virtio_blk_update_config(VirtIODevice *vdev, uint8_t *config)
     virtio_stq_p(vdev, &blkcfg.capacity, capacity);
     virtio_stl_p(vdev, &blkcfg.seg_max,
                  s->conf.seg_max_adjust ? s->conf.queue_size - 2 : 128 - 2);
-    virtio_stw_p(vdev, &blkcfg.geometry.cylinders, conf->cyls);
     virtio_stl_p(vdev, &blkcfg.blk_size, blk_size);
     virtio_stw_p(vdev, &blkcfg.min_io_size, conf->min_io_size / blk_size);
     virtio_stl_p(vdev, &blkcfg.opt_io_size, conf->opt_io_size / blk_size);
-    blkcfg.geometry.heads = conf->heads;
-    length = blk_getlength(s->blk);
-    if (length > 0 && length / conf->heads / conf->secs % blk_size) {
-        blkcfg.geometry.sectors = conf->secs & ~s->sector_mask;
-    } else {
-        blkcfg.geometry.sectors = conf->secs;
-    }
     blkcfg.size_max = 0;
     blkcfg.physical_block_exp = get_physical_block_exp(conf);
     blkcfg.alignment_offset = 0;
@@ -1112,7 +1074,6 @@ static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features,
     virtio_add_feature(&features, VIRTIO_BLK_F_BLK_SIZE);
     if (!virtio_has_feature(features, VIRTIO_F_VERSION_1)) {
         virtio_clear_feature(&features, VIRTIO_F_ANY_LAYOUT);
-        virtio_add_feature(&features, VIRTIO_BLK_F_SCSI);
     }
 
     if (blk_enable_write_cache(s->blk) ||
@@ -1510,10 +1471,6 @@ static void virtio_blk_device_realize(DeviceState *dev, Error **errp)
         return;
     }
     s->original_wce = blk_enable_write_cache(conf->conf.blk);
-    if (!blkconf_geometry(&conf->conf, NULL, 65535, 255, 255, errp)) {
-        return;
-    }
-
     if (!blkconf_blocksizes(&conf->conf, errp)) {
         return;
     }
@@ -1582,10 +1539,6 @@ static void virtio_blk_device_realize(DeviceState *dev, Error **errp)
 
     blk_iostatus_enable(s->blk);
 
-    add_boot_device_lchs(dev, "/disk@0,0",
-                         conf->conf.lcyls,
-                         conf->conf.lheads,
-                         conf->conf.lsecs);
 }
 
 static void virtio_blk_device_unrealize(DeviceState *dev)
@@ -1596,7 +1549,6 @@ static void virtio_blk_device_unrealize(DeviceState *dev)
     unsigned i;
 
     blk_drain(s->blk);
-    del_boot_device_lchs(dev, "/disk@0,0");
     virtio_blk_vq_aio_context_cleanup(s);
     for (i = 0; i < conf->num_queues; i++) {
         virtio_del_queue(vdev, i);
@@ -1631,7 +1583,6 @@ static const VMStateDescription vmstate_virtio_blk = {
 static const Property virtio_blk_properties[] = {
     DEFINE_BLOCK_PROPERTIES(VirtIOBlock, conf.conf),
     DEFINE_BLOCK_ERROR_PROPERTIES(VirtIOBlock, conf.conf),
-    DEFINE_BLOCK_CHS_PROPERTIES(VirtIOBlock, conf.conf),
     DEFINE_PROP_STRING("serial", VirtIOBlock, conf.serial),
     DEFINE_PROP_BIT64("config-wce", VirtIOBlock, host_features,
                       VIRTIO_BLK_F_CONFIG_WCE, true),

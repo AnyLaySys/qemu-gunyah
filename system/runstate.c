@@ -3,8 +3,6 @@
 #include "audio/audio.h"
 #include "block/block.h"
 #include "chardev/char.h"
-#include "crypto/cipher.h"
-#include "crypto/init.h"
 #include "exec/cpu-common.h"
 #include "hw/boards.h"
 #include "hw/resettable.h"
@@ -28,7 +26,6 @@
 #include "system/runstate.h"
 #include "system/runstate-action.h"
 #include "system/system.h"
-#include "system/tpm.h"
 #include "trace.h"
 
 static NotifierList exit_notifiers =
@@ -62,7 +59,6 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_INMIGRATE, RUN_STATE_FINISH_MIGRATE },
     { RUN_STATE_INMIGRATE, RUN_STATE_PRELAUNCH },
     { RUN_STATE_INMIGRATE, RUN_STATE_POSTMIGRATE },
-    { RUN_STATE_INMIGRATE, RUN_STATE_COLO },
 
     { RUN_STATE_INTERNAL_ERROR, RUN_STATE_PAUSED },
     { RUN_STATE_INTERNAL_ERROR, RUN_STATE_FINISH_MIGRATE },
@@ -76,7 +72,6 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_PAUSED, RUN_STATE_FINISH_MIGRATE },
     { RUN_STATE_PAUSED, RUN_STATE_POSTMIGRATE },
     { RUN_STATE_PAUSED, RUN_STATE_PRELAUNCH },
-    { RUN_STATE_PAUSED, RUN_STATE_COLO},
     { RUN_STATE_PAUSED, RUN_STATE_SUSPENDED},
 
     { RUN_STATE_POSTMIGRATE, RUN_STATE_RUNNING },
@@ -91,7 +86,6 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_PAUSED },
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_POSTMIGRATE },
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_PRELAUNCH },
-    { RUN_STATE_FINISH_MIGRATE, RUN_STATE_COLO },
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_INTERNAL_ERROR },
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_IO_ERROR },
     { RUN_STATE_FINISH_MIGRATE, RUN_STATE_SHUTDOWN },
@@ -102,10 +96,6 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_RESTORE_VM, RUN_STATE_PRELAUNCH },
     { RUN_STATE_RESTORE_VM, RUN_STATE_SUSPENDED },
 
-    { RUN_STATE_COLO, RUN_STATE_RUNNING },
-    { RUN_STATE_COLO, RUN_STATE_PRELAUNCH },
-    { RUN_STATE_COLO, RUN_STATE_SHUTDOWN},
-
     { RUN_STATE_RUNNING, RUN_STATE_DEBUG },
     { RUN_STATE_RUNNING, RUN_STATE_INTERNAL_ERROR },
     { RUN_STATE_RUNNING, RUN_STATE_IO_ERROR },
@@ -115,7 +105,6 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_RUNNING, RUN_STATE_SAVE_VM },
     { RUN_STATE_RUNNING, RUN_STATE_SHUTDOWN },
     { RUN_STATE_RUNNING, RUN_STATE_GUEST_PANICKED },
-    { RUN_STATE_RUNNING, RUN_STATE_COLO},
 
     { RUN_STATE_SAVE_VM, RUN_STATE_RUNNING },
     { RUN_STATE_SAVE_VM, RUN_STATE_SUSPENDED },
@@ -123,14 +112,12 @@ static const RunStateTransition runstate_transitions_def[] = {
     { RUN_STATE_SHUTDOWN, RUN_STATE_PAUSED },
     { RUN_STATE_SHUTDOWN, RUN_STATE_FINISH_MIGRATE },
     { RUN_STATE_SHUTDOWN, RUN_STATE_PRELAUNCH },
-    { RUN_STATE_SHUTDOWN, RUN_STATE_COLO },
 
     { RUN_STATE_DEBUG, RUN_STATE_SUSPENDED },
     { RUN_STATE_RUNNING, RUN_STATE_SUSPENDED },
     { RUN_STATE_SUSPENDED, RUN_STATE_RUNNING },
     { RUN_STATE_SUSPENDED, RUN_STATE_FINISH_MIGRATE },
     { RUN_STATE_SUSPENDED, RUN_STATE_PRELAUNCH },
-    { RUN_STATE_SUSPENDED, RUN_STATE_COLO},
     { RUN_STATE_SUSPENDED, RUN_STATE_PAUSED},
     { RUN_STATE_SUSPENDED, RUN_STATE_SAVE_VM },
     { RUN_STATE_SUSPENDED, RUN_STATE_RESTORE_VM },
@@ -419,13 +406,7 @@ void qemu_system_reset(ShutdownCause reason)
 
     cpu_synchronize_all_states();
 
-    switch (reason) {
-    case SHUTDOWN_CAUSE_SNAPSHOT_LOAD:
-        type = RESET_TYPE_SNAPSHOT_LOAD;
-        break;
-    default:
-        type = RESET_TYPE_COLD;
-    }
+    type = RESET_TYPE_COLD;
     if (mc && mc->reset) {
         mc->reset(current_machine, type);
     } else {
@@ -434,7 +415,6 @@ void qemu_system_reset(ShutdownCause reason)
     switch (reason) {
     case SHUTDOWN_CAUSE_NONE:
     case SHUTDOWN_CAUSE_SUBSYSTEM_RESET:
-    case SHUTDOWN_CAUSE_SNAPSHOT_LOAD:
         break;
     default:
         qapi_event_send_reset(shutdown_caused_by_guest(reason), reason);
@@ -489,13 +469,6 @@ void qemu_system_guest_panicked(GuestPanicInformation *info)
                           info->u.hyper_v.arg3,
                           info->u.hyper_v.arg4,
                           info->u.hyper_v.arg5);
-        } else if (info->type == GUEST_PANIC_INFORMATION_TYPE_S390) {
-            qemu_log_mask(LOG_GUEST_ERROR, " on cpu %d: %s\n"
-                          "PSW: 0x%016" PRIx64 " 0x%016" PRIx64"\n",
-                          info->u.s390.core,
-                          S390CrashReason_str(info->u.s390.reason),
-                          info->u.s390.psw_mask,
-                          info->u.s390.psw_addr);
         }
         qapi_free_GuestPanicInformation(info);
     }
@@ -763,11 +736,6 @@ void qemu_init_subsystems(void)
     runstate_init();
     monitor_init_globals();
 
-    if (qcrypto_init(&err) < 0) {
-        error_reportf_err(err, "cannot initialize crypto: ");
-        exit(1);
-    }
-
     os_setup_early_signal_handling();
 
     bdrv_init_with_whitelist();
@@ -783,7 +751,6 @@ void qemu_cleanup(int status)
     job_cancel_sync_all();
     bdrv_close_all();
 
-    tpm_cleanup();
     net_cleanup();
     audio_cleanup();
     monitor_cleanup();

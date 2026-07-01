@@ -165,7 +165,7 @@ static void *mmap_activate(void *ptr, size_t size, int fd,
                     "crash.\n", file_name);
             g_free(proc_link);
             g_free(file_name);
-            warn_report("Using non DAX backing file with 'pmem=on' option"
+            warn_report("Using non DAX file with 'pmem=on' option"
                         " is deprecated");
         }
         activated_ptr = mmap(ptr, size, prot, flags, fd, map_offset);

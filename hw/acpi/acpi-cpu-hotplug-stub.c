@@ -1,6 +1,6 @@
 #include "qemu/osdep.h"
 #include "hw/acpi/cpu_hotplug.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 
 
 const VMStateDescription vmstate_cpu_hotplug;

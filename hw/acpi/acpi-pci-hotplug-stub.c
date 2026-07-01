@@ -1,6 +1,6 @@
 #include "qemu/osdep.h"
 #include "hw/acpi/pcihp.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 
 const VMStateDescription vmstate_acpi_pcihp_pci_status;
 

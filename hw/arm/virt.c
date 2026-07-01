@@ -15,10 +15,8 @@
 #include "net/net.h"
 #include "system/device_tree.h"
 #include <libfdt.h>
-#include "system/numa.h"
 #include "system/runstate.h"
 #include "system/system.h"
-#include "system/tpm.h"
 #include "system/tcg.h"
 #include "system/hvf.h"
 #include "system/gunyah.h"
@@ -48,29 +46,14 @@
 #include "qapi/qapi-visit-common.h"
 #include "qobject/qlist.h"
 #include "standard-headers/linux/input.h"
-#include "hw/arm/smmuv3.h"
 #include "hw/acpi/acpi.h"
 #include "target/arm/cpu-qom.h"
 #include "target/arm/internals.h"
 #include "target/arm/multiprocessing.h"
 #include "target/arm/gtimer.h"
-#include "hw/mem/pc-dimm.h"
-#include "hw/mem/nvdimm.h"
 #include "hw/acpi/generic_event_device.h"
-#include "hw/virtio/virtio-iommu.h"
 #include "hw/char/pl011.h"
 #include "qemu/guest-random.h"
-
-static GlobalProperty arm_virt_compat[] = {
- { TYPE_VIRTIO_IOMMU_PCI, "aw-bits", "48" },
-};
-static const size_t arm_virt_compat_len = G_N_ELEMENTS(arm_virt_compat);
-
-static void arm_virt_compat_set(MachineClass *mc)
-{
- compat_props_add(mc->compat_props, arm_virt_compat,
- arm_virt_compat_len);
-}
 
 #define DEFINE_VIRT_MACHINE_IMPL(latest, ...) \
  static void MACHINE_VER_SYM(class_init, virt, __VA_ARGS__)( \
@@ -78,7 +61,6 @@ static void arm_virt_compat_set(MachineClass *mc)
  void *data) \
  { \
  MachineClass *mc = MACHINE_CLASS(oc); \
- arm_virt_compat_set(mc); \
  MACHINE_VER_SYM(options, virt, __VA_ARGS__)(mc); \
  mc->desc = "QEMU " MACHINE_VER_STR(__VA_ARGS__) " ARM Virtual Machine"; \
  MACHINE_VER_DEPRECATION(__VA_ARGS__); \
@@ -130,10 +112,7 @@ static const MemMapEntry base_memmap[] = {
  [VIRT_FW_CFG] = { 0x09020000, 0x00000018 },
  [VIRT_GPIO] = { 0x09030000, 0x00001000 },
  [VIRT_UART1] = { 0x09040000, 0x00001000 },
- [VIRT_SMMU] = { 0x09050000, 0x00020000 },
- [VIRT_PCDIMM_ACPI] = { 0x09070000, MEMORY_HOTPLUG_IO_LEN },
  [VIRT_ACPI_GED] = { 0x09080000, ACPI_GED_EVT_SEL_LEN },
- [VIRT_NVDIMM_ACPI] = { 0x09090000, NVDIMM_ACPI_IO_LEN},
  [VIRT_PVTIME] = { 0x090a0000, 0x00010000 },
  [VIRT_SECURE_GPIO] = { 0x090b0000, 0x00001000 },
  [VIRT_MMIO] = { 0x0a000000, 0x00000200 },
@@ -167,7 +146,6 @@ static const int a15irqmap[] = {
  [VIRT_ACPI_GED] = 9,
  [VIRT_MMIO] = 16,
  [VIRT_GIC_V2M] = 48,
- [VIRT_SMMU] = 74,
  [VIRT_PLATFORM_BUS] = 112,
 };
 
@@ -197,7 +175,6 @@ static bool ns_el2_virt_timer_present(void)
 static void create_fdt(VirtMachineState *vms)
 {
  MachineState *ms = MACHINE(vms);
- int nb_numa_nodes = ms->numa_state->num_nodes;
  void *fdt = create_device_tree(&vms->fdt_size);
 
  if (!fdt) {
@@ -237,28 +214,6 @@ static void create_fdt(VirtMachineState *vms)
  "clk24mhz");
  qemu_fdt_setprop_cell(fdt, "/apb-pclk", "phandle", vms->clock_phandle);
 
- if (nb_numa_nodes > 0 && ms->numa_state->have_numa_distance) {
- int size = nb_numa_nodes * nb_numa_nodes * 3 * sizeof(uint32_t);
- uint32_t *matrix = g_malloc0(size);
- int idx, i, j;
-
- for (i = 0; i < nb_numa_nodes; i++) {
- for (j = 0; j < nb_numa_nodes; j++) {
- idx = (i * nb_numa_nodes + j) * 3;
- matrix[idx + 0] = cpu_to_be32(i);
- matrix[idx + 1] = cpu_to_be32(j);
- matrix[idx + 2] =
- cpu_to_be32(ms->numa_state->nodes[i].distance[j]);
- }
- }
-
- qemu_fdt_add_subnode(fdt, "/distance-map");
- qemu_fdt_setprop_string(fdt, "/distance-map", "compatible",
- "numa-distance-map-v1");
- qemu_fdt_setprop(fdt, "/distance-map", "distance-matrix",
- matrix, size);
- g_free(matrix);
- }
 }
 
 static void fdt_add_timer_nodes(const VirtMachineState *vms)
@@ -340,7 +295,6 @@ static void fdt_add_cpu_nodes(const VirtMachineState *vms)
  for (cpu = smp_cpus - 1; cpu >= 0; cpu--) {
  char *nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
  ARMCPU *armcpu = ARM_CPU(qemu_get_cpu(cpu));
- CPUState *cs = CPU(armcpu);
 
  qemu_fdt_add_subnode(ms->fdt, nodename);
  qemu_fdt_setprop_string(ms->fdt, nodename, "device_type", "cpu");
@@ -358,11 +312,6 @@ static void fdt_add_cpu_nodes(const VirtMachineState *vms)
  } else {
  qemu_fdt_setprop_cell(ms->fdt, nodename, "reg",
  arm_cpu_mp_affinity(armcpu));
- }
-
- if (ms->possible_cpus->cpus[cs->cpu_index].props.has_node_id) {
- qemu_fdt_setprop_cell(ms->fdt, nodename, "numa-node-id",
- ms->possible_cpus->cpus[cs->cpu_index].props.node_id);
  }
 
  if (!vmc->no_cpu_topology) {
@@ -554,24 +503,14 @@ static void fdt_add_pmu_nodes(const VirtMachineState *vms)
 static inline DeviceState *create_acpi_ged(VirtMachineState *vms)
 {
  DeviceState *dev;
- MachineState *ms = MACHINE(vms);
  int irq = vms->irqmap[VIRT_ACPI_GED];
  uint32_t event = ACPI_GED_PWR_DOWN_EVT;
-
- if (ms->ram_slots) {
- event |= ACPI_GED_MEM_HOTPLUG_EVT;
- }
-
- if (ms->nvdimms_state->is_enabled) {
- event |= ACPI_GED_NVDIMM_HOTPLUG_EVT;
- }
 
  dev = qdev_new(TYPE_ACPI_GED);
  qdev_prop_set_uint32(dev, "ged-event", event);
  sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 
  sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, vms->memmap[VIRT_ACPI_GED].base);
- sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, vms->memmap[VIRT_PCDIMM_ACPI].base);
  sysbus_connect_irq(SYS_BUS_DEVICE(dev), 0, qdev_get_gpio_in(vms->gic, irq));
 
  return dev;
@@ -1077,86 +1016,6 @@ static void create_pcie_irq_map(const MachineState *ms,
  0x7 );
 }
 
-static void create_smmu(const VirtMachineState *vms,
- PCIBus *bus)
-{
- VirtMachineClass *vmc = VIRT_MACHINE_GET_CLASS(vms);
- char *node;
- const char compat[] = "arm,smmu-v3";
- int irq = vms->irqmap[VIRT_SMMU];
- int i;
- hwaddr base = vms->memmap[VIRT_SMMU].base;
- hwaddr size = vms->memmap[VIRT_SMMU].size;
- const char irq_names[] = "eventq\0priq\0cmdq-sync\0gerror";
- DeviceState *dev;
- MachineState *ms = MACHINE(vms);
-
- if (vms->iommu != VIRT_IOMMU_SMMUV3 || !vms->iommu_phandle) {
- return;
- }
-
- dev = qdev_new(TYPE_ARM_SMMUV3);
-
- if (!vmc->no_nested_smmu) {
- object_property_set_str(OBJECT(dev), "stage", "nested", &error_fatal);
- }
- object_property_set_link(OBJECT(dev), "primary-bus", OBJECT(bus),
- &error_abort);
- sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
- sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, base);
- for (i = 0; i < NUM_SMMU_IRQS; i++) {
- sysbus_connect_irq(SYS_BUS_DEVICE(dev), i,
- qdev_get_gpio_in(vms->gic, irq + i));
- }
-
- node = g_strdup_printf("/smmuv3@%" PRIx64, base);
- qemu_fdt_add_subnode(ms->fdt, node);
- qemu_fdt_setprop(ms->fdt, node, "compatible", compat, sizeof(compat));
- qemu_fdt_setprop_sized_cells(ms->fdt, node, "reg", 2, base, 2, size);
-
- qemu_fdt_setprop_cells(ms->fdt, node, "interrupts",
- GIC_FDT_IRQ_TYPE_SPI, irq , GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 1, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 2, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 3, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI);
-
- qemu_fdt_setprop(ms->fdt, node, "interrupt-names", irq_names,
- sizeof(irq_names));
-
- qemu_fdt_setprop(ms->fdt, node, "dma-coherent", NULL, 0);
-
- qemu_fdt_setprop_cell(ms->fdt, node, "#iommu-cells", 1);
-
- qemu_fdt_setprop_cell(ms->fdt, node, "phandle", vms->iommu_phandle);
- g_free(node);
-}
-
-static void create_virtio_iommu_dt_bindings(VirtMachineState *vms)
-{
- const char compat[] = "virtio,pci-iommu\0pci1af4,1057";
- uint16_t bdf = vms->virtio_iommu_bdf;
- MachineState *ms = MACHINE(vms);
- char *node;
-
- vms->iommu_phandle = qemu_fdt_alloc_phandle(ms->fdt);
-
- node = g_strdup_printf("%s/virtio_iommu@%x,%x", vms->pciehb_nodename,
- PCI_SLOT(bdf), PCI_FUNC(bdf));
- qemu_fdt_add_subnode(ms->fdt, node);
- qemu_fdt_setprop(ms->fdt, node, "compatible", compat, sizeof(compat));
- qemu_fdt_setprop_sized_cells(ms->fdt, node, "reg",
- 1, bdf << 8, 1, 0, 1, 0,
- 1, 0, 1, 0);
-
- qemu_fdt_setprop_cell(ms->fdt, node, "#iommu-cells", 1);
- qemu_fdt_setprop_cell(ms->fdt, node, "phandle", vms->iommu_phandle);
- g_free(node);
-
- qemu_fdt_setprop_cells(ms->fdt, vms->pciehb_nodename, "iommu-map",
- 0x0, vms->iommu_phandle, 0x0, bdf,
- bdf + 1, vms->iommu_phandle, bdf + 1, 0xffff - bdf);
-}
-
 static void create_pcie(VirtMachineState *vms)
 {
  hwaddr base_mmio = vms->memmap[VIRT_PCIE_MMIO].base;
@@ -1219,7 +1078,6 @@ static void create_pcie(VirtMachineState *vms)
  }
 
  pci = PCI_HOST_BRIDGE(dev);
- pci->bypass_iommu = vms->default_bus_bypass_iommu;
  vms->bus = pci->bus;
  if (vms->bus) {
  pci_init_nic_devices(pci->bus, mc->default_nic);
@@ -1265,19 +1123,6 @@ static void create_pcie(VirtMachineState *vms)
  qemu_fdt_setprop_cell(ms->fdt, nodename, "#interrupt-cells", 1);
  create_pcie_irq_map(ms, vms->gic_phandle, irq, nodename);
 
- if (vms->iommu) {
- vms->iommu_phandle = qemu_fdt_alloc_phandle(ms->fdt);
-
- switch (vms->iommu) {
- case VIRT_IOMMU_SMMUV3:
- create_smmu(vms, vms->bus);
- qemu_fdt_setprop_cells(ms->fdt, nodename, "iommu-map",
- 0x0, vms->iommu_phandle, 0x0, 0x10000);
- break;
- default:
- g_assert_not_reached();
- }
- }
 }
 
 static void create_platform_bus(VirtMachineState *vms)
@@ -1512,7 +1357,7 @@ static void virt_set_high_memmap(VirtMachineState *vms,
 static void virt_set_memmap(VirtMachineState *vms, int pa_bits)
 {
  MachineState *ms = MACHINE(vms);
- hwaddr base, device_memory_base, device_memory_size, memtop;
+ hwaddr base, memtop;
  int i;
 
  vms->memmap = extended_memmap;
@@ -1525,28 +1370,14 @@ static void virt_set_memmap(VirtMachineState *vms, int pa_bits)
  vms->memmap[VIRT_MEM].base = 2 * GiB;
  }
 
- if (ms->ram_slots > ACPI_MAX_RAM_SLOTS) {
- error_report("unsupported number of memory slots: %"PRIu64,
- ms->ram_slots);
- exit(EXIT_FAILURE);
- }
-
  if (!vms->highmem) {
  pa_bits = 32;
  }
 
- device_memory_base =
- ROUND_UP(vms->memmap[VIRT_MEM].base + ms->ram_size, GiB);
- device_memory_size = ms->maxram_size - ms->ram_size + ms->ram_slots * GiB;
-
- memtop = base = device_memory_base + ROUND_UP(device_memory_size, GiB);
+ memtop = base = vms->memmap[VIRT_MEM].base + ms->ram_size;
  if (memtop > BIT_ULL(pa_bits)) {
  error_report("Addressing limited to %d bits, but memory exceeds it by %llu bytes",
  pa_bits, memtop - BIT_ULL(pa_bits));
- exit(EXIT_FAILURE);
- }
- if (base < device_memory_base) {
- error_report("maxmem/slots too huge");
  exit(EXIT_FAILURE);
  }
  if (base < vms->memmap[VIRT_MEM].base + LEGACY_RAMLIMIT_BYTES) {
@@ -1556,10 +1387,6 @@ static void virt_set_memmap(VirtMachineState *vms, int pa_bits)
  vms->highest_gpa = memtop - 1;
 
  virt_set_high_memmap(vms, base, pa_bits);
-
- if (device_memory_size > 0) {
- machine_memory_devices_init(ms, device_memory_base, device_memory_size);
- }
 }
 
 static VirtGICType finalize_gic_version_do(const char *accel_name,
@@ -2314,9 +2141,6 @@ static void machvirt_init(MachineState *machine)
  cs = CPU(cpuobj);
  cs->cpu_index = n;
 
- numa_cpu_pre_plug(&possible_cpus->cpus[cs->cpu_index], DEVICE(cpuobj),
- &error_fatal);
-
  aarch64 &= object_property_get_bool(cpuobj, "aarch64", NULL);
 
  if (!vms->secure) {
@@ -2482,20 +2306,6 @@ static void machvirt_init(MachineState *machine)
  rom_set_fw(vms->fw_cfg);
 
  create_platform_bus(vms);
-
-#ifdef CONFIG_NVDIMM
- if (machine->nvdimms_state->is_enabled) {
- const struct AcpiGenericAddress arm_virt_nvdimm_acpi_dsmio = {
- .space_id = AML_AS_SYSTEM_MEMORY,
- .address = vms->memmap[VIRT_NVDIMM_ACPI].base,
- .bit_width = NVDIMM_ACPI_IO_LEN << 3
- };
-
- nvdimm_init_acpi_state(machine->nvdimms_state, sysmem,
- arm_virt_nvdimm_acpi_dsmio,
- vms->fw_cfg, OBJECT(vms));
- }
-#endif
 
  vms->bootinfo.ram_size = machine->ram_size;
  vms->bootinfo.board_id = -1;
@@ -2816,49 +2626,6 @@ static void virt_set_gic_version(Object *obj, const char *value, Error **errp)
  }
 }
 
-static char *virt_get_iommu(Object *obj, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- switch (vms->iommu) {
- case VIRT_IOMMU_NONE:
- return g_strdup("none");
- case VIRT_IOMMU_SMMUV3:
- return g_strdup("smmuv3");
- default:
- g_assert_not_reached();
- }
-}
-
-static void virt_set_iommu(Object *obj, const char *value, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- if (!strcmp(value, "smmuv3")) {
- vms->iommu = VIRT_IOMMU_SMMUV3;
- } else if (!strcmp(value, "none")) {
- vms->iommu = VIRT_IOMMU_NONE;
- } else {
- error_setg(errp, "Invalid iommu value");
- error_append_hint(errp, "Valid values are none, smmuv3.\n");
- }
-}
-
-static bool virt_get_default_bus_bypass_iommu(Object *obj, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- return vms->default_bus_bypass_iommu;
-}
-
-static void virt_set_default_bus_bypass_iommu(Object *obj, bool value,
- Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- vms->default_bus_bypass_iommu = value;
-}
-
 static CpuInstanceProperties
 virt_cpu_index_to_props(MachineState *ms, unsigned cpu_index)
 {
@@ -2867,13 +2634,6 @@ virt_cpu_index_to_props(MachineState *ms, unsigned cpu_index)
 
  assert(cpu_index < possible_cpus->len);
  return possible_cpus->cpus[cpu_index].props;
-}
-
-static int64_t virt_get_default_cpu_node_id(const MachineState *ms, int idx)
-{
- int64_t socket_id = ms->possible_cpus->cpus[idx].props.socket_id;
-
- return socket_id % ms->numa_state->num_nodes;
 }
 
 static const CPUArchIdList *virt_possible_cpu_arch_ids(MachineState *ms)
@@ -2913,93 +2673,9 @@ static const CPUArchIdList *virt_possible_cpu_arch_ids(MachineState *ms)
  return ms->possible_cpus;
 }
 
-static void virt_memory_pre_plug(HotplugHandler *hotplug_dev, DeviceState *dev,
- Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
- const MachineState *ms = MACHINE(hotplug_dev);
- const bool is_nvdimm = object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM);
-
- if (!vms->acpi_dev) {
- error_setg(errp,
- "memory hotplug is not enabled: missing acpi-ged device");
- return;
- }
-
- if (vms->mte) {
- error_setg(errp, "memory hotplug is not enabled: MTE is enabled");
- return;
- }
-
- if (is_nvdimm && !ms->nvdimms_state->is_enabled) {
- error_setg(errp, "nvdimm is not enabled: add 'nvdimm=on' to '-M'");
- return;
- }
-
- pc_dimm_pre_plug(PC_DIMM(dev), MACHINE(hotplug_dev), errp);
-}
-
-static void virt_memory_plug(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
-
- pc_dimm_plug(PC_DIMM(dev), MACHINE(vms));
-
-#ifdef CONFIG_NVDIMM
- MachineState *ms = MACHINE(hotplug_dev);
- bool is_nvdimm = object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM);
-
- if (is_nvdimm) {
- nvdimm_plug(ms->nvdimms_state);
- }
-#endif
-
- hotplug_handler_plug(HOTPLUG_HANDLER(vms->acpi_dev),
- dev, &error_abort);
-}
-
 static void virt_machine_device_pre_plug_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
-
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_memory_pre_plug(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
- hwaddr db_start = 0, db_end = 0;
- QList *reserved_regions;
- char *resv_prop_str;
-
- if (vms->iommu != VIRT_IOMMU_NONE) {
- error_setg(errp, "virt machine does not support multiple IOMMUs");
- return;
- }
-
- switch (vms->msi_controller) {
- case VIRT_MSI_CTRL_NONE:
- return;
- case VIRT_MSI_CTRL_ITS:
-
- db_start = base_memmap[VIRT_GIC_ITS].base + 0x10000;
- db_end = base_memmap[VIRT_GIC_ITS].base +
- base_memmap[VIRT_GIC_ITS].size - 1;
- break;
- case VIRT_MSI_CTRL_GICV2M:
-
- db_start = base_memmap[VIRT_GIC_V2M].base;
- db_end = db_start + base_memmap[VIRT_GIC_V2M].size - 1;
- break;
- }
- resv_prop_str = g_strdup_printf("0x%"PRIx64":0x%"PRIx64":%u",
- db_start, db_end,
- VIRTIO_IOMMU_RESV_MEM_T_MSI);
-
- reserved_regions = qlist_new();
- qlist_append_str(reserved_regions, resv_prop_str);
- qdev_prop_set_array(dev, "reserved-regions", reserved_regions);
- g_free(resv_prop_str);
- }
 }
 
 static void virt_machine_device_plug_cb(HotplugHandler *hotplug_dev,
@@ -3016,77 +2692,20 @@ static void virt_machine_device_plug_cb(HotplugHandler *hotplug_dev,
  }
  }
 
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_memory_plug(hotplug_dev, dev, errp);
- }
-
- if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
- PCIDevice *pdev = PCI_DEVICE(dev);
-
- vms->iommu = VIRT_IOMMU_VIRTIO;
- vms->virtio_iommu_bdf = pci_get_bdf(pdev);
- create_virtio_iommu_dt_bindings(vms);
- }
-}
-
-static void virt_dimm_unplug_request(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
-
- if (!vms->acpi_dev) {
- error_setg(errp,
- "memory hotplug is not enabled: missing acpi-ged device");
- return;
- }
-
- if (object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM)) {
- error_setg(errp, "nvdimm device hot unplug is not supported yet.");
- return;
- }
-
- hotplug_handler_unplug_request(HOTPLUG_HANDLER(vms->acpi_dev), dev,
- errp);
-}
-
-static void virt_dimm_unplug(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
- Error *local_err = NULL;
-
- hotplug_handler_unplug(HOTPLUG_HANDLER(vms->acpi_dev), dev, &local_err);
- if (local_err) {
- goto out;
- }
-
- pc_dimm_unplug(PC_DIMM(dev), MACHINE(vms));
- qdev_unrealize(dev);
-
-out:
- error_propagate(errp, local_err);
 }
 
 static void virt_machine_device_unplug_request_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_dimm_unplug_request(hotplug_dev, dev, errp);
- } else {
  error_setg(errp, "device unplug request for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
- }
 }
 
 static void virt_machine_device_unplug_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_dimm_unplug(hotplug_dev, dev, errp);
- } else {
  error_setg(errp, "virt: device unplug for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
- }
 }
 
 static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
@@ -3094,9 +2713,7 @@ static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
 {
  MachineClass *mc = MACHINE_GET_CLASS(machine);
 
- if (device_is_dynamic_sysbus(mc, dev) ||
- object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM) ||
- object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
+ if (device_is_dynamic_sysbus(mc, dev)) {
  return HOTPLUG_HANDLER(machine);
  }
  return NULL;
@@ -3163,9 +2780,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
 
  mc->max_cpus = 512;
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_RAMFB_DEVICE);
-#ifdef CONFIG_TPM
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_TPM_TIS_SYSBUS);
-#endif
  mc->block_default_type = IF_VIRTIO;
  mc->no_cdrom = 1;
  mc->pci_allow_0_address = true;
@@ -3179,8 +2793,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  mc->default_cpu_type = ARM_CPU_TYPE_NAME("max");
 #endif
  mc->valid_cpu_types = valid_cpu_types;
- mc->get_default_cpu_node_id = virt_get_default_cpu_node_id;
-
  mc->hvf_get_physical_address_range = virt_hvf_get_physical_address_range;
  assert(!mc->get_hotplug_handler);
  mc->get_hotplug_handler = virt_machine_get_hotplug_handler;
@@ -3188,12 +2800,8 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  hc->plug = virt_machine_device_plug_cb;
  hc->unplug_request = virt_machine_device_unplug_request_cb;
  hc->unplug = virt_machine_device_unplug_cb;
- mc->nvdimm_supported = true;
  mc->smp_props.clusters_supported = true;
- mc->auto_enable_numa_with_memhp = true;
- mc->auto_enable_numa_with_memdev = true;
 
- mc->cpu_cluster_has_numa_boundary = true;
  mc->default_ram_id = "mach-virt.ram";
  mc->default_nic = "virtio-net-pci";
 
@@ -3263,18 +2871,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  object_class_property_set_description(oc, "gic-version",
  "Set GIC version. "
  "Valid values are 2, 3, 4, host and max");
-
- object_class_property_add_str(oc, "iommu", virt_get_iommu, virt_set_iommu);
- object_class_property_set_description(oc, "iommu",
- "Set the IOMMU type. "
- "Valid values are none and smmuv3");
-
- object_class_property_add_bool(oc, "default-bus-bypass-iommu",
- virt_get_default_bus_bypass_iommu,
- virt_set_default_bus_bypass_iommu);
- object_class_property_set_description(oc, "default-bus-bypass-iommu",
- "Set on/off to enable/disable "
- "bypass_iommu for default root bus");
 
  object_class_property_add_bool(oc, "ras", virt_get_ras,
  virt_set_ras);
@@ -3354,10 +2950,6 @@ static void virt_instance_init(Object *obj)
  vms->tcg_its = true;
  }
  }
-
- vms->iommu = VIRT_IOMMU_NONE;
-
- vms->default_bus_bypass_iommu = false;
 
  vms->ras = false;
 

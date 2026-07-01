@@ -48,7 +48,7 @@
 
 #include "qemu/pmem.h"
 
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 
 #include "qemu/range.h"
 #ifndef _WIN32
@@ -62,7 +62,10 @@
 #endif
 
 
-RAMList ram_list = { .blocks = QLIST_HEAD_INITIALIZER(ram_list.blocks) };
+RAMList ram_list = {
+    .blocks = QLIST_HEAD_INITIALIZER(ram_list.blocks),
+    .ramblock_notifiers = QLIST_HEAD_INITIALIZER(ram_list.ramblock_notifiers),
+};
 
 static MemoryRegion *system_memory;
 static MemoryRegion *system_io;
@@ -129,7 +132,7 @@ typedef struct CPUAddressSpace {
     MemoryListener tcg_as_listener;
 } CPUAddressSpace;
 
-struct DirtyBitmapSnapshot {
+struct DirtyBitmapSample {
     ram_addr_t start;
     ram_addr_t end;
     unsigned long dirty[];
@@ -735,13 +738,13 @@ bool cpu_physical_memory_test_and_clear_dirty(ram_addr_t start,
     return dirty;
 }
 
-DirtyBitmapSnapshot *cpu_physical_memory_snapshot_and_clear_dirty
+DirtyBitmapSample *cpu_physical_memory_sample_and_clear_dirty
     (MemoryRegion *mr, hwaddr offset, hwaddr length, unsigned client)
 {
     DirtyMemoryBlocks *blocks;
     ram_addr_t start, first, last;
     unsigned long align = 1UL << (TARGET_PAGE_BITS + BITS_PER_LEVEL);
-    DirtyBitmapSnapshot *snap;
+    DirtyBitmapSample *snap;
     unsigned long page, end, dest;
 
     start = memory_region_get_ram_addr(mr);
@@ -788,7 +791,7 @@ DirtyBitmapSnapshot *cpu_physical_memory_snapshot_and_clear_dirty
     return snap;
 }
 
-bool cpu_physical_memory_snapshot_get_dirty(DirtyBitmapSnapshot *snap,
+bool cpu_physical_memory_sample_get_dirty(DirtyBitmapSample *snap,
                                             ram_addr_t start,
                                             ram_addr_t length)
 {
@@ -951,6 +954,64 @@ void qemu_mutex_unlock_ramlist(void)
     qemu_mutex_unlock(&ram_list.mutex);
 }
 
+void ram_block_notifier_add(RAMBlockNotifier *n)
+{
+    RAMBlock *block;
+
+    qemu_mutex_lock_ramlist();
+    QLIST_INSERT_HEAD(&ram_list.ramblock_notifiers, n, next);
+    qemu_mutex_unlock_ramlist();
+
+    WITH_RCU_READ_LOCK_GUARD() {
+        RAMBLOCK_FOREACH(block) {
+            if (n->ram_block_added) {
+                n->ram_block_added(n, block->host, block->used_length,
+                                   block->max_length);
+            }
+        }
+    }
+}
+
+void ram_block_notifier_remove(RAMBlockNotifier *n)
+{
+    qemu_mutex_lock_ramlist();
+    QLIST_REMOVE(n, next);
+    qemu_mutex_unlock_ramlist();
+}
+
+void ram_block_notify_add(void *host, size_t size, size_t max_size)
+{
+    RAMBlockNotifier *n, *next;
+
+    QLIST_FOREACH_SAFE(n, &ram_list.ramblock_notifiers, next, next) {
+        if (n->ram_block_added) {
+            n->ram_block_added(n, host, size, max_size);
+        }
+    }
+}
+
+void ram_block_notify_remove(void *host, size_t size, size_t max_size)
+{
+    RAMBlockNotifier *n, *next;
+
+    QLIST_FOREACH_SAFE(n, &ram_list.ramblock_notifiers, next, next) {
+        if (n->ram_block_removed) {
+            n->ram_block_removed(n, host, size, max_size);
+        }
+    }
+}
+
+void ram_block_notify_resize(void *host, size_t old_size, size_t new_size)
+{
+    RAMBlockNotifier *n, *next;
+
+    QLIST_FOREACH_SAFE(n, &ram_list.ramblock_notifiers, next, next) {
+        if (n->ram_block_resized) {
+            n->ram_block_resized(n, host, old_size, new_size);
+        }
+    }
+}
+
 GString *ram_block_format(void)
 {
     RAMBlock *block;
@@ -1109,73 +1170,6 @@ static int64_t get_file_align(int fd)
 #endif /* defined(__linux__) && defined(CONFIG_LIBDAXCTL) */
 
     return align;
-}
-
-static int file_ram_open(const char *path,
-                         const char *region_name,
-                         bool readonly,
-                         bool *created)
-{
-    char *filename;
-    char *sanitized_name;
-    char *c;
-    int fd = -1;
-
-    *created = false;
-    for (;;) {
-        fd = open(path, readonly ? O_RDONLY : O_RDWR);
-        if (fd >= 0) {
-            if (readonly) {
-                struct stat file_stat;
-
-                if (fstat(fd, &file_stat)) {
-                    close(fd);
-                    if (errno == EINTR) {
-                        continue;
-                    }
-                    return -errno;
-                } else if (S_ISDIR(file_stat.st_mode)) {
-                    close(fd);
-                    return -EISDIR;
-                }
-            }
-            break;
-        }
-        if (errno == ENOENT) {
-            if (readonly) {
-                return -ENOENT;
-            }
-            fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0644);
-            if (fd >= 0) {
-                *created = true;
-                break;
-            }
-        } else if (errno == EISDIR) {
-            sanitized_name = g_strdup(region_name);
-            for (c = sanitized_name; *c != '\0'; c++) {
-                if (*c == '/') {
-                    *c = '_';
-                }
-            }
-
-            filename = g_strdup_printf("%s/qemu_back_mem.%s.XXXXXX", path,
-                                       sanitized_name);
-            g_free(sanitized_name);
-
-            fd = mkstemp(filename);
-            if (fd >= 0) {
-                unlink(filename);
-                g_free(filename);
-                break;
-            }
-            g_free(filename);
-        }
-        if (errno != EEXIST && errno != EINTR) {
-            return -errno;
-        }
-    }
-
-    return fd;
 }
 
 static void *file_ram_alloc(RAMBlock *block,
@@ -1665,12 +1659,6 @@ RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, ram_addr_t max_size,
                           RAM_RESIZEABLE)) == 0);
     assert(max_size >= size);
 
-    if (!false) {
-        error_setg(errp,
-                   "host lacks kvm mmu notifiers, -mem-path unsupported");
-        return NULL;
-    }
-
     size = TARGET_PAGE_ALIGN(size);
     size = REAL_HOST_PAGE_ALIGN(size);
     max_size = TARGET_PAGE_ALIGN(max_size);
@@ -1720,48 +1708,6 @@ RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, ram_addr_t max_size,
 }
 
 
-RAMBlock *qemu_ram_alloc_from_file(ram_addr_t size, MemoryRegion *mr,
-                                   uint32_t ram_flags, const char *mem_path,
-                                   off_t offset, Error **errp)
-{
-    int fd;
-    bool created;
-    RAMBlock *block;
-
-    fd = file_ram_open(mem_path, memory_region_name(mr),
-                       !!(ram_flags & RAM_READONLY_FD), &created);
-    if (fd < 0) {
-        error_setg_errno(errp, -fd, "can't open backing store %s for guest RAM",
-                         mem_path);
-        if (!(ram_flags & RAM_READONLY_FD) && !(ram_flags & RAM_SHARED) &&
-            fd == -EACCES) {
-            fd = file_ram_open(mem_path, memory_region_name(mr), true,
-                               &created);
-            if (fd < 0) {
-                return NULL;
-            }
-            assert(!created);
-            close(fd);
-            error_append_hint(errp, "Consider opening the backing store"
-                " read-only but still creating writable RAM using"
-                " '-object memory-backend-file,readonly=on,rom=off...'"
-                " (see \"VM templating\" documentation)\n");
-        }
-        return NULL;
-    }
-
-    block = qemu_ram_alloc_from_fd(size, size, NULL, mr, ram_flags, fd, offset,
-                                   false, errp);
-    if (!block) {
-        if (created) {
-            unlink(mem_path);
-        }
-        close(fd);
-        return NULL;
-    }
-
-    return block;
-}
 #endif
 
 #ifdef CONFIG_POSIX

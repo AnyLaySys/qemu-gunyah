@@ -37,6 +37,10 @@ if opengl.found()
                 if_true: files('shader.c', 'console-gl.c',
                                'egl-helpers.c', 'egl-context.c'))
   ui_modules += {'opengl' : opengl_ss}
+
+  agl_ss = ss.source_set()
+  agl_ss.add(pixman, glib, files('agl.c'))
+  ui_modules += {'agl' : agl_ss}
 endif
 
 if dbus_display
@@ -64,7 +68,7 @@ keymaps = [
   ['qcode', 'qnum'],
   ['qcode', 'sun'],
   ['qnum', 'qcode'],
-  ['usb', 'qcode'],
+  ['hid', 'qcode'],
   ['win32', 'qcode'],
   ['x11', 'qcode'],
   ['xorgevdev', 'qcode'],

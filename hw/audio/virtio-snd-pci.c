@@ -37,7 +37,6 @@ static void virtio_snd_pci_class_init(ObjectClass *klass, void *data)
     PCIDeviceClass *pcidevklass = PCI_DEVICE_CLASS(klass);
 
     device_class_set_props(dc, virtio_snd_pci_properties);
-    dc->desc = "Virtio Sound";
     set_bit(DEVICE_CATEGORY_SOUND, dc->categories);
 
     vpciklass->realize = virtio_snd_pci_realize;
@@ -75,7 +74,7 @@ static int virtio_snd_pci_init(PCIBus *bus, const char *audiodev)
 static void virtio_snd_pci_register(void)
 {
     virtio_pci_types_register(&virtio_snd_pci_info);
-    pci_register_soundhw("virtio", "Virtio Sound", virtio_snd_pci_init);
+    pci_register_soundhw("virtio", virtio_snd_pci_init);
 }
 
 type_init(virtio_snd_pci_register);

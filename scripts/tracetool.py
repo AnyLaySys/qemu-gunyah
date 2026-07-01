@@ -26,32 +26,6 @@ def error_opt(msg = None):
     if msg is not None:
         error_write("Error: " + msg + "\n")
 
-    backend_descr = "\n".join([ "    %-15s %s" % (n, d)
-                                for n,d in tracetool.backend.get_list() ])
-    format_descr = "\n".join([ "    %-15s %s" % (n, d)
-                               for n,d in tracetool.format.get_list() ])
-    error_write("""\
-Usage: %(script)s --format=<format> --backends=<backends> [<options>] <trace-events> ... <output>
-
-Backends:
-%(backends)s
-
-Formats:
-%(formats)s
-
-Options:
-    --help                   This help message.
-    --list-backends          Print list of available backends.
-    --check-backends         Check if the given backend is valid.
-    --binary <path>          Full path to QEMU binary (required for 'stap' backend).
-    --group <name>           Name of the event group.
-    --probe-prefix <prefix>  Prefix for dtrace probe names (required for 'stap' backend).
-""" % {
-            "script" : _SCRIPT,
-            "backends" : backend_descr,
-            "formats" : format_descr,
-            })
-
     if msg is None:
         sys.exit(0)
     else:

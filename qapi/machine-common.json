@@ -1,8 +1,5 @@
 
 
-{ 'enum': 'S390CpuEntitlement',
-  'data': [ 'auto', 'low', 'medium', 'high' ] }
-
 { 'enum': 'CpuTopologyLevel',
   'data': [ 'thread', 'core', 'module', 'cluster', 'die',
             'socket', 'book', 'drawer', 'default' ] }

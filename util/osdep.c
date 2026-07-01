@@ -6,7 +6,6 @@
 #include "qemu/madvise.h"
 #include "qemu/mprotect.h"
 #include "qemu/hw-version.h"
-#include "monitor/monitor.h"
 
 static const char *hw_version = QEMU_HW_VERSION;
 
@@ -158,11 +157,6 @@ int qemu_dup(int fd)
     return ret;
 }
 
-static int qemu_parse_fdset(const char *param)
-{
-    return qemu_parse_fd(param);
-}
-
 static void qemu_probe_lock_ops(void)
 {
     if (fcntl_op_setlk == -1) {
@@ -282,23 +276,6 @@ qemu_open_internal(const char *name, int flags, mode_t mode, Error **errp)
 {
     int ret;
 
-#ifndef _WIN32
-    const char *fdset_id_str;
-
-    if (strstart(name, "/dev/fdset/", &fdset_id_str)) {
-        int64_t fdset_id;
-
-        fdset_id = qemu_parse_fdset(fdset_id_str);
-        if (fdset_id == -1) {
-            error_setg(errp, "Could not parse fdset %s", name);
-            errno = EINVAL;
-            return -1;
-        }
-
-        return monitor_fdset_dup_fd_add(fdset_id, flags, errp);
-    }
-#endif
-
     ret = qemu_open_cloexec(name, flags, mode);
 
     if (ret == -1) {
@@ -366,16 +343,11 @@ int qemu_open_old(const char *name, int flags, ...)
 
 int qemu_close(int fd)
 {
-    monitor_fdset_dup_fd_remove(fd);
     return close(fd);
 }
 
 int qemu_unlink(const char *name)
 {
-    if (g_str_has_prefix(name, "/dev/fdset/")) {
-        return 0;
-    }
-
     return unlink(name);
 }
 

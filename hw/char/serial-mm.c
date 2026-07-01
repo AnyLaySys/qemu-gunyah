@@ -2,7 +2,7 @@
 #include "qemu/osdep.h"
 #include "hw/char/serial-mm.h"
 #include "exec/cpu-common.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qapi/error.h"
 #include "hw/qdev-properties.h"
 

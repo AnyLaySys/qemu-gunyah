@@ -17,7 +17,7 @@
 #include "system/tcg.h"
 #include "qemu/accel.h"
 #include "hw/boards.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "exec/address-spaces.h"
 
 
@@ -1557,34 +1557,6 @@ bool memory_region_init_resizeable_ram(MemoryRegion *mr,
 }
 
 #ifdef CONFIG_POSIX
-bool memory_region_init_ram_from_file(MemoryRegion *mr,
-                                      Object *owner,
-                                      const char *name,
-                                      uint64_t size,
-                                      uint64_t align,
-                                      uint32_t ram_flags,
-                                      const char *path,
-                                      ram_addr_t offset,
-                                      Error **errp)
-{
-    Error *err = NULL;
-    memory_region_init(mr, owner, name, size);
-    mr->ram = true;
-    mr->readonly = !!(ram_flags & RAM_READONLY);
-    mr->terminates = true;
-    mr->destructor = memory_region_destructor_ram;
-    mr->align = align;
-    mr->ram_block = qemu_ram_alloc_from_file(size, mr, ram_flags, path,
-                                             offset, &err);
-    if (err) {
-        mr->size = int128_zero();
-        object_unparent(OBJECT(mr));
-        error_propagate(errp, err);
-        return false;
-    }
-    return true;
-}
-
 bool memory_region_init_ram_from_fd(MemoryRegion *mr,
                                     Object *owner,
                                     const char *name,
@@ -1796,7 +1768,7 @@ uint8_t memory_region_get_dirty_log_mask(MemoryRegion *mr)
 
     if (global_dirty_tracking && ((rb && qemu_ram_is_migratable(rb)) ||
                              memory_region_is_iommu(mr))) {
-        mask |= (1 << DIRTY_MEMORY_MIGRATION);
+        mask |= (1 << DIRTY_MEMORY_SYNC);
     }
 
     if (tcg_enabled() && rb) {
@@ -2224,24 +2196,24 @@ void memory_region_clear_dirty_bitmap(MemoryRegion *mr, hwaddr start,
     }
 }
 
-DirtyBitmapSnapshot *memory_region_snapshot_and_clear_dirty(MemoryRegion *mr,
+DirtyBitmapSample *memory_region_sample_and_clear_dirty(MemoryRegion *mr,
                                                             hwaddr addr,
                                                             hwaddr size,
                                                             unsigned client)
 {
-    DirtyBitmapSnapshot *snapshot;
+    DirtyBitmapSample *sample;
     assert(mr->ram_block);
     memory_region_sync_dirty_bitmap(mr, false);
-    snapshot = cpu_physical_memory_snapshot_and_clear_dirty(mr, addr, size, client);
+    sample = cpu_physical_memory_sample_and_clear_dirty(mr, addr, size, client);
     memory_global_after_dirty_log_sync();
-    return snapshot;
+    return sample;
 }
 
-bool memory_region_snapshot_get_dirty(MemoryRegion *mr, DirtyBitmapSnapshot *snap,
+bool memory_region_sample_get_dirty(MemoryRegion *mr, DirtyBitmapSample *snap,
                                       hwaddr addr, hwaddr size)
 {
     assert(mr->ram_block);
-    return cpu_physical_memory_snapshot_get_dirty(snap,
+    return cpu_physical_memory_sample_get_dirty(snap,
                 memory_region_get_ram_addr(mr) + addr, size);
 }
 

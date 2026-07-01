@@ -13,7 +13,7 @@
 #include "ui/input-keymap-qcode-to-qnum.c.inc"
 #include "ui/input-keymap-qcode-to-sun.c.inc"
 #include "ui/input-keymap-qnum-to-qcode.c.inc"
-#include "ui/input-keymap-usb-to-qcode.c.inc"
+#include "ui/input-keymap-hid-to-qcode.c.inc"
 #include "ui/input-keymap-win32-to-qcode.c.inc"
 #include "ui/input-keymap-x11-to-qcode.c.inc"
 #include "ui/input-keymap-xorgevdev-to-qcode.c.inc"

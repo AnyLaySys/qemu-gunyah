@@ -10,7 +10,6 @@
 
 struct soundhw {
     const char *name;
-    const char *descr;
     const char *typename;
     int (*init_pci) (PCIBus *bus, const char *audiodev);
 };
@@ -18,42 +17,24 @@ struct soundhw {
 static struct soundhw soundhw[9];
 static int soundhw_count;
 
-void pci_register_soundhw(const char *name, const char *descr,
+void pci_register_soundhw(const char *name,
                           int (*init_pci)(PCIBus *bus, const char *audiodev))
 {
     assert(soundhw_count < ARRAY_SIZE(soundhw) - 1);
     soundhw[soundhw_count].name = name;
-    soundhw[soundhw_count].descr = descr;
     soundhw[soundhw_count].init_pci = init_pci;
     soundhw_count++;
 }
 
-void deprecated_register_soundhw(const char *name, const char *descr,
-                                 int isa, const char *typename)
+void deprecated_register_soundhw(const char *name, int isa, const char *typename)
 {
     assert(soundhw_count < ARRAY_SIZE(soundhw) - 1);
     if (isa) {
         return;
     }
     soundhw[soundhw_count].name = name;
-    soundhw[soundhw_count].descr = descr;
     soundhw[soundhw_count].typename = typename;
     soundhw_count++;
-}
-
-void show_valid_soundhw(void)
-{
-    struct soundhw *c;
-
-    if (soundhw_count) {
-         printf("Valid sound card names (comma separated):\n");
-         for (c = soundhw; c->name; ++c) {
-             printf ("%-11s %s\n", c->name, c->descr);
-         }
-    } else {
-         printf("Machine has no user-selectable audio hardware "
-                "(it may or may not have always-present audio hardware).\n");
-    }
 }
 
 static struct soundhw *selected = NULL;
@@ -78,7 +59,6 @@ void select_soundhw(const char *name, const char *audiodev)
 
     if (!c->name) {
         error_report("Unknown sound card name `%s'", name);
-        show_valid_soundhw();
         exit(1);
     }
 }

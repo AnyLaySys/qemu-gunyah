@@ -1,12 +1,12 @@
 
 #include "qemu/osdep.h"
 #include "hw/pci/pci.h"
-#include "hw/pci/pci_bridge.h"
+#include "hw/pci/pci_device.h"
 #include "hw/pci/pci_host.h"
 #include "hw/qdev-properties.h"
 #include "qemu/module.h"
 #include "hw/pci/pci_bus.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "trace.h"
 
 
@@ -196,7 +196,7 @@ const VMStateDescription vmstate_pcihost = {
 };
 
 static const Property pci_host_properties_common[] = {
-    DEFINE_PROP_BOOL("x-config-reg-migration-enabled", PCIHostState,
+    DEFINE_PROP_BOOL("x-config-reg-state-enabled", PCIHostState,
                      mig_enabled, true),
     DEFINE_PROP_BOOL(PCI_HOST_BYPASS_IOMMU, PCIHostState, bypass_iommu, false),
 };

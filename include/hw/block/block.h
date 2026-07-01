@@ -16,8 +16,6 @@ typedef struct BlockConf {
     uint32_t opt_io_size;
     int32_t bootindex;
     uint32_t discard_granularity;
-    uint32_t cyls, heads, secs;
-    uint32_t lcyls, lheads, lsecs;
     OnOffAuto wce;
     bool share_rw;
     OnOffAuto account_invalid, account_failed;
@@ -61,14 +59,6 @@ static inline unsigned int get_physical_block_exp(BlockConf *conf)
     DEFINE_PROP_DRIVE("drive", _state, _conf.blk),                      \
     DEFINE_BLOCK_PROPERTIES_BASE(_state, _conf)
 
-#define DEFINE_BLOCK_CHS_PROPERTIES(_state, _conf)                      \
-    DEFINE_PROP_UINT32("cyls", _state, _conf.cyls, 0),                  \
-    DEFINE_PROP_UINT32("heads", _state, _conf.heads, 0),                \
-    DEFINE_PROP_UINT32("secs", _state, _conf.secs, 0),                  \
-    DEFINE_PROP_UINT32("lcyls", _state, _conf.lcyls, 0),                \
-    DEFINE_PROP_UINT32("lheads", _state, _conf.lheads, 0),              \
-    DEFINE_PROP_UINT32("lsecs", _state, _conf.lsecs, 0)
-
 #define DEFINE_BLOCK_ERROR_PROPERTIES(_state, _conf)                    \
     DEFINE_PROP_BLOCKDEV_ON_ERROR("rerror", _state, _conf.rerror,       \
                                   BLOCKDEV_ON_ERROR_AUTO),              \
@@ -80,17 +70,8 @@ bool blk_check_size_and_read_all(BlockBackend *blk, DeviceState *dev,
                                  void *buf, hwaddr size, Error **errp);
 
 
-bool blkconf_geometry(BlockConf *conf, int *trans,
-                      unsigned cyls_max, unsigned heads_max, unsigned secs_max,
-                      Error **errp);
 bool blkconf_blocksizes(BlockConf *conf, Error **errp);
 bool blkconf_apply_backend_options(BlockConf *conf, bool readonly,
                                    bool resizable, Error **errp);
-
-
-void hd_geometry_guess(BlockBackend *blk,
-                       uint32_t *pcyls, uint32_t *pheads, uint32_t *psecs,
-                       int *ptrans);
-int hd_bios_chs_auto_trans(uint32_t cyls, uint32_t heads, uint32_t secs);
 
 #endif

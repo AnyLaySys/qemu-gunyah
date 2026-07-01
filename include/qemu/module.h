@@ -57,8 +57,9 @@ void module_call_init(module_init_type type);
 int module_load(const char *prefix, const char *name, Error **errp);
 
 int module_load_qom(const char *type, Error **errp);
-void module_load_qom_all(void);
+#ifdef CONFIG_MODULES
 void module_allow_arch(const char *arch);
+#endif
 
 #ifdef QEMU_MODINFO
 # define modinfo(kind, value) \

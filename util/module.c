@@ -273,8 +273,6 @@ out:
     return rv;
 }
 
-static bool module_loaded_qom_all;
-
 int module_load_qom(const char *type, Error **errp)
 {
     const QemuModinfo *modinfo;
@@ -310,55 +308,9 @@ int module_load_qom(const char *type, Error **errp)
     return rv;
 }
 
-void module_load_qom_all(void)
-{
-    const QemuModinfo *modinfo;
-
-    if (module_loaded_qom_all) {
-        return;
-    }
-
-    for (modinfo = module_info; modinfo->name != NULL; modinfo++) {
-        Error *local_err = NULL;
-        if (!modinfo->objs) {
-            continue;
-        }
-        if (!module_check_arch(modinfo)) {
-            continue;
-        }
-        if (module_load("", modinfo->name, &local_err) < 0) {
-            error_report_err(local_err);
-        }
-    }
-    module_loaded_qom_all = true;
-}
-
-void qemu_load_module_for_opts(const char *group)
-{
-    const QemuModinfo *modinfo;
-    const char **sl;
-
-    for (modinfo = module_info; modinfo->name != NULL; modinfo++) {
-        if (!modinfo->opts) {
-            continue;
-        }
-        for (sl = modinfo->opts; *sl != NULL; sl++) {
-            if (strcmp(group, *sl) == 0) {
-                Error *local_err = NULL;
-                if (module_load("", modinfo->name, &local_err) < 0) {
-                    error_report_err(local_err);
-                }
-            }
-        }
-    }
-}
-
 #else
 
-void module_allow_arch(const char *arch) {}
-void qemu_load_module_for_opts(const char *group) {}
 int module_load(const char *prefix, const char *name, Error **errp) { return 2; }
 int module_load_qom(const char *type, Error **errp) { return 2; }
-void module_load_qom_all(void) {}
 
 #endif

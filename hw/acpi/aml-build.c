@@ -4,12 +4,10 @@
 #include "hw/acpi/aml-build.h"
 #include "qemu/bswap.h"
 #include "qemu/bitops.h"
-#include "system/numa.h"
 #include "hw/boards.h"
-#include "hw/acpi/tpm.h"
 #include "hw/pci/pci_host.h"
 #include "hw/pci/pci_bus.h"
-#include "hw/pci/pci_bridge.h"
+#include "hw/pci/pci_device.h"
 #include "qemu/cutils.h"
 
 static GArray *build_alloc_array(void)
@@ -1616,93 +1614,6 @@ build_xsdt(GArray *table_data, BIOSLinker *linker, GArray *table_offsets,
     acpi_table_end(linker, &table);
 }
 
-void build_srat_memory(GArray *table_data, uint64_t base,
-                       uint64_t len, int node, MemoryAffinityFlags flags)
-{
-    build_append_int_noprefix(table_data, 1, 1); /* Type */
-    build_append_int_noprefix(table_data, 40, 1); /* Length */
-    build_append_int_noprefix(table_data, node, 4); /* Proximity Domain */
-    build_append_int_noprefix(table_data, 0, 2); /* Reserved */
-    build_append_int_noprefix(table_data, base, 4); /* Base Address Low */
-    build_append_int_noprefix(table_data, base >> 32, 4);
-    build_append_int_noprefix(table_data, len, 4); /* Length Low */
-    build_append_int_noprefix(table_data, len >> 32, 4); /* Length High */
-    build_append_int_noprefix(table_data, 0, 4); /* Reserved */
-    build_append_int_noprefix(table_data, flags, 4); /* Flags */
-    build_append_int_noprefix(table_data, 0, 8); /* Reserved */
-}
-
-static void build_append_srat_pci_device_handle(GArray *table_data,
-                                                uint16_t segment,
-                                                uint8_t bus, uint8_t devfn)
-{
-    build_append_int_noprefix(table_data, segment, 2);
-    build_append_int_noprefix(table_data, bus, 1);
-    build_append_int_noprefix(table_data, devfn, 1);
-    build_append_int_noprefix(table_data, 0, 12);
-}
-
-static void build_append_srat_acpi_device_handle(GArray *table_data,
-                                                 const char *hid,
-                                                 uint32_t uid)
-{
-    assert(strlen(hid) == 8);
-    for (int i = 0; i < 8; i++) {
-        build_append_int_noprefix(table_data, hid[i], 1);
-    }
-    build_append_int_noprefix(table_data, uid, 4);
-    build_append_int_noprefix(table_data, 0, 4);
-}
-
-void build_srat_pci_generic_initiator(GArray *table_data, uint32_t node,
-                                      uint16_t segment, uint8_t bus,
-                                      uint8_t devfn)
-{
-    build_append_int_noprefix(table_data, 5, 1);
-    build_append_int_noprefix(table_data, 32, 1);
-    build_append_int_noprefix(table_data, 0, 1);
-    build_append_int_noprefix(table_data, 1, 1);
-    build_append_int_noprefix(table_data, node, 4);
-    build_append_srat_pci_device_handle(table_data, segment, bus, devfn);
-    build_append_int_noprefix(table_data, 1, 4);
-    build_append_int_noprefix(table_data, 0, 4);
-}
-
-void build_srat_acpi_generic_port(GArray *table_data, uint32_t node,
-                                  const char *hid, uint32_t uid)
-{
-    build_append_int_noprefix(table_data, 6, 1);
-    build_append_int_noprefix(table_data, 32, 1);
-    build_append_int_noprefix(table_data, 0, 1);
-    build_append_int_noprefix(table_data, 0, 1);
-    build_append_int_noprefix(table_data, node, 4);
-    build_append_srat_acpi_device_handle(table_data, hid, uid);
-    build_append_int_noprefix(table_data, 1, 4);
-    build_append_int_noprefix(table_data, 0, 4);
-}
-
-void build_slit(GArray *table_data, BIOSLinker *linker, MachineState *ms,
-                const char *oem_id, const char *oem_table_id)
-{
-    int i, j;
-    int nb_numa_nodes = ms->numa_state->num_nodes;
-    AcpiTable table = { .sig = "SLIT", .rev = 1,
-                        .oem_id = oem_id, .oem_table_id = oem_table_id };
-
-    acpi_table_begin(&table, table_data);
-
-    build_append_int_noprefix(table_data, nb_numa_nodes, 8);
-    for (i = 0; i < nb_numa_nodes; i++) {
-        for (j = 0; j < nb_numa_nodes; j++) {
-            assert(ms->numa_state->nodes[i].distance[j]);
-            build_append_int_noprefix(table_data,
-                                      ms->numa_state->nodes[i].distance[j],
-                                      1);
-        }
-    }
-    acpi_table_end(linker, &table);
-}
-
 static void build_processor_hierarchy_node(GArray *tbl, uint32_t flags,
                                            uint32_t parent, uint32_t id,
                                            uint32_t *priv_rsrc,
@@ -1949,53 +1860,6 @@ done:
     acpi_table_end(linker, &table);
 }
 
-#ifdef CONFIG_TPM
-void build_tpm2(GArray *table_data, BIOSLinker *linker, GArray *tcpalog,
-                const char *oem_id, const char *oem_table_id)
-{
-    uint8_t start_method_params[12] = {};
-    unsigned log_addr_offset;
-    uint64_t control_area_start_address;
-    TPMIf *tpmif = tpm_find();
-    uint32_t start_method;
-    AcpiTable table = { .sig = "TPM2", .rev = 4,
-                        .oem_id = oem_id, .oem_table_id = oem_table_id };
-
-    acpi_table_begin(&table, table_data);
-
-    build_append_int_noprefix(table_data, TPM2_ACPI_CLASS_CLIENT, 2);
-    build_append_int_noprefix(table_data, 0, 2);
-    if (TPM_IS_TIS_ISA(tpmif) || TPM_IS_TIS_SYSBUS(tpmif)) {
-        control_area_start_address = 0;
-        start_method = TPM2_START_METHOD_MMIO;
-    } else if (TPM_IS_CRB(tpmif)) {
-        control_area_start_address = TPM_CRB_ADDR_CTRL;
-        start_method = TPM2_START_METHOD_CRB;
-    } else {
-        g_assert_not_reached();
-    }
-    build_append_int_noprefix(table_data, control_area_start_address, 8);
-    build_append_int_noprefix(table_data, start_method, 4);
-
-    g_array_append_vals(table_data, &start_method_params,
-                        ARRAY_SIZE(start_method_params));
-
-    build_append_int_noprefix(table_data, TPM_LOG_AREA_MINIMUM_SIZE, 4);
-
-    acpi_data_push(tcpalog, TPM_LOG_AREA_MINIMUM_SIZE);
-    bios_linker_loader_alloc(linker, ACPI_BUILD_TPMLOG_FILE, tcpalog, 1,
-                             false);
-
-    log_addr_offset = table_data->len;
-
-    build_append_int_noprefix(table_data, 0, 8);
-    bios_linker_loader_add_pointer(linker, ACPI_BUILD_TABLE_FILE,
-                                   log_addr_offset, 8,
-                                   ACPI_BUILD_TPMLOG_FILE, 0);
-    acpi_table_end(linker, &table);
-}
-#endif
-
 Aml *build_crs(PCIHostState *host, CrsRangeSet *range_set, uint32_t io_offset,
                uint32_t mmio32_offset, uint64_t mmio64_offset,
                uint16_t bus_nr_offset)
@@ -2004,7 +1868,6 @@ Aml *build_crs(PCIHostState *host, CrsRangeSet *range_set, uint32_t io_offset,
     CrsRangeSet temp_range_set;
     CrsRangeEntry *entry;
     uint8_t max_bus = pci_bus_num(host->bus);
-    uint8_t type;
     int devfn;
     int i;
 
@@ -2042,53 +1905,6 @@ Aml *build_crs(PCIHostState *host, CrsRangeSet *range_set, uint32_t io_offset,
             }
         }
 
-        type = dev->config[PCI_HEADER_TYPE] & ~PCI_HEADER_TYPE_MULTI_FUNCTION;
-        if (type == PCI_HEADER_TYPE_BRIDGE) {
-            uint8_t subordinate = dev->config[PCI_SUBORDINATE_BUS];
-            if (subordinate > max_bus) {
-                max_bus = subordinate;
-            }
-
-            range_base = pci_bridge_get_base(dev, PCI_BASE_ADDRESS_SPACE_IO);
-            range_limit = pci_bridge_get_limit(dev, PCI_BASE_ADDRESS_SPACE_IO);
-
-            if (range_base && range_base <= range_limit) {
-                crs_range_insert(temp_range_set.io_ranges,
-                                 range_base, range_limit);
-            }
-
-            range_base =
-                pci_bridge_get_base(dev, PCI_BASE_ADDRESS_SPACE_MEMORY);
-            range_limit =
-                pci_bridge_get_limit(dev, PCI_BASE_ADDRESS_SPACE_MEMORY);
-
-            if (range_base && range_base <= range_limit) {
-                uint64_t length = range_limit - range_base + 1;
-                if (range_limit <= UINT32_MAX && length <= UINT32_MAX) {
-                    crs_range_insert(temp_range_set.mem_ranges,
-                                     range_base, range_limit);
-                } else {
-                    crs_range_insert(temp_range_set.mem_64bit_ranges,
-                                     range_base, range_limit);
-                }
-            }
-
-            range_base =
-                pci_bridge_get_base(dev, PCI_BASE_ADDRESS_MEM_PREFETCH);
-            range_limit =
-                pci_bridge_get_limit(dev, PCI_BASE_ADDRESS_MEM_PREFETCH);
-
-            if (range_base && range_base <= range_limit) {
-                uint64_t length = range_limit - range_base + 1;
-                if (range_limit <= UINT32_MAX && length <= UINT32_MAX) {
-                    crs_range_insert(temp_range_set.mem_ranges,
-                                     range_base, range_limit);
-                } else {
-                    crs_range_insert(temp_range_set.mem_64bit_ranges,
-                                     range_base, range_limit);
-                }
-            }
-        }
     }
 
     crs_range_merge(temp_range_set.io_ranges);

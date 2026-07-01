@@ -1,7 +1,7 @@
 
 #include "qemu/osdep.h"
 #include "hw/pci/msi.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "hw/intc/arm_gicv3_its_common.h"
 #include "qemu/log.h"
 #include "qemu/module.h"

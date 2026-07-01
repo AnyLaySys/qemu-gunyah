@@ -90,7 +90,7 @@ static QEnumLookup type41_kind_lookup = {
         "other",
         "unknown",
         "video",
-        "scsi",
+        "storage",
         "ethernet",
         "tokenring",
         "sound",
@@ -119,7 +119,6 @@ static const QemuOptDesc qemu_smbios_file_opts[] = {
     {
         .name = "file",
         .type = QEMU_OPT_STRING,
-        .help = "binary file containing an SMBIOS element",
     },
     { /* end of list */ }
 };
@@ -128,27 +127,21 @@ static const QemuOptDesc qemu_smbios_type0_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "vendor",
         .type = QEMU_OPT_STRING,
-        .help = "vendor name",
     },{
         .name = "version",
         .type = QEMU_OPT_STRING,
-        .help = "version number",
     },{
         .name = "date",
         .type = QEMU_OPT_STRING,
-        .help = "release date",
     },{
         .name = "release",
         .type = QEMU_OPT_STRING,
-        .help = "revision number",
     },{
         .name = "uefi",
         .type = QEMU_OPT_BOOL,
-        .help = "uefi support",
     },
     { /* end of list */ }
 };
@@ -157,35 +150,27 @@ static const QemuOptDesc qemu_smbios_type1_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "manufacturer",
         .type = QEMU_OPT_STRING,
-        .help = "manufacturer name",
     },{
         .name = "product",
         .type = QEMU_OPT_STRING,
-        .help = "product name",
     },{
         .name = "version",
         .type = QEMU_OPT_STRING,
-        .help = "version number",
     },{
         .name = "serial",
         .type = QEMU_OPT_STRING,
-        .help = "serial number",
     },{
         .name = "uuid",
         .type = QEMU_OPT_STRING,
-        .help = "UUID",
     },{
         .name = "sku",
         .type = QEMU_OPT_STRING,
-        .help = "SKU number",
     },{
         .name = "family",
         .type = QEMU_OPT_STRING,
-        .help = "family name",
     },
     { /* end of list */ }
 };
@@ -194,31 +179,24 @@ static const QemuOptDesc qemu_smbios_type2_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "manufacturer",
         .type = QEMU_OPT_STRING,
-        .help = "manufacturer name",
     },{
         .name = "product",
         .type = QEMU_OPT_STRING,
-        .help = "product name",
     },{
         .name = "version",
         .type = QEMU_OPT_STRING,
-        .help = "version number",
     },{
         .name = "serial",
         .type = QEMU_OPT_STRING,
-        .help = "serial number",
     },{
         .name = "asset",
         .type = QEMU_OPT_STRING,
-        .help = "asset tag number",
     },{
         .name = "location",
         .type = QEMU_OPT_STRING,
-        .help = "location in chassis",
     },
     { /* end of list */ }
 };
@@ -227,27 +205,21 @@ static const QemuOptDesc qemu_smbios_type3_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "manufacturer",
         .type = QEMU_OPT_STRING,
-        .help = "manufacturer name",
     },{
         .name = "version",
         .type = QEMU_OPT_STRING,
-        .help = "version number",
     },{
         .name = "serial",
         .type = QEMU_OPT_STRING,
-        .help = "serial number",
     },{
         .name = "asset",
         .type = QEMU_OPT_STRING,
-        .help = "asset tag number",
     },{
         .name = "sku",
         .type = QEMU_OPT_STRING,
-        .help = "SKU number",
     },
     { /* end of list */ }
 };
@@ -256,47 +228,36 @@ static const QemuOptDesc qemu_smbios_type4_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "sock_pfx",
         .type = QEMU_OPT_STRING,
-        .help = "socket designation string prefix",
     },{
         .name = "manufacturer",
         .type = QEMU_OPT_STRING,
-        .help = "manufacturer name",
     },{
         .name = "version",
         .type = QEMU_OPT_STRING,
-        .help = "version number",
     },{
         .name = "max-speed",
         .type = QEMU_OPT_NUMBER,
-        .help = "max speed in MHz",
     },{
         .name = "current-speed",
         .type = QEMU_OPT_NUMBER,
-        .help = "speed at system boot in MHz",
     },{
         .name = "serial",
         .type = QEMU_OPT_STRING,
-        .help = "serial number",
     },{
         .name = "asset",
         .type = QEMU_OPT_STRING,
-        .help = "asset tag number",
     },{
         .name = "part",
         .type = QEMU_OPT_STRING,
-        .help = "part number",
     }, {
         .name = "processor-family",
         .type = QEMU_OPT_NUMBER,
-        .help = "processor family",
     }, {
         .name = "processor-id",
         .type = QEMU_OPT_NUMBER,
-        .help = "processor id",
     },
     { /* end of list */ }
 };
@@ -305,27 +266,22 @@ static const QemuOptDesc qemu_smbios_type8_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },
     {
         .name = "internal_reference",
         .type = QEMU_OPT_STRING,
-        .help = "internal reference designator",
     },
     {
         .name = "external_reference",
         .type = QEMU_OPT_STRING,
-        .help = "external reference designator",
     },
     {
         .name = "connector_type",
         .type = QEMU_OPT_NUMBER,
-        .help = "connector type",
     },
     {
         .name = "port_type",
         .type = QEMU_OPT_NUMBER,
-        .help = "port type",
     },
     { /* end of list */ }
 };
@@ -334,52 +290,42 @@ static const QemuOptDesc qemu_smbios_type9_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },
     {
         .name = "slot_designation",
         .type = QEMU_OPT_STRING,
-        .help = "string number for reference designation",
     },
     {
         .name = "slot_type",
         .type = QEMU_OPT_NUMBER,
-        .help = "connector type",
     },
     {
         .name = "slot_data_bus_width",
         .type = QEMU_OPT_NUMBER,
-        .help = "port type",
     },
     {
         .name = "current_usage",
         .type = QEMU_OPT_NUMBER,
-        .help = "current usage",
     },
     {
         .name = "slot_length",
         .type = QEMU_OPT_NUMBER,
-        .help = "system slot length",
     },
     {
         .name = "slot_id",
         .type = QEMU_OPT_NUMBER,
-        .help = "system slot id",
     },
     {
         .name = "slot_characteristics1",
         .type = QEMU_OPT_NUMBER,
-        .help = "slot characteristics1, see the spec",
     },
     {
         .name = "slot_characteristics2",
         .type = QEMU_OPT_NUMBER,
-        .help = "slot characteristics2, see the spec",
     },
     {
         .name = "pci_device",
         .type = QEMU_OPT_STRING,
-        .help = "PCI device, if provided."
     }
 };
 
@@ -387,17 +333,14 @@ static const QemuOptDesc qemu_smbios_type11_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },
     {
         .name = "value",
         .type = QEMU_OPT_STRING,
-        .help = "OEM string data",
     },
     {
         .name = "path",
         .type = QEMU_OPT_STRING,
-        .help = "OEM string data from file",
     },
     { /* end of list */ }
 };
@@ -406,35 +349,27 @@ static const QemuOptDesc qemu_smbios_type17_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "loc_pfx",
         .type = QEMU_OPT_STRING,
-        .help = "device locator string prefix",
     },{
         .name = "bank",
         .type = QEMU_OPT_STRING,
-        .help = "bank locator string",
     },{
         .name = "manufacturer",
         .type = QEMU_OPT_STRING,
-        .help = "manufacturer name",
     },{
         .name = "serial",
         .type = QEMU_OPT_STRING,
-        .help = "serial number",
     },{
         .name = "asset",
         .type = QEMU_OPT_STRING,
-        .help = "asset tag number",
     },{
         .name = "part",
         .type = QEMU_OPT_STRING,
-        .help = "part number",
     },{
         .name = "speed",
         .type = QEMU_OPT_NUMBER,
-        .help = "maximum capable speed",
     },
     { /* end of list */ }
 };
@@ -443,24 +378,19 @@ static const QemuOptDesc qemu_smbios_type41_opts[] = {
     {
         .name = "type",
         .type = QEMU_OPT_NUMBER,
-        .help = "SMBIOS element type",
     },{
         .name = "designation",
         .type = QEMU_OPT_STRING,
-        .help = "reference designation string",
     },{
         .name = "kind",
         .type = QEMU_OPT_STRING,
-        .help = "device type",
         .def_value_str = "other",
     },{
         .name = "instance",
         .type = QEMU_OPT_NUMBER,
-        .help = "device type instance",
     },{
         .name = "pcidev",
         .type = QEMU_OPT_STRING,
-        .help = "PCI device",
     },
     { /* end of list */ }
 };

@@ -56,18 +56,6 @@ virtio_gpu_base_generate_edid(VirtIOGPUBase *g, int scanout,
     qemu_edid_generate(edid->edid, sizeof(edid->edid), &info);
 }
 
-static void virtio_gpu_invalidate_display(void *opaque)
-{
-}
-
-static void virtio_gpu_update_display(void *opaque)
-{
-}
-
-static void virtio_gpu_text_update(void *opaque, console_ch_t *chardata)
-{
-}
-
 static void virtio_gpu_notify_event(VirtIOGPUBase *g, uint32_t event_type)
 {
     g->virtio_config.events_read |= event_type;
@@ -116,9 +104,6 @@ virtio_gpu_get_flags(void *opaque)
 
 static const GraphicHwOps virtio_gpu_ops = {
     .get_flags = virtio_gpu_get_flags,
-    .invalidate = virtio_gpu_invalidate_display,
-    .gfx_update = virtio_gpu_update_display,
-    .text_update = virtio_gpu_text_update,
     .ui_info = virtio_gpu_ui_info,
 };
 

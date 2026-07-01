@@ -19,7 +19,7 @@
             'kp_9', 'less', 'f11', 'f12', 'print', 'home', 'pgup', 'pgdn', 'end',
             'left', 'up', 'down', 'right', 'insert', 'delete', 'stop', 'again',
             'props', 'undo', 'front', 'copy', 'open', 'paste', 'find', 'cut',
-            'lf', 'help', 'meta_l', 'meta_r', 'compose', 'pause',
+            'lf', 'assist', 'meta_l', 'meta_r', 'compose', 'pause',
             'ro', 'hiragana', 'henkan', 'yen', 'muhenkan', 'katakanahiragana',
             'kp_comma', 'kp_equals', 'power', 'sleep', 'wake',
             'audionext', 'audioprev', 'audiostop', 'audioplay', 'audiomute',
@@ -111,6 +111,7 @@
   'data'    : [
     { 'name': 'default' },
     { 'name': 'none' },
+    { 'name': 'agl', 'if': 'CONFIG_OPENGL' },
     { 'name': 'sdl', 'if': 'CONFIG_SDL' }
   ]
 }

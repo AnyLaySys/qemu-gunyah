@@ -20,7 +20,7 @@ OBJECT_DECLARE_TYPE(DeviceState, DeviceClass, DEVICE)
 
 typedef enum DeviceCategory {
     DEVICE_CATEGORY_BRIDGE,
-    DEVICE_CATEGORY_USB,
+    DEVICE_CATEGORY_BUS,
     DEVICE_CATEGORY_STORAGE,
     DEVICE_CATEGORY_NETWORK,
     DEVICE_CATEGORY_INPUT,
@@ -131,7 +131,6 @@ DECLARE_OBJ_CHECKERS(BusState, BusClass,
 struct BusClass {
     ObjectClass parent_class;
 
-    void (*print_dev)(Monitor *mon, DeviceState *dev, int indent);
     char *(*get_dev_path)(DeviceState *dev);
 
     char *(*get_fw_dev_path)(DeviceState *dev);

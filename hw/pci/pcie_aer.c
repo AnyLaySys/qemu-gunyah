@@ -1,7 +1,6 @@
 
 #include "qemu/osdep.h"
-#include "migration/vmstate.h"
-#include "hw/pci/pci_bridge.h"
+#include "state/vmstate.h"
 #include "hw/pci/pcie.h"
 #include "hw/pci/msix.h"
 #include "hw/pci/msi.h"
@@ -322,7 +321,7 @@ static void pcie_aer_msg(PCIDevice *dev, const PCIEAERMsg *msg)
             pcie_aer_msg_root_port(dev, msg);
             return;
         }
-        dev = pci_bridge_get_device(pci_get_bus(dev));
+        return;
     }
 }
 

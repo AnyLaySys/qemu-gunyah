@@ -7,15 +7,15 @@
 #include "hw/core/cpu.h"
 #include "hw/intc/arm_gicv3_common.h"
 #include "hw/qdev-properties.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "gicv3_internal.h"
 #include "hw/arm/linux-boot-if.h"
 #include "system/gunyah.h"
 
 
-static void gicv3_gicd_no_migration_shift_bug_post_load(GICv3State *cs)
+static void gicv3_gicd_state_shift_bug_post_load(GICv3State *cs)
 {
-    if (cs->gicd_no_migration_shift_bug) {
+    if (cs->gicd_state_shift_bug) {
         return;
     }
 
@@ -34,7 +34,7 @@ static void gicv3_gicd_no_migration_shift_bug_post_load(GICv3State *cs)
             sizeof(cs->edge_trigger) - GIC_INTERNAL / 8);
 
     
-    cs->gicd_no_migration_shift_bug = true;
+    cs->gicd_state_shift_bug = true;
 }
 
 static int gicv3_pre_save(void *opaque)
@@ -54,7 +54,7 @@ static int gicv3_post_load(void *opaque, int version_id)
     GICv3State *s = (GICv3State *)opaque;
     ARMGICv3CommonClass *c = ARM_GICV3_COMMON_GET_CLASS(s);
 
-    gicv3_gicd_no_migration_shift_bug_post_load(s);
+    gicv3_gicd_state_shift_bug_post_load(s);
 
     if (c->post_load) {
         c->post_load(s);
@@ -197,13 +197,13 @@ static bool needed_always(void *opaque)
     return true;
 }
 
-const VMStateDescription vmstate_gicv3_gicd_no_migration_shift_bug = {
-    .name = "arm_gicv3/gicd_no_migration_shift_bug",
+const VMStateDescription vmstate_gicv3_gicd_state_shift_bug = {
+    .name = "arm_gicv3/gicd_state_shift_bug",
     .version_id = 1,
     .minimum_version_id = 1,
     .needed = needed_always,
     .fields = (const VMStateField[]) {
-        VMSTATE_BOOL(gicd_no_migration_shift_bug, GICv3State),
+        VMSTATE_BOOL(gicd_state_shift_bug, GICv3State),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -253,7 +253,7 @@ static const VMStateDescription vmstate_gicv3 = {
         VMSTATE_END_OF_LIST()
     },
     .subsections = (const VMStateDescription * const []) {
-        &vmstate_gicv3_gicd_no_migration_shift_bug,
+        &vmstate_gicv3_gicd_state_shift_bug,
         &vmstate_gicv3_gicd_nmi,
         NULL
     }
@@ -489,7 +489,7 @@ static void arm_gicv3_common_reset_hold(Object *obj, ResetType type)
             gicv3_gicd_group_set(s, i);
         }
     }
-    s->gicd_no_migration_shift_bug = true;
+    s->gicd_state_shift_bug = true;
 }
 
 static void arm_gic_common_linux_init(ARMLinuxBootIf *obj,

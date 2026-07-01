@@ -6036,7 +6036,7 @@ static uint64_t rndr_readfn(CPUARMState *env, const ARMCPRegInfo *ri)
     env->NF = env->CF = env->VF = 0, env->ZF = 1;
 
     if (qemu_guest_getrandom(&ret, sizeof(ret), &err) < 0) {
-        qemu_log_mask(LOG_UNIMP, "%s: Crypto failure: %s",
+        qemu_log_mask(LOG_UNIMP, "%s: random failure: %s",
                       ri->name, error_get_pretty(err));
         error_free(err);
 

@@ -269,7 +269,6 @@ def save_xml(xml_str: str, path: Optional[str]):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: xml-preprocessor input.xml [output.xml]")
         sys.exit(1)
 
     output_file = None

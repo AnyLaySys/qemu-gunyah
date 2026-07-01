@@ -102,6 +102,7 @@ static bool have_coherent_icache;
 #endif
 
 #if defined(__aarch64__) && !defined(CONFIG_DARWIN) && !defined(CONFIG_WIN32)
+#define HAVE_ARCH_CACHE_INFO 1
 static uint64_t save_ctr_el0;
 static void arch_cache_info(int *isize, int *dsize)
 {
@@ -121,6 +122,7 @@ static void arch_cache_info(int *isize, int *dsize)
 }
 
 #elif defined(_ARCH_PPC) && defined(__linux__)
+#define HAVE_ARCH_CACHE_INFO 1
 # include "elf.h"
 
 static void arch_cache_info(int *isize, int *dsize)
@@ -134,8 +136,6 @@ static void arch_cache_info(int *isize, int *dsize)
     have_coherent_icache = qemu_getauxval(AT_HWCAP) & PPC_FEATURE_ICACHE_SNOOP;
 }
 
-#else
-static void arch_cache_info(int *isize, int *dsize) { }
 #endif /* arch_cache_info */
 
 
@@ -162,7 +162,9 @@ static void __attribute__((constructor)) init_cache_info(void)
     int isize = 0, dsize = 0;
 
     sys_cache_info(&isize, &dsize);
+#ifdef HAVE_ARCH_CACHE_INFO
     arch_cache_info(&isize, &dsize);
+#endif
     fallback_cache_info(&isize, &dsize);
 
     assert((isize & (isize - 1)) == 0);

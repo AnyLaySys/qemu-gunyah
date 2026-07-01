@@ -210,31 +210,3 @@ bool blkconf_apply_backend_options(BlockConf *conf, bool readonly,
                      conf->account_failed);
     return true;
 }
-
-bool blkconf_geometry(BlockConf *conf, int *ptrans,
-                      unsigned cyls_max, unsigned heads_max, unsigned secs_max,
-                      Error **errp)
-{
-    if (!conf->cyls && !conf->heads && !conf->secs) {
-        hd_geometry_guess(conf->blk,
-                          &conf->cyls, &conf->heads, &conf->secs,
-                          ptrans);
-    } else if (ptrans && *ptrans == BIOS_ATA_TRANSLATION_AUTO) {
-        *ptrans = hd_bios_chs_auto_trans(conf->cyls, conf->heads, conf->secs);
-    }
-    if (conf->cyls || conf->heads || conf->secs) {
-        if (conf->cyls < 1 || conf->cyls > cyls_max) {
-            error_setg(errp, "cyls must be between 1 and %u", cyls_max);
-            return false;
-        }
-        if (conf->heads < 1 || conf->heads > heads_max) {
-            error_setg(errp, "heads must be between 1 and %u", heads_max);
-            return false;
-        }
-        if (conf->secs < 1 || conf->secs > secs_max) {
-            error_setg(errp, "secs must be between 1 and %u", secs_max);
-            return false;
-        }
-    }
-    return true;
-}

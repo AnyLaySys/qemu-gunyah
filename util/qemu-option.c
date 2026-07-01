@@ -127,50 +127,6 @@ static const char *opt_type_to_string(enum QemuOptType type)
     g_assert_not_reached();
 }
 
-void qemu_opts_print_help(QemuOptsList *list, bool print_caption)
-{
-    QemuOptDesc *desc;
-    int i;
-    GPtrArray *array = g_ptr_array_new();
-
-    assert(list);
-    desc = list->desc;
-    while (desc && desc->name) {
-        GString *str = g_string_new(NULL);
-        g_string_append_printf(str, "  %s=<%s>", desc->name,
-                               opt_type_to_string(desc->type));
-        if (desc->help) {
-            if (str->len < 24) {
-                g_string_append_printf(str, "%*s", 24 - (int)str->len, "");
-            }
-            g_string_append_printf(str, " - %s", desc->help);
-        }
-        g_ptr_array_add(array, g_string_free(str, false));
-        desc++;
-    }
-
-    g_ptr_array_sort(array, (GCompareFunc)qemu_pstrcmp0);
-    if (print_caption && array->len > 0) {
-        if (list->name) {
-            printf("%s options:\n", list->name);
-        } else {
-            printf("Options:\n");
-        }
-    } else if (array->len == 0) {
-        if (list->name) {
-            printf("There are no options for %s.\n", list->name);
-        } else {
-            printf("No options available.\n");
-        }
-    }
-    for (i = 0; i < array->len; i++) {
-        printf("%s\n", (char *)array->pdata[i]);
-    }
-    g_ptr_array_set_free_func(array, g_free);
-    g_ptr_array_free(array, true);
-
-}
-
 QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name)
 {
     QemuOpt *opt;
@@ -846,9 +802,7 @@ QemuOpts *qemu_opts_parse_noisily(QemuOptsList *list, const char *params,
                       &err);
     if (!opts) {
         assert(!!err + !!help_wanted == 1);
-        if (help_wanted) {
-            qemu_opts_print_help(list, true);
-        } else {
+        if (!help_wanted) {
             error_report_err(err);
         }
     }

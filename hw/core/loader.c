@@ -8,7 +8,7 @@
 #include "trace.h"
 #include "hw/hw.h"
 #include "disas/disas.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "monitor/monitor.h"
 #include "system/reset.h"
 #include "system/system.h"
@@ -1067,11 +1067,6 @@ int rom_add_elf_program(const char *name, GMappedFile *mapped_file, void *data,
 
     rom_insert(rom);
     return 0;
-}
-
-ssize_t rom_add_vga(const char *file)
-{
-    return rom_add_file(file, "vgaroms", 0, -1, true, NULL, NULL);
 }
 
 ssize_t rom_add_option(const char *file, int32_t bootindex)

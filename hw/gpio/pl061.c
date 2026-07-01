@@ -3,7 +3,7 @@
 #include "hw/irq.h"
 #include "hw/sysbus.h"
 #include "hw/qdev-properties.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qapi/error.h"
 #include "qemu/log.h"
 #include "qemu/module.h"

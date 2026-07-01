@@ -1,52 +1,4 @@
-"""
-mkvenv - QEMU pyvenv bootstrapping utility
-
-usage: mkvenv [-h] command ...
-
-QEMU pyvenv bootstrapping utility
-
-options:
-  -h, --help  show this help message and exit
-
-Commands:
-  command     Description
-    create    create a venv
-    post_init
-              post-venv initialization
-    ensuregroup
-              Ensure that the specified package group is installed.
-
---------------------------------------------------
-
-usage: mkvenv create [-h] target
-
-positional arguments:
-  target      Target directory to install virtual environment into.
-
-options:
-  -h, --help  show this help message and exit
-
---------------------------------------------------
-
-usage: mkvenv post_init [-h]
-
-options:
-  -h, --help         show this help message and exit
-
---------------------------------------------------
-
-usage: mkvenv ensuregroup [-h] [--online] [--dir DIR] file group...
-
-positional arguments:
-  file        pointer to a TOML file
-  group       section name in the TOML file
-
-options:
-  -h, --help  show this help message and exit
-  --online    Install packages from PyPI, if necessary.
-  --dir DIR   Path to vendored packages where we may install from.
-
-"""
+"""QEMU pyvenv bootstrapping utility."""
 
 
 import argparse
@@ -722,46 +674,41 @@ def post_venv_setup() -> None:
 
 
 def _add_create_subcommand(subparsers: Any) -> None:
-    subparser = subparsers.add_parser("create", help="create a venv")
+    subparser = subparsers.add_parser("create", add_help=False)
     subparser.add_argument(
         "target",
         type=str,
         action="store",
-        help="Target directory to install virtual environment into.",
     )
 
 
 def _add_post_init_subcommand(subparsers: Any) -> None:
-    subparsers.add_parser("post_init", help="post-venv initialization")
+    subparsers.add_parser("post_init", add_help=False)
 
 
 def _add_ensuregroup_subcommand(subparsers: Any) -> None:
     subparser = subparsers.add_parser(
         "ensuregroup",
-        help="Ensure that the specified package group is installed.",
+        add_help=False,
     )
     subparser.add_argument(
         "--online",
         action="store_true",
-        help="Install packages from PyPI, if necessary.",
     )
     subparser.add_argument(
         "--dir",
         type=str,
         action="store",
-        help="Path to vendored packages where we may install from.",
     )
     subparser.add_argument(
         "file",
         type=str,
         action="store",
-        help=("Path to a TOML file describing package groups"),
     )
     subparser.add_argument(
         "group",
         type=str,
         action="store",
-        help="One or more package group names",
         nargs="+",
     )
 
@@ -776,14 +723,12 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         prog="mkvenv",
-        description="QEMU pyvenv bootstrapping utility",
+        add_help=False,
     )
     subparsers = parser.add_subparsers(
-        title="Commands",
         dest="command",
         required=True,
         metavar="command",
-        help="Description",
     )
 
     _add_create_subcommand(subparsers)

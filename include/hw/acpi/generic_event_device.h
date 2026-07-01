@@ -3,7 +3,6 @@
 #define HW_ACPI_GENERIC_EVENT_DEVICE_H
 
 #include "hw/sysbus.h"
-#include "hw/acpi/memory_hotplug.h"
 #include "hw/acpi/ghes.h"
 #include "hw/acpi/cpu.h"
 #include "qom/object.h"
@@ -33,9 +32,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(AcpiGedState, ACPI_GED)
 #define AML_GED_EVT_SEL "ESEL"
 #define AML_GED_EVT_CPU_SCAN_METHOD "\\_SB.GED.CSCN"
 
-#define ACPI_GED_MEM_HOTPLUG_EVT   0x1
 #define ACPI_GED_PWR_DOWN_EVT      0x2
-#define ACPI_GED_NVDIMM_HOTPLUG_EVT 0x4
 #define ACPI_GED_CPU_HOTPLUG_EVT    0x8
 
 typedef struct GEDState {
@@ -46,8 +43,6 @@ typedef struct GEDState {
 
 struct AcpiGedState {
     SysBusDevice parent_obj;
-    MemHotplugState memhp_state;
-    MemoryRegion container_memhp;
     CPUHotplugState cpuhp_state;
     MemoryRegion container_cpuhp;
     GEDState ged_state;

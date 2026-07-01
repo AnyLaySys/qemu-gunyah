@@ -2,7 +2,6 @@
 #ifndef SYSTEM_HOSTMEM_H
 #define SYSTEM_HOSTMEM_H
 
-#include "system/numa.h"
 #include "qapi/qapi-types-machine.h"
 #include "qom/object.h"
 #include "exec/memory.h"
@@ -15,10 +14,6 @@ OBJECT_DECLARE_TYPE(HostMemoryBackend, HostMemoryBackendClass,
 
 
 #define TYPE_MEMORY_BACKEND_RAM "memory-backend-ram"
-
-#define TYPE_MEMORY_BACKEND_FILE "memory-backend-file"
-
-#define TYPE_MEMORY_BACKEND_MEMFD "memory-backend-memfd"
 
 
 struct HostMemoryBackendClass {
@@ -36,8 +31,6 @@ struct HostMemoryBackend {
     bool guest_memfd, aligned;
     uint32_t prealloc_threads;
     ThreadContext *prealloc_context;
-    DECLARE_BITMAP(host_nodes, MAX_NODES + 1);
-    HostMemPolicy policy;
 
     MemoryRegion mr;
 };

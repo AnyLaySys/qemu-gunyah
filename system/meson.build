@@ -16,15 +16,10 @@ system_ss.add(files(
   'qdev-monitor.c',
   'rtc.c',
   'runstate-action.c',
-  'runstate-hmp-cmds.c',
   'runstate.c',
   'vl.c',
   'watchpoint.c',
 ), sdl, libpmem, libdaxctl)
-
-if have_tpm
-  error('TPM support was removed from this trimmed build')
-endif
 
 if seccomp.found()
   error('seccomp support was removed from this trimmed build')

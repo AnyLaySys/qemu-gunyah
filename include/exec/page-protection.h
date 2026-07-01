@@ -32,8 +32,6 @@ static inline void mmap_unlock_guard(void *unused)
          = (mmap_lock(), 0); _mmap_lock_iter == 0; _mmap_lock_iter = 1)
 #else
 
-static inline void mmap_lock(void) {}
-static inline void mmap_unlock(void) {}
 #define WITH_MMAP_LOCK_GUARD()
 
 #endif /* !CONFIG_USER_ONLY */

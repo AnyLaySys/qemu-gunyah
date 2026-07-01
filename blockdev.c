@@ -36,9 +36,7 @@ void bdrv_set_monitor_owned(BlockDriverState *bs)
 
 static const char *const if_name[IF_COUNT] = {
     [IF_NONE] = "none",
-    [IF_IDE] = "ide",
-    [IF_SCSI] = "scsi",
-    [IF_FLOPPY] = "floppy",
+    [IF_FLOPPY] = "unused",
     [IF_PFLASH] = "pflash",
     [IF_MTD] = "mtd",
     [IF_SD] = "sd",
@@ -47,8 +45,6 @@ static const char *const if_name[IF_COUNT] = {
 };
 
 static int if_max_devs[IF_COUNT] = {
-    [IF_IDE] = 2,
-    [IF_SCSI] = 7,
 };
 
 void override_max_devs(BlockInterfaceType type, int max_devs)
@@ -525,45 +521,35 @@ QemuOptsList qemu_legacy_drive_opts = {
         {
             .name = "bus",
             .type = QEMU_OPT_NUMBER,
-            .help = "bus number",
         },{
             .name = "unit",
             .type = QEMU_OPT_NUMBER,
-            .help = "unit number (i.e. lun for scsi)",
         },{
             .name = "index",
             .type = QEMU_OPT_NUMBER,
-            .help = "index number",
         },{
             .name = "media",
             .type = QEMU_OPT_STRING,
-            .help = "media type (disk, cdrom)",
         },{
             .name = "if",
             .type = QEMU_OPT_STRING,
-            .help = "interface (ide, scsi, sd, mtd, floppy, pflash, virtio)",
         },{
             .name = "file",
             .type = QEMU_OPT_STRING,
-            .help = "file name",
         },
 
         {
             .name = BDRV_OPT_READ_ONLY,
             .type = QEMU_OPT_BOOL,
-            .help = "open drive file as read-only",
         },{
             .name = "rerror",
             .type = QEMU_OPT_STRING,
-            .help = "read error action",
         },{
             .name = "werror",
             .type = QEMU_OPT_STRING,
-            .help = "write error action",
         },{
             .name = "copy-on-read",
             .type = QEMU_OPT_BOOL,
-            .help = "copy read data from backing file into image file",
         },
 
         { /* end of list */ }
@@ -714,16 +700,11 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
 
     if (qemu_opts_id(all_opts) == NULL) {
         char *new_id;
-        const char *mediastr = "";
-        if (type == IF_IDE || type == IF_SCSI) {
-            mediastr = (media == MEDIA_CDROM) ? "-cd" : "-hd";
-        }
         if (max_devs) {
-            new_id = g_strdup_printf("%s%i%s%i", if_name[type], bus_id,
-                                     mediastr, unit_id);
+            new_id = g_strdup_printf("%s%i%i", if_name[type], bus_id,
+                                     unit_id);
         } else {
-            new_id = g_strdup_printf("%s%s%i", if_name[type],
-                                     mediastr, unit_id);
+            new_id = g_strdup_printf("%s%i", if_name[type], unit_id);
         }
         qdict_put_str(bs_opts, "id", new_id);
         g_free(new_id);
@@ -751,8 +732,7 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
 
     werror = qemu_opt_get(legacy_opts, "werror");
     if (werror != NULL) {
-        if (type != IF_IDE && type != IF_SCSI && type != IF_VIRTIO &&
-            type != IF_NONE) {
+        if (type != IF_VIRTIO && type != IF_NONE) {
             error_setg(errp, "werror is not supported by this bus type");
             goto fail;
         }
@@ -761,8 +741,7 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
 
     rerror = qemu_opt_get(legacy_opts, "rerror");
     if (rerror != NULL) {
-        if (type != IF_IDE && type != IF_VIRTIO && type != IF_SCSI &&
-            type != IF_NONE) {
+        if (type != IF_VIRTIO && type != IF_NONE) {
             error_setg(errp, "rerror is not supported by this bus type");
             goto fail;
         }
@@ -785,8 +764,6 @@ DriveInfo *drive_new(QemuOpts *all_opts, BlockInterfaceType block_default_type,
     blk_set_legacy_dinfo(blk, dinfo);
 
     switch(type) {
-    case IF_IDE:
-    case IF_SCSI:
     case IF_XEN:
     case IF_NONE:
         dinfo->media_cd = media == MEDIA_CDROM;
@@ -837,47 +814,35 @@ QemuOptsList qemu_common_drive_opts = {
         {
             .name = "aio",
             .type = QEMU_OPT_STRING,
-            .help = "host AIO implementation (io_uring)",
         },{
             .name = BDRV_OPT_CACHE_WB,
             .type = QEMU_OPT_BOOL,
-            .help = "Enable writeback mode",
         },{
             .name = "format",
             .type = QEMU_OPT_STRING,
-            .help = "disk format (raw, qcow2, ...)",
         },{
             .name = "rerror",
             .type = QEMU_OPT_STRING,
-            .help = "read error action",
         },{
             .name = "werror",
             .type = QEMU_OPT_STRING,
-            .help = "write error action",
         },{
             .name = BDRV_OPT_READ_ONLY,
             .type = QEMU_OPT_BOOL,
-            .help = "open drive file as read-only",
         },
 
         {
             .name = "copy-on-read",
             .type = QEMU_OPT_BOOL,
-            .help = "copy read data from backing file into image file",
         },{
             .name = "detect-zeroes",
             .type = QEMU_OPT_STRING,
-            .help = "try to optimize zero writes (off, on, unmap)",
         },{
             .name = "stats-account-invalid",
             .type = QEMU_OPT_BOOL,
-            .help = "whether to account for invalid I/O operations "
-                    "in the statistics",
         },{
             .name = "stats-account-failed",
             .type = QEMU_OPT_BOOL,
-            .help = "whether to account for failed I/O operations "
-                    "in the statistics",
         },
         { /* end of list */ }
     },

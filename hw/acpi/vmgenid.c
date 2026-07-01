@@ -8,7 +8,7 @@
 #include "hw/nvram/fw_cfg.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "system/reset.h"
 
 void vmgenid_build_acpi(VmGenIdState *vms, GArray *table_data, GArray *guid,

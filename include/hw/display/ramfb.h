@@ -1,7 +1,7 @@
 #ifndef RAMFB_H
 #define RAMFB_H
 
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 
 typedef struct RAMFBState RAMFBState;
 void ramfb_display_update(QemuConsole *con, RAMFBState *s);

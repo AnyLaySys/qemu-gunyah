@@ -1,7 +1,7 @@
 
 
 { 'enum': 'NetworkAddressFamily',
-  'data': [ 'ipv4', 'ipv6', 'unix', 'vsock', 'unknown' ] }
+  'data': [ 'ipv4', 'ipv6', 'unix', 'unknown' ] }
 
 { 'struct': 'InetSocketAddressBase',
   'data': {
@@ -24,11 +24,6 @@
     '*abstract': { 'type': 'bool', 'if': 'CONFIG_LINUX' },
     '*tight': { 'type': 'bool', 'if': 'CONFIG_LINUX' } } }
 
-{ 'struct': 'VsockSocketAddress',
-  'data': {
-    'cid': 'str',
-    'port': 'str' } }
-
 { 'struct': 'FdSocketAddress',
   'data': {
     'str': 'str' } }
@@ -39,9 +34,6 @@
 { 'struct': 'UnixSocketAddressWrapper',
   'data': { 'data': 'UnixSocketAddress' } }
 
-{ 'struct': 'VsockSocketAddressWrapper',
-  'data': { 'data': 'VsockSocketAddress' } }
-
 { 'struct': 'FdSocketAddressWrapper',
   'data': { 'data': 'FdSocketAddress' } }
 
@@ -51,16 +43,14 @@
   'data': {
     'inet': 'InetSocketAddressWrapper',
     'unix': 'UnixSocketAddressWrapper',
-    'vsock': 'VsockSocketAddressWrapper',
     'fd': 'FdSocketAddressWrapper' } }
 
 { 'enum': 'SocketAddressType',
-  'data': [ 'inet', 'unix', 'vsock', 'fd' ] }
+  'data': [ 'inet', 'unix', 'fd' ] }
 
 { 'union': 'SocketAddress',
   'base': { 'type': 'SocketAddressType' },
   'discriminator': 'type',
   'data': { 'inet': 'InetSocketAddress',
             'unix': 'UnixSocketAddress',
-            'vsock': 'VsockSocketAddress',
             'fd': 'FdSocketAddress' } }

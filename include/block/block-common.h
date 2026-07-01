@@ -71,6 +71,55 @@ typedef struct BlockDriverInfo {
     bool needs_compressed_writes;
 } BlockDriverInfo;
 
+typedef enum BlkdebugEvent {
+    BLKDBG_CLUSTER_ALLOC,
+    BLKDBG_CLUSTER_ALLOC_BYTES,
+    BLKDBG_CLUSTER_ALLOC_SPACE,
+    BLKDBG_CLUSTER_FREE,
+    BLKDBG_COR_WRITE,
+    BLKDBG_COW_READ,
+    BLKDBG_COW_WRITE,
+    BLKDBG_EMPTY_IMAGE_PREPARE,
+    BLKDBG_FLUSH_TO_DISK,
+    BLKDBG_FLUSH_TO_OS,
+    BLKDBG_L1_GROW_ACTIVATE_TABLE,
+    BLKDBG_L1_GROW_ALLOC_TABLE,
+    BLKDBG_L1_GROW_WRITE_TABLE,
+    BLKDBG_L1_SHRINK_FREE_L2_CLUSTERS,
+    BLKDBG_L1_SHRINK_WRITE_TABLE,
+    BLKDBG_L1_UPDATE,
+    BLKDBG_L2_ALLOC_COW_READ,
+    BLKDBG_L2_ALLOC_WRITE,
+    BLKDBG_L2_LOAD,
+    BLKDBG_L2_UPDATE,
+    BLKDBG_L2_UPDATE_COMPRESSED,
+    BLKDBG_PWRITEV,
+    BLKDBG_PWRITEV_DONE,
+    BLKDBG_PWRITEV_RMW_AFTER_HEAD,
+    BLKDBG_PWRITEV_RMW_AFTER_TAIL,
+    BLKDBG_PWRITEV_RMW_HEAD,
+    BLKDBG_PWRITEV_RMW_TAIL,
+    BLKDBG_PWRITEV_ZERO,
+    BLKDBG_READ_AIO,
+    BLKDBG_READ_BACKING_AIO,
+    BLKDBG_READ_COMPRESSED,
+    BLKDBG_REFBLOCK_ALLOC,
+    BLKDBG_REFBLOCK_ALLOC_HOOKUP,
+    BLKDBG_REFBLOCK_ALLOC_SWITCH_TABLE,
+    BLKDBG_REFBLOCK_ALLOC_WRITE,
+    BLKDBG_REFBLOCK_ALLOC_WRITE_BLOCKS,
+    BLKDBG_REFBLOCK_ALLOC_WRITE_TABLE,
+    BLKDBG_REFBLOCK_LOAD,
+    BLKDBG_REFBLOCK_UPDATE_PART,
+    BLKDBG_REFTABLE_GROW,
+    BLKDBG_REFTABLE_LOAD,
+    BLKDBG_REFTABLE_UPDATE,
+    BLKDBG_VMSTATE_LOAD,
+    BLKDBG_VMSTATE_SAVE,
+    BLKDBG_WRITE_AIO,
+    BLKDBG_WRITE_COMPRESSED,
+} BlkdebugEvent;
+
 typedef struct BlockFragInfo {
     uint64_t allocated_clusters;
     uint64_t total_clusters;
@@ -105,16 +154,15 @@ typedef enum {
 #define BDRV_O_NO_SHARE    0x0001 /* don't share permissions */
 #define BDRV_O_RDWR        0x0002
 #define BDRV_O_RESIZE      0x0004 /* request permission for resizing the node */
-#define BDRV_O_SNAPSHOT    0x0008 /* open the file read only and save
-                                     writes in a snapshot */
+#define BDRV_O_TEMP_WRITES 0x0008
 #define BDRV_O_TEMPORARY   0x0010 /* delete the file after use */
 #define BDRV_O_NOCACHE     0x0020 /* do not use the host page cache */
 #define BDRV_O_NATIVE_AIO  0x0080 /* use native AIO instead of the
                                      thread pool */
-#define BDRV_O_NO_BACKING  0x0100 /* don't open the backing file */
+#define BDRV_O_NO_BACKING  0x0100
 #define BDRV_O_NO_FLUSH    0x0200 /* disable flushing on this disk */
 #define BDRV_O_COPY_ON_READ 0x0400 /* copy read backing sectors into image */
-#define BDRV_O_INACTIVE    0x0800  /* consistency hint for migration handoff */
+#define BDRV_O_INACTIVE    0x0800
 #define BDRV_O_CHECK       0x1000  /* open solely for consistency check */
 #define BDRV_O_ALLOW_RDWR  0x2000  /* allow reopen to change from r/o to r/w */
 #define BDRV_O_UNMAP       0x4000  /* execute guest UNMAP/TRIM operations */
@@ -185,9 +233,6 @@ typedef enum BlockOpType {
     BLOCK_OP_TYPE_COMMIT_TARGET,
     BLOCK_OP_TYPE_DRIVE_DEL,
     BLOCK_OP_TYPE_EJECT,
-    BLOCK_OP_TYPE_EXTERNAL_SNAPSHOT,
-    BLOCK_OP_TYPE_INTERNAL_SNAPSHOT,
-    BLOCK_OP_TYPE_INTERNAL_SNAPSHOT_DELETE,
     BLOCK_OP_TYPE_MIRROR_SOURCE,
     BLOCK_OP_TYPE_MIRROR_TARGET,
     BLOCK_OP_TYPE_RESIZE,

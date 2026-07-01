@@ -9,7 +9,7 @@
 #include "hw/qdev-core.h"
 #include "hw/qdev-properties.h"
 #include "hw/core/sysemu-cpu-ops.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "system/tcg.h"
 
 bool cpu_has_work(CPUState *cpu)

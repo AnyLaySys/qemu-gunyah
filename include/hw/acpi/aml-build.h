@@ -4,12 +4,11 @@
 #include "hw/acpi/acpi-defs.h"
 #include "hw/acpi/bios-linker-loader.h"
 
-#define ACPI_BUILD_APPNAME6 "BOCHS "
+#define ACPI_BUILD_APPNAME6 "QEMU  "
 #define ACPI_BUILD_APPNAME8 "BXPC    "
 
 #define ACPI_BUILD_TABLE_FILE "etc/acpi/tables"
 #define ACPI_BUILD_RSDP_FILE "etc/acpi/rsdp"
-#define ACPI_BUILD_TPMLOG_FILE "etc/tpm/log"
 #define ACPI_BUILD_LOADER_FILE "etc/table-loader"
 
 #define AML_NOTIFY_METHOD "NTFY"
@@ -165,13 +164,6 @@ typedef enum {
     AML_PULL_DOWN = 2,
     AML_PULL_NONE = 3,
 } AmlPinConfig;
-
-typedef enum {
-    MEM_AFFINITY_NOFLAGS      = 0,
-    MEM_AFFINITY_ENABLED      = (1 << 0),
-    MEM_AFFINITY_HOTPLUGGABLE = (1 << 1),
-    MEM_AFFINITY_NON_VOLATILE = (1 << 2),
-} MemoryAffinityFlags;
 
 typedef
 struct AcpiBuildTables {
@@ -386,26 +378,10 @@ Aml *build_crs(PCIHostState *host, CrsRangeSet *range_set, uint32_t io_offset,
                uint32_t mmio32_offset, uint64_t mmio64_offset,
                uint16_t bus_nr_offset);
 
-void build_srat_memory(GArray *table_data, uint64_t base,
-                       uint64_t len, int node, MemoryAffinityFlags flags);
-
-void build_srat_pci_generic_initiator(GArray *table_data, uint32_t node,
-                                      uint16_t segment, uint8_t bus,
-                                      uint8_t devfn);
-
-void build_srat_acpi_generic_port(GArray *table_data, uint32_t node,
-                                  const char *hid, uint32_t uid);
-
-void build_slit(GArray *table_data, BIOSLinker *linker, MachineState *ms,
-                const char *oem_id, const char *oem_table_id);
-
 void build_pptt(GArray *table_data, BIOSLinker *linker, MachineState *ms,
                 const char *oem_id, const char *oem_table_id);
 
 void build_fadt(GArray *tbl, BIOSLinker *linker, const AcpiFadtData *f,
-                const char *oem_id, const char *oem_table_id);
-
-void build_tpm2(GArray *table_data, BIOSLinker *linker, GArray *tcpalog,
                 const char *oem_id, const char *oem_table_id);
 
 void build_spcr(GArray *table_data, BIOSLinker *linker,

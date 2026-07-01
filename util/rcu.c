@@ -320,7 +320,9 @@ static void rcu_init_child(void)
 
 static void __attribute__((__constructor__)) rcu_init(void)
 {
+#ifdef CONFIG_MEMBARRIER
     smp_mb_global_init();
+#endif
 #ifdef CONFIG_POSIX
     pthread_atfork(rcu_init_lock, rcu_init_unlock, rcu_init_child);
 #endif

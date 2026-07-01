@@ -7,7 +7,7 @@
 #define PCI_CLASS_NOT_DEFINED_VGA        0x0001
 
 #define PCI_BASE_CLASS_STORAGE           0x01
-#define PCI_CLASS_STORAGE_SCSI           0x0100
+#define PCI_CLASS_STORAGE_GENERIC        0x0100
 #define PCI_CLASS_STORAGE_IDE            0x0101
 #define PCI_CLASS_STORAGE_FLOPPY         0x0102
 #define PCI_CLASS_STORAGE_IPI            0x0103
@@ -158,13 +158,10 @@
 #define PCI_VENDOR_ID_DEC                0x1011
 #define PCI_DEVICE_ID_DEC_21143          0x0019
 
-#define PCI_VENDOR_ID_CIRRUS             0x1013
-
 #define PCI_VENDOR_ID_IBM                0x1014
 
 #define PCI_VENDOR_ID_AMD                0x1022
 #define PCI_DEVICE_ID_AMD_LANCE          0x2000
-#define PCI_DEVICE_ID_AMD_SCSI           0x2020
 
 #define PCI_VENDOR_ID_HP                 0x103c
 
@@ -231,7 +228,6 @@
 #define PCI_DEVICE_ID_INTEL_82801BA_11   0x244e
 #define PCI_DEVICE_ID_INTEL_82801D       0x24CD
 #define PCI_DEVICE_ID_INTEL_ESB_9        0x25ab
-#define PCI_DEVICE_ID_INTEL_NVME         0x5845
 #define PCI_DEVICE_ID_INTEL_82371SB_0    0x7000
 #define PCI_DEVICE_ID_INTEL_82371SB_1    0x7010
 #define PCI_DEVICE_ID_INTEL_82371SB_2    0x7020
@@ -270,9 +266,6 @@
 
 #define PCI_VENDOR_ID_TEWS               0x1498
 #define PCI_DEVICE_ID_TEWS_TPCI200       0x30C8
-
-#define PCI_VENDOR_ID_VMWARE             0x15ad
-#define PCI_DEVICE_ID_VMWARE_PVRDMA      0x0820
 
 #define PCI_VENDOR_ID_SYNOPSYS           0x16C3
 

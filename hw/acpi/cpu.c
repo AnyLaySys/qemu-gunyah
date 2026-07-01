@@ -1,11 +1,10 @@
 #include "qemu/osdep.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "hw/acpi/cpu.h"
 #include "hw/core/cpu.h"
 #include "qapi/error.h"
 #include "qapi/qapi-events-acpi.h"
 #include "trace.h"
-#include "system/numa.h"
 
 #define ACPI_CPU_SELECTOR_OFFSET_WR 0
 #define ACPI_CPU_FLAGS_OFFSET_RW 4
@@ -648,11 +647,6 @@ void build_cpus_aml(Aml *table, MachineState *machine, CPUHotplugFeatures opts,
                           aml_arg(1), aml_arg(2))
             );
             aml_append(dev, method);
-
-            if (arch_ids->cpus[i].props.has_node_id) {
-                aml_append(dev, aml_name_decl("_PXM",
-                           aml_int(arch_ids->cpus[i].props.node_id)));
-            }
 
             aml_append(cpus_dev, dev);
         }

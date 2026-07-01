@@ -1,7 +1,7 @@
 
 #include "qemu/osdep.h"
 #include "hw/rtc/pl031.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
 #include "hw/sysbus.h"

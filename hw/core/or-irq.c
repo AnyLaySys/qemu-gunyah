@@ -3,7 +3,7 @@
 #include "hw/irq.h"
 #include "hw/or-irq.h"
 #include "hw/qdev-properties.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qemu/module.h"
 
 static void or_irq_handler(void *opaque, int n, int level)
@@ -49,7 +49,7 @@ static void or_irq_init(Object *obj)
 
 #define OLD_MAX_OR_LINES 16
 #if MAX_OR_LINES < OLD_MAX_OR_LINES
-#error MAX_OR_LINES must be at least 16 for migration compatibility
+#error MAX_OR_LINES must be at least 16
 #endif
 
 static bool vmstate_extras_needed(void *opaque)

@@ -1336,7 +1336,7 @@ char *qemu_console_get_label(QemuConsole *con)
                 return g_strdup(dev->id ? : object_get_typename(c->device));
             }
         }
-        return g_strdup("VGA");
+        return g_strdup("display");
     } else if (QEMU_IS_TEXT_CONSOLE(con)) {
         const char *label = qemu_text_console_get_label(QEMU_TEXT_CONSOLE(con));
         if (label) {
@@ -1528,29 +1528,4 @@ const char *qemu_display_get_vc(DisplayOptions *opts)
         vc = dpys[opts->type]->vc;
     }
     return vc;
-}
-
-void qemu_display_help(void)
-{
-    int idx;
-
-    printf("Available display backend types:\n");
-    printf("none\n");
-    for (idx = DISPLAY_TYPE_NONE; idx < DISPLAY_TYPE__MAX; idx++) {
-        if (!dpys[idx]) {
-            Error *local_err = NULL;
-            int rv = ui_module_load(DisplayType_str(idx), &local_err);
-            if (rv < 0) {
-                error_report_err(local_err);
-            }
-        }
-        if (dpys[idx]) {
-            printf("%s\n",  DisplayType_str(dpys[idx]->type));
-        }
-    }
-    printf("\n"
-           "Some display backends support suboptions, which can be set with\n"
-           "   -display backend,option=value,option=value...\n"
-           "For a short list of the suboptions for each display, see the "
-           "top-level -help output; more detail is in the documentation.\n");
 }

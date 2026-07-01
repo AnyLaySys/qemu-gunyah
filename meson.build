@@ -179,32 +179,9 @@ if 'syslog' in get_option('trace_backends') and not cc.compiles('''
   error('syslog is not supported on this system')
 endif
 
-get_option('mpath') \
-  .require(host_os == 'linux', error_message: 'Multipath is supported only on Linux')
-
 multiprocess_allowed = get_option('multiprocess') \
   .require(host_os == 'linux', error_message: 'Multiprocess QEMU is supported only on Linux') \
   .allowed()
-
-have_tpm = get_option('tpm') \
-  .require(host_os != 'windows', error_message: 'TPM emulation only available on POSIX systems') \
-  .allowed()
-
-have_vhost_user = get_option('vhost_user') \
-  .disable_auto_if(host_os != 'linux') \
-  .require(host_os != 'windows',
-           error_message: 'vhost-user is not available on Windows').allowed()
-have_vhost_vdpa = get_option('vhost_vdpa') \
-  .require(host_os == 'linux',
-           error_message: 'vhost-vdpa is only available on Linux').allowed()
-have_vhost_kernel = get_option('vhost_kernel') \
-  .require(host_os == 'linux',
-           error_message: 'vhost-kernel is only available on Linux').allowed()
-have_vhost_user_crypto = get_option('vhost_crypto') \
-  .require(have_vhost_user,
-           error_message: 'vhost-crypto requires vhost-user to be enabled').allowed()
-
-have_vhost = have_vhost_user or have_vhost_vdpa or have_vhost_kernel
 
 have_tools = get_option('tools') \
   .disable_auto_if(not have_system) \
@@ -389,8 +366,7 @@ endif
 if coroutine_backend == 'auto'
   coroutine_backend = supported_backends[0]
 elif coroutine_backend not in supported_backends
-  error('"@0@" backend requested but not available.  Available backends: @1@' \
-        .format(coroutine_backend, ', '.join(supported_backends)))
+  error('"@0@" backend requested but not available'.format(coroutine_backend))
 endif
 
 safe_stack_probe = '''
@@ -834,13 +810,6 @@ if not get_option('linux_io_uring').auto() or have_block
   endif
 endif
 
-libnfs = not_found
-if not get_option('libnfs').auto() or have_block
-  libnfs = dependency('libnfs', version: ['>=1.9.3', '<6.0.0'],
-                      required: get_option('libnfs'),
-                      method: 'pkg-config')
-endif
-
 libattr_test = '''
   #include <stddef.h>
   #include <sys/types.h>
@@ -991,12 +960,6 @@ spice_headers = spice.partial_dependency(compile_args: true, includes: true)
 
 rt = cc.find_library('rt', required: false)
 
-libiscsi = not_found
-if not get_option('libiscsi').auto() or have_block
-  libiscsi = dependency('libiscsi', version: '>=1.9.0',
-                         required: get_option('libiscsi'),
-                         method: 'pkg-config')
-endif
 zstd = not_found
 if not get_option('zstd').auto() or have_block
   zstd = dependency('libzstd', version: '>=1.4.0',
@@ -1031,8 +994,7 @@ endif
 
 virgl = not_found
 
-have_vhost_user_gpu = have_tools and host_os == 'linux' and pixman.found()
-if not get_option('virglrenderer').auto() or have_system or have_vhost_user_gpu
+if not get_option('virglrenderer').auto() or have_system
   virgl = dependency('virglrenderer',
                      method: 'pkg-config',
                      required: get_option('virglrenderer'))
@@ -1054,59 +1016,6 @@ if host_os == 'linux' and (have_system or have_tools)
   libudev = dependency('libudev',
                        method: 'pkg-config',
                        required: get_option('libudev'))
-endif
-
-mpathlibs = [libudev]
-mpathpersist = not_found
-if host_os == 'linux' and have_tools and get_option('mpath').allowed()
-  mpath_test_source = '''
-    #include <libudev.h>
-    #include <mpath_persist.h>
-    unsigned mpath_mx_alloc_len = 1024;
-    int logsink;
-    static struct config *multipath_conf;
-    extern struct udev *udev;
-    extern struct config *get_multipath_config(void);
-    extern void put_multipath_config(struct config *conf);
-    struct udev *udev;
-    struct config *get_multipath_config(void) { return multipath_conf; }
-    void put_multipath_config(struct config *conf) { }
-    int main(void) {
-        udev = udev_new();
-        multipath_conf = mpath_lib_init();
-        return 0;
-    }'''
-  libmpathpersist = cc.find_library('mpathpersist',
-                                    required: get_option('mpath'))
-  if libmpathpersist.found()
-    mpathlibs += libmpathpersist
-    if get_option('prefer_static')
-      mpathlibs += cc.find_library('devmapper',
-                                     required: get_option('mpath'))
-    endif
-    mpathlibs += cc.find_library('multipath',
-                                 required: get_option('mpath'))
-    foreach lib: mpathlibs
-      if not lib.found()
-        mpathlibs = []
-        break
-      endif
-    endforeach
-    if mpathlibs.length() == 0
-      msg = 'Dependencies missing for libmpathpersist'
-    elif cc.links(mpath_test_source, dependencies: mpathlibs)
-      mpathpersist = declare_dependency(dependencies: mpathlibs)
-    else
-      msg = 'Cannot detect libmpathpersist API'
-    endif
-    if not mpathpersist.found()
-      if get_option('mpath').enabled()
-        error(msg)
-      else
-        warning(msg + ', disabling')
-      endif
-    endif
-  endif
 endif
 
 iconv = not_found
@@ -1230,76 +1139,6 @@ if sdl.found()
   endif
 endif
 
-rbd = not_found
-if not get_option('rbd').auto() or have_block
-  librados = cc.find_library('rados', required: get_option('rbd'))
-  librbd = cc.find_library('rbd', has_headers: ['rbd/librbd.h'],
-                           required: get_option('rbd'))
-  if librados.found() and librbd.found()
-    if cc.links('''
-      #include <stdio.h>
-      #include <rbd/librbd.h>
-      int main(void) {
-        rados_t cluster;
-        rados_create(&cluster, NULL);
-        #if LIBRBD_VERSION_CODE < LIBRBD_VERSION(1, 12, 0)
-        #error
-        #endif
-        return 0;
-      }''', dependencies: [librbd, librados])
-      rbd = declare_dependency(dependencies: [librbd, librados])
-    elif get_option('rbd').enabled()
-      error('librbd >= 1.12.0 required')
-    else
-      warning('librbd >= 1.12.0 not found, disabling')
-    endif
-  endif
-endif
-
-glusterfs = not_found
-glusterfs_ftruncate_has_stat = false
-glusterfs_iocb_has_stat = false
-if not get_option('glusterfs').auto() or have_block
-  glusterfs = dependency('glusterfs-api', version: '>=3',
-                         required: get_option('glusterfs'),
-                         method: 'pkg-config')
-  if glusterfs.found()
-    glusterfs_ftruncate_has_stat = cc.links('''
-      #include <glusterfs/api/glfs.h>
-
-      int
-      main(void)
-      {
-          /* new glfs_ftruncate() passes two additional args */
-          return glfs_ftruncate(NULL, 0, NULL, NULL);
-      }
-    ''', dependencies: glusterfs)
-    glusterfs_iocb_has_stat = cc.links('''
-      #include <glusterfs/api/glfs.h>
-
-      /* new glfs_io_cbk() passes two additional glfs_stat structs */
-      static void
-      glusterfs_iocb(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat, struct glfs_stat *poststat, void *data)
-      {}
-
-      int
-      main(void)
-      {
-          glfs_io_cbk iocb = &glusterfs_iocb;
-          iocb(NULL, 0 , NULL, NULL, NULL);
-          return 0;
-      }
-    ''', dependencies: glusterfs)
-  endif
-endif
-
-libssh = not_found
-if not get_option('libssh').auto() or have_block
-  libssh = dependency('libssh', version: '>=0.8.7',
-                    method: 'pkg-config',
-                    required: get_option('libssh'))
-endif
-
 libbzip2 = not_found
 if not get_option('bzip2').auto() or have_block
   libbzip2 = cc.find_library('bz2', has_headers: ['bzlib.h'],
@@ -1367,7 +1206,7 @@ if not get_option('coreaudio').auto() or (host_os == 'darwin' and have_system)
 endif
 
 opengl = not_found
-if not get_option('opengl').auto() or have_system or have_vhost_user_gpu
+if not get_option('opengl').auto() or have_system
   epoxy = dependency('epoxy', method: 'pkg-config',
                       required: get_option('opengl'))
   if cc.has_header('epoxy/egl.h', dependencies: epoxy)
@@ -1380,7 +1219,6 @@ gbm = not_found
 if (have_system or have_tools) and (virgl.found() or opengl.found())
   gbm = dependency('gbm', method: 'pkg-config', required: false)
 endif
-have_vhost_user_gpu = have_vhost_user_gpu and virgl.found() and opengl.found() and gbm.found()
 
 libcbor = not_found
 if not get_option('libcbor').auto() or have_system
@@ -1555,23 +1393,6 @@ if lzo.found() and not cc.links('''
   endif
 endif
 
-numa = not_found
-if not get_option('numa').auto() or have_system or have_tools
-  numa = cc.find_library('numa', has_headers: ['numa.h'],
-                              required: get_option('numa'))
-endif
-if numa.found() and not cc.links('''
-   #include <numa.h>
-   int main(void) { return numa_available(); }
-   ''', dependencies: numa)
-  numa = not_found
-  if get_option('numa').enabled()
-    error('could not link numa')
-  else
-    warning('could not link numa, disabling')
-  endif
-endif
-
 fdt = not_found
 fdt_opt = get_option('fdt')
 if fdt_opt == 'enabled' and get_option('wrap_mode') == 'nodownload'
@@ -1600,19 +1421,6 @@ if fdt_opt == 'internal'
   fdt = libfdt_proj.get_variable('libfdt_dep')
 endif
 
-rdma = not_found
-if not get_option('rdma').auto() or have_system
-  rdma_libs = [cc.find_library('rdmacm', has_headers: ['rdma/rdma_cma.h'],
-                               required: get_option('rdma')),
-               cc.find_library('ibverbs', required: get_option('rdma'))]
-  rdma = declare_dependency(dependencies: rdma_libs)
-  foreach lib: rdma_libs
-    if not lib.found()
-      rdma = not_found
-    endif
-  endforeach
-endif
-
 cacard = not_found
 if not get_option('smartcard').auto() or have_system
   cacard = dependency('libcacard', required: get_option('smartcard'),
@@ -1622,11 +1430,6 @@ u2f = not_found
 if not get_option('u2f').auto() or have_system
   u2f = dependency('u2f-emu', required: get_option('u2f'),
                    method: 'pkg-config')
-endif
-usbredir = not_found
-if not get_option('usb_redir').auto() or have_system
-  usbredir = dependency('libusbredirparser-0.5', required: get_option('usb_redir'),
-                        version: '>=0.6', method: 'pkg-config')
 endif
 libusb = not_found
 if not get_option('libusb').auto() or have_system
@@ -1650,12 +1453,6 @@ if gnutls.found()
                      required: false,
                      method: 'pkg-config')
 endif
-keyutils = not_found
-if not get_option('libkeyutils').auto() or have_block
-  keyutils = dependency('libkeyutils', required: get_option('libkeyutils'),
-                        method: 'pkg-config')
-endif
-
 has_gettid = cc.has_function('gettid')
 
 
@@ -1694,14 +1491,6 @@ osdep_prefix = '''
   #include <fcntl.h>
 '''
 
-have_vhost_user_blk_server = get_option('vhost_user_blk_server') \
-  .require(host_os == 'linux',
-           error_message: 'vhost_user_blk_server requires linux') \
-  .require(have_vhost_user,
-           error_message: 'vhost_user_blk_server requires vhost-user support') \
-  .disable_auto_if(not have_tools and not have_system) \
-  .allowed()
-
 libdw = not_found
 if not get_option('libdw').auto() or \
         (not get_option('prefer_static') and (have_system or have_user))
@@ -1717,15 +1506,15 @@ config_host_data.set('CONFIG_HAVE_RUST', have_rust)
 audio_drivers_selected = []
 if have_system
   audio_drivers_available = {
-    'alsa': alsa.found(),
-    'coreaudio': coreaudio.found(),
-    'dsound': dsound.found(),
-    'jack': jack.found(),
-    'oss': oss.found(),
-    'pa': pulse.found(),
-    'pipewire': pipewire.found(),
-    'sdl': sdl.found(),
-    'sndio': sndio.found(),
+    'alsa': false,
+    'coreaudio': false,
+    'dsound': false,
+    'jack': false,
+    'oss': false,
+    'pa': false,
+    'pipewire': false,
+    'sdl': false,
+    'sndio': false,
     'aaudio': aaudio.found(),
   }
   foreach k, v: audio_drivers_available
@@ -1733,8 +1522,7 @@ if have_system
   endforeach
 
   audio_drivers_priority = \
-    [ 'pa', 'coreaudio', 'dsound', 'sndio', 'oss' ] + \
-    (host_os == 'linux' ? [] : [ 'sdl' ])
+    [ 'aaudio' ]
   audio_drivers_default = []
   foreach k: audio_drivers_priority
     if audio_drivers_available[k]
@@ -1857,11 +1645,8 @@ config_host_data.set('CONFIG_LINUX', host_os == 'linux')
 config_host_data.set('CONFIG_POSIX', host_os != 'windows')
 config_host_data.set('CONFIG_WIN32', host_os == 'windows')
 config_host_data.set('CONFIG_LZO', lzo.found())
-config_host_data.set('CONFIG_MPATH', mpathpersist.found())
 config_host_data.set('CONFIG_BLKIO', blkio.found())
 if blkio.found()
-  config_host_data.set('CONFIG_BLKIO_VHOST_VDPA_FD',
-                       blkio.version().version_compare('>=1.3.0'))
   config_host_data.set('CONFIG_BLKIO_WRITE_ZEROS_FUA',
                        blkio.version().version_compare('>=1.4.0'))
 endif
@@ -1869,35 +1654,15 @@ config_host_data.set('CONFIG_CURL', curl.found())
 config_host_data.set('CONFIG_CURSES', curses.found())
 config_host_data.set('CONFIG_GBM', gbm.found())
 config_host_data.set('CONFIG_GIO', gio.found())
-config_host_data.set('CONFIG_GLUSTERFS', glusterfs.found())
-if glusterfs.found()
-  config_host_data.set('CONFIG_GLUSTERFS_XLATOR_OPT', glusterfs.version().version_compare('>=4'))
-  config_host_data.set('CONFIG_GLUSTERFS_DISCARD', glusterfs.version().version_compare('>=5'))
-  config_host_data.set('CONFIG_GLUSTERFS_FALLOCATE', glusterfs.version().version_compare('>=6'))
-  config_host_data.set('CONFIG_GLUSTERFS_ZEROFILL', glusterfs.version().version_compare('>=6'))
-  config_host_data.set('CONFIG_GLUSTERFS_FTRUNCATE_HAS_STAT', glusterfs_ftruncate_has_stat)
-  config_host_data.set('CONFIG_GLUSTERFS_IOCB_HAS_STAT', glusterfs_iocb_has_stat)
-endif
 config_host_data.set('CONFIG_HEXAGON_IDEF_PARSER', get_option('hexagon_idef_parser'))
 config_host_data.set('CONFIG_LIBATTR', have_old_libattr)
 config_host_data.set('CONFIG_LIBCAP_NG', libcap_ng.found())
 config_host_data.set('CONFIG_LIBDAXCTL', libdaxctl.found())
-config_host_data.set('CONFIG_LIBISCSI', libiscsi.found())
-config_host_data.set('CONFIG_LIBNFS', libnfs.found())
-config_host_data.set('CONFIG_LIBSSH', libssh.found())
 config_host_data.set('CONFIG_LINUX_IO_URING', linux_io_uring.found())
 config_host_data.set('CONFIG_LIBPMEM', libpmem.found())
 config_host_data.set('CONFIG_MODULES', enable_modules)
-config_host_data.set('CONFIG_NUMA', numa.found())
-if numa.found()
-  config_host_data.set('HAVE_NUMA_HAS_PREFERRED_MANY',
-                       cc.has_function('numa_has_preferred_many',
-                                       dependencies: numa))
-endif
 config_host_data.set('CONFIG_OPENGL', opengl.found())
 config_host_data.set('CONFIG_PLUGIN', get_option('plugins'))
-config_host_data.set('CONFIG_RBD', rbd.found())
-config_host_data.set('CONFIG_RDMA', rdma.found())
 config_host_data.set('CONFIG_RELOCATABLE', get_option('relocatable'))
 config_host_data.set('CONFIG_SAFESTACK', get_option('safe_stack'))
 config_host_data.set('CONFIG_SDL', sdl.found())
@@ -1912,23 +1677,15 @@ if get_option('tcg').allowed()
   config_host_data.set('CONFIG_TCG', 1)
   config_host_data.set('CONFIG_TCG_INTERPRETER', tcg_arch == 'tci')
 endif
-config_host_data.set('CONFIG_TPM', have_tpm)
 config_host_data.set('CONFIG_TSAN', get_option('tsan'))
 config_host_data.set('CONFIG_USB_LIBUSB', libusb.found())
 config_host_data.set('CONFIG_VDE', vde.found())
-config_host_data.set('CONFIG_VHOST', have_vhost)
-config_host_data.set('CONFIG_VHOST_KERNEL', have_vhost_kernel)
-config_host_data.set('CONFIG_VHOST_USER', have_vhost_user)
-config_host_data.set('CONFIG_VHOST_CRYPTO', have_vhost_user_crypto)
-config_host_data.set('CONFIG_VHOST_VDPA', have_vhost_vdpa)
-config_host_data.set('CONFIG_VHOST_USER_BLK_SERVER', have_vhost_user_blk_server)
 config_host_data.set('CONFIG_PNG', png.found())
 if virgl.found()
   config_host_data.set('VIRGL_VERSION_MAJOR', virgl.version().split('.')[0])
 endif
 config_host_data.set('CONFIG_VIRTFS', have_virtfs)
 config_host_data.set('CONFIG_XKBCOMMON', xkbcommon.found())
-config_host_data.set('CONFIG_KEYUTILS', keyutils.found())
 config_host_data.set('CONFIG_GETTID', has_gettid)
 config_host_data.set('CONFIG_GNUTLS', gnutls.found())
 config_host_data.set('CONFIG_GNUTLS_CRYPTO', gnutls_crypto.found())
@@ -2028,19 +1785,6 @@ config_host_data.set('HAVE_GLIB_WITH_ALIGNED_ALLOC', glib_has_aligned_alloc)
 config_host_data.set('HAVE_OPENPTY', cc.has_function('openpty', dependencies: util))
 config_host_data.set('HAVE_STRCHRNUL', cc.has_function('strchrnul', prefix: osdep_prefix))
 config_host_data.set('HAVE_SYSTEM_FUNCTION', cc.has_function('system', prefix: '#include <stdlib.h>'))
-if rbd.found()
-  config_host_data.set('HAVE_RBD_NAMESPACE_EXISTS',
-                       cc.has_function('rbd_namespace_exists',
-                                       dependencies: rbd,
-                                       prefix: '#include <rbd/librbd.h>'))
-endif
-if rdma.found()
-  config_host_data.set('HAVE_IBV_ADVISE_MR',
-                       cc.has_function('ibv_advise_mr',
-                                       dependencies: rdma,
-                                       prefix: '#include <infiniband/verbs.h>'))
-endif
-
 have_asan_fiber = false
 if get_option('asan') and \
    not cc.has_function('__sanitizer_start_switch_fiber',
@@ -2353,19 +2097,6 @@ config_host_data.set('CONFIG_USBFS', have_linux_user and cc.compiles('''
 
   int main(void) { return 0; }'''))
 
-have_keyring = get_option('keyring') \
-  .require(host_os == 'linux', error_message: 'keyring is only available on Linux') \
-  .require(cc.compiles('''
-    #include <errno.h>
-    #include <asm/unistd.h>
-    #include <linux/keyctl.h>
-    #include <sys/syscall.h>
-    #include <unistd.h>
-    int main(void) {
-        return syscall(__NR_keyctl, KEYCTL_READ, 0, NULL, NULL, 0);
-    }'''), error_message: 'keyctl syscall not available on this system').allowed()
-config_host_data.set('CONFIG_SECRET_KEYRING', have_keyring)
-
 have_cpuid_h = cc.links('''
   #include <cpuid.h>
   int main(void) {
@@ -2453,11 +2184,6 @@ have_afalg = get_option('crypto_afalg') \
   '''), error_message: 'AF_ALG requested but could not be detected').allowed()
 config_host_data.set('CONFIG_AF_ALG', have_afalg)
 
-config_host_data.set('CONFIG_AF_VSOCK', cc.has_header_symbol(
-  'linux/vm_sockets.h', 'AF_VSOCK',
-  prefix: '#include <sys/socket.h>',
-))
-
 have_vss = false
 have_vss_sdk = false # old xp/2003 SDK
 if host_os == 'windows' and 'cpp' in all_languages
@@ -2536,7 +2262,6 @@ disassemblers = {
 have_ivshmem = config_host_data.get('CONFIG_EVENTFD')
 host_kconfig = \
   (get_option('fuzzing') ? ['CONFIG_FUZZ=y'] : []) + \
-  (have_tpm ? ['CONFIG_TPM=y'] : []) + \
   (pixman.found() ? ['CONFIG_PIXMAN=y'] : []) + \
   (spice.found() ? ['CONFIG_SPICE=y'] : []) + \
   (have_ivshmem ? ['CONFIG_IVSHMEM=y'] : []) + \
@@ -2545,9 +2270,6 @@ host_kconfig = \
   (gnutls.found() ? ['CONFIG_GNUTLS=y'] : []) + \
   (x11.found() ? ['CONFIG_X11=y'] : []) + \
   (fdt.found() ? ['CONFIG_FDT=y'] : []) + \
-  (have_vhost_user ? ['CONFIG_VHOST_USER=y'] : []) + \
-  (have_vhost_vdpa ? ['CONFIG_VHOST_VDPA=y'] : []) + \
-  (have_vhost_kernel ? ['CONFIG_VHOST_KERNEL=y'] : []) + \
   (have_virtfs ? ['CONFIG_VIRTFS=y'] : []) + \
   (host_os == 'linux' ? ['CONFIG_LINUX=y'] : []) + \
   (multiprocess_allowed ? ['CONFIG_MULTIPROCESS_ALLOWED=y'] : []) + \
@@ -2708,9 +2430,6 @@ if fdt_required.length() > 0
 endif
 
 
-vhost_user = not_found
-
-
 config_host_h = configure_file(output: 'config-host.h', configuration: config_host_data)
 genh += config_host_h
 
@@ -2773,12 +2492,6 @@ hxdep = []
 hx_headers = [
   ['qemu-options.hx', 'qemu-options.def'],
 ]
-if have_system
-  hx_headers += [
-    ['hmp-commands.hx', 'hmp-commands.h'],
-    ['hmp-commands-info.hx', 'hmp-commands-info.h'],
-  ]
-endif
 foreach d : hx_headers
   hxdep += custom_target(d[1],
                 input: files(d[0]),
@@ -2806,7 +2519,6 @@ if have_block
     'block',
     'chardev',
     'io',
-    'scsi',
   ]
 endif
 if have_system
@@ -2831,7 +2543,7 @@ if have_system
     'hw/uefi',
     'hw/virtio',
     'hw/gpio',
-    'migration',
+    'state',
     'net',
     'system',
     'ui',
@@ -2940,7 +2652,6 @@ if have_block
     error('Block replication was removed from this trimmed build')
   endif
 
-  subdir('scsi')
   subdir('block')
 
   blockdev_ss.add(files(
@@ -2972,7 +2683,7 @@ specific_ss.add(files('page-target.c', 'page-vary-target.c'))
 
 subdir('backends')
 subdir('disas')
-subdir('migration')
+subdir('state')
 subdir('monitor')
 subdir('net')
 if get_option('tcg').allowed()
@@ -3127,11 +2838,11 @@ libio = static_library('io', io_ss.sources() + genh,
 io = declare_dependency(objects: libio.extract_all_objects(recursive: false),
                         dependencies: [io_ss.dependencies(), qom])
 
-libmigration = static_library('migration', sources: migration_files + genh,
+libstate = static_library('state', sources: state_files + genh,
                               build_by_default: false)
-migration = declare_dependency(objects: libmigration.extract_all_objects(recursive: false),
+state_dep = declare_dependency(objects: libstate.extract_all_objects(recursive: false),
                                dependencies: [qom, io])
-system_ss.add(migration)
+system_ss.add(state_dep)
 
 block_ss = block_ss.apply({})
 libblock = static_library('block', block_ss.sources() + genh,
@@ -3218,7 +2929,6 @@ if have_rust
     'DeviceCategory',
     'GpioPolarity',
     'MachineInitPhase',
-    'MemoryDeviceInfoKind',
     'MigrationPolicy',
     'MigrationPriority',
     'QEMUChrEvent',
@@ -3640,17 +3350,6 @@ if have_block
   summary_info += {'Use block whitelist in tools': get_option('block_drv_whitelist_in_tools')}
   summary_info += {'VirtFS (9P) support':    have_virtfs}
   summary_info += {'replication support': config_host_data.get('CONFIG_REPLICATION')}
-  summary_info += {'bochs support':     get_option('bochs').allowed()}
-  summary_info += {'cloop support':     get_option('cloop').allowed()}
-  summary_info += {'dmg support':       get_option('dmg').allowed()}
-  summary_info += {'qcow v1 support':   get_option('qcow1').allowed()}
-  summary_info += {'vdi support':       get_option('vdi').allowed()}
-  summary_info += {'vhdx support':      get_option('vhdx').allowed()}
-  summary_info += {'vmdk support':      get_option('vmdk').allowed()}
-  summary_info += {'vpc support':       get_option('vpc').allowed()}
-  summary_info += {'vvfat support':     get_option('vvfat').allowed()}
-  summary_info += {'qed support':       get_option('qed').allowed()}
-  summary_info += {'parallels support': get_option('parallels').allowed()}
 endif
 summary(summary_info, bool_yn: true, section: 'Block layer support')
 
@@ -3710,8 +3409,6 @@ summary_info += {'SM4 ALG support':   crypto_sm4}
 summary_info += {'SM3 ALG support':   crypto_sm3}
 summary_info += {'AF_ALG support':    have_afalg}
 summary_info += {'rng-none':          get_option('rng_none')}
-summary_info += {'Linux keyring':     have_keyring}
-summary_info += {'Linux keyutils':    keyutils}
 summary(summary_info, bool_yn: true, section: 'Crypto')
 
 summary_info = {}
@@ -3719,30 +3416,21 @@ summary_info += {'libtasn1':          tasn1}
 summary_info += {'iconv support':     iconv}
 summary_info += {'blkio support':     blkio}
 summary_info += {'curl support':      curl}
-summary_info += {'Multipath support': mpathpersist}
 summary_info += {'Linux io_uring support': linux_io_uring}
 summary_info += {'ATTR/XATTR support': libattr}
-summary_info += {'RDMA support':      rdma}
 summary_info += {'fdt support':       fdt_opt == 'internal' ? 'internal' : fdt}
 summary_info += {'libcap-ng support': libcap_ng}
-summary_info += {'rbd support':       rbd}
 summary_info += {'smartcard support': cacard}
 summary_info += {'U2F support':       u2f}
 summary_info += {'libusb':            libusb}
-summary_info += {'usb net redir':     usbredir}
 summary_info += {'OpenGL support (epoxy)': opengl}
 summary_info += {'GBM':               gbm}
-summary_info += {'libiscsi support':  libiscsi}
-summary_info += {'libnfs support':    libnfs}
 if host_os == 'windows'
   if have_ga
     summary_info += {'QGA VSS support':   have_qga_vss}
   endif
 endif
 summary_info += {'seccomp support':   seccomp}
-summary_info += {'GlusterFS support': glusterfs}
-summary_info += {'TPM support':       have_tpm}
-summary_info += {'libssh support':    libssh}
 summary_info += {'lzo support':       lzo}
 summary_info += {'snappy support':    snappy}
 summary_info += {'bzip2 support':     libbzip2}
@@ -3751,7 +3439,6 @@ summary_info += {'zstd support':      zstd}
 summary_info += {'Query Processing Library support': qpl}
 summary_info += {'UADK Library support': uadk}
 summary_info += {'qatzip support':    qatzip}
-summary_info += {'NUMA host support': numa}
 summary_info += {'capstone':          capstone}
 summary_info += {'libpmem support':   libpmem}
 summary_info += {'libdaxctl support': libdaxctl}
@@ -3787,11 +3474,6 @@ endif
 summary_info += {'D-Bus display':     dbus_display}
 summary_info += {'QOM debugging':     get_option('qom_cast_debug')}
 summary_info += {'Relocatable install': get_option('relocatable')}
-summary_info += {'vhost-kernel support': have_vhost_kernel}
-summary_info += {'vhost-user support': have_vhost_user}
-summary_info += {'vhost-user-crypto support': have_vhost_user_crypto}
-summary_info += {'vhost-user-blk server support': have_vhost_user_blk_server}
-summary_info += {'vhost-vdpa support': have_vhost_vdpa}
 summary_info += {'build guest agent': have_ga}
 summary(summary_info, bool_yn: true, section: 'Configurable features')
 

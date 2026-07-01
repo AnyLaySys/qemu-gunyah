@@ -13,7 +13,7 @@ void progress_destroy(ProgressMeter *pm)
     qemu_mutex_destroy(&pm->lock);
 }
 
-void progress_get_snapshot(ProgressMeter *pm, uint64_t *current,
+void progress_get_sample(ProgressMeter *pm, uint64_t *current,
                            uint64_t *total)
 {
     QEMU_LOCK_GUARD(&pm->lock);

@@ -492,9 +492,6 @@ static inline void qemu_thread_jit_write(void)
 {
     pthread_jit_write_protect_np(false);
 }
-#else
-static inline void qemu_thread_jit_write(void) {}
-static inline void qemu_thread_jit_execute(void) {}
 #endif
 
 #ifndef HAVE_SYSTEM_FUNCTION

@@ -24,16 +24,12 @@ extern MachineState *current_machine;
 const char *machine_class_default_cpu_type(MachineClass *mc);
 
 void machine_add_audiodev_property(MachineClass *mc);
-void machine_run_board_init(MachineState *machine, const char *mem_path, Error **errp);
-bool machine_usb(MachineState *machine);
+void machine_run_board_init(MachineState *machine, Error **errp);
 int machine_phandle_start(MachineState *machine);
 bool machine_dump_guest_core(MachineState *machine);
 bool machine_mem_merge(MachineState *machine);
 bool machine_require_guest_memfd(MachineState *machine);
 HotpluggableCPUList *machine_query_hotpluggable_cpus(MachineState *machine);
-void machine_set_cpu_numa_node(MachineState *machine,
-                               const CpuInstanceProperties *props,
-                               Error **errp);
 void machine_parse_smp_config(MachineState *ms,
                               const SMPConfiguration *config, Error **errp);
 bool machine_parse_smp_cache(MachineState *ms,
@@ -46,8 +42,6 @@ CpuTopologyLevel machine_get_cache_topo_level(const MachineState *ms,
 void machine_set_cache_topo_level(MachineState *ms, CacheLevelAndType cache,
                                   CpuTopologyLevel level);
 bool machine_check_smp_cache(const MachineState *ms, Error **errp);
-void machine_memory_devices_init(MachineState *ms, hwaddr base, uint64_t size);
-
 void machine_class_allow_dynamic_sysbus_dev(MachineClass *mc, const char *type);
 
 bool device_type_is_dynamic_sysbus(MachineClass *mc, const char *type);
@@ -124,17 +118,10 @@ struct MachineClass {
     int minimum_page_bits;
     bool has_hotpluggable_cpus;
     bool ignore_memory_transaction_failures;
-    int numa_mem_align_shift;
     const char * const *valid_cpu_types;
     strList *allowed_dynamic_sysbus_devices;
-    bool auto_enable_numa_with_memhp;
-    bool auto_enable_numa_with_memdev;
     bool ignore_boot_device_suffixes;
     bool smbus_no_migration_support;
-    bool nvdimm_supported;
-    bool numa_mem_supported;
-    bool auto_enable_numa;
-    bool cpu_cluster_has_numa_boundary;
     SMPCompatProps smp_props;
     const char *default_ram_id;
 
@@ -145,11 +132,9 @@ struct MachineClass {
     CpuInstanceProperties (*cpu_index_to_instance_props)(MachineState *machine,
                                                          unsigned cpu_index);
     const CPUArchIdList *(*possible_cpu_arch_ids)(MachineState *machine);
-    int64_t (*get_default_cpu_node_id)(const MachineState *ms, int idx);
     ram_addr_t (*fixup_ram_size)(ram_addr_t size);
     uint64_t smbios_memory_device_size;
-    bool (*create_default_memdev)(MachineState *ms, const char *path,
-                                  Error **errp);
+    bool (*create_default_memdev)(MachineState *ms, Error **errp);
 };
 
 typedef struct DeviceMemoryState {
@@ -192,8 +177,6 @@ struct MachineState {
     char *dt_compatible;
     bool dump_guest_core;
     bool mem_merge;
-    bool usb;
-    bool usb_disabled;
     char *firmware;
     bool iommu;
     bool suppress_vmdesc;
@@ -219,8 +202,6 @@ struct MachineState {
     CPUArchIdList *possible_cpus;
     CpuTopology smp;
     SmpCache smp_cache;
-    struct NVDIMMState *nvdimms_state;
-    struct NumaState *numa_state;
 };
 
 
@@ -354,92 +335,5 @@ struct MachineState {
         type_register_static(&machine_initfn##_typeinfo); \
     } \
     type_init(machine_initfn##_register_types)
-
-extern GlobalProperty hw_compat_9_2[];
-extern const size_t hw_compat_9_2_len;
-
-extern GlobalProperty hw_compat_9_1[];
-extern const size_t hw_compat_9_1_len;
-
-extern GlobalProperty hw_compat_9_0[];
-extern const size_t hw_compat_9_0_len;
-
-extern GlobalProperty hw_compat_8_2[];
-extern const size_t hw_compat_8_2_len;
-
-extern GlobalProperty hw_compat_8_1[];
-extern const size_t hw_compat_8_1_len;
-
-extern GlobalProperty hw_compat_8_0[];
-extern const size_t hw_compat_8_0_len;
-
-extern GlobalProperty hw_compat_7_2[];
-extern const size_t hw_compat_7_2_len;
-
-extern GlobalProperty hw_compat_7_1[];
-extern const size_t hw_compat_7_1_len;
-
-extern GlobalProperty hw_compat_7_0[];
-extern const size_t hw_compat_7_0_len;
-
-extern GlobalProperty hw_compat_6_2[];
-extern const size_t hw_compat_6_2_len;
-
-extern GlobalProperty hw_compat_6_1[];
-extern const size_t hw_compat_6_1_len;
-
-extern GlobalProperty hw_compat_6_0[];
-extern const size_t hw_compat_6_0_len;
-
-extern GlobalProperty hw_compat_5_2[];
-extern const size_t hw_compat_5_2_len;
-
-extern GlobalProperty hw_compat_5_1[];
-extern const size_t hw_compat_5_1_len;
-
-extern GlobalProperty hw_compat_5_0[];
-extern const size_t hw_compat_5_0_len;
-
-extern GlobalProperty hw_compat_4_2[];
-extern const size_t hw_compat_4_2_len;
-
-extern GlobalProperty hw_compat_4_1[];
-extern const size_t hw_compat_4_1_len;
-
-extern GlobalProperty hw_compat_4_0[];
-extern const size_t hw_compat_4_0_len;
-
-extern GlobalProperty hw_compat_3_1[];
-extern const size_t hw_compat_3_1_len;
-
-extern GlobalProperty hw_compat_3_0[];
-extern const size_t hw_compat_3_0_len;
-
-extern GlobalProperty hw_compat_2_12[];
-extern const size_t hw_compat_2_12_len;
-
-extern GlobalProperty hw_compat_2_11[];
-extern const size_t hw_compat_2_11_len;
-
-extern GlobalProperty hw_compat_2_10[];
-extern const size_t hw_compat_2_10_len;
-
-extern GlobalProperty hw_compat_2_9[];
-extern const size_t hw_compat_2_9_len;
-
-extern GlobalProperty hw_compat_2_8[];
-extern const size_t hw_compat_2_8_len;
-
-extern GlobalProperty hw_compat_2_7[];
-extern const size_t hw_compat_2_7_len;
-
-extern GlobalProperty hw_compat_2_6[];
-extern const size_t hw_compat_2_6_len;
-
-extern GlobalProperty hw_compat_2_5[];
-extern const size_t hw_compat_2_5_len;
-
-extern GlobalProperty hw_compat_2_4[];
-extern const size_t hw_compat_2_4_len;
 
 #endif

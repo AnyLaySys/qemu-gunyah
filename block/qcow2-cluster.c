@@ -774,24 +774,6 @@ perform_cow(BlockDriverState *bs, QCowL2Meta *m)
         goto fail;
     }
 
-    if (bs->encrypted) {
-        ret = qcow2_co_encrypt(bs,
-                               m->alloc_offset + start->offset,
-                               m->offset + start->offset,
-                               start_buffer, start->nb_bytes);
-        if (ret < 0) {
-            goto fail;
-        }
-
-        ret = qcow2_co_encrypt(bs,
-                               m->alloc_offset + end->offset,
-                               m->offset + end->offset,
-                               end_buffer, end->nb_bytes);
-        if (ret < 0) {
-            goto fail;
-        }
-    }
-
     if (m->data_qiov) {
         qemu_iovec_reset(&qiov);
         if (start->nb_bytes) {
@@ -1941,13 +1923,9 @@ int qcow2_expand_zero_clusters(BlockDriverState *bs,
     uint64_t *l1_table = NULL;
     int64_t l1_entries = 0, visited_l1_entries = 0;
     int ret;
-    int i, j;
 
     if (status_cb) {
         l1_entries = s->l1_size;
-        for (i = 0; i < s->nb_snapshots; i++) {
-            l1_entries += s->snapshots[i].l1_size;
-        }
     }
 
     ret = expand_zero_clusters_in_l1(bs, s->l1_table, s->l1_size,
@@ -1960,48 +1938,6 @@ int qcow2_expand_zero_clusters(BlockDriverState *bs,
     ret = qcow2_cache_empty(bs, s->l2_table_cache);
     if (ret < 0) {
         goto fail;
-    }
-
-    for (i = 0; i < s->nb_snapshots; i++) {
-        int l1_size2;
-        uint64_t *new_l1_table;
-        Error *local_err = NULL;
-
-        ret = qcow2_validate_table(bs, s->snapshots[i].l1_table_offset,
-                                   s->snapshots[i].l1_size, L1E_SIZE,
-                                   QCOW_MAX_L1_SIZE, "Snapshot L1 table",
-                                   &local_err);
-        if (ret < 0) {
-            error_report_err(local_err);
-            goto fail;
-        }
-
-        l1_size2 = s->snapshots[i].l1_size * L1E_SIZE;
-        new_l1_table = g_try_realloc(l1_table, l1_size2);
-
-        if (!new_l1_table) {
-            ret = -ENOMEM;
-            goto fail;
-        }
-
-        l1_table = new_l1_table;
-
-        ret = bdrv_pread(bs->file, s->snapshots[i].l1_table_offset, l1_size2,
-                         l1_table, 0);
-        if (ret < 0) {
-            goto fail;
-        }
-
-        for (j = 0; j < s->snapshots[i].l1_size; j++) {
-            be64_to_cpus(&l1_table[j]);
-        }
-
-        ret = expand_zero_clusters_in_l1(bs, l1_table, s->snapshots[i].l1_size,
-                                         &visited_l1_entries, l1_entries,
-                                         status_cb, cb_opaque);
-        if (ret < 0) {
-            goto fail;
-        }
     }
 
     ret = 0;

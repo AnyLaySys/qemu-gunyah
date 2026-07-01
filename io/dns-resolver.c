@@ -144,7 +144,6 @@ int qio_dns_resolver_lookup_sync(QIODNSResolver *resolver,
                                                  errp);
 
     case SOCKET_ADDRESS_TYPE_UNIX:
-    case SOCKET_ADDRESS_TYPE_VSOCK:
     case SOCKET_ADDRESS_TYPE_FD:
         return qio_dns_resolver_lookup_sync_nop(resolver,
                                                 addr,

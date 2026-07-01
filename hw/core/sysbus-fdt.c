@@ -5,7 +5,6 @@
 #include "hw/core/sysbus-fdt.h"
 #include "qemu/error-report.h"
 #include "system/device_tree.h"
-#include "system/tpm.h"
 #include "hw/platform-bus.h"
 #include "hw/display/ramfb.h"
 #include "hw/arm/fdt.h"
@@ -24,32 +23,6 @@ typedef struct BindingEntry {
     bool (*match_fn)(SysBusDevice *sbdev, const struct BindingEntry *combo);
 } BindingEntry;
 
-#ifdef CONFIG_TPM
-static int add_tpm_tis_fdt_node(SysBusDevice *sbdev, void *opaque)
-{
-    PlatformBusFDTData *data = opaque;
-    PlatformBusDevice *pbus = data->pbus;
-    void *fdt = data->fdt;
-    const char *parent_node = data->pbus_node_name;
-    char *nodename;
-    uint32_t reg_attr[2];
-    uint64_t mmio_base;
-
-    mmio_base = platform_bus_get_mmio_addr(pbus, sbdev, 0);
-    nodename = g_strdup_printf("%s/tpm_tis@%" PRIx64, parent_node, mmio_base);
-    qemu_fdt_add_subnode(fdt, nodename);
-
-    qemu_fdt_setprop_string(fdt, nodename, "compatible", "tcg,tpm-tis-mmio");
-
-    reg_attr[0] = cpu_to_be32(mmio_base);
-    reg_attr[1] = cpu_to_be32(0x5000);
-    qemu_fdt_setprop(fdt, nodename, "reg", reg_attr, 2 * sizeof(uint32_t));
-
-    g_free(nodename);
-    return 0;
-}
-#endif
-
 static int no_fdt_node(SysBusDevice *sbdev, void *opaque)
 {
     return 0;
@@ -63,9 +36,6 @@ static bool type_match(SysBusDevice *sbdev, const BindingEntry *entry)
 #define TYPE_BINDING(type, add_fn) {(type), NULL, (add_fn), NULL}
 
 static const BindingEntry bindings[] = {
-#ifdef CONFIG_TPM
-    TYPE_BINDING(TYPE_TPM_TIS_SYSBUS, add_tpm_tis_fdt_node),
-#endif
     TYPE_BINDING(TYPE_RAMFB_DEVICE, no_fdt_node),
     TYPE_BINDING("", NULL), /* last element */
 };

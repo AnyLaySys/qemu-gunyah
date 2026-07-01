@@ -98,7 +98,6 @@ ObjectTypeInfoList *qmp_qom_list_types(const char *implements,
 {
     ObjectTypeInfoList *ret = NULL;
 
-    module_load_qom_all();
     object_class_foreach(qom_list_types_tramp, implements, abstract, &ret);
 
     return ret;

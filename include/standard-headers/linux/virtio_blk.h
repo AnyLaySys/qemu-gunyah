@@ -19,7 +19,6 @@
 
 #ifndef VIRTIO_BLK_NO_LEGACY
 #define VIRTIO_BLK_F_BARRIER	0	/* Does host support barriers? */
-#define VIRTIO_BLK_F_SCSI	7	/* Supports scsi command passthru */
 #define VIRTIO_BLK_F_FLUSH	9	/* Flush command supported */
 #define VIRTIO_BLK_F_CONFIG_WCE	11	/* Writeback mode available in config */
 #define VIRTIO_BLK_F_WCE VIRTIO_BLK_F_FLUSH
@@ -77,10 +76,6 @@ struct virtio_blk_config {
 
 #define VIRTIO_BLK_T_IN		0
 #define VIRTIO_BLK_T_OUT	1
-
-#ifndef VIRTIO_BLK_NO_LEGACY
-#define VIRTIO_BLK_T_SCSI_CMD	2
-#endif /* VIRTIO_BLK_NO_LEGACY */
 
 #define VIRTIO_BLK_T_FLUSH	4
 
@@ -158,15 +153,6 @@ struct virtio_blk_discard_write_zeroes {
 	uint32_t num_sectors;
 	uint32_t flags;
 };
-
-#ifndef VIRTIO_BLK_NO_LEGACY
-struct virtio_scsi_inhdr {
-	__virtio32 errors;
-	__virtio32 data_len;
-	__virtio32 sense_len;
-	__virtio32 residual;
-};
-#endif /* !VIRTIO_BLK_NO_LEGACY */
 
 #define VIRTIO_BLK_S_OK		0
 #define VIRTIO_BLK_S_IOERR	1

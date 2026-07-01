@@ -2,7 +2,6 @@
 #include "qapi/error.h"
 #include "hw/loader.h"
 #include "hw/nvram/fw_cfg.h"
-#include "hw/display/bochs-vbe.h"
 #include "ui/console.h"
 #include "hw/display/ramfb.h"
 #include "system/reset.h"
@@ -10,6 +9,8 @@
 #include "exec/address-spaces.h"
 #include "qemu/memalign.h"
 
+#define RAMFB_MAX_XRES 16000
+#define RAMFB_MAX_YRES 12000
 #define RAMFB_MMIO_BASE 0x0f000000
 #define RAMFB_MMIO_SIZE 0x01000000
 
@@ -48,8 +49,8 @@ static DisplaySurface *ramfb_create_display_surface(int width, int height,
     hwaddr size, mapsize, linesize;
     void *data;
 
-    if (width < 16 || width > VBE_DISPI_MAX_XRES ||
-        height < 16 || height > VBE_DISPI_MAX_YRES ||
+    if (width < 16 || width > RAMFB_MAX_XRES ||
+        height < 16 || height > RAMFB_MAX_YRES ||
         format == 0) {
         return NULL;
     }
@@ -83,8 +84,8 @@ static DisplaySurface *ramfb_create_mmio_display_surface(RAMFBState *s,
     hwaddr size, offset, linesize;
     void *data;
 
-    if (width < 16 || width > VBE_DISPI_MAX_XRES ||
-        height < 16 || height > VBE_DISPI_MAX_YRES ||
+    if (width < 16 || width > RAMFB_MAX_XRES ||
+        height < 16 || height > RAMFB_MAX_YRES ||
         format == 0 ||
         addr < RAMFB_MMIO_BASE ||
         addr >= RAMFB_MMIO_BASE + RAMFB_MMIO_SIZE) {

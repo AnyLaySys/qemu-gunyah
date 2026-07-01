@@ -55,7 +55,6 @@ void qemu_log_unlock(FILE *fd);
 typedef struct QEMULogItem {
     int mask;
     const char *name;
-    const char *help;
 } QEMULogItem;
 
 extern const QEMULogItem qemu_log_items[];
@@ -66,7 +65,5 @@ bool qemu_set_log_filename_flags(const char *name, int flags, Error **errp);
 void qemu_set_dfilter_ranges(const char *ranges, Error **errp);
 bool qemu_log_in_addr_range(uint64_t addr);
 int qemu_str_to_log_mask(const char *str);
-
-void qemu_print_log_usage(FILE *f);
 
 #endif

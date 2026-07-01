@@ -326,7 +326,7 @@ QDict *keyval_parse_into(QDict *qdict, const char *params, const char *implied_k
     if (p_help) {
         *p_help = help;
     } else if (help) {
-        error_setg(errp, "Help is not available for this option");
+        error_setg(errp, "invalid option");
         return NULL;
     }
 

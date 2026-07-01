@@ -284,7 +284,7 @@ char *bdrv_get_full_backing_filename_from_filename(const char *backed,
     } else if (path_has_protocol(backing) || path_is_absolute(backing)) {
         return g_strdup(backing);
     } else if (backed[0] == '\0' || strstart(backed, "json:", NULL)) {
-        error_setg(errp, "Cannot use relative backing file names for '%s'",
+        error_setg(errp, "Cannot use relative COW image names for '%s'",
                    backed);
         return NULL;
     } else {
@@ -1101,7 +1101,7 @@ static int bdrv_backing_update_filename(BdrvChild *c, BlockDriverState *base,
 
     ret = bdrv_change_backing_file(parent, filename, format_name, false);
     if (ret < 0) {
-        error_setg_errno(errp, -ret, "Could not update backing file link");
+        error_setg_errno(errp, -ret, "Could not update COW image link");
     }
 
     if (read_only) {
@@ -1147,7 +1147,7 @@ static void bdrv_inherited_options(BdrvChildRole role, bool parent_is_format,
 
     qdict_set_default_str(child_options, BDRV_OPT_DISCARD, "unmap");
 
-    flags &= ~(BDRV_O_SNAPSHOT | BDRV_O_NO_BACKING | BDRV_O_COPY_ON_READ);
+    flags &= ~(BDRV_O_TEMP_WRITES | BDRV_O_NO_BACKING | BDRV_O_COPY_ON_READ);
 
     if (role & BDRV_CHILD_METADATA) {
         flags &= ~BDRV_O_NO_IO;
@@ -1257,7 +1257,7 @@ static int bdrv_open_flags(BlockDriverState *bs, int flags)
     int open_flags = flags;
     GLOBAL_STATE_CODE();
 
-    open_flags &= ~(BDRV_O_SNAPSHOT | BDRV_O_NO_BACKING | BDRV_O_PROTOCOL);
+    open_flags &= ~(BDRV_O_TEMP_WRITES | BDRV_O_NO_BACKING | BDRV_O_PROTOCOL);
 
     return open_flags;
 }
@@ -1471,52 +1471,42 @@ QemuOptsList bdrv_runtime_opts = {
         {
             .name = "node-name",
             .type = QEMU_OPT_STRING,
-            .help = "Node name of the block device node",
         },
         {
             .name = "driver",
             .type = QEMU_OPT_STRING,
-            .help = "Block driver to use for the node",
         },
         {
             .name = BDRV_OPT_CACHE_DIRECT,
             .type = QEMU_OPT_BOOL,
-            .help = "Bypass software writeback cache on the host",
         },
         {
             .name = BDRV_OPT_CACHE_NO_FLUSH,
             .type = QEMU_OPT_BOOL,
-            .help = "Ignore flush requests",
         },
         {
             .name = BDRV_OPT_ACTIVE,
             .type = QEMU_OPT_BOOL,
-            .help = "Node is activated",
         },
         {
             .name = BDRV_OPT_READ_ONLY,
             .type = QEMU_OPT_BOOL,
-            .help = "Node is opened in read-only mode",
         },
         {
             .name = BDRV_OPT_AUTO_READ_ONLY,
             .type = QEMU_OPT_BOOL,
-            .help = "Node can become read-only if opening read-write fails",
         },
         {
             .name = "detect-zeroes",
             .type = QEMU_OPT_STRING,
-            .help = "try to optimize zero writes (off, on, unmap)",
         },
         {
             .name = BDRV_OPT_DISCARD,
             .type = QEMU_OPT_STRING,
-            .help = "discard operation (ignore/off, unmap/on)",
         },
         {
             .name = BDRV_OPT_FORCE_SHARE,
             .type = QEMU_OPT_BOOL,
-            .help = "always accept other writers (default: off)",
         },
         { /* end of list */ }
     },
@@ -1529,12 +1519,10 @@ QemuOptsList bdrv_create_opts_simple = {
         {
             .name = BLOCK_OPT_SIZE,
             .type = QEMU_OPT_SIZE,
-            .help = "Virtual disk size"
         },
         {
             .name = BLOCK_OPT_PREALLOC,
             .type = QEMU_OPT_STRING,
-            .help = "Preallocation mode (allowed values: off)"
         },
         { /* end of list */ }
     }
@@ -2837,8 +2825,8 @@ bdrv_set_file_or_backing_noperm(BlockDriverState *parent_bs,
     if (is_backing && !parent_bs->drv->is_filter &&
         !parent_bs->drv->supports_backing)
     {
-        error_setg(errp, "Driver '%s' of node '%s' does not support backing "
-                   "files", parent_bs->drv->format_name, parent_bs->node_name);
+        error_setg(errp, "Driver '%s' of node '%s' does not support COW "
+                   "images", parent_bs->drv->format_name, parent_bs->node_name);
         return -EINVAL;
     }
 
@@ -2983,7 +2971,7 @@ int bdrv_open_backing_file(BlockDriverState *bs, QDict *parent_options,
 
     if (!bs->drv || !bs->drv->supports_backing) {
         ret = -EINVAL;
-        error_setg(errp, "Driver doesn't support backing files");
+        error_setg(errp, "Driver does not support COW images");
         qobject_unref(options);
         goto free_exit;
     }
@@ -2998,7 +2986,7 @@ int bdrv_open_backing_file(BlockDriverState *bs, QDict *parent_options,
                                    errp);
     if (!backing_hd) {
         bs->open_flags |= BDRV_O_NO_BACKING;
-        error_prepend(errp, "Could not open backing file: ");
+        error_prepend(errp, "Could not open COW image: ");
         ret = -EINVAL;
         goto free_exit;
     }
@@ -5690,7 +5678,7 @@ void bdrv_img_create(const char *filename, const char *fmt,
     if (base_filename) {
         if (!qemu_opt_set(opts, BLOCK_OPT_BACKING_FILE, base_filename,
                           NULL)) {
-            error_setg(errp, "Backing file not supported for file format '%s'",
+            error_setg(errp, "COW image not supported for file format '%s'",
                        fmt);
             goto out;
         }
@@ -5698,7 +5686,7 @@ void bdrv_img_create(const char *filename, const char *fmt,
 
     if (base_fmt) {
         if (!qemu_opt_set(opts, BLOCK_OPT_BACKING_FMT, base_fmt, NULL)) {
-            error_setg(errp, "Backing file format not supported for file "
+            error_setg(errp, "COW image format not supported for file "
                              "format '%s'", fmt);
             goto out;
         }
@@ -5708,11 +5696,11 @@ void bdrv_img_create(const char *filename, const char *fmt,
     if (backing_file) {
         if (!strcmp(filename, backing_file)) {
             error_setg(errp, "Error: Trying to create an image with the "
-                             "same filename as the backing file");
+                             "same filename as the COW image");
             goto out;
         }
         if (backing_file[0] == '\0') {
-            error_setg(errp, "Expected backing file name, got empty string");
+            error_setg(errp, "Expected COW image name, got empty string");
             goto out;
         }
     }
@@ -5735,7 +5723,7 @@ void bdrv_img_create(const char *filename, const char *fmt,
         assert(full_backing);
 
         back_flags = flags;
-        back_flags &= ~(BDRV_O_RDWR | BDRV_O_SNAPSHOT | BDRV_O_NO_BACKING);
+        back_flags &= ~(BDRV_O_RDWR | BDRV_O_TEMP_WRITES | BDRV_O_NO_BACKING);
         back_flags |= BDRV_O_NO_IO;
 
         backing_options = qdict_new();
@@ -5753,7 +5741,7 @@ void bdrv_img_create(const char *filename, const char *fmt,
         } else {
             if (!backing_fmt) {
                 error_setg(&local_err,
-                           "Backing file specified without backing format");
+                           "COW image specified without COW format");
                 error_append_hint(&local_err, "Detected format of %s.\n",
                                   bs->drv->format_name);
                 goto out;
@@ -5772,7 +5760,7 @@ void bdrv_img_create(const char *filename, const char *fmt,
         }
     } else if (backing_file && !backing_fmt) {
         error_setg(&local_err,
-                   "Backing file specified without backing format");
+                   "COW image specified without COW format");
         goto out;
     }
 

@@ -44,19 +44,6 @@ extern bool pci_available;
 
 #define PCI_DEVICE_ID_MARVELL_GT6412X    0x4620
 
-#define PCI_VENDOR_ID_QEMU               0x1234
-#define PCI_DEVICE_ID_QEMU_VGA           0x1111
-#define PCI_DEVICE_ID_QEMU_IPMI          0x1112
-
-#define PCI_VENDOR_ID_VMWARE             0x15ad
-#define PCI_DEVICE_ID_VMWARE_SVGA2       0x0405
-#define PCI_DEVICE_ID_VMWARE_SVGA        0x0710
-#define PCI_DEVICE_ID_VMWARE_NET         0x0720
-#define PCI_DEVICE_ID_VMWARE_SCSI        0x0730
-#define PCI_DEVICE_ID_VMWARE_PVSCSI      0x07C0
-#define PCI_DEVICE_ID_VMWARE_IDE         0x1729
-#define PCI_DEVICE_ID_VMWARE_VMXNET3     0x07B0
-
 #define PCI_DEVICE_ID_INTEL_82551IT      0x1209
 #define PCI_DEVICE_ID_INTEL_82557        0x1229
 #define PCI_DEVICE_ID_INTEL_82801IR      0x2922
@@ -67,36 +54,10 @@ extern bool pci_available;
 
 #define PCI_DEVICE_ID_VIRTIO_NET         0x1000
 #define PCI_DEVICE_ID_VIRTIO_BLOCK       0x1001
-#define PCI_DEVICE_ID_VIRTIO_BALLOON     0x1002
-#define PCI_DEVICE_ID_VIRTIO_CONSOLE     0x1003
-#define PCI_DEVICE_ID_VIRTIO_SCSI        0x1004
-#define PCI_DEVICE_ID_VIRTIO_RNG         0x1005
-#define PCI_DEVICE_ID_VIRTIO_9P          0x1009
-#define PCI_DEVICE_ID_VIRTIO_VSOCK       0x1012
-
 #define PCI_DEVICE_ID_VIRTIO_10_BASE     0x1040
 
 #define PCI_VENDOR_ID_REDHAT             0x1b36
-#define PCI_DEVICE_ID_REDHAT_BRIDGE      0x0001
-#define PCI_DEVICE_ID_REDHAT_SERIAL      0x0002
-#define PCI_DEVICE_ID_REDHAT_SERIAL2     0x0003
-#define PCI_DEVICE_ID_REDHAT_SERIAL4     0x0004
-#define PCI_DEVICE_ID_REDHAT_TEST        0x0005
-#define PCI_DEVICE_ID_REDHAT_SDHCI       0x0007
 #define PCI_DEVICE_ID_REDHAT_PCIE_HOST   0x0008
-#define PCI_DEVICE_ID_REDHAT_PXB         0x0009
-#define PCI_DEVICE_ID_REDHAT_BRIDGE_SEAT 0x000a
-#define PCI_DEVICE_ID_REDHAT_PXB_PCIE    0x000b
-#define PCI_DEVICE_ID_REDHAT_PCIE_RP     0x000c
-#define PCI_DEVICE_ID_REDHAT_XHCI        0x000d
-#define PCI_DEVICE_ID_REDHAT_PCIE_BRIDGE 0x000e
-#define PCI_DEVICE_ID_REDHAT_MDPY        0x000f
-#define PCI_DEVICE_ID_REDHAT_NVME        0x0010
-#define PCI_DEVICE_ID_REDHAT_PVPANIC     0x0011
-#define PCI_DEVICE_ID_REDHAT_ACPI_ERST   0x0012
-#define PCI_DEVICE_ID_REDHAT_UFS         0x0013
-#define PCI_DEVICE_ID_REDHAT_RISCV_IOMMU 0x0014
-#define PCI_DEVICE_ID_REDHAT_QXL         0x0100
 
 #define FMT_PCIBUS                      PRIx64
 
@@ -133,20 +94,6 @@ typedef struct PCIIORegion {
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
 
-enum {
-    QEMU_PCI_VGA_MEM,
-    QEMU_PCI_VGA_IO_LO,
-    QEMU_PCI_VGA_IO_HI,
-    QEMU_PCI_VGA_NUM_REGIONS,
-};
-
-#define QEMU_PCI_VGA_MEM_BASE 0xa0000
-#define QEMU_PCI_VGA_MEM_SIZE 0x20000
-#define QEMU_PCI_VGA_IO_LO_BASE 0x3b0
-#define QEMU_PCI_VGA_IO_LO_SIZE 0xc
-#define QEMU_PCI_VGA_IO_HI_BASE 0x3c0
-#define QEMU_PCI_VGA_IO_HI_SIZE 0x20
-
 #include "hw/pci/pci_regs.h"
 
 #define  PCI_HEADER_TYPE_MULTI_FUNCTION 0x80
@@ -167,12 +114,6 @@ enum {
 
 #define QEMU_PCI_CAP_SERR_BITNR 4
     QEMU_PCI_CAP_SERR = (1 << QEMU_PCI_CAP_SERR_BITNR),
-#define QEMU_PCI_SHPC_BITNR 5
-    QEMU_PCI_CAP_SHPC = (1 << QEMU_PCI_SHPC_BITNR),
-#define QEMU_PCI_SLOTID_BITNR 6
-    QEMU_PCI_CAP_SLOTID = (1 << QEMU_PCI_SLOTID_BITNR),
-#define QEMU_PCIE_SLTCAP_PCP_BITNR 7
-    QEMU_PCIE_SLTCAP_PCP = (1 << QEMU_PCIE_SLTCAP_PCP_BITNR),
 #define QEMU_PCIE_LNKSTA_DLLLA_BITNR 8
     QEMU_PCIE_LNKSTA_DLLLA = (1 << QEMU_PCIE_LNKSTA_DLLLA_BITNR),
 #define QEMU_PCIE_EXTCAP_INIT_BITNR 9
@@ -206,9 +147,6 @@ typedef void (*MSIVectorPollNotifier)(PCIDevice *dev,
 
 void pci_register_bar(PCIDevice *pci_dev, int region_num,
                       uint8_t attr, MemoryRegion *memory);
-void pci_register_vga(PCIDevice *pci_dev, MemoryRegion *mem,
-                      MemoryRegion *io_lo, MemoryRegion *io_hi);
-void pci_unregister_vga(PCIDevice *pci_dev);
 pcibus_t pci_get_bar_addr(PCIDevice *pci_dev, int region_num);
 
 int pci_add_capability(PCIDevice *pdev, uint8_t cap_id,
@@ -300,7 +238,6 @@ static inline int pci_dev_bus_num(const PCIDevice *dev)
     return pci_bus_num(pci_get_bus(dev));
 }
 
-int pci_bus_numa_node(PCIBus *bus);
 void pci_for_each_device(PCIBus *bus, int bus_num,
                          pci_bus_dev_fn fn,
                          void *opaque);

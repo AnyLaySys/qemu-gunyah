@@ -2,6 +2,7 @@
 #include "qemu/osdep.h"
 #include "monitor-internal.h"
 #include "qapi/error.h"
+#include "qapi/qapi-commands-control.h"
 #include "qapi/opts-visitor.h"
 #include "qapi/qapi-emit-events.h"
 #include "qapi/qapi-visit-control.h"
@@ -46,16 +47,6 @@ Monitor *monitor_set_cur(Coroutine *co, Monitor *mon)
 bool monitor_cur_is_qmp(void)
 {
     return false;
-}
-
-static inline bool monitor_uses_readline(const MonitorHMP *mon)
-{
-    return mon->use_readline;
-}
-
-static inline bool monitor_is_hmp_non_interactive(const Monitor *mon)
-{
-    return !monitor_uses_readline(container_of(mon, MonitorHMP, common));
 }
 
 static gboolean monitor_unblocked(void *do_not_use, GIOCondition cond,
@@ -220,10 +211,6 @@ void qapi_event_emit(QAPIEvent event, QDict *qdict)
 
 int monitor_suspend(Monitor *mon)
 {
-    if (monitor_is_hmp_non_interactive(mon)) {
-        return -ENOTTY;
-    }
-
     qatomic_inc(&mon->suspend_cnt);
 
     if (mon->use_io_thread) {
@@ -238,26 +225,11 @@ static void monitor_accept_input(void *opaque)
 {
     Monitor *mon = opaque;
 
-    qemu_mutex_lock(&mon->mon_lock);
-    if (mon->reset_seen) {
-        MonitorHMP *hmp_mon = container_of(mon, MonitorHMP, common);
-        assert(hmp_mon->rs);
-        readline_restart(hmp_mon->rs);
-        qemu_mutex_unlock(&mon->mon_lock);
-        readline_show_prompt(hmp_mon->rs);
-    } else {
-        qemu_mutex_unlock(&mon->mon_lock);
-    }
-
     qemu_chr_fe_accept_input(&mon->chr);
 }
 
 void monitor_resume(Monitor *mon)
 {
-    if (monitor_is_hmp_non_interactive(mon)) {
-        return;
-    }
-
     if (qatomic_dec_fetch(&mon->suspend_cnt) == 0) {
         AioContext *ctx;
 
@@ -307,6 +279,7 @@ void monitor_data_init(Monitor *mon, bool skip_flush, bool use_io_thread)
     }
     qemu_mutex_init(&mon->mon_lock);
     mon->outbuf = g_string_new(NULL);
+    mon->inbuf = g_string_new(NULL);
     mon->skip_flush = skip_flush;
     mon->use_io_thread = use_io_thread;
 }
@@ -315,7 +288,7 @@ void monitor_data_destroy(Monitor *mon)
 {
     g_free(mon->mon_cpu_path);
     qemu_chr_fe_deinit(&mon->chr, false);
-    readline_free(container_of(mon, MonitorHMP, common)->rs);
+    g_string_free(mon->inbuf, true);
     g_string_free(mon->outbuf, true);
     qemu_mutex_destroy(&mon->mon_lock);
 }
@@ -363,8 +336,110 @@ int monitor_init(MonitorOptions *opts, Error **errp)
     }
 
     monitor_init_hmp(chr, true, errp);
-
     return *errp ? -1 : 0;
+}
+
+static void monitor_prompt(Monitor *mon)
+{
+    monitor_puts(mon, "(qemu) ");
+    monitor_flush(mon);
+}
+
+static void monitor_handle_line(Monitor *mon)
+{
+    char *cmd = g_strstrip(mon->inbuf->str);
+
+    if (!cmd[0]) {
+        monitor_prompt(mon);
+    } else if (!strcmp(cmd, "q") || !strcmp(cmd, "quit")) {
+        qmp_quit(NULL);
+    } else {
+        monitor_printf(mon, "unknown command\n");
+        monitor_prompt(mon);
+    }
+    g_string_truncate(mon->inbuf, 0);
+}
+
+static void monitor_read(void *opaque, const uint8_t *buf, int size)
+{
+    Monitor *mon = opaque;
+    int i;
+
+    for (i = 0; i < size; i++) {
+        switch (buf[i]) {
+        case '\r':
+        case '\n':
+            monitor_puts(mon, "\n");
+            monitor_handle_line(mon);
+            break;
+        case 0x7f:
+        case '\b':
+            if (mon->inbuf->len) {
+                g_string_truncate(mon->inbuf, mon->inbuf->len - 1);
+                monitor_puts(mon, "\b \b");
+            }
+            break;
+        default:
+            if (buf[i] >= 0x20) {
+                g_string_append_c(mon->inbuf, buf[i]);
+                qemu_chr_fe_write(&mon->chr, &buf[i], 1);
+            }
+            break;
+        }
+    }
+}
+
+static void monitor_event(void *opaque, QEMUChrEvent event)
+{
+    Monitor *mon = opaque;
+
+    switch (event) {
+    case CHR_EVENT_MUX_IN:
+        qemu_mutex_lock(&mon->mon_lock);
+        if (mon->mux_out) {
+            mon->mux_out = 0;
+            monitor_resume(mon);
+        }
+        qemu_mutex_unlock(&mon->mon_lock);
+        monitor_prompt(mon);
+        break;
+    case CHR_EVENT_MUX_OUT:
+        qemu_mutex_lock(&mon->mon_lock);
+        if (!mon->mux_out) {
+            monitor_flush_locked(mon);
+            monitor_suspend(mon);
+            mon->mux_out = 1;
+        }
+        qemu_mutex_unlock(&mon->mon_lock);
+        break;
+    case CHR_EVENT_OPENED:
+        mon->reset_seen = 1;
+        if (!mon->mux_out) {
+            monitor_prompt(mon);
+        }
+        break;
+    case CHR_EVENT_CLOSED:
+        break;
+    case CHR_EVENT_BREAK:
+        break;
+    }
+}
+
+void monitor_init_hmp(Chardev *chr, bool use_readline, Error **errp)
+{
+    Monitor *mon = g_new0(Monitor, 1);
+
+    (void)use_readline;
+
+    if (!qemu_chr_fe_init(&mon->chr, chr, errp)) {
+        g_free(mon);
+        return;
+    }
+
+    monitor_data_init(mon, false, false);
+    qemu_chr_fe_set_handlers(&mon->chr, monitor_can_read, monitor_read,
+                             monitor_event, NULL, mon, NULL, true);
+    monitor_list_append(mon);
 }
 
 int monitor_init_opts(QemuOpts *opts, Error **errp)

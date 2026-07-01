@@ -10,7 +10,6 @@
 #include "target/arm/arm-powerctl.h"
 #include "system/tcg.h"
 #include "system/system.h"
-#include "system/numa.h"
 #include "hw/boards.h"
 #include "system/reset.h"
 #include "hw/loader.h"
@@ -329,8 +328,7 @@ static void set_kernel_args_old(const struct arm_boot_info *info,
 }
 
 static int fdt_add_memory_node(void *fdt, uint32_t acells, hwaddr mem_base,
-                               uint32_t scells, hwaddr mem_len,
-                               int numa_node_id)
+                               uint32_t scells, hwaddr mem_len)
 {
     char *nodename;
     int ret;
@@ -344,10 +342,6 @@ static int fdt_add_memory_node(void *fdt, uint32_t acells, hwaddr mem_base,
         goto out;
     }
 
-    if (numa_node_id >= 0) {
-        ret = qemu_fdt_setprop_cell(fdt, nodename,
-                                    "numa-node-id", numa_node_id);
-    }
 out:
     g_free(nodename);
     return ret;
@@ -428,8 +422,6 @@ int arm_load_dtb(hwaddr addr, const struct arm_boot_info *binfo,
     void *fdt = NULL;
     int size, rc, n = 0;
     uint32_t acells, scells;
-    unsigned int i;
-    hwaddr mem_base, mem_len;
     char **node_path;
     Error *err = NULL;
 
@@ -489,32 +481,12 @@ int arm_load_dtb(hwaddr addr, const struct arm_boot_info *binfo,
     }
     g_strfreev(node_path);
 
-    if (ms->numa_state != NULL && ms->numa_state->num_nodes > 0) {
-        mem_base = binfo->loader_start;
-        for (i = 0; i < ms->numa_state->num_nodes; i++) {
-            mem_len = ms->numa_state->nodes[i].node_mem;
-            if (!mem_len) {
-                continue;
-            }
-
-            rc = fdt_add_memory_node(fdt, acells, mem_base,
-                                     scells, mem_len, i);
-            if (rc < 0) {
-                fprintf(stderr, "couldn't add /memory@%"PRIx64" node\n",
-                        mem_base);
-                goto fail;
-            }
-
-            mem_base += mem_len;
-        }
-    } else {
-        rc = fdt_add_memory_node(fdt, acells, binfo->loader_start,
-                                 scells, binfo->ram_size, -1);
-        if (rc < 0) {
-            fprintf(stderr, "couldn't add /memory@%"PRIx64" node\n",
-                    binfo->loader_start);
-            goto fail;
-        }
+    rc = fdt_add_memory_node(fdt, acells, binfo->loader_start,
+                             scells, binfo->ram_size);
+    if (rc < 0) {
+        fprintf(stderr, "couldn't add /memory@%"PRIx64" node\n",
+                binfo->loader_start);
+        goto fail;
     }
 
     rc = fdt_path_offset(fdt, "/chosen");
@@ -558,7 +530,7 @@ int arm_load_dtb(hwaddr addr, const struct arm_boot_info *binfo,
     fdt_pack(fdt);
 
     rom_add_blob_fixed_as("dtb", fdt, size, addr, as);
-    qemu_register_reset_nosnapshotload(qemu_fdt_randomize_seeds,
+    qemu_register_reset_no_state_load(qemu_fdt_randomize_seeds,
                                        rom_ptr_for_as(as, addr, size));
 
     if (fdt != ms->fdt) {

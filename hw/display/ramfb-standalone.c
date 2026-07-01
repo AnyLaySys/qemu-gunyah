@@ -1,5 +1,5 @@
 #include "qemu/osdep.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qapi/error.h"
 #include "qemu/module.h"
 #include "hw/qdev-properties.h"

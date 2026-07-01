@@ -3,7 +3,7 @@
 #include "hw/qdev-core.h"
 #include "hw/qdev-properties.h"
 #include "hw/core/cpu.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 
 static const Property cpu_user_props[] = {
     DEFINE_PROP_BOOL("prctl-unalign-sigbus", CPUState,

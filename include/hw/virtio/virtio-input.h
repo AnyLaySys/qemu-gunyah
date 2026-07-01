@@ -1,11 +1,7 @@
 #ifndef QEMU_VIRTIO_INPUT_H
 #define QEMU_VIRTIO_INPUT_H
 
-#include "hw/virtio/vhost-user.h"
-#include "hw/virtio/vhost-user-base.h"
 #include "ui/input.h"
-#include "system/vhost-user-backend.h"
-
 
 #include "standard-headers/linux/virtio_ids.h"
 #include "standard-headers/linux/virtio_input.h"
@@ -36,11 +32,6 @@ OBJECT_DECLARE_SIMPLE_TYPE(VirtIOInputHID, VIRTIO_INPUT_HID)
 OBJECT_DECLARE_SIMPLE_TYPE(VirtIOInputHost, VIRTIO_INPUT_HOST)
 #define VIRTIO_INPUT_HOST_GET_PARENT_CLASS(obj) \
         OBJECT_GET_PARENT_CLASS(obj, TYPE_VIRTIO_INPUT_HOST)
-
-#define TYPE_VHOST_USER_INPUT   "vhost-user-input"
-OBJECT_DECLARE_SIMPLE_TYPE(VHostUserInput, VHOST_USER_INPUT)
-#define VHOST_USER_INPUT_GET_PARENT_CLASS(obj)             \
-    OBJECT_GET_PARENT_CLASS(obj, TYPE_VHOST_USER_INPUT)
 
 typedef struct VirtIOInputConfig VirtIOInputConfig;
 
@@ -90,10 +81,6 @@ struct VirtIOInputHost {
     VirtIOInput                       parent_obj;
     char                              *evdev;
     int                               fd;
-};
-
-struct VHostUserInput {
-    VHostUserBase parent_obj;
 };
 
 void virtio_input_send(VirtIOInput *vinput, virtio_input_event *event);

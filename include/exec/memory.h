@@ -534,17 +534,6 @@ bool memory_region_init_resizeable_ram(MemoryRegion *mr,
                                                        void *host),
                                        Error **errp);
 #ifdef CONFIG_POSIX
-
-bool memory_region_init_ram_from_file(MemoryRegion *mr,
-                                      Object *owner,
-                                      const char *name,
-                                      uint64_t size,
-                                      uint64_t align,
-                                      uint32_t ram_flags,
-                                      const char *path,
-                                      ram_addr_t offset,
-                                      Error **errp);
-
 bool memory_region_init_ram_from_fd(MemoryRegion *mr,
                                     Object *owner,
                                     const char *name,
@@ -727,13 +716,13 @@ void memory_region_set_dirty(MemoryRegion *mr, hwaddr addr,
 void memory_region_clear_dirty_bitmap(MemoryRegion *mr, hwaddr start,
                                       hwaddr len);
 
-DirtyBitmapSnapshot *memory_region_snapshot_and_clear_dirty(MemoryRegion *mr,
+DirtyBitmapSample *memory_region_sample_and_clear_dirty(MemoryRegion *mr,
                                                             hwaddr addr,
                                                             hwaddr size,
                                                             unsigned client);
 
-bool memory_region_snapshot_get_dirty(MemoryRegion *mr,
-                                      DirtyBitmapSnapshot *snap,
+bool memory_region_sample_get_dirty(MemoryRegion *mr,
+                                      DirtyBitmapSample *snap,
                                       hwaddr addr, hwaddr size);
 
 void memory_region_reset_dirty(MemoryRegion *mr, hwaddr addr,

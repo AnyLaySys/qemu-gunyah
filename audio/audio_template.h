@@ -305,51 +305,6 @@ static HW *glue(audio_pcm_hw_add_new_, TYPE)(AudioState *s,
 AudiodevPerDirectionOptions *glue(audio_get_pdo_, TYPE)(Audiodev *dev)
 {
     switch (dev->driver) {
-#ifdef CONFIG_AUDIO_ALSA
-    case AUDIODEV_DRIVER_ALSA:
-        return qapi_AudiodevAlsaPerDirectionOptions_base(dev->u.alsa.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_COREAUDIO
-    case AUDIODEV_DRIVER_COREAUDIO:
-        return qapi_AudiodevCoreaudioPerDirectionOptions_base(
-            dev->u.coreaudio.TYPE);
-#endif
-#ifdef CONFIG_DBUS_DISPLAY
-    case AUDIODEV_DRIVER_DBUS:
-        return dev->u.dbus.TYPE;
-#endif
-#ifdef CONFIG_AUDIO_DSOUND
-    case AUDIODEV_DRIVER_DSOUND:
-        return dev->u.dsound.TYPE;
-#endif
-#ifdef CONFIG_AUDIO_JACK
-    case AUDIODEV_DRIVER_JACK:
-        return qapi_AudiodevJackPerDirectionOptions_base(dev->u.jack.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_OSS
-    case AUDIODEV_DRIVER_OSS:
-        return qapi_AudiodevOssPerDirectionOptions_base(dev->u.oss.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_PA
-    case AUDIODEV_DRIVER_PA:
-        return qapi_AudiodevPaPerDirectionOptions_base(dev->u.pa.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_PIPEWIRE
-    case AUDIODEV_DRIVER_PIPEWIRE:
-        return qapi_AudiodevPipewirePerDirectionOptions_base(dev->u.pipewire.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_SDL
-    case AUDIODEV_DRIVER_SDL:
-        return qapi_AudiodevSdlPerDirectionOptions_base(dev->u.sdl.TYPE);
-#endif
-#ifdef CONFIG_AUDIO_SNDIO
-    case AUDIODEV_DRIVER_SNDIO:
-        return dev->u.sndio.TYPE;
-#endif
-#ifdef CONFIG_SPICE
-    case AUDIODEV_DRIVER_SPICE:
-        return dev->u.spice.TYPE;
-#endif
 #ifdef CONFIG_AUDIO_AAUDIO
     case AUDIODEV_DRIVER_AAUDIO:
         return dev->u.aaudio.TYPE;

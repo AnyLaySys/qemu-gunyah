@@ -16,9 +16,6 @@
 #include "qobject/qdict.h"
 #include "qobject/qstring.h"
 
-#include "scsi/pr-manager.h"
-#include "scsi/constants.h"
-
 #if defined(__APPLE__) && (__MACH__)
 #include <sys/ioctl.h>
 #if defined(HAVE_HOST_BLOCK_DEVICE)
@@ -52,7 +49,6 @@
 #include <linux/fs.h>
 #include <linux/hdreg.h>
 #include <linux/magic.h>
-#include <scsi/sg.h>
 #ifdef __s390__
 #include <asm/dasd.h>
 #endif
@@ -138,7 +134,6 @@ typedef struct BDRVRawState {
         uint64_t discard_bytes_ok;
     } stats;
 
-    PRManager *pr_mgr;
 } BDRVRawState;
 
 typedef struct BDRVRawReopenState {
@@ -455,34 +450,24 @@ static QemuOptsList raw_runtime_opts = {
         {
             .name = "filename",
             .type = QEMU_OPT_STRING,
-            .help = "File name of the image",
         },
         {
             .name = "aio",
             .type = QEMU_OPT_STRING,
-            .help = "host AIO implementation (io_uring)",
         },
         {
             .name = "locking",
             .type = QEMU_OPT_STRING,
-            .help = "file locking mode (on/off/auto, default: auto)",
-        },
-        {
-            .name = "pr-manager",
-            .type = QEMU_OPT_STRING,
-            .help = "id of persistent reservation manager object (default: none)",
         },
 #if defined(__linux__)
         {
             .name = "drop-cache",
             .type = QEMU_OPT_BOOL,
-            .help = "invalidate page cache during live migration (default: on)",
         },
 #endif
         {
             .name = "x-check-cache-dropped",
             .type = QEMU_OPT_BOOL,
-            .help = "check that page cache was dropped on live migration (default: off)"
         },
         { /* end of list */ }
     },
@@ -498,7 +483,6 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
     QemuOpts *opts;
     Error *local_err = NULL;
     const char *filename = NULL;
-    const char *str;
     BlockdevAioOptions aio, aio_default;
     int fd, ret;
     struct stat st;
@@ -556,16 +540,6 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
         break;
     default:
         abort();
-    }
-
-    str = qemu_opt_get(opts, "pr-manager");
-    if (str) {
-        s->pr_mgr = pr_manager_lookup(str, &local_err);
-        if (local_err) {
-            error_propagate(errp, local_err);
-            ret = -EINVAL;
-            goto fail;
-        }
     }
 
     s->drop_cache = qemu_opt_get_bool(opts, "drop-cache", true);
@@ -1100,12 +1074,7 @@ static long get_sysfs_long_val(struct stat *st, const char *attribute)
 static int hdev_get_max_segments(int fd, struct stat *st)
 {
 #ifdef CONFIG_LINUX
-    int ret;
-
     if (S_ISCHR(st->st_mode)) {
-        if (ioctl(fd, SG_GET_SG_TABLESIZE, &ret) == 0) {
-            return ret;
-        }
         return -ENOTSUP;
     }
     return get_sysfs_long_val(st, "max_segments");
@@ -3146,8 +3115,8 @@ static BlockStatsSpecific *hdev_get_specific_stats(BlockDriverState *bs)
 {
     BlockStatsSpecific *stats = g_new(BlockStatsSpecific, 1);
 
-    stats->driver = BLOCKDEV_DRIVER_HOST_DEVICE;
-    stats->u.host_device = get_blockstats_specific_file(bs);
+    stats->driver = BLOCKDEV_DRIVER_FILE;
+    stats->u.file = get_blockstats_specific_file(bs);
 
     return stats;
 }
@@ -3160,17 +3129,14 @@ static QemuOptsList raw_create_opts = {
         {
             .name = BLOCK_OPT_SIZE,
             .type = QEMU_OPT_SIZE,
-            .help = "Virtual disk size"
         },
         {
             .name = BLOCK_OPT_NOCOW,
             .type = QEMU_OPT_BOOL,
-            .help = "Turn off copy-on-write (valid only on btrfs)"
         },
         {
             .name = BLOCK_OPT_PREALLOC,
             .type = QEMU_OPT_STRING,
-            .help = "Preallocation mode (allowed values: off"
 #ifdef CONFIG_POSIX_FALLOCATE
                     ", falloc"
 #endif
@@ -3179,7 +3145,6 @@ static QemuOptsList raw_create_opts = {
         {
             .name = BLOCK_OPT_EXTENT_SIZE_HINT,
             .type = QEMU_OPT_SIZE,
-            .help = "Extent size hint for the image file, 0 to disable"
         },
         { /* end of list */ }
     }
@@ -3480,37 +3445,6 @@ static void hdev_parse_filename(const char *filename, QDict *options,
     bdrv_parse_filename_strip_prefix(filename, "host_device:", options);
 }
 
-static bool hdev_is_sg(BlockDriverState *bs)
-{
-
-#if defined(__linux__)
-
-    BDRVRawState *s = bs->opaque;
-    struct stat st;
-    struct sg_scsi_id scsiid;
-    int sg_version;
-    int ret;
-
-    if (stat(bs->filename, &st) < 0 || !S_ISCHR(st.st_mode)) {
-        return false;
-    }
-
-    ret = ioctl(s->fd, SG_GET_VERSION_NUM, &sg_version);
-    if (ret < 0) {
-        return false;
-    }
-
-    ret = ioctl(s->fd, SG_GET_SCSI_ID, &scsiid);
-    if (ret >= 0) {
-        trace_file_hdev_is_sg(scsiid.scsi_type, sg_version);
-        return true;
-    }
-
-#endif
-
-    return false;
-}
-
 static int hdev_open(BlockDriverState *bs, QDict *options, int flags,
                      Error **errp)
 {
@@ -3583,8 +3517,6 @@ hdev_open_Mac_error:
         return ret;
     }
 
-    bs->sg = hdev_is_sg(bs);
-
     return ret;
 }
 
@@ -3599,15 +3531,6 @@ hdev_co_ioctl(BlockDriverState *bs, unsigned long int req, void *buf)
     ret = fd_open(bs);
     if (ret < 0) {
         return ret;
-    }
-
-    if (req == SG_IO && s->pr_mgr) {
-        struct sg_io_hdr *io_hdr = buf;
-        if (io_hdr->cmdp[0] == PERSISTENT_RESERVE_OUT ||
-            io_hdr->cmdp[0] == PERSISTENT_RESERVE_IN) {
-            return pr_manager_execute(s->pr_mgr, qemu_get_current_aio_context(),
-                                      s->fd, io_hdr);
-        }
     }
 
     acb = (RawPosixAIOData) {

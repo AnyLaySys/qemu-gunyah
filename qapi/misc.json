@@ -24,50 +24,5 @@
 { 'command': 'x-exit-preconfig', 'allow-preconfig': true,
   'features': [ 'unstable' ] }
 
-{ 'command': 'human-monitor-command',
-  'data': {'command-line': 'str', '*cpu-index': 'int'},
-  'returns': 'str',
-  'features': [ 'savevm-monitor-nodes' ] }
-
-{ 'command': 'getfd', 'data': {'fdname': 'str'}, 'if': 'CONFIG_POSIX' }
-
-{ 'command': 'get-win32-socket', 'data': {'info': 'str', 'fdname': 'str'}, 'if': 'CONFIG_WIN32' }
-
-{ 'command': 'closefd', 'data': {'fdname': 'str'} }
-
-{ 'struct': 'AddfdInfo', 'data': {'fdset-id': 'int', 'fd': 'int'} }
-
-{ 'command': 'add-fd',
-  'data': { '*fdset-id': 'int',
-            '*opaque': 'str' },
-  'returns': 'AddfdInfo' }
-
-{ 'command': 'remove-fd', 'data': {'fdset-id': 'int', '*fd': 'int'} }
-
-{ 'struct': 'FdsetFdInfo',
-  'data': {'fd': 'int', '*opaque': 'str'} }
-
-{ 'struct': 'FdsetInfo',
-  'data': {'fdset-id': 'int', 'fds': ['FdsetFdInfo']} }
-
-{ 'command': 'query-fdsets', 'returns': ['FdsetInfo'] }
-
-{ 'enum': 'CommandLineParameterType',
-  'data': ['string', 'boolean', 'number', 'size'] }
-
-{ 'struct': 'CommandLineParameterInfo',
-  'data': { 'name': 'str',
-            'type': 'CommandLineParameterType',
-            '*help': 'str',
-            '*default': 'str' } }
-
-{ 'struct': 'CommandLineOptionInfo',
-  'data': { 'option': 'str', 'parameters': ['CommandLineParameterInfo'] } }
-
-{'command': 'query-command-line-options',
- 'data': {'*option': 'str'},
- 'returns': ['CommandLineOptionInfo'],
- 'allow-preconfig': true}
-
 { 'event': 'RTC_CHANGE',
   'data': { 'offset': 'int', 'qom-path': 'str' } }

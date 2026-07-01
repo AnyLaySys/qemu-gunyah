@@ -26,19 +26,7 @@ config SPICE
 config IVSHMEM
     bool
 
-config TPM
-    bool
-
 config FDT
-    bool
-
-config VHOST_USER
-    bool
-
-config VHOST_VDPA
-    bool
-
-config VHOST_KERNEL
     bool
 
 config VIRTFS

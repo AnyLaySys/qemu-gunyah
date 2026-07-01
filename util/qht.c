@@ -119,13 +119,7 @@ static void qht_map_debug__all_locked(struct qht_map *map)
 }
 #else
 
-#define qht_debug_assert(X) do { (void)(X); } while (0)
-
-static inline void qht_bucket_debug__locked(struct qht_bucket *b)
-{ }
-
-static inline void qht_map_debug__all_locked(struct qht_map *map)
-{ }
+#define qht_debug_assert(X) assert(X)
 #endif /* QHT_DEBUG */
 
 static inline size_t qht_elems_to_buckets(size_t n_elems)
@@ -364,7 +358,9 @@ static void qht_map_reset__all_locked(struct qht_map *map)
     for (i = 0; i < map->n_buckets; i++) {
         qht_bucket_reset__locked(&map->buckets[i]);
     }
+#ifdef QHT_DEBUG
     qht_map_debug__all_locked(map);
+#endif
 }
 
 void qht_reset(struct qht *ht)
@@ -537,7 +533,9 @@ bool qht_insert(struct qht *ht, void *p, uint32_t hash, void **existing)
 
     b = qht_bucket_lock__no_stale(ht, hash, &map);
     prev = qht_insert__locked(ht, map, b, p, hash, &needs_resize);
+#ifdef QHT_DEBUG
     qht_bucket_debug__locked(b);
+#endif
     qht_bucket_unlock(map, b);
 
     if (unlikely(needs_resize) && ht->mode & QHT_MODE_AUTO_RESIZE) {
@@ -641,7 +639,9 @@ bool qht_remove(struct qht *ht, const void *p, uint32_t hash)
 
     b = qht_bucket_lock__no_stale(ht, hash, &map);
     ret = qht_remove__locked(b, p, hash);
+#ifdef QHT_DEBUG
     qht_bucket_debug__locked(b);
+#endif
     qht_bucket_unlock(map, b);
     return ret;
 }
@@ -666,7 +666,9 @@ static inline void qht_bucket_iter(struct qht_bucket *head,
                     seqlock_write_begin(&head->sequence);
                     qht_bucket_remove_entry(b, i);
                     seqlock_write_end(&head->sequence);
+#ifdef QHT_DEBUG
                     qht_bucket_debug__locked(b);
+#endif
                     i--;
                     continue;
                 }
@@ -761,7 +763,9 @@ static void qht_do_resize_reset(struct qht *ht, struct qht_map *new, bool reset)
     data.ht = ht;
     data.new = new;
     qht_map_iter__all_locked(old, &iter, &data);
+#ifdef QHT_DEBUG
     qht_map_debug__all_locked(new);
+#endif
 
     qatomic_rcu_set(&ht->map, new);
     qht_map_unlock_buckets(old);

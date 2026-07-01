@@ -10,7 +10,7 @@ typedef struct RAMBlockNotifier RAMBlockNotifier;
 
 #define DIRTY_MEMORY_VGA       0
 #define DIRTY_MEMORY_CODE      1
-#define DIRTY_MEMORY_MIGRATION 2
+#define DIRTY_MEMORY_SYNC 2
 #define DIRTY_MEMORY_NUM       3        /* num of dirty bits */
 
 #define DIRTY_MEMORY_BLOCK_SIZE ((ram_addr_t)256 * 1024 * 8)

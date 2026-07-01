@@ -394,56 +394,33 @@ out:
 }
 
 const QEMULogItem qemu_log_items[] = {
-    { CPU_LOG_TB_OUT_ASM, "out_asm",
-      "show generated host assembly code for each compiled TB" },
-    { CPU_LOG_TB_IN_ASM, "in_asm",
-      "show target assembly code for each compiled TB" },
-    { CPU_LOG_TB_OP, "op",
-      "show micro ops for each compiled TB" },
-    { CPU_LOG_TB_OP_OPT, "op_opt",
-      "show micro ops after optimization" },
-    { CPU_LOG_TB_OP_IND, "op_ind",
-      "show micro ops before indirect lowering" },
+    { CPU_LOG_TB_OUT_ASM, "out_asm" },
+    { CPU_LOG_TB_IN_ASM, "in_asm" },
+    { CPU_LOG_TB_OP, "op" },
+    { CPU_LOG_TB_OP_OPT, "op_opt" },
+    { CPU_LOG_TB_OP_IND, "op_ind" },
 #ifdef CONFIG_PLUGIN
-    { LOG_TB_OP_PLUGIN, "op_plugin",
-      "show micro ops before plugin injection" },
+    { LOG_TB_OP_PLUGIN, "op_plugin" },
 #endif
-    { CPU_LOG_INT, "int",
-      "show interrupts/exceptions in short format" },
-    { CPU_LOG_EXEC, "exec",
-      "show trace before each executed TB (lots of logs)" },
-    { CPU_LOG_TB_CPU, "cpu",
-      "show CPU registers before entering a TB (lots of logs)" },
-    { CPU_LOG_TB_FPU, "fpu",
-      "include FPU registers in the 'cpu' logging" },
-    { CPU_LOG_MMU, "mmu",
-      "log MMU-related activities" },
-    { CPU_LOG_PCALL, "pcall",
-      "x86 only: show protected mode far calls/returns/exceptions" },
-    { CPU_LOG_RESET, "cpu_reset",
-      "show CPU state before CPU resets" },
-    { LOG_UNIMP, "unimp",
-      "log unimplemented functionality" },
-    { LOG_GUEST_ERROR, "guest_errors",
-      "log when the guest OS does something invalid (eg accessing a\n"
-      "non-existent register)" },
-    { CPU_LOG_PAGE, "page",
-      "dump pages at beginning of user mode emulation" },
-    { CPU_LOG_TB_NOCHAIN, "nochain",
-      "do not chain compiled TBs so that \"exec\" and \"cpu\" show\n"
-      "complete traces" },
+    { CPU_LOG_INT, "int" },
+    { CPU_LOG_EXEC, "exec" },
+    { CPU_LOG_TB_CPU, "cpu" },
+    { CPU_LOG_TB_FPU, "fpu" },
+    { CPU_LOG_MMU, "mmu" },
+    { CPU_LOG_PCALL, "pcall" },
+    { CPU_LOG_RESET, "cpu_reset" },
+    { LOG_UNIMP, "unimp" },
+    { LOG_GUEST_ERROR, "guest_errors" },
+    { CPU_LOG_PAGE, "page" },
+    { CPU_LOG_TB_NOCHAIN, "nochain" },
 #ifdef CONFIG_PLUGIN
-    { CPU_LOG_PLUGIN, "plugin", "output from TCG plugins"},
+    { CPU_LOG_PLUGIN, "plugin" },
 #endif
-    { LOG_STRACE, "strace",
-      "log every user-mode syscall, its input, and its result" },
-    { LOG_PER_THREAD, "tid",
-      "open a separate log file per thread; filename must contain '%d'" },
-    { CPU_LOG_TB_VPU, "vpu",
-      "include VPU registers in the 'cpu' logging" },
-    { LOG_INVALID_MEM, "invalid_mem",
-      "log invalid memory accesses" },
-    { 0, NULL, NULL },
+    { LOG_STRACE, "strace" },
+    { LOG_PER_THREAD, "tid" },
+    { CPU_LOG_TB_VPU, "vpu" },
+    { LOG_INVALID_MEM, "invalid_mem" },
+    { 0, NULL },
 };
 
 int qemu_str_to_log_mask(const char *str)
@@ -481,17 +458,4 @@ int qemu_str_to_log_mask(const char *str)
  error:
     g_strfreev(parts);
     return 0;
-}
-
-void qemu_print_log_usage(FILE *f)
-{
-    const QEMULogItem *item;
-    fprintf(f, "Log items (comma separated):\n");
-    for (item = qemu_log_items; item->mask != 0; item++) {
-        fprintf(f, "%-15s %s\n", item->name, item->help);
-    }
-#ifdef CONFIG_TRACE_LOG
-    fprintf(f, "trace:PATTERN   enable trace events\n");
-    fprintf(f, "\nUse \"-d trace:help\" to get a list of trace events.\n\n");
-#endif
 }

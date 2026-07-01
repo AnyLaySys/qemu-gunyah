@@ -5,7 +5,7 @@
 #include "exec/memory.h"
 #include "hw/qdev-core.h"
 #include "net/net.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qemu/event_notifier.h"
 #include "standard-headers/linux/virtio_config.h"
 #include "standard-headers/linux/virtio_ring.h"
@@ -105,7 +105,6 @@ struct VirtIODevice
     bool started;
     bool start_on_kick; /* when virtio 1.0 feature has not been negotiated */
     bool disable_legacy_check;
-    bool vhost_started;
     VMChangeStateEntry *vmstate;
     char *bus_name;
     uint8_t device_endian;
@@ -114,7 +113,6 @@ struct VirtIODevice
     QLIST_HEAD(, VirtQueue) *vector_queues;
     QTAILQ_ENTRY(VirtIODevice) next;
     EventNotifier config_notifier;
-    bool device_iotlb_enabled;
 };
 
 struct VirtioDeviceClass {
@@ -145,8 +143,6 @@ struct VirtioDeviceClass {
     int (*post_load)(VirtIODevice *vdev);
     const VMStateDescription *vmsd;
     bool (*primary_unplug_pending)(void *opaque);
-    struct vhost_dev *(*get_vhost)(VirtIODevice *vdev);
-    void (*toggle_device_iotlb)(VirtIODevice *vdev);
 };
 
 void virtio_instance_init_common(Object *proxy_obj, void *data,
@@ -265,7 +261,6 @@ typedef struct VirtIOBlkConf VirtIOBlkConf;
 struct virtio_net_conf;
 typedef struct virtio_serial_conf virtio_serial_conf;
 typedef struct virtio_input_conf virtio_input_conf;
-typedef struct VirtIOSCSIConf VirtIOSCSIConf;
 typedef struct VirtIORNGConf VirtIORNGConf;
 
 #define DEFINE_VIRTIO_COMMON_FEATURES(_state, _field) \

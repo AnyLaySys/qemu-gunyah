@@ -17,7 +17,6 @@
 #include "qemu/config-file.h"
 #include "qapi/qapi-commands-machine.h"
 #include "qobject/qdict.h"
-#include "monitor/hmp.h"
 
 #include <libfdt.h>
 

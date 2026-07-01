@@ -60,9 +60,6 @@ bool ramblock_is_pmem(RAMBlock *rb);
 
 typedef void (*qemu_ram_resize_cb)(const char *, uint64_t length, void *host);
 
-RAMBlock *qemu_ram_alloc_from_file(ram_addr_t size, MemoryRegion *mr,
-                                   uint32_t ram_flags, const char *mem_path,
-                                   off_t offset, Error **errp);
 RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, ram_addr_t max_size,
                                  qemu_ram_resize_cb resized, MemoryRegion *mr,
                                  uint32_t ram_flags, int fd, off_t offset,
@@ -179,9 +176,9 @@ static inline bool cpu_physical_memory_is_clean(ram_addr_t addr)
 {
     bool vga = cpu_physical_memory_get_dirty_flag(addr, DIRTY_MEMORY_VGA);
     bool code = cpu_physical_memory_get_dirty_flag(addr, DIRTY_MEMORY_CODE);
-    bool migration =
-        cpu_physical_memory_get_dirty_flag(addr, DIRTY_MEMORY_MIGRATION);
-    return !(vga && code && migration);
+    bool sync =
+        cpu_physical_memory_get_dirty_flag(addr, DIRTY_MEMORY_SYNC);
+    return !(vga && code && sync);
 }
 
 static inline uint8_t cpu_physical_memory_range_includes_clean(ram_addr_t start,
@@ -198,9 +195,9 @@ static inline uint8_t cpu_physical_memory_range_includes_clean(ram_addr_t start,
         !cpu_physical_memory_all_dirty(start, length, DIRTY_MEMORY_CODE)) {
         ret |= (1 << DIRTY_MEMORY_CODE);
     }
-    if (mask & (1 << DIRTY_MEMORY_MIGRATION) &&
-        !cpu_physical_memory_all_dirty(start, length, DIRTY_MEMORY_MIGRATION)) {
-        ret |= (1 << DIRTY_MEMORY_MIGRATION);
+    if (mask & (1 << DIRTY_MEMORY_SYNC) &&
+        !cpu_physical_memory_all_dirty(start, length, DIRTY_MEMORY_SYNC)) {
+        ret |= (1 << DIRTY_MEMORY_SYNC);
     }
     return ret;
 }
@@ -251,8 +248,8 @@ static inline void cpu_physical_memory_set_dirty_range(ram_addr_t start,
         while (page < end) {
             unsigned long next = MIN(end, base + DIRTY_MEMORY_BLOCK_SIZE);
 
-            if (likely(mask & (1 << DIRTY_MEMORY_MIGRATION))) {
-                bitmap_set_atomic(blocks[DIRTY_MEMORY_MIGRATION]->blocks[idx],
+            if (likely(mask & (1 << DIRTY_MEMORY_SYNC))) {
+                bitmap_set_atomic(blocks[DIRTY_MEMORY_SYNC]->blocks[idx],
                                   offset, next - page);
             }
             if (unlikely(mask & (1 << DIRTY_MEMORY_VGA))) {
@@ -315,7 +312,7 @@ uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
 
                     if (global_dirty_tracking) {
                         qatomic_or(
-                                &blocks[DIRTY_MEMORY_MIGRATION][idx][offset],
+                                &blocks[DIRTY_MEMORY_SYNC][idx][offset],
                                 temp);
                         if (unlikely(
                             global_dirty_tracking & GLOBAL_DIRTY_DIRTY_RATE)) {
@@ -341,7 +338,7 @@ uint64_t cpu_physical_memory_set_dirty_lebitmap(unsigned long *bitmap,
         uint8_t clients = tcg_enabled() ? DIRTY_CLIENTS_ALL : DIRTY_CLIENTS_NOCODE;
 
         if (!global_dirty_tracking) {
-            clients &= ~(1 << DIRTY_MEMORY_MIGRATION);
+            clients &= ~(1 << DIRTY_MEMORY_SYNC);
         }
 
         for (i = 0; i < len; i++) {
@@ -381,17 +378,17 @@ bool cpu_physical_memory_test_and_clear_dirty(ram_addr_t start,
                                               ram_addr_t length,
                                               unsigned client);
 
-DirtyBitmapSnapshot *cpu_physical_memory_snapshot_and_clear_dirty
+DirtyBitmapSample *cpu_physical_memory_sample_and_clear_dirty
     (MemoryRegion *mr, hwaddr offset, hwaddr length, unsigned client);
 
-bool cpu_physical_memory_snapshot_get_dirty(DirtyBitmapSnapshot *snap,
+bool cpu_physical_memory_sample_get_dirty(DirtyBitmapSample *snap,
                                             ram_addr_t start,
                                             ram_addr_t length);
 
 static inline void cpu_physical_memory_clear_dirty_range(ram_addr_t start,
                                                          ram_addr_t length)
 {
-    cpu_physical_memory_test_and_clear_dirty(start, length, DIRTY_MEMORY_MIGRATION);
+    cpu_physical_memory_test_and_clear_dirty(start, length, DIRTY_MEMORY_SYNC);
     cpu_physical_memory_test_and_clear_dirty(start, length, DIRTY_MEMORY_VGA);
     cpu_physical_memory_test_and_clear_dirty(start, length, DIRTY_MEMORY_CODE);
 }
@@ -419,7 +416,7 @@ uint64_t cpu_physical_memory_sync_dirty_bitmap(RAMBlock *rb,
         unsigned long page = BIT_WORD(start >> TARGET_PAGE_BITS);
 
         src = qatomic_rcu_read(
-                &ram_list.dirty_memory[DIRTY_MEMORY_MIGRATION])->blocks;
+                &ram_list.dirty_memory[DIRTY_MEMORY_SYNC])->blocks;
 
         for (k = page; k < page + nr; k++) {
             if (src[idx][offset]) {
@@ -453,7 +450,7 @@ uint64_t cpu_physical_memory_sync_dirty_bitmap(RAMBlock *rb,
             if (cpu_physical_memory_test_and_clear_dirty(
                         start + addr + offset,
                         TARGET_PAGE_SIZE,
-                        DIRTY_MEMORY_MIGRATION)) {
+                        DIRTY_MEMORY_SYNC)) {
                 long k = (start + addr) >> TARGET_PAGE_BITS;
                 if (!test_and_set_bit(k, dest)) {
                     num_dirty++;

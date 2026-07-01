@@ -1,7 +1,7 @@
 
 #include "qemu/osdep.h"
 #include "hw/ptimer.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qemu/host-utils.h"
 #include "system/cpu-timers.h"
 #include "block/aio.h"

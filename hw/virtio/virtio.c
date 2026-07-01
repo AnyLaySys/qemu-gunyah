@@ -11,8 +11,7 @@
 #include "qom/object_interfaces.h"
 #include "hw/core/cpu.h"
 #include "hw/virtio/virtio.h"
-#include "hw/virtio/vhost.h"
-#include "migration/qemu-file-types.h"
+#include "state/qemu-file-types.h"
 #include "qemu/atomic.h"
 #include "hw/virtio/virtio-bus.h"
 #include "hw/qdev-properties.h"
@@ -21,19 +20,9 @@
 #include "system/runstate.h"
 
 #include "standard-headers/linux/virtio_ids.h"
-#include "standard-headers/linux/vhost_types.h"
 #include "standard-headers/linux/virtio_blk.h"
-#include "standard-headers/linux/virtio_console.h"
 #include "standard-headers/linux/virtio_gpu.h"
 #include "standard-headers/linux/virtio_net.h"
-#include "standard-headers/linux/virtio_scsi.h"
-#include "standard-headers/linux/virtio_i2c.h"
-#include "standard-headers/linux/virtio_balloon.h"
-#include "standard-headers/linux/virtio_iommu.h"
-#include "standard-headers/linux/virtio_mem.h"
-#include "standard-headers/linux/virtio_vsock.h"
-
-#define VHOST_USER_MAX_CONFIG_SIZE 256
 
 #define VIRTIO_PCI_VRING_ALIGN         4096
 
@@ -131,50 +120,17 @@ struct VirtQueue
 const char *virtio_device_names[] = {
     [VIRTIO_ID_NET] = "virtio-net",
     [VIRTIO_ID_BLOCK] = "virtio-blk",
-    [VIRTIO_ID_CONSOLE] = "virtio-serial",
-    [VIRTIO_ID_RNG] = "virtio-rng",
-    [VIRTIO_ID_BALLOON] = "virtio-balloon",
-    [VIRTIO_ID_IOMEM] = "virtio-iomem",
-    [VIRTIO_ID_RPMSG] = "virtio-rpmsg",
-    [VIRTIO_ID_SCSI] = "virtio-scsi",
-    [VIRTIO_ID_9P] = "virtio-9p",
-    [VIRTIO_ID_MAC80211_WLAN] = "virtio-mac-wlan",
-    [VIRTIO_ID_RPROC_SERIAL] = "virtio-rproc-serial",
-    [VIRTIO_ID_CAIF] = "virtio-caif",
-    [VIRTIO_ID_MEMORY_BALLOON] = "virtio-mem-balloon",
     [VIRTIO_ID_GPU] = "virtio-gpu",
-    [VIRTIO_ID_CLOCK] = "virtio-clk",
     [VIRTIO_ID_INPUT] = "virtio-input",
-    [VIRTIO_ID_VSOCK] = "vhost-vsock",
-    [VIRTIO_ID_CRYPTO] = "virtio-crypto",
-    [VIRTIO_ID_SIGNAL_DIST] = "virtio-signal",
-    [VIRTIO_ID_PSTORE] = "virtio-pstore",
-    [VIRTIO_ID_IOMMU] = "virtio-iommu",
-    [VIRTIO_ID_MEM] = "virtio-mem",
     [VIRTIO_ID_SOUND] = "virtio-sound",
-    [VIRTIO_ID_FS] = "virtio-user-fs",
-    [VIRTIO_ID_PMEM] = "virtio-pmem",
-    [VIRTIO_ID_RPMB] = "virtio-rpmb",
-    [VIRTIO_ID_MAC80211_HWSIM] = "virtio-mac-hwsim",
-    [VIRTIO_ID_VIDEO_ENCODER] = "virtio-vid-encoder",
-    [VIRTIO_ID_VIDEO_DECODER] = "virtio-vid-decoder",
-    [VIRTIO_ID_SCMI] = "virtio-scmi",
-    [VIRTIO_ID_NITRO_SEC_MOD] = "virtio-nitro-sec-mod",
-    [VIRTIO_ID_I2C_ADAPTER] = "vhost-user-i2c",
-    [VIRTIO_ID_CAN] = "virtio-can",
-    [VIRTIO_ID_DMABUF] = "virtio-dmabuf",
-    [VIRTIO_ID_PARAM_SERV] = "virtio-param-serv",
-    [VIRTIO_ID_AUDIO_POLICY] = "virtio-audio-pol",
-    [VIRTIO_ID_BT] = "virtio-bluetooth",
-    [VIRTIO_ID_GPIO] = "virtio-gpio"
 };
 
 static const char *virtio_id_to_name(uint16_t device_id)
 {
     assert(device_id < G_N_ELEMENTS(virtio_device_names));
     const char *name = virtio_device_names[device_id];
-    assert(name != NULL);
-    return name;
+
+    return name ?: "virtio";
 }
 
 static void virtio_free_region_cache(VRingMemoryRegionCaches *caches)
@@ -2115,13 +2071,6 @@ void virtio_reset(void *opaque)
         vdev->device_endian = virtio_default_endian();
     }
 
-    if (k->get_vhost) {
-        struct vhost_dev *hdev = k->get_vhost(vdev);
-        if (hdev && hdev->vhost_ops) {
-            vhost_reset_device(hdev);
-        }
-    }
-
     if (k->reset) {
         k->reset(vdev);
     }
@@ -3163,7 +3112,6 @@ void virtio_init(VirtIODevice *vdev, uint16_t device_id, size_t config_size)
 
     vdev->start_on_kick = false;
     vdev->started = false;
-    vdev->vhost_started = false;
     vdev->device_id = device_id;
     vdev->status = 0;
     qatomic_set(&vdev->isr, 0);
@@ -3197,14 +3145,6 @@ bool virtio_legacy_allowed(VirtIODevice *vdev)
     switch (vdev->device_id) {
     case VIRTIO_ID_NET:
     case VIRTIO_ID_BLOCK:
-    case VIRTIO_ID_CONSOLE:
-    case VIRTIO_ID_RNG:
-    case VIRTIO_ID_BALLOON:
-    case VIRTIO_ID_RPMSG:
-    case VIRTIO_ID_SCSI:
-    case VIRTIO_ID_9P:
-    case VIRTIO_ID_RPROC_SERIAL:
-    case VIRTIO_ID_CAIF:
         return true;
     default:
         return false;

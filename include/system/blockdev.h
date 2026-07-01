@@ -6,9 +6,9 @@
 #include "qemu/queue.h"
 
 typedef enum {
-    IF_DEFAULT = -1,            /* for use with drive_add() only */
+    IF_DEFAULT = -1,
     IF_NONE = 0,
-    IF_IDE, IF_SCSI, IF_FLOPPY, IF_PFLASH, IF_MTD, IF_SD, IF_VIRTIO, IF_XEN,
+    IF_FLOPPY, IF_PFLASH, IF_MTD, IF_SD, IF_VIRTIO, IF_XEN,
     IF_COUNT
 } BlockInterfaceType;
 

@@ -3,7 +3,7 @@
 #include "ui/console.h"
 #include "qemu/timer.h"
 #include "hw/input/hid.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "trace.h"
 
 #define HID_USAGE_ERROR_ROLLOVER        0x01

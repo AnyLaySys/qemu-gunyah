@@ -12,7 +12,7 @@
 #include "hw/boards.h"
 #include "hw/sysbus.h"
 #include "hw/qdev-clock.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "trace.h"
 
 static bool qdev_hot_added = false;

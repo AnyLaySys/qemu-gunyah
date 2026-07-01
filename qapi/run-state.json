@@ -3,13 +3,12 @@
 { 'enum': 'RunState',
   'data': [ 'debug', 'inmigrate', 'internal-error', 'io-error', 'paused',
             'postmigrate', 'prelaunch', 'finish-migrate', 'restore-vm',
-            'running', 'save-vm', 'shutdown', 'suspended', 'guest-panicked',
-            'colo' ] }
+            'running', 'save-vm', 'shutdown', 'suspended', 'guest-panicked' ] }
 
 { 'enum': 'ShutdownCause',
   'data': [ 'none', 'host-error', 'host-qmp-quit', 'host-qmp-system-reset',
             'host-signal', 'host-ui', 'guest-shutdown', 'guest-reset',
-            'guest-panic', 'subsystem-reset', 'snapshot-load'] }
+            'guest-panic', 'subsystem-reset'] }
 
 { 'struct': 'StatusInfo',
   'data': {'running': 'bool',
@@ -61,13 +60,12 @@
   'data': [ 'pause', 'poweroff', 'run' ] }
 
 { 'enum': 'GuestPanicInformationType',
-  'data': [ 'hyper-v', 's390' ] }
+  'data': [ 'hyper-v' ] }
 
 {'union': 'GuestPanicInformation',
  'base': {'type': 'GuestPanicInformationType'},
  'discriminator': 'type',
- 'data': {'hyper-v': 'GuestPanicInformationHyperV',
-          's390': 'GuestPanicInformationS390'}}
+ 'data': {'hyper-v': 'GuestPanicInformationHyperV'}}
 
 {'struct': 'GuestPanicInformationHyperV',
  'data': {'arg1': 'uint64',
@@ -75,19 +73,6 @@
           'arg3': 'uint64',
           'arg4': 'uint64',
           'arg5': 'uint64'}}
-
-{ 'enum': 'S390CrashReason',
-  'data': [ 'unknown',
-            'disabled-wait',
-            'extint-loop',
-            'pgmint-loop',
-            'opint-loop' ] }
-
-{'struct': 'GuestPanicInformationS390',
- 'data': {'core': 'uint32',
-          'psw-mask': 'uint64',
-          'psw-addr': 'uint64',
-          'reason': 'S390CrashReason'}}
 
 { 'event': 'MEMORY_FAILURE',
   'data': { 'recipient': 'MemoryFailureRecipient',

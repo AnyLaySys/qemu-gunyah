@@ -23,7 +23,7 @@ struct LegacyReset {
     ResettableState reset_state;
     QEMUResetHandler *func;
     void *opaque;
-    bool skip_on_snapshot_load;
+    bool skip_on_state_load;
 };
 
 OBJECT_DEFINE_SIMPLE_TYPE_WITH_INTERFACES(LegacyReset, legacy_reset, LEGACY_RESET, OBJECT, { TYPE_RESETTABLE_INTERFACE }, { })
@@ -38,7 +38,7 @@ static void legacy_reset_hold(Object *obj, ResetType type)
 {
     LegacyReset *lr = LEGACY_RESET(obj);
 
-    if (type == RESET_TYPE_SNAPSHOT_LOAD && lr->skip_on_snapshot_load) {
+    if (type == RESET_TYPE_STATE_LOAD && lr->skip_on_state_load) {
         return;
     }
     lr->func(lr->opaque);
@@ -70,14 +70,14 @@ void qemu_register_reset(QEMUResetHandler *func, void *opaque)
     qemu_register_resettable(obj);
 }
 
-void qemu_register_reset_nosnapshotload(QEMUResetHandler *func, void *opaque)
+void qemu_register_reset_no_state_load(QEMUResetHandler *func, void *opaque)
 {
     Object *obj = object_new(TYPE_LEGACY_RESET);
     LegacyReset *lr = LEGACY_RESET(obj);
 
     lr->func = func;
     lr->opaque = opaque;
-    lr->skip_on_snapshot_load = true;
+    lr->skip_on_state_load = true;
     qemu_register_resettable(obj);
 }
 

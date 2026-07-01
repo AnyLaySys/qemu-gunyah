@@ -11,6 +11,7 @@ if config_all_devices.has_key('CONFIG_VIRTIO_PCI')
                                   'CONFIG_VIRTIO_PCI'],
                            if_true: [files('virtio-gpu-base.c',
                                            'virtio-gpu.c',
+                                           'virtio-gpu-pci.c',
                                            'virtio-gpu-gl-pci.c',
                                            'virtio-gpu-udmabuf.c',
                                            'virtio-gpu-gl.c'), pixman])

@@ -4,15 +4,13 @@
 #include "qemu/units.h"
 #include "hw/irq.h"
 #include "hw/pci/pci.h"
-#include "hw/pci/pci_bridge.h"
 #include "hw/pci/pci_bus.h"
 #include "hw/pci/pci_host.h"
 #include "hw/qdev-properties.h"
 #include "hw/qdev-properties-system.h"
-#include "migration/qemu-file-types.h"
-#include "migration/vmstate.h"
+#include "state/qemu-file-types.h"
+#include "state/vmstate.h"
 #include "net/net.h"
-#include "system/numa.h"
 #include "system/runstate.h"
 #include "system/system.h"
 #include "hw/loader.h"
@@ -181,11 +179,6 @@ static int pcibus_num(PCIBus *bus)
     return bus->parent_dev->config[PCI_SECONDARY_BUS];
 }
 
-static uint16_t pcibus_numa_node(PCIBus *bus)
-{
-    return NUMA_NODE_UNASSIGNED;
-}
-
 bool pci_bus_add_fw_cfg_extra_pci_roots(FWCfgState *fw_cfg,
                                         PCIBus *bus,
                                         Error **errp)
@@ -237,7 +230,6 @@ static void pci_bus_class_init(ObjectClass *klass, void *data)
     ResettableClass *rc = RESETTABLE_CLASS(klass);
     FWCfgDataGeneratorClass *fwgc = FW_CFG_DATA_GENERATOR_CLASS(klass);
 
-    k->print_dev = pcibus_dev_print;
     k->get_dev_path = pcibus_get_dev_path;
     k->get_fw_dev_path = pcibus_get_fw_dev_path;
     k->realize = pci_bus_realize;
@@ -246,8 +238,6 @@ static void pci_bus_class_init(ObjectClass *klass, void *data)
     rc->phases.hold = pcibus_reset_hold;
 
     pbc->bus_num = pcibus_num;
-    pbc->numa_node = pcibus_numa_node;
-
     fwgc->get_data = pci_bus_fw_cfg_gen_data;
 }
 
@@ -299,8 +289,6 @@ PCIHostStateList pci_host_bridges;
 int pci_bar(PCIDevice *d, int reg)
 {
     uint8_t type;
-
-    assert(!pci_is_vf(d));
 
     if (reg != PCI_ROM_SLOT)
         return PCI_BASE_ADDRESS_0 + reg * 4;
@@ -444,9 +432,6 @@ static uint8_t pci_pm_update(PCIDevice *d, uint32_t addr, int l, uint8_t old)
 static void pci_reset_regions(PCIDevice *dev)
 {
     int r;
-    if (pci_is_vf(dev)) {
-        return;
-    }
 
     for (r = 0; r < PCI_NUM_REGIONS; ++r) {
         PCIIORegion *region = &dev->io_regions[r];
@@ -487,7 +472,6 @@ static void pci_do_device_reset(PCIDevice *dev)
 
     msi_reset(dev);
     msix_reset(dev);
-    pcie_sriov_pf_reset(dev);
 }
 
 void pci_device_reset(PCIDevice *dev)
@@ -676,22 +660,7 @@ int pci_bus_num(PCIBus *s)
 
 void pci_bus_range(PCIBus *bus, int *min_bus, int *max_bus)
 {
-    int i;
     *min_bus = *max_bus = pci_bus_num(bus);
-
-    for (i = 0; i < ARRAY_SIZE(bus->devices); ++i) {
-        PCIDevice *dev = bus->devices[i];
-
-        if (dev && IS_PCI_BRIDGE(dev)) {
-            *min_bus = MIN(*min_bus, dev->config[PCI_SECONDARY_BUS]);
-            *max_bus = MAX(*max_bus, dev->config[PCI_SUBORDINATE_BUS]);
-        }
-    }
-}
-
-int pci_bus_numa_node(PCIBus *bus)
-{
-    return PCI_BUS_GET_CLASS(bus)->numa_node(bus);
 }
 
 static int get_pci_config_device(QEMUFile *f, void *pv, size_t size,
@@ -719,10 +688,6 @@ static int get_pci_config_device(QEMUFile *f, void *pv, size_t size,
     memcpy(s->config, config, size);
 
     pci_update_mappings(s);
-    if (IS_PCI_BRIDGE(s)) {
-        pci_bridge_update_mappings(PCI_BRIDGE(s));
-    }
-
     memory_region_set_enabled(&s->bus_master_enable_region,
                               pci_get_word(s->config + PCI_COMMAND)
                               & PCI_COMMAND_MASTER);
@@ -800,7 +765,6 @@ static bool migrate_is_not_pcie(void *opaque, int version_id)
 
 static int pci_post_load(void *opaque, int version_id)
 {
-    pcie_sriov_pf_post_load(opaque);
     return 0;
 }
 
@@ -943,52 +907,6 @@ static void pci_init_w1cmask(PCIDevice *dev)
                  PCI_STATUS_SIG_SYSTEM_ERROR | PCI_STATUS_DETECTED_PARITY);
 }
 
-static void pci_init_mask_bridge(PCIDevice *d)
-{
-    memset(d->wmask + PCI_PRIMARY_BUS, 0xff, 4);
-
-    d->wmask[PCI_IO_BASE] = PCI_IO_RANGE_MASK & 0xff;
-    d->wmask[PCI_IO_LIMIT] = PCI_IO_RANGE_MASK & 0xff;
-    pci_set_word(d->wmask + PCI_MEMORY_BASE,
-                 PCI_MEMORY_RANGE_MASK & 0xffff);
-    pci_set_word(d->wmask + PCI_MEMORY_LIMIT,
-                 PCI_MEMORY_RANGE_MASK & 0xffff);
-    pci_set_word(d->wmask + PCI_PREF_MEMORY_BASE,
-                 PCI_PREF_RANGE_MASK & 0xffff);
-    pci_set_word(d->wmask + PCI_PREF_MEMORY_LIMIT,
-                 PCI_PREF_RANGE_MASK & 0xffff);
-
-    memset(d->wmask + PCI_PREF_BASE_UPPER32, 0xff, 8);
-
-    d->config[PCI_IO_BASE] |= PCI_IO_RANGE_TYPE_16;
-    d->config[PCI_IO_LIMIT] |= PCI_IO_RANGE_TYPE_16;
-    pci_word_test_and_set_mask(d->config + PCI_PREF_MEMORY_BASE,
-                               PCI_PREF_RANGE_TYPE_64);
-    pci_word_test_and_set_mask(d->config + PCI_PREF_MEMORY_LIMIT,
-                               PCI_PREF_RANGE_TYPE_64);
-
-    pci_set_word(d->wmask + PCI_BRIDGE_CONTROL,
-                 PCI_BRIDGE_CTL_PARITY |
-                 PCI_BRIDGE_CTL_SERR |
-                 PCI_BRIDGE_CTL_ISA |
-                 PCI_BRIDGE_CTL_VGA |
-                 PCI_BRIDGE_CTL_VGA_16BIT |
-                 PCI_BRIDGE_CTL_MASTER_ABORT |
-                 PCI_BRIDGE_CTL_BUS_RESET |
-                 PCI_BRIDGE_CTL_FAST_BACK |
-                 PCI_BRIDGE_CTL_DISCARD |
-                 PCI_BRIDGE_CTL_SEC_DISCARD |
-                 PCI_BRIDGE_CTL_DISCARD_SERR);
-    pci_set_word(d->w1cmask + PCI_BRIDGE_CONTROL,
-                 PCI_BRIDGE_CTL_DISCARD_STATUS);
-    d->cmask[PCI_IO_BASE] |= PCI_IO_RANGE_TYPE_MASK;
-    d->cmask[PCI_IO_LIMIT] |= PCI_IO_RANGE_TYPE_MASK;
-    pci_word_test_and_set_mask(d->cmask + PCI_PREF_MEMORY_BASE,
-                               PCI_PREF_RANGE_TYPE_MASK);
-    pci_word_test_and_set_mask(d->cmask + PCI_PREF_MEMORY_LIMIT,
-                               PCI_PREF_RANGE_TYPE_MASK);
-}
-
 static void pci_init_multifunction(PCIBus *bus, PCIDevice *dev, Error **errp)
 {
     uint8_t slot = PCI_SLOT(dev->devfn);
@@ -996,11 +914,6 @@ static void pci_init_multifunction(PCIBus *bus, PCIDevice *dev, Error **errp)
 
     if (dev->cap_present & QEMU_PCI_CAP_MULTIFUNCTION) {
         dev->config[PCI_HEADER_TYPE] |= PCI_HEADER_TYPE_MULTI_FUNCTION;
-    }
-
-    if (pci_is_vf(dev) &&
-        dev->exp.sriov_vf.pf->cap_present & QEMU_PCI_CAP_MULTIFUNCTION) {
-        return;
     }
 
     if (PCI_FUNC(dev->devfn)) {
@@ -1060,16 +973,11 @@ static void do_pci_unregister_device(PCIDevice *pci_dev)
 
 static uint16_t pci_req_id_cache_extract(PCIReqIDCache *cache)
 {
-    uint8_t bus_n;
     uint16_t result;
 
     switch (cache->type) {
     case PCI_REQ_ID_BDF:
         result = pci_get_bdf(cache->dev);
-        break;
-    case PCI_REQ_ID_SECONDARY_BUS:
-        bus_n = pci_dev_bus_num(cache->dev);
-        result = PCI_BUILD_BDF(bus_n, 0);
         break;
     default:
         error_report("Invalid PCI requester ID cache type: %d",
@@ -1091,12 +999,7 @@ static PCIReqIDCache pci_req_id_cache_get(PCIDevice *dev)
 
     while (!pci_bus_is_root(pci_get_bus(dev))) {
         parent = pci_get_bus(dev)->parent_dev;
-        if (pci_is_express(parent)) {
-            if (pcie_cap_get_type(parent) == PCI_EXP_TYPE_PCI_BRIDGE) {
-                cache.type = PCI_REQ_ID_SECONDARY_BUS;
-                cache.dev = dev;
-            }
-        } else {
+        if (!pci_is_express(parent)) {
             cache.type = PCI_REQ_ID_BDF;
             cache.dev = parent;
         }
@@ -1146,11 +1049,10 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
     Error *local_err = NULL;
     DeviceState *dev = DEVICE(pci_dev);
     PCIBus *bus = pci_get_bus(pci_dev);
-    bool is_bridge = IS_PCI_BRIDGE(pci_dev);
 
-    if (pci_bus_is_root(bus) && bus->parent_dev && !is_bridge) {
+    if (pci_bus_is_root(bus) && bus->parent_dev) {
         error_setg(errp,
-                   "PCI: Only PCI/PCIe bridges can be plugged into %s",
+                   "PCI: secondary buses are disabled for %s",
                     bus->parent_dev->name);
         return NULL;
     }
@@ -1180,8 +1082,7 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
         return NULL;
     }
 
-    if (dev->hotplugged && !pci_is_vf(pci_dev) &&
-        pci_get_function_0(pci_dev)) {
+    if (dev->hotplugged && pci_get_function_0(pci_dev)) {
         error_setg(errp, "PCI: slot %d function 0 already occupied by %s,"
                    " new func %s cannot be exposed to guest.",
                    PCI_SLOT(pci_get_function_0(pci_dev)->devfn),
@@ -1213,25 +1114,17 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
     pci_config_set_revision(pci_dev->config, pc->revision);
     pci_config_set_class(pci_dev->config, pc->class_id);
 
-    if (!is_bridge) {
-        if (pc->subsystem_vendor_id || pc->subsystem_id) {
-            pci_set_word(pci_dev->config + PCI_SUBSYSTEM_VENDOR_ID,
-                         pc->subsystem_vendor_id);
-            pci_set_word(pci_dev->config + PCI_SUBSYSTEM_ID,
-                         pc->subsystem_id);
-        } else {
-            pci_set_default_subsystem_id(pci_dev);
-        }
+    if (pc->subsystem_vendor_id || pc->subsystem_id) {
+        pci_set_word(pci_dev->config + PCI_SUBSYSTEM_VENDOR_ID,
+                     pc->subsystem_vendor_id);
+        pci_set_word(pci_dev->config + PCI_SUBSYSTEM_ID,
+                     pc->subsystem_id);
     } else {
-        assert(!pc->subsystem_vendor_id);
-        assert(!pc->subsystem_id);
+        pci_set_default_subsystem_id(pci_dev);
     }
     pci_init_cmask(pci_dev);
     pci_init_wmask(pci_dev);
     pci_init_w1cmask(pci_dev);
-    if (is_bridge) {
-        pci_init_mask_bridge(pci_dev);
-    }
     pci_init_multifunction(bus, pci_dev, &local_err);
     if (local_err) {
         error_propagate(errp, local_err);
@@ -1262,7 +1155,6 @@ static void pci_unregister_io_regions(PCIDevice *pci_dev)
         memory_region_del_subregion(r->address_space, r->memory);
     }
 
-    pci_unregister_vga(pci_dev);
 }
 
 static void pci_qdev_unrealize(DeviceState *dev)
@@ -1300,7 +1192,6 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
     pcibus_t size = memory_region_size(memory);
     uint8_t hdr_type;
 
-    assert(!pci_is_vf(pci_dev)); /* VFs must use pcie_sriov_vf_register_bar */
     assert(region_num >= 0);
     assert(region_num < PCI_NUM_REGIONS);
     assert(is_power_of_2(size));
@@ -1337,67 +1228,6 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
     }
 }
 
-static void pci_update_vga(PCIDevice *pci_dev)
-{
-    uint16_t cmd;
-
-    if (!pci_dev->has_vga) {
-        return;
-    }
-
-    cmd = pci_get_word(pci_dev->config + PCI_COMMAND);
-
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_MEM],
-                              cmd & PCI_COMMAND_MEMORY);
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO],
-                              cmd & PCI_COMMAND_IO);
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI],
-                              cmd & PCI_COMMAND_IO);
-}
-
-void pci_register_vga(PCIDevice *pci_dev, MemoryRegion *mem,
-                      MemoryRegion *io_lo, MemoryRegion *io_hi)
-{
-    PCIBus *bus = pci_get_bus(pci_dev);
-
-    assert(!pci_dev->has_vga);
-
-    assert(memory_region_size(mem) == QEMU_PCI_VGA_MEM_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_MEM] = mem;
-    memory_region_add_subregion_overlap(bus->address_space_mem,
-                                        QEMU_PCI_VGA_MEM_BASE, mem, 1);
-
-    assert(memory_region_size(io_lo) == QEMU_PCI_VGA_IO_LO_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO] = io_lo;
-    memory_region_add_subregion_overlap(bus->address_space_io,
-                                        QEMU_PCI_VGA_IO_LO_BASE, io_lo, 1);
-
-    assert(memory_region_size(io_hi) == QEMU_PCI_VGA_IO_HI_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI] = io_hi;
-    memory_region_add_subregion_overlap(bus->address_space_io,
-                                        QEMU_PCI_VGA_IO_HI_BASE, io_hi, 1);
-    pci_dev->has_vga = true;
-
-    pci_update_vga(pci_dev);
-}
-
-void pci_unregister_vga(PCIDevice *pci_dev)
-{
-    PCIBus *bus = pci_get_bus(pci_dev);
-
-    if (!pci_dev->has_vga) {
-        return;
-    }
-
-    memory_region_del_subregion(bus->address_space_mem,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_MEM]);
-    memory_region_del_subregion(bus->address_space_io,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO]);
-    memory_region_del_subregion(bus->address_space_io,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI]);
-    pci_dev->has_vga = false;
-}
-
 pcibus_t pci_get_bar_addr(PCIDevice *pci_dev, int region_num)
 {
     return pci_dev->io_regions[region_num].addr;
@@ -1407,29 +1237,12 @@ static pcibus_t pci_config_get_bar_addr(PCIDevice *d, int reg,
                                         uint8_t type, pcibus_t size)
 {
     pcibus_t new_addr;
-    if (!pci_is_vf(d)) {
-        int bar = pci_bar(d, reg);
-        if (type & PCI_BASE_ADDRESS_MEM_TYPE_64) {
-            new_addr = pci_get_quad(d->config + bar);
-        } else {
-            new_addr = pci_get_long(d->config + bar);
-        }
-    } else {
-        PCIDevice *pf = d->exp.sriov_vf.pf;
-        uint16_t sriov_cap = pf->exp.sriov_cap;
-        int bar = sriov_cap + PCI_SRIOV_BAR + reg * 4;
-        uint16_t vf_offset =
-            pci_get_word(pf->config + sriov_cap + PCI_SRIOV_VF_OFFSET);
-        uint16_t vf_stride =
-            pci_get_word(pf->config + sriov_cap + PCI_SRIOV_VF_STRIDE);
-        uint32_t vf_num = (d->devfn - (pf->devfn + vf_offset)) / vf_stride;
+    int bar = pci_bar(d, reg);
 
-        if (type & PCI_BASE_ADDRESS_MEM_TYPE_64) {
-            new_addr = pci_get_quad(pf->config + bar);
-        } else {
-            new_addr = pci_get_long(pf->config + bar);
-        }
-        new_addr += vf_num * size;
+    if (type & PCI_BASE_ADDRESS_MEM_TYPE_64) {
+        new_addr = pci_get_quad(d->config + bar);
+    } else {
+        new_addr = pci_get_long(d->config + bar);
     }
     if (reg != PCI_ROM_SLOT) {
         new_addr &= ~(size - 1);
@@ -1521,7 +1334,6 @@ static void pci_update_mappings(PCIDevice *d)
         }
     }
 
-    pci_update_vga(d);
 }
 
 static inline int pci_irq_disabled(PCIDevice *d)
@@ -1547,10 +1359,6 @@ uint32_t pci_default_read_config(PCIDevice *d,
 
     assert(address + len <= pci_config_size(d));
 
-    if (pci_is_express_downstream_port(d) &&
-        ranges_overlap(address, len, d->exp.exp_cap + PCI_EXP_LNKSTA, 2)) {
-        pcie_sync_bridge_lnk(d);
-    }
     memcpy(&val, d->config + address, len);
     return le32_to_cpu(val);
 }
@@ -1590,7 +1398,6 @@ void pci_default_write_config(PCIDevice *d, uint32_t addr, uint32_t val_in, int 
 
     msi_write_config(d, addr, val_in, l);
     msix_write_config(d, addr, val_in, l);
-    pcie_sriov_config_write(d, addr, val_in, l);
 }
 
 
@@ -1692,10 +1499,7 @@ int pci_swizzle_map_irq_fn(PCIDevice *pci_dev, int pin)
 
 static const pci_class_desc pci_class_descriptions[] =
 {
-    { 0x0001, "VGA controller", "display"},
-    { 0x0100, "SCSI controller", "scsi"},
-    { 0x0101, "IDE controller", "ide"},
-    { 0x0102, "Floppy controller", "fdc"},
+    { 0x0100, "Storage controller", "storage"},
     { 0x0103, "IPI controller", "ipi"},
     { 0x0104, "RAID controller", "raid"},
     { 0x0106, "SATA controller"},
@@ -1706,7 +1510,6 @@ static const pci_class_desc pci_class_descriptions[] =
     { 0x0202, "FDDI controller", "fddi"},
     { 0x0203, "ATM controller", "atm"},
     { 0x0280, "Network controller"},
-    { 0x0300, "VGA controller", "display", 0x00ff},
     { 0x0301, "XGA controller"},
     { 0x0302, "3D controller"},
     { 0x0380, "Display controller"},
@@ -1722,7 +1525,6 @@ static const pci_class_desc pci_class_descriptions[] =
     { 0x0601, "ISA bridge", "isa"},
     { 0x0602, "EISA bridge", "eisa"},
     { 0x0603, "MC bridge", "mca"},
-    { 0x0604, "PCI bridge", "pci-bridge"},
     { 0x0605, "PCMCIA bridge", "pcmcia"},
     { 0x0606, "NUBUS bridge", "nubus"},
     { 0x0607, "CARDBUS bridge", "cardbus"},
@@ -1742,7 +1544,6 @@ static const pci_class_desc pci_class_descriptions[] =
     { 0x0c00, "Firewire controller", "firewire"},
     { 0x0c01, "Access bus controller", "access-bus"},
     { 0x0c02, "SSA controller", "ssa"},
-    { 0x0c03, "USB controller", "usb"},
     { 0x0c04, "Fibre channel controller", "fibre-channel"},
     { 0x0c05, "SMBus"},
     { 0, NULL}
@@ -1859,31 +1660,6 @@ PCIDevice *pci_vga_init(PCIBus *bus)
     return NULL;
 }
 
-static bool pci_secondary_bus_in_range(PCIDevice *dev, int bus_num)
-{
-    return !(pci_get_word(dev->config + PCI_BRIDGE_CONTROL) &
-             PCI_BRIDGE_CTL_BUS_RESET) /* Don't walk the bus if it's reset. */ &&
-        dev->config[PCI_SECONDARY_BUS] <= bus_num &&
-        bus_num <= dev->config[PCI_SUBORDINATE_BUS];
-}
-
-static bool pci_root_bus_in_range(PCIBus *bus, int bus_num)
-{
-    int i;
-
-    for (i = 0; i < ARRAY_SIZE(bus->devices); ++i) {
-        PCIDevice *dev = bus->devices[i];
-
-        if (dev && IS_PCI_BRIDGE(dev)) {
-            if (pci_secondary_bus_in_range(dev, bus_num)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 PCIBus *pci_find_bus_nr(PCIBus *bus, int bus_num)
 {
     PCIBus *sec;
@@ -1896,25 +1672,10 @@ PCIBus *pci_find_bus_nr(PCIBus *bus, int bus_num)
         return bus;
     }
 
-    if (!pci_bus_is_root(bus) &&
-        !pci_secondary_bus_in_range(bus->parent_dev, bus_num)) {
-        return NULL;
-    }
-
-    for (; bus; bus = sec) {
-        QLIST_FOREACH(sec, &bus->child, sibling) {
-            if (pci_bus_num(sec) == bus_num) {
-                return sec;
-            }
-            if (pci_bus_is_root(sec)) {
-                if (pci_root_bus_in_range(sec, bus_num)) {
-                    break;
-                }
-            } else {
-                if (pci_secondary_bus_in_range(sec->parent_dev, bus_num)) {
-                    break;
-                }
-            }
+    QLIST_FOREACH(sec, &bus->child, sibling) {
+        PCIBus *found = pci_find_bus_nr(sec, bus_num);
+        if (found) {
+            return found;
         }
     }
 
@@ -2228,11 +1989,7 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
             return;
         }
 
-        if (class == 0x0300) {
-            rom_add_vga(pdev->romfile);
-        } else {
-            rom_add_option(pdev->romfile, -1);
-        }
+        rom_add_option(pdev->romfile, -1);
         return;
     }
 
@@ -2521,16 +2278,8 @@ static void pci_device_get_iommu_bus_devfn(PCIDevice *dev,
         PCIBus *parent_bus = pci_get_bus(iommu_bus->parent_dev);
 
         if (!pci_bus_is_express(iommu_bus)) {
-            PCIDevice *parent = iommu_bus->parent_dev;
-
-            if (pci_is_express(parent) &&
-                pcie_cap_get_type(parent) == PCI_EXP_TYPE_PCI_BRIDGE) {
-                devfn = PCI_DEVFN(0, 0);
-                bus = iommu_bus;
-            } else {
-                devfn = parent->devfn;
-                bus = parent_bus;
-            }
+            devfn = iommu_bus->parent_dev->devfn;
+            bus = parent_bus;
         }
 
         iommu_bus = parent_bus;
@@ -2617,18 +2366,6 @@ static void pci_dev_get_w64(PCIBus *b, PCIDevice *dev, void *opaque)
         return;
     }
 
-    if (IS_PCI_BRIDGE(dev)) {
-        pcibus_t base = pci_bridge_get_base(dev, PCI_BASE_ADDRESS_MEM_PREFETCH);
-        pcibus_t limit = pci_bridge_get_limit(dev, PCI_BASE_ADDRESS_MEM_PREFETCH);
-
-        base = MAX(base, 0x1ULL << 32);
-
-        if (limit >= base) {
-            Range pref_range;
-            range_set_bounds(&pref_range, base, limit);
-            range_extend(range, &pref_range);
-        }
-    }
     for (i = 0; i < PCI_NUM_REGIONS; ++i) {
         PCIIORegion *r = &dev->io_regions[i];
         pcibus_t lob, upb;
@@ -2663,13 +2400,7 @@ void pci_bus_get_w64_range(PCIBus *bus, Range *range)
 
 static bool pcie_has_upstream_port(PCIDevice *dev)
 {
-    PCIDevice *parent_dev = pci_bridge_get_device(pci_get_bus(dev));
-
-    return parent_dev &&
-        pci_is_express(parent_dev) &&
-        parent_dev->exp.exp_cap &&
-        (pcie_cap_get_type(parent_dev) == PCI_EXP_TYPE_ROOT_PORT ||
-         pcie_cap_get_type(parent_dev) == PCI_EXP_TYPE_DOWNSTREAM);
+    return false;
 }
 
 PCIDevice *pci_get_function_0(PCIDevice *pci_dev)
@@ -2699,9 +2430,7 @@ MSIMessage pci_get_msi_message(PCIDevice *dev, int vector)
 
 void pci_set_power(PCIDevice *d, bool state)
 {
-    if (!pci_is_vf(d)) {
-        pci_set_enabled(d, state);
-    }
+    pci_set_enabled(d, state);
 }
 
 void pci_set_enabled(PCIDevice *d, bool state)

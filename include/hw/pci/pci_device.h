@@ -3,7 +3,6 @@
 
 #include "hw/pci/pci.h"
 #include "hw/pci/pcie.h"
-#include "hw/pci/pcie_doe.h"
 
 #define TYPE_PCI_DEVICE "pci-device"
 typedef struct PCIDeviceClass PCIDeviceClass;
@@ -35,7 +34,6 @@ struct PCIDeviceClass {
 enum PCIReqIDType {
     PCI_REQ_ID_INVALID = 0,
     PCI_REQ_ID_BDF,
-    PCI_REQ_ID_SECONDARY_BUS,
     PCI_REQ_ID_MAX,
 };
 typedef enum PCIReqIDType PCIReqIDType;
@@ -72,9 +70,6 @@ struct PCIDevice {
     PCIConfigReadFunc *config_read;
     PCIConfigWriteFunc *config_write;
 
-    MemoryRegion *vga_regions[QEMU_PCI_VGA_NUM_REGIONS];
-    bool has_vga;
-
     uint8_t irq_state;
 
     uint32_t cap_present;
@@ -105,8 +100,6 @@ struct PCIDevice {
 
     PCIExpressDevice exp;
 
-    SHPCDevice *shpc;
-
     char *romfile;
     uint32_t romsize;
     bool has_rom;
@@ -118,10 +111,6 @@ struct PCIDevice {
     MSIVectorUseNotifier msix_vector_use_notifier;
     MSIVectorReleaseNotifier msix_vector_release_notifier;
     MSIVectorPollNotifier msix_vector_poll_notifier;
-
-    uint16_t spdm_port;
-
-    DOECap doe_spdm;
 
     char *failover_pair_id;
     uint32_t acpi_index;
@@ -150,11 +139,6 @@ static inline int pci_is_express_downstream_port(const PCIDevice *d)
     type = pcie_cap_get_type(d);
 
     return type == PCI_EXP_TYPE_DOWNSTREAM || type == PCI_EXP_TYPE_ROOT_PORT;
-}
-
-static inline int pci_is_vf(const PCIDevice *d)
-{
-    return d->exp.sriov_vf.pf != NULL;
 }
 
 static inline uint32_t pci_config_size(const PCIDevice *d)

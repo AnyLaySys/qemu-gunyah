@@ -22,9 +22,6 @@
 { 'enum': 'PCIELinkWidth',
   'data': [ '1', '2', '4', '8', '12', '16', '32' ] }
 
-{ 'enum': 'HostMemPolicy',
-  'data': [ 'default', 'preferred', 'bind', 'interleave' ] }
-
 { 'enum': 'NetFilterDirection',
   'data': [ 'all', 'rx', 'tx' ] }
 

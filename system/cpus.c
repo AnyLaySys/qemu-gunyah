@@ -128,12 +128,12 @@ void cpu_synchronize_all_post_init(void)
     }
 }
 
-void cpu_synchronize_all_pre_loadvm(void)
+void cpu_synchronize_all_pre_load_state(void)
 {
     CPUState *cpu;
 
     CPU_FOREACH(cpu) {
-        cpu_synchronize_pre_loadvm(cpu);
+        cpu_synchronize_pre_load_state(cpu);
     }
 }
 
@@ -158,10 +158,10 @@ void cpu_synchronize_post_init(CPUState *cpu)
     }
 }
 
-void cpu_synchronize_pre_loadvm(CPUState *cpu)
+void cpu_synchronize_pre_load_state(CPUState *cpu)
 {
-    if (cpus_accel->synchronize_pre_loadvm) {
-        cpus_accel->synchronize_pre_loadvm(cpu);
+    if (cpus_accel->synchronize_pre_load_state) {
+        cpus_accel->synchronize_pre_load_state(cpu);
     }
 }
 

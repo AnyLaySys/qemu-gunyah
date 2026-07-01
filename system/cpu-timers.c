@@ -1,7 +1,7 @@
 
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "system/cpus.h"

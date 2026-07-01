@@ -240,7 +240,7 @@ for opt do
   esac
 done
 
-default_cflags='-O2 -g'
+default_cflags='-O2'
 git_submodules_action="update"
 docs="auto"
 EXESUF=""
@@ -361,9 +361,7 @@ elif check_define __NetBSD__; then
 elif check_define __APPLE__; then
   host_os=darwin
 else
-  # This is a fatal error, but don't report it yet, because we
-  # might be going to just print the --help text, or it might
-  # be the result of a missing compiler.
+  # Defer this fatal error until after argument parsing.
   host_os=bogus
 fi
 
@@ -612,7 +610,6 @@ meson_option_parse() {
   meson_options="$meson_options $(_meson_option_parse "$@")"
   if test $? -eq 1; then
     echo "ERROR: unknown option $1"
-    echo "Try '$0 --help' for more information"
     exit 1
   fi
 }
@@ -631,7 +628,7 @@ meson_add_machine_file() {
 for opt do
   optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
   case "$opt" in
-  --help|-h) show_help=yes
+  --help|-h) exit 0
   ;;
   --version|-V) exec cat "$source_path/VERSION"
   ;;
@@ -855,65 +852,7 @@ for config in $mak_wilds; do
     fi
 done
 
-if test x"$show_help" = x"yes" ; then
-cat << EOF
-
-Usage: configure [options]
-Options: [defaults in brackets after descriptions]
-
-Standard options:
-  --help                   print this message
-  --target-list=LIST       set target list (default: build all)
-$(echo Available targets: $default_target_list | \
-  fold -s -w 53 | sed -e 's/^/                           /')
-  --target-list-exclude=LIST exclude a set of targets from the default target-list
-
-Advanced options (experts only):
-  -Dmesonoptname=val       passthrough option to meson unmodified
-  --cross-prefix=PREFIX    use PREFIX for compile tools, PREFIX can be blank [$cross_prefix]
-  --cc=CC                  use C compiler CC [$cc]
-  --host-cc=CC             when cross compiling, use C compiler CC for code run
-                           at build time [$host_cc]
-  --cxx=CXX                use C++ compiler CXX [$cxx]
-  --objcc=OBJCC            use Objective-C compiler OBJCC [$objcc]
-  --rustc=RUSTC            use Rust compiler RUSTC [$rustc]
-  --extra-cflags=CFLAGS    append extra C compiler flags CFLAGS
-  --extra-cxxflags=CXXFLAGS append extra C++ compiler flags CXXFLAGS
-  --extra-objcflags=OBJCFLAGS append extra Objective C compiler flags OBJCFLAGS
-  --extra-ldflags=LDFLAGS  append extra linker flags LDFLAGS
-  --cross-cc-ARCH=CC       use compiler when building ARCH guest test cases
-  --cross-cc-cflags-ARCH=  use compiler flags when building ARCH guest tests
-  --cross-prefix-ARCH=PREFIX cross compiler prefix when building ARCH guest test cases
-  --python=PYTHON          use specified python [$python]
-  --ninja=NINJA            use specified ninja [$ninja]
-  --static                 enable static build [$static]
-  --rust-target-triple=TRIPLE  compilation target for Rust code [autodetect]
-  --without-default-features   default all --enable-* options to "disabled"
-  --without-default-devices    do not include any device that is not needed to
-                           start the emulator (only use if you are including
-                           desired devices in configs/devices/)
-  --with-devices-ARCH=NAME override default configs/devices
-  --enable-debug           enable common debug build options
-  --cpu=CPU                Build for host CPU [$cpu]
-  --disable-containers     don't use containers for cross-building
-  --container-engine=TYPE  which container engine to use [$container_engine]
-  --gdb=GDB-path           gdb to use for gdbstub tests [$gdb_bin]
-EOF
-  meson_options_help
-cat << EOF
-  system          all system emulation targets
-  user            supported user emulation targets
-  linux-user      all linux usermode emulation targets
-  bsd-user        all BSD usermode emulation targets
-  pie             Position Independent Executables
-
-NOTE: The object files are built at the place where configure is launched
-EOF
-exit 0
-fi
-
-# Now that we are sure that the user did not only want to print the --help
-# information, we should double-check that the C compiler really works:
+# Double-check that the C compiler really works:
 write_c_skeleton
 if ! compile_object ; then
     error_exit "C compiler \"$cc\" either does not exist or does not work."

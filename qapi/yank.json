@@ -1,7 +1,7 @@
 
 
 { 'enum': 'YankInstanceType',
-  'data': [ 'block-node', 'chardev', 'migration' ] }
+  'data': [ 'block-node', 'chardev' ] }
 
 { 'struct': 'YankInstanceBlockNode',
   'data': { 'node-name': 'str' } }

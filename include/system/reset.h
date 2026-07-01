@@ -13,7 +13,7 @@ void qemu_unregister_resettable(Object *obj);
 
 void qemu_register_reset(QEMUResetHandler *func, void *opaque);
 
-void qemu_register_reset_nosnapshotload(QEMUResetHandler *func, void *opaque);
+void qemu_register_reset_no_state_load(QEMUResetHandler *func, void *opaque);
 
 void qemu_unregister_reset(QEMUResetHandler *func, void *opaque);
 

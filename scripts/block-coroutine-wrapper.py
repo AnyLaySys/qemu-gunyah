@@ -5,8 +5,6 @@ The program parses one or several concatenated c files from stdin,
 searches for functions with the 'co_wrapper' specifier
 and generates corresponding wrappers on stdout.
 
-Usage: block-coroutine-wrapper.py generated-file.c FILE.[ch]...
-
 Copyright (c) 2020 Virtuozzo International GmbH.
 
 This program is free software; you can redistribute it and/or modify
@@ -311,7 +309,7 @@ def gen_wrappers(input_code: str) -> str:
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        exit(f'Usage: {sys.argv[0]} OUT_FILE.c IN_FILE.[ch]...')
+        exit(1)
 
     with open(sys.argv[1], 'w', encoding='utf-8') as f_out:
         f_out.write(gen_header())

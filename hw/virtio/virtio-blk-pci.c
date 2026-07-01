@@ -56,7 +56,7 @@ static void virtio_blk_pci_class_init(ObjectClass *klass, void *data)
     pcidev_k->vendor_id = PCI_VENDOR_ID_REDHAT_QUMRANET;
     pcidev_k->device_id = PCI_DEVICE_ID_VIRTIO_BLOCK;
     pcidev_k->revision = VIRTIO_PCI_ABI_VERSION;
-    pcidev_k->class_id = PCI_CLASS_STORAGE_SCSI;
+    pcidev_k->class_id = PCI_CLASS_STORAGE_GENERIC;
 }
 
 static void virtio_blk_pci_instance_init(Object *obj)

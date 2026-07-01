@@ -716,8 +716,6 @@ struct ArchCPU {
     QLIST_HEAD(, ARMELChangeHook) pre_el_change_hooks;
     QLIST_HEAD(, ARMELChangeHook) el_change_hooks;
 
-    int32_t node_id; /* NUMA node this CPU belongs to */
-
     uint8_t device_irq_level;
 
     uint32_t sve_max_vq;
@@ -815,11 +813,6 @@ static inline uint64_t *sve_bswap64(uint64_t *dst, uint64_t *src, int nr)
 #endif
 }
 
-#else
-static inline void aarch64_sve_narrow_vq(CPUARMState *env, unsigned vq) { }
-static inline void aarch64_sve_change_el(CPUARMState *env, int o,
-                                         int n, bool a)
-{ }
 #endif
 
 void aarch64_sync_32_to_64(CPUARMState *env);

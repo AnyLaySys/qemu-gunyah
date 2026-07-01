@@ -9,8 +9,8 @@
 #include "hw/nvram/fw_cfg.h"
 #include "hw/qdev-properties.h"
 #include "hw/sysbus.h"
-#include "migration/qemu-file-types.h"
-#include "migration/vmstate.h"
+#include "state/qemu-file-types.h"
+#include "state/vmstate.h"
 #include "trace.h"
 #include "qemu/error-report.h"
 #include "qemu/option.h"
@@ -58,7 +58,6 @@ static const char *key_name(uint16_t key)
         [FW_CFG_INITRD_ADDR] = "initrd_addr",
         [FW_CFG_INITRD_SIZE] = "initdr_size",
         [FW_CFG_BOOT_DEVICE] = "boot_device",
-        [FW_CFG_NUMA] = "numa",
         [FW_CFG_BOOT_MENU] = "boot_menu",
         [FW_CFG_MAX_CPUS] = "max_cpus",
         [FW_CFG_KERNEL_ENTRY] = "kernel_entry",
@@ -798,7 +797,7 @@ static struct {
     { "etc/reserved-memory-end", 50 },
     { "genroms/kvmvapic.bin", 55 },
     { "genroms/linuxboot.bin", 60 },
-    { }, /* VGA ROMs from pc_vga_init come here, 70. */
+    { },
     { }, /* NIC option ROMs from pc_nic_init come here, 80. */
     { "etc/system-states", 90 },
     { }, /* User ROMs come here, 100. */
@@ -806,7 +805,6 @@ static struct {
     { "etc/extra-pci-roots", 120 },
     { "etc/acpi/tables", 130 },
     { "etc/table-loader", 140 },
-    { "etc/tpm/log", 150 },
     { "etc/acpi/rsdp", 160 },
     { "bootorder", 170 },
     { "etc/msr_feature_control", 180 },
@@ -978,7 +976,6 @@ bool fw_cfg_add_file_from_generator(FWCfgState *s,
 
 static void fw_cfg_machine_reset(void *opaque)
 {
-    MachineClass *mc = MACHINE_GET_CLASS(qdev_get_machine());
     FWCfgState *s = opaque;
     void *ptr;
     size_t len;
@@ -987,12 +984,6 @@ static void fw_cfg_machine_reset(void *opaque)
     buf = get_boot_devices_list(&len);
     ptr = fw_cfg_modify_file(s, "bootorder", (uint8_t *)buf, len);
     g_free(ptr);
-
-    if (!mc->legacy_fw_cfg_order) {
-        buf = get_boot_devices_lchs_list(&len);
-        ptr = fw_cfg_modify_file(s, "bios-geometry", (uint8_t *)buf, len);
-        g_free(ptr);
-    }
 }
 
 static void fw_cfg_machine_ready(struct Notifier *n, void *data)

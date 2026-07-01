@@ -22,12 +22,10 @@ static QemuOptsList raw_runtime_opts = {
         {
             .name = "offset",
             .type = QEMU_OPT_SIZE,
-            .help = "offset in the disk where the image starts",
         },
         {
             .name = "size",
             .type = QEMU_OPT_SIZE,
-            .help = "virtual disk size",
         },
         { /* end of list */ }
     },
@@ -40,7 +38,6 @@ static QemuOptsList raw_create_opts = {
         {
             .name = BLOCK_OPT_SIZE,
             .type = QEMU_OPT_SIZE,
-            .help = "Virtual disk size"
         },
         { /* end of list */ }
     }
@@ -477,7 +474,7 @@ static int raw_open(BlockDriverState *bs, QDict *options, int flags,
     }
 
     if (bdrv_is_sg(bs) && (s->offset || s->has_size)) {
-        error_setg(errp, "Cannot use offset/size with SCSI generic devices");
+        error_setg(errp, "Cannot use offset/size with generic devices");
         return -EINVAL;
     }
 

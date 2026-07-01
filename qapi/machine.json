@@ -4,29 +4,14 @@
 { 'include': 'machine-common.json' }
 
 { 'enum' : 'SysEmuTarget',
-  'data' : [ 'aarch64', 'alpha', 'arm', 'avr', 'hppa', 'i386',
-             'loongarch64', 'm68k', 'microblaze', 'microblazeel', 'mips', 'mips64',
-             'mips64el', 'mipsel', 'or1k', 'ppc',
-             'ppc64', 'riscv32', 'riscv64', 'rx', 's390x', 'sh4',
-             'sh4eb', 'sparc', 'sparc64', 'tricore',
-             'x86_64', 'xtensa', 'xtensaeb' ] }
+  'data' : [ 'aarch64', 'arm' ] }
 
-{ 'enum': 'S390CpuState',
-  'data': [ 'uninitialized', 'stopped', 'check-stop', 'operating', 'load' ] }
-
-{ 'struct': 'CpuInfoS390',
-  'data': { 'cpu-state': 'S390CpuState',
-            '*dedicated': 'bool',
-            '*entitlement': 'S390CpuEntitlement' } }
-
-{ 'union'         : 'CpuInfoFast',
-  'base'          : { 'cpu-index'    : 'int',
-                      'qom-path'     : 'str',
-                      'thread-id'    : 'int',
-                      '*props'       : 'CpuInstanceProperties',
-                      'target'       : 'SysEmuTarget' },
-  'discriminator' : 'target',
-  'data'          : { 's390x'        : 'CpuInfoS390' } }
+{ 'struct': 'CpuInfoFast',
+  'data': { 'cpu-index': 'int',
+            'qom-path': 'str',
+            'thread-id': 'int',
+            '*props': 'CpuInstanceProperties',
+            'target': 'SysEmuTarget' } }
 
 { 'command': 'query-cpus-fast', 'returns': [ 'CpuInfoFast' ] }
 
@@ -38,7 +23,7 @@
 { 'struct': 'MachineInfo',
   'data': { 'name': 'str', '*alias': 'str',
             '*is-default': 'bool', 'cpu-max': 'int',
-            'hotpluggable-cpus': 'bool',  'numa-mem-supported': 'bool',
+            'hotpluggable-cpus': 'bool',
             'deprecated': 'bool', '*default-cpu-type': 'str',
             '*default-ram-id': 'str', 'acpi': 'bool',
             '*compat-props': { 'type': ['CompatProperty'],
@@ -82,80 +67,6 @@
 
 { 'command': 'query-kvm', 'returns': 'KvmInfo' }
 
-{ 'enum': 'NumaOptionsType',
-  'data': [ 'node', 'dist', 'cpu', 'hmat-lb', 'hmat-cache' ] }
-
-{ 'union': 'NumaOptions',
-  'base': { 'type': 'NumaOptionsType' },
-  'discriminator': 'type',
-  'data': {
-    'node': 'NumaNodeOptions',
-    'dist': 'NumaDistOptions',
-    'cpu': 'NumaCpuOptions',
-    'hmat-lb': 'NumaHmatLBOptions',
-    'hmat-cache': 'NumaHmatCacheOptions' }}
-
-{ 'struct': 'NumaNodeOptions',
-  'data': {
-   '*nodeid': 'uint16',
-   '*cpus':   ['uint16'],
-   '*mem':    'size',
-   '*memdev': 'str',
-   '*initiator': 'uint16' }}
-
-{ 'struct': 'NumaDistOptions',
-  'data': {
-   'src': 'uint16',
-   'dst': 'uint16',
-   'val': 'uint8' }}
-
-{ 'enum': 'X86CPURegister32',
-  'data': [ 'EAX', 'EBX', 'ECX', 'EDX', 'ESP', 'EBP', 'ESI', 'EDI' ] }
-
-{ 'struct': 'X86CPUFeatureWordInfo',
-  'data': { 'cpuid-input-eax': 'int',
-            '*cpuid-input-ecx': 'int',
-            'cpuid-register': 'X86CPURegister32',
-            'features': 'int' } }
-
-{ 'struct': 'DummyForceArrays',
-  'data': { 'unused': ['X86CPUFeatureWordInfo'] } }
-
-{ 'struct': 'NumaCpuOptions',
-   'base': 'CpuInstanceProperties',
-   'data' : {} }
-
-{ 'enum': 'HmatLBMemoryHierarchy',
-  'data': [ 'memory', 'first-level', 'second-level', 'third-level' ] }
-
-{ 'enum': 'HmatLBDataType',
-  'data': [ 'access-latency', 'read-latency', 'write-latency',
-            'access-bandwidth', 'read-bandwidth', 'write-bandwidth' ] }
-
-{ 'struct': 'NumaHmatLBOptions',
-    'data': {
-    'initiator': 'uint16',
-    'target': 'uint16',
-    'hierarchy': 'HmatLBMemoryHierarchy',
-    'data-type': 'HmatLBDataType',
-    '*latency': 'uint64',
-    '*bandwidth': 'size' }}
-
-{ 'enum': 'HmatCacheAssociativity',
-  'data': [ 'none', 'direct', 'complex' ] }
-
-{ 'enum': 'HmatCacheWritePolicy',
-  'data': [ 'none', 'write-back', 'write-through' ] }
-
-{ 'struct': 'NumaHmatCacheOptions',
-  'data': {
-   'node-id': 'uint32',
-   'size': 'size',
-   'level': 'uint8',
-   'associativity': 'HmatCacheAssociativity',
-   'policy': 'HmatCacheWritePolicy',
-   'line': 'uint16' }}
-
 { 'command': 'memsave',
   'data': {
      'val': 'uint64',
@@ -177,15 +88,12 @@
     'dump':       'bool',
     'prealloc':   'bool',
     'share':      'bool',
-    '*reserve':    'bool',
-    'host-nodes': ['uint16'],
-    'policy':     'HostMemPolicy' }}
+    '*reserve':    'bool' }}
 
 { 'command': 'query-memdev', 'returns': ['Memdev'], 'allow-preconfig': true }
 
 { 'struct': 'CpuInstanceProperties',
-  'data': { '*node-id': 'int',
-            '*drawer-id': 'int',
+  'data': { '*drawer-id': 'int',
             '*book-id': 'int',
             '*socket-id': 'int',
             '*die-id': 'int',
@@ -207,97 +115,10 @@
 { 'command': 'query-hotpluggable-cpus', 'returns': ['HotpluggableCPU'],
              'allow-preconfig': true }
 
-{ 'command': 'set-numa-node', 'boxed': true,
-  'data': 'NumaOptions',
-  'allow-preconfig': true
-}
-
 { 'struct': 'MemoryInfo',
   'data'  : { 'base-memory': 'size', '*plugged-memory': 'size' } }
 
 { 'command': 'query-memory-size-summary', 'returns': 'MemoryInfo' }
-
-{ 'struct': 'PCDIMMDeviceInfo',
-  'data': { '*id': 'str',
-            'addr': 'int',
-            'size': 'int',
-            'slot': 'int',
-            'node': 'int',
-            'memdev': 'str',
-            'hotplugged': 'bool',
-            'hotpluggable': 'bool'
-          }
-}
-
-{ 'struct': 'VirtioPMEMDeviceInfo',
-  'data': { '*id': 'str',
-            'memaddr': 'size',
-            'size': 'size',
-            'memdev': 'str'
-          }
-}
-
-{ 'struct': 'VirtioMEMDeviceInfo',
-  'data': { '*id': 'str',
-            'memaddr': 'size',
-            'requested-size': 'size',
-            'size': 'size',
-            'max-size': 'size',
-            'block-size': 'size',
-            'node': 'int',
-            'memdev': 'str'
-          }
-}
-
-{ 'struct': 'SgxEPCDeviceInfo',
-  'data': { '*id': 'str',
-            'memaddr': 'size',
-            'size': 'size',
-            'node': 'int',
-            'memdev': 'str'
-          }
-}
-
-{ 'enum': 'MemoryDeviceInfoKind',
-  'data': [ 'dimm', 'nvdimm', 'virtio-pmem', 'virtio-mem', 'sgx-epc' ] }
-
-{ 'struct': 'PCDIMMDeviceInfoWrapper',
-  'data': { 'data': 'PCDIMMDeviceInfo' } }
-
-{ 'struct': 'VirtioPMEMDeviceInfoWrapper',
-  'data': { 'data': 'VirtioPMEMDeviceInfo' } }
-
-{ 'struct': 'VirtioMEMDeviceInfoWrapper',
-  'data': { 'data': 'VirtioMEMDeviceInfo' } }
-
-{ 'struct': 'SgxEPCDeviceInfoWrapper',
-  'data': { 'data': 'SgxEPCDeviceInfo' } }
-
-{ 'union': 'MemoryDeviceInfo',
-  'base': { 'type': 'MemoryDeviceInfoKind' },
-  'discriminator': 'type',
-  'data': { 'dimm': 'PCDIMMDeviceInfoWrapper',
-            'nvdimm': 'PCDIMMDeviceInfoWrapper',
-            'virtio-pmem': 'VirtioPMEMDeviceInfoWrapper',
-            'virtio-mem': 'VirtioMEMDeviceInfoWrapper',
-            'sgx-epc': 'SgxEPCDeviceInfoWrapper'
-          }
-}
-
-{ 'struct': 'SgxEPC',
-  'data': { 'memdev': 'str',
-            'node': 'int'
-          }
-}
-
-{ 'struct': 'SgxEPCProperties',
-  'data': { 'sgx-epc': ['SgxEPC'] }
-}
-
-{ 'command': 'query-memory-devices', 'returns': ['MemoryDeviceInfo'] }
-
-{ 'event': 'MEMORY_DEVICE_SIZE_CHANGE',
-  'data': { '*id': 'str', 'size': 'size', 'qom-path' : 'str'} }
 
 { 'struct': 'BootConfiguration', 'data': {
      '*order': 'str',
@@ -327,10 +148,6 @@
 { 'command': 'x-query-jit',
   'returns': 'HumanReadableText',
   'if': 'CONFIG_TCG',
-  'features': [ 'unstable' ] }
-
-{ 'command': 'x-query-numa',
-  'returns': 'HumanReadableText',
   'features': [ 'unstable' ] }
 
 { 'command': 'x-query-opcount',

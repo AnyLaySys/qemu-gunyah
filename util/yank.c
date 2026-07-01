@@ -43,9 +43,6 @@ static bool yank_instance_equal(const YankInstance *a, const YankInstance *b)
     case YANK_INSTANCE_TYPE_CHARDEV:
         return g_str_equal(a->u.chardev.id, b->u.chardev.id);
 
-    case YANK_INSTANCE_TYPE_MIGRATION:
-        return true;
-
     default:
         abort();
     }

@@ -5,7 +5,6 @@ config ARM_VIRT
     depends on GH || TCG
     select ARM_GIC
     select ACPI
-    select ARM_SMMUV3
     select GPIO_KEY
     select DEVICE_TREE
     select PCI_EXPRESS
@@ -17,10 +16,6 @@ config ARM_VIRT
     select PLATFORM_BUS
     select SMBIOS
     select ACPI_PCI
-    select DIMM
     select ACPI_HW_REDUCED
     select ACPI_APEI
     select ACPI_VIOT
-
-config ARM_SMMUV3
-    bool

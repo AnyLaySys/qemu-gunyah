@@ -4,7 +4,6 @@
 #include "block/aio.h"
 #include "block/block-common.h"
 #include "block/block-global-state.h"
-#include "block/snapshot.h"
 #include "qemu/iov.h"
 #include "qemu/rcu.h"
 #include "qemu/stats64.h"
@@ -12,8 +11,6 @@
 #define BLOCK_FLAG_LAZY_REFCOUNTS   8
 
 #define BLOCK_OPT_SIZE              "size"
-#define BLOCK_OPT_ENCRYPT           "encryption"
-#define BLOCK_OPT_ENCRYPT_FORMAT    "encrypt.format"
 #define BLOCK_OPT_COMPAT6           "compat6"
 #define BLOCK_OPT_HWVERSION         "hwversion"
 #define BLOCK_OPT_BACKING_FILE      "backing_file"
@@ -141,23 +138,6 @@ struct BlockDriver {
 
     int GRAPH_RDLOCK_PTR (*bdrv_inactivate)(BlockDriverState *bs);
 
-    int GRAPH_RDLOCK_PTR (*bdrv_snapshot_create)(
-        BlockDriverState *bs, QEMUSnapshotInfo *sn_info);
-
-    int GRAPH_UNLOCKED_PTR (*bdrv_snapshot_goto)(
-        BlockDriverState *bs, const char *snapshot_id);
-
-    int GRAPH_RDLOCK_PTR (*bdrv_snapshot_delete)(
-        BlockDriverState *bs, const char *snapshot_id, const char *name,
-        Error **errp);
-
-    int GRAPH_RDLOCK_PTR (*bdrv_snapshot_list)(
-        BlockDriverState *bs, QEMUSnapshotInfo **psn_info);
-
-    int GRAPH_RDLOCK_PTR (*bdrv_snapshot_load_tmp)(
-        BlockDriverState *bs, const char *snapshot_id, const char *name,
-        Error **errp);
-
     int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_change_backing_file)(
         BlockDriverState *bs, const char *backing_file,
         const char *backing_fmt);
@@ -217,10 +197,6 @@ struct BlockDriver {
 
     int (*bdrv_probe)(const uint8_t *buf, int buf_size, const char *filename);
 
-    int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_amend)(
-        BlockDriverState *bs, BlockdevAmendOptions *opts, bool force,
-        Error **errp);
-
     BlockAIOCB * GRAPH_RDLOCK_PTR (*bdrv_aio_preadv)(BlockDriverState *bs,
         int64_t offset, int64_t bytes, QEMUIOVector *qiov,
         BdrvRequestFlags flags, BlockCompletionFunc *cb, void *opaque);
@@ -279,17 +255,6 @@ struct BlockDriver {
         BlockDriverState *bs,
         bool want_zero, int64_t offset, int64_t bytes, int64_t *pnum,
         int64_t *map, BlockDriverState **file);
-
-    int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_preadv_snapshot)(
-        BlockDriverState *bs, int64_t offset, int64_t bytes,
-        QEMUIOVector *qiov, size_t qiov_offset);
-
-    int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_snapshot_block_status)(
-        BlockDriverState *bs, bool want_zero, int64_t offset, int64_t bytes,
-        int64_t *pnum, int64_t *map, BlockDriverState **file);
-
-    int coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_pdiscard_snapshot)(
-        BlockDriverState *bs, int64_t offset, int64_t bytes);
 
     void coroutine_fn GRAPH_RDLOCK_PTR (*bdrv_co_invalidate_cache)(
         BlockDriverState *bs, Error **errp);

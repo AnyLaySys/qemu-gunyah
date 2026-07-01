@@ -332,41 +332,6 @@ static const ChardevClass *char_get_class(const char *driver, Error **errp)
     return cc;
 }
 
-typedef struct ChadevClassFE {
-    void (*fn)(const char *name, void *opaque);
-    void *opaque;
-} ChadevClassFE;
-
-static void
-chardev_class_foreach(ObjectClass *klass, void *opaque)
-{
-    ChadevClassFE *fe = opaque;
-
-    assert(g_str_has_prefix(object_class_get_name(klass), "chardev-"));
-    if (CHARDEV_CLASS(klass)->internal) {
-        return;
-    }
-
-    fe->fn(object_class_get_name(klass) + 8, fe->opaque);
-}
-
-static void
-chardev_name_foreach(void (*fn)(const char *name, void *opaque),
-                     void *opaque)
-{
-    ChadevClassFE fe = { .fn = fn, .opaque = opaque };
-
-    object_class_foreach(chardev_class_foreach, TYPE_CHARDEV, false, &fe);
-}
-
-static void
-help_string_append(const char *name, void *opaque)
-{
-    GString *str = opaque;
-
-    g_string_append_printf(str, "\n  %s", name);
-}
-
 ChardevBackend *qemu_chr_parse_opts(QemuOpts *opts, Error **errp)
 {
     Error *local_err = NULL;
@@ -415,12 +380,6 @@ static Chardev *do_qemu_chr_new_from_opts(QemuOpts *opts, GMainContext *context,
     char *bid = NULL;
 
     if (name && is_help_option(name)) {
-        GString *str = g_string_new("");
-
-        chardev_name_foreach(help_string_append, str);
-
-        qemu_printf("Available chardev backend types: %s\n", str->str);
-        g_string_free(str, true);
         return NULL;
     }
 

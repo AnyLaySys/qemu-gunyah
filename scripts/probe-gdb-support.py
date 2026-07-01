@@ -55,8 +55,8 @@ def do_probe(gdb):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Probe GDB Architectures')
-    parser.add_argument('gdb', help='Path to GDB binary.')
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('gdb')
 
     args = parser.parse_args()
 

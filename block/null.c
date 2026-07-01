@@ -24,18 +24,14 @@ static QemuOptsList runtime_opts = {
         {
             .name = BLOCK_OPT_SIZE,
             .type = QEMU_OPT_SIZE,
-            .help = "size of the null block",
         },
         {
             .name = NULL_OPT_LATENCY,
             .type = QEMU_OPT_NUMBER,
-            .help = "nanoseconds (approximated) to wait "
-                    "before completing request",
         },
         {
             .name = NULL_OPT_ZEROES,
             .type = QEMU_OPT_BOOL,
-            .help = "return zeroes when read",
         },
         { /* end of list */ }
     },

@@ -12,8 +12,6 @@
 
 #define NUM_GICV2M_SPIS       64
 #define NUM_VIRTIO_TRANSPORTS 32
-#define NUM_SMMU_IRQS          4
-
 #define PVTIME_SIZE_PER_CPU 64
 
 #define GPIO_PIN_POWER_BUTTON  3
@@ -29,7 +27,6 @@ enum {
     VIRT_GIC_VCPU,
     VIRT_GIC_ITS,
     VIRT_GIC_REDIST,
-    VIRT_SMMU,
     VIRT_UART0,
     VIRT_MMIO,
     VIRT_RTC,
@@ -43,9 +40,7 @@ enum {
     VIRT_UART1,
     VIRT_SECURE_MEM,
     VIRT_SECURE_GPIO,
-    VIRT_PCDIMM_ACPI,
     VIRT_ACPI_GED,
-    VIRT_NVDIMM_ACPI,
     VIRT_PVTIME,
     VIRT_LOWMEMMAP_LAST,
 };
@@ -55,12 +50,6 @@ enum {
     VIRT_HIGH_PCIE_ECAM,
     VIRT_HIGH_PCIE_MMIO,
 };
-
-typedef enum VirtIOMMUType {
-    VIRT_IOMMU_NONE,
-    VIRT_IOMMU_SMMUV3,
-    VIRT_IOMMU_VIRTIO,
-} VirtIOMMUType;
 
 typedef enum VirtMSIControllerType {
     VIRT_MSI_CTRL_NONE,
@@ -99,7 +88,6 @@ struct VirtMachineClass {
     bool no_cpu_topology;
     bool no_tcg_lpa2;
     bool no_ns_el2_virt_timer_irq;
-    bool no_nested_smmu;
 };
 
 struct VirtMachineState {
@@ -122,10 +110,7 @@ struct VirtMachineState {
     bool second_ns_uart_present;
     OnOffAuto acpi;
     VirtGICType gic_version;
-    VirtIOMMUType iommu;
-    bool default_bus_bypass_iommu;
     VirtMSIControllerType msi_controller;
-    uint16_t virtio_iommu_bdf;
     struct arm_boot_info bootinfo;
     MemMapEntry *memmap;
     char *pciehb_nodename;
@@ -134,7 +119,6 @@ struct VirtMachineState {
     uint32_t clock_phandle;
     uint32_t gic_phandle;
     uint32_t msi_phandle;
-    uint32_t iommu_phandle;
     int psci_conduit;
     hwaddr highest_gpa;
     DeviceState *gic;

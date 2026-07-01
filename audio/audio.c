@@ -1,7 +1,7 @@
 
 #include "qemu/osdep.h"
 #include "audio.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "monitor/monitor.h"
 #include "qemu/timer.h"
 #include "qapi/error.h"
@@ -1904,39 +1904,6 @@ void audio_create_pdos(Audiodev *dev)
         }                                                           \
         break
 
-#ifdef CONFIG_AUDIO_ALSA
-        CASE(ALSA, alsa, Alsa);
-#endif
-#ifdef CONFIG_AUDIO_COREAUDIO
-        CASE(COREAUDIO, coreaudio, Coreaudio);
-#endif
-#ifdef CONFIG_DBUS_DISPLAY
-        CASE(DBUS, dbus, );
-#endif
-#ifdef CONFIG_AUDIO_DSOUND
-        CASE(DSOUND, dsound, );
-#endif
-#ifdef CONFIG_AUDIO_JACK
-        CASE(JACK, jack, Jack);
-#endif
-#ifdef CONFIG_AUDIO_OSS
-        CASE(OSS, oss, Oss);
-#endif
-#ifdef CONFIG_AUDIO_PA
-        CASE(PA, pa, Pa);
-#endif
-#ifdef CONFIG_AUDIO_PIPEWIRE
-        CASE(PIPEWIRE, pipewire, Pipewire);
-#endif
-#ifdef CONFIG_AUDIO_SDL
-        CASE(SDL, sdl, Sdl);
-#endif
-#ifdef CONFIG_AUDIO_SNDIO
-        CASE(SNDIO, sndio, );
-#endif
-#ifdef CONFIG_SPICE
-        CASE(SPICE, spice, );
-#endif
 #ifdef CONFIG_AUDIO_AAUDIO
         CASE(AAUDIO, aaudio, );
 #endif
@@ -2010,26 +1977,11 @@ static void audio_validate_opts(Audiodev *dev, Error **errp)
     }
 }
 
-void audio_help(void)
-{
-    int i;
-
-    printf("Available audio drivers:\n");
-
-    for (i = 0; i < AUDIODEV_DRIVER__MAX; i++) {
-        audio_driver *driver = audio_driver_lookup(AudiodevDriver_str(i));
-        if (driver) {
-            printf("%s\n", driver->name);
-        }
-    }
-}
-
 void audio_parse_option(const char *opt)
 {
     Audiodev *dev = NULL;
 
     if (is_help_option(opt)) {
-        audio_help();
         exit(EXIT_SUCCESS);
     }
     Visitor *v = qobject_input_visitor_new_str(opt, "driver", &error_fatal);

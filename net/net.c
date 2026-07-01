@@ -43,8 +43,6 @@ typedef QSIMPLEQ_HEAD(, NetdevQueueEntry) NetdevQueue;
 
 static NetdevQueue nd_queue = QSIMPLEQ_HEAD_INITIALIZER(nd_queue);
 
-static GHashTable *nic_model_help;
-
 static int nb_nics;
 static NICInfo nd_table[MAX_NICS];
 
@@ -890,90 +888,11 @@ static int net_init_nic(const Netdev *netdev, const char *name,
     return idx;
 }
 
-static gboolean add_nic_result(gpointer key, gpointer value, gpointer user_data)
-{
-    GPtrArray *results = user_data;
-    GPtrArray *alias_list = value;
-    const char *model = key;
-    char *result;
-
-    if (!alias_list) {
-        result = g_strdup(model);
-    } else {
-        GString *result_str = g_string_new(model);
-        int i;
-
-        g_string_append(result_str, " (aka ");
-        for (i = 0; i < alias_list->len; i++) {
-            if (i) {
-                g_string_append(result_str, ", ");
-            }
-            g_string_append(result_str, alias_list->pdata[i]);
-        }
-        g_string_append(result_str, ")");
-        result = result_str->str;
-        g_string_free(result_str, false);
-        g_ptr_array_unref(alias_list);
-    }
-    g_ptr_array_add(results, result);
-    return true;
-}
-
-static int model_cmp(char **a, char **b)
-{
-    return strcmp(*a, *b);
-}
-
-static void show_nic_models(void)
-{
-    GPtrArray *results = g_ptr_array_new();
-    int i;
-
-    g_hash_table_foreach_remove(nic_model_help, add_nic_result, results);
-    g_ptr_array_sort(results, (GCompareFunc)model_cmp);
-
-    printf("Available NIC models for this configuration:\n");
-    for (i = 0 ; i < results->len; i++) {
-        printf("%s\n", (char *)results->pdata[i]);
-    }
-    g_hash_table_unref(nic_model_help);
-    nic_model_help = NULL;
-}
-
-static void add_nic_model_help(const char *model, const char *alias)
-{
-    GPtrArray *alias_list = NULL;
-
-    if (g_hash_table_lookup_extended(nic_model_help, model, NULL,
-                                     (gpointer *)&alias_list)) {
-        if (!alias) {
-            return;
-        }
-        if (alias_list) {
-            if (!g_ptr_array_find_with_equal_func(alias_list, alias,
-                                                  g_str_equal, NULL)) {
-                g_ptr_array_add(alias_list, g_strdup(alias));
-            }
-            return;
-        }
-    }
-    if (alias) {
-        alias_list = g_ptr_array_new();
-        g_ptr_array_set_free_func(alias_list, g_free);
-        g_ptr_array_add(alias_list, g_strdup(alias));
-    }
-    g_hash_table_replace(nic_model_help, g_strdup(model), alias_list);
-}
-
 NICInfo *qemu_find_nic_info(const char *typename, bool match_default,
                             const char *alias)
 {
     NICInfo *nd;
     int i;
-
-    if (nic_model_help) {
-        add_nic_model_help(typename, alias);
-    }
 
     for (i = 0; i < nb_nics; i++) {
         nd = &nd_table[i];
@@ -992,14 +911,7 @@ NICInfo *qemu_find_nic_info(const char *typename, bool match_default,
 
 static bool is_nic_model_help_option(const char *model)
 {
-    if (model && is_help_option(model)) {
-        if (!nic_model_help) {
-            nic_model_help = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                                   g_free, NULL);
-        }
-        return true;
-    }
-    return false;
+    return model && is_help_option(model);
 }
 
 bool qemu_configure_nic_device(DeviceState *dev, bool match_default,
@@ -1039,15 +951,6 @@ void qemu_create_nic_bus_devices(BusState *bus, const char *parent_type,
     DeviceState *dev;
     NICInfo *nd;
     int i;
-
-    if (nic_model_help) {
-        if (alias_target) {
-            add_nic_model_help(alias_target, alias);
-        }
-        for (i = 0; i < nic_models->len - 1; i++) {
-            add_nic_model_help(nic_models->pdata[i], NULL);
-        }
-    }
 
     nic_models->len--;
 
@@ -1133,19 +1036,6 @@ static int net_client_init1(const Netdev *netdev, bool is_netdev, Error **errp)
     }
 
     return 0;
-}
-
-void show_netdevs(void)
-{
-    int idx;
-    const char *available_netdevs[] = {
-        "tap",
-    };
-
-    qemu_printf("Available netdev backend types:\n");
-    for (idx = 0; idx < ARRAY_SIZE(available_netdevs); idx++) {
-        qemu_printf("%s\n", available_netdevs[idx]);
-    }
 }
 
 static int net_client_init(QemuOpts *opts, bool is_netdev, Error **errp)
@@ -1254,11 +1144,6 @@ void net_check_clients(void)
     NetClientState *nc;
     int i;
 
-    if (nic_model_help) {
-        show_nic_models();
-        exit(0);
-    }
-
     QTAILQ_FOREACH(nc, &net_clients, next) {
         if (!nc->peer) {
             warn_report("%s %s has no peer",
@@ -1284,7 +1169,7 @@ static int net_init_client(void *dummy, QemuOpts *opts, Error **errp)
     const char *model = qemu_opt_get(opts, "model");
 
     if (is_nic_model_help_option(model)) {
-        return 0;
+        exit(0);
     }
 
     return net_client_init(opts, false, errp);
@@ -1295,7 +1180,6 @@ static int net_init_netdev(void *dummy, QemuOpts *opts, Error **errp)
     const char *type = qemu_opt_get(opts, "type");
 
     if (type && is_help_option(type)) {
-        show_netdevs();
         exit(0);
     }
     return net_client_init(opts, true, errp);
@@ -1314,16 +1198,6 @@ static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
             return 0;    /* Nothing to do, default_net is cleared in vl.c */
         }
         if (is_help_option(type)) {
-            GPtrArray *nic_models = qemu_get_nic_models(TYPE_DEVICE);
-            int i;
-            show_netdevs();
-            printf("\n");
-            printf("Available NIC models "
-                   "(use -nic model=help for a filtered list):\n");
-            for (i = 0 ; nic_models->pdata[i]; i++) {
-                printf("%s\n", (char *)nic_models->pdata[i]);
-            }
-            g_ptr_array_free(nic_models, true);
             exit(0);
         }
     }
@@ -1343,7 +1217,7 @@ static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
     ni->model = qemu_opt_get_del(opts, "model");
 
     if (is_nic_model_help_option(ni->model)) {
-        return 0;
+        exit(0);
     }
 
     nd_id = g_strdup(qemu_opts_id(opts));
