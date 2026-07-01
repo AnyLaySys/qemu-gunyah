@@ -19,7 +19,6 @@
 #include "hw/boards.h"
 #include "qemu/cutils.h"
 #include "system/runstate.h"
-#include "tcg/debuginfo.h"
 
 #include <zlib.h>
 
@@ -431,7 +430,6 @@ ssize_t load_elf_ram_sym(const char *filename,
     }
 
     if (ret > 0) {
-        debuginfo_report_elf(filename, fd, 0);
     }
 
  fail:

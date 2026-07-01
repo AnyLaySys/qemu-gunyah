@@ -59,7 +59,6 @@ enum plugin_dyn_cb_type {
 
 struct qemu_plugin_regular_cb {
     union qemu_plugin_cb_sig f;
-    TCGHelperInfo *info;
     void *userp;
     enum qemu_plugin_mem_rw rw;
 };
@@ -72,7 +71,6 @@ struct qemu_plugin_inline_cb {
 
 struct qemu_plugin_conditional_cb {
     union qemu_plugin_cb_sig f;
-    TCGHelperInfo *info;
     void *userp;
     qemu_plugin_u64 entry;
     enum qemu_plugin_cond cond;

@@ -3,7 +3,6 @@
 #define AARCH64_ATOMIC128_LDST_H
 
 #include "host/cpuinfo.h"
-#include "tcg/debug-assert.h"
 
 
 #define HAVE_ATOMIC128_RO (cpuinfo & CPUINFO_LSE2)
@@ -13,7 +12,7 @@ static inline Int128 atomic16_read_ro(const Int128 *ptr)
 {
     uint64_t l, h;
 
-    tcg_debug_assert(HAVE_ATOMIC128_RO);
+    assert(HAVE_ATOMIC128_RO);
     asm("ldp %[l], %[h], %[mem]"
         : [l] "=r"(l), [h] "=r"(h) : [mem] "m"(*ptr));
 

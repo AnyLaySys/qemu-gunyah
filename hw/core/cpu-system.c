@@ -10,7 +10,6 @@
 #include "hw/qdev-properties.h"
 #include "hw/core/sysemu-cpu-ops.h"
 #include "state/vmstate.h"
-#include "system/tcg.h"
 
 bool cpu_has_work(CPUState *cpu)
 {
@@ -119,16 +118,6 @@ void cpu_exec_initfn(CPUState *cpu)
 
 static int cpu_common_post_load(void *opaque, int version_id)
 {
-    if (tcg_enabled()) {
-        CPUState *cpu = opaque;
-
-        cpu->interrupt_request &= ~0x01;
-
-        tlb_flush(cpu);
-
-        tb_flush(cpu);
-    }
-
     return 0;
 }
 
@@ -143,9 +132,7 @@ static int cpu_common_pre_load(void *opaque)
 
 static bool cpu_common_exception_index_needed(void *opaque)
 {
-    CPUState *cpu = opaque;
-
-    return tcg_enabled() && cpu->exception_index != -1;
+    return false;
 }
 
 static const VMStateDescription vmstate_cpu_common_exception_index = {

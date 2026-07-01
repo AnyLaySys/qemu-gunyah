@@ -6,7 +6,6 @@
 #include "arm-powerctl.h"
 #include "qemu/log.h"
 #include "qemu/main-loop.h"
-#include "system/tcg.h"
 #include "target/arm/multiprocessing.h"
 
 #ifndef DEBUG_ARM_POWERCTL
@@ -65,10 +64,6 @@ static void arm_set_cpu_on_async_work(CPUState *target_cpu_state,
         target_cpu->env.xregs[0] = info->context_id;
     } else {
         target_cpu->env.regs[0] = info->context_id;
-    }
-
-    if (tcg_enabled()) {
-        arm_rebuild_hflags(&target_cpu->env);
     }
 
     cpu_set_pc(target_cpu_state, info->entry);

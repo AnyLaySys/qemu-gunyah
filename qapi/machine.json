@@ -145,16 +145,6 @@
   'returns': 'HumanReadableText',
   'features': [ 'unstable' ] }
 
-{ 'command': 'x-query-jit',
-  'returns': 'HumanReadableText',
-  'if': 'CONFIG_TCG',
-  'features': [ 'unstable' ] }
-
-{ 'command': 'x-query-opcount',
-  'returns': 'HumanReadableText',
-  'if': 'CONFIG_TCG',
-  'features': [ 'unstable' ] }
-
 { 'command': 'x-query-ramblock',
   'returns': 'HumanReadableText',
   'features': [ 'unstable' ] }

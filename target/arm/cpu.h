@@ -374,10 +374,6 @@ typedef struct CPUArchState {
         uint64_t pmccfiltr_el0; /* Performance Monitor Filter Register */
         uint64_t vpidr_el2; /* Virtualization Processor ID Register */
         uint64_t vmpidr_el2; /* Virtualization Multiprocessor ID Register */
-        uint64_t tfsr_el[4]; /* tfsre0_el1 is index 0.  */
-        uint64_t gcr_el1;
-        uint64_t rgsr_el1;
-
         uint64_t disr_el1;
         uint64_t vdisr_el2;
         uint64_t vsesr_el2;
@@ -598,9 +594,6 @@ struct ArchCPU {
 
     MemoryRegion *secure_memory;
 
-    MemoryRegion *tag_memory;
-    MemoryRegion *secure_tag_memory;
-
     Object *idau;
 
     const char *dtb_compatible;
@@ -702,8 +695,6 @@ struct ArchCPU {
     bool prop_lpa2;
 
     uint8_t dcz_blocksize;
-    uint8_t gm_blocksize;
-
     uint64_t rvbar_prop; /* Property/input signals.  */
 
     int gic_num_lrs; /* number of list registers */
@@ -907,11 +898,6 @@ void pmu_init(ARMCPU *cpu);
 #define SCTLR_MSCEN   (1ULL << 33) /* FEAT_MOPS */
 #define SCTLR_BT0     (1ULL << 35) /* v8.5-BTI */
 #define SCTLR_BT1     (1ULL << 36) /* v8.5-BTI */
-#define SCTLR_ITFSB   (1ULL << 37) /* v8.5-MemTag */
-#define SCTLR_TCF0    (3ULL << 38) /* v8.5-MemTag */
-#define SCTLR_TCF     (3ULL << 40) /* v8.5-MemTag */
-#define SCTLR_ATA0    (1ULL << 42) /* v8.5-MemTag */
-#define SCTLR_ATA     (1ULL << 43) /* v8.5-MemTag */
 #define SCTLR_DSSBS_64 (1ULL << 44) /* v8.5, AArch64 only */
 #define SCTLR_TWEDEn  (1ULL << 45)  /* FEAT_TWED */
 #define SCTLR_TWEDEL  MAKE_64_MASK(46, 4)  /* FEAT_TWED */
@@ -988,7 +974,6 @@ void pmu_init(ARMCPU *cpu);
 #define PSTATE_PAN (1U << 22)
 #define PSTATE_UAO (1U << 23)
 #define PSTATE_DIT (1U << 24)
-#define PSTATE_TCO (1U << 25)
 #define PSTATE_V (1U << 28)
 #define PSTATE_C (1U << 29)
 #define PSTATE_Z (1U << 30)
@@ -1009,8 +994,6 @@ FIELD(SVCR, ZA, 1, 1)
 
 FIELD(SMCR, LEN, 0, 4)
 FIELD(SMCR, FA64, 31, 1)
-
-void write_v7m_exception(CPUARMState *env, uint32_t new_exc);
 
 static inline unsigned int aarch64_pstate_mode(unsigned int el, bool handler)
 {
@@ -1087,9 +1070,6 @@ static inline void xpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
         env->condexec_bits &= 3;
         env->condexec_bits |= (val >> 8) & 0xfc;
     }
-    if (mask & XPSR_EXCP) {
-        write_v7m_exception(env, val & XPSR_EXCP);
-    }
 #endif
 }
 
@@ -1148,9 +1128,6 @@ static inline void xpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
 #define HCR_ENSCXT    (1ULL << 53)
 #define HCR_TTLBIS    (1ULL << 54)
 #define HCR_TTLBOS    (1ULL << 55)
-#define HCR_ATA       (1ULL << 56)
-#define HCR_DCT       (1ULL << 57)
-#define HCR_TID5      (1ULL << 58)
 #define HCR_TWEDEN    (1ULL << 59)
 #define HCR_TWEDEL    MAKE_64BIT_MASK(60, 4)
 
@@ -1177,7 +1154,6 @@ static inline void xpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
 #define SCR_NMEA              (1ULL << 20)
 #define SCR_FIEN              (1ULL << 21)
 #define SCR_ENSCXT            (1ULL << 25)
-#define SCR_ATA               (1ULL << 26)
 #define SCR_FGTEN             (1ULL << 27)
 #define SCR_ECVEN             (1ULL << 28)
 #define SCR_TWEDEN            (1ULL << 29)
@@ -1639,17 +1615,14 @@ FIELD(ID_AA64PFR0, CSV3, 60, 4)
 
 FIELD(ID_AA64PFR1, BT, 0, 4)
 FIELD(ID_AA64PFR1, SSBS, 4, 4)
-FIELD(ID_AA64PFR1, MTE, 8, 4)
 FIELD(ID_AA64PFR1, RAS_FRAC, 12, 4)
 FIELD(ID_AA64PFR1, MPAM_FRAC, 16, 4)
 FIELD(ID_AA64PFR1, SME, 24, 4)
 FIELD(ID_AA64PFR1, RNDR_TRAP, 28, 4)
 FIELD(ID_AA64PFR1, CSV2_FRAC, 32, 4)
 FIELD(ID_AA64PFR1, NMI, 36, 4)
-FIELD(ID_AA64PFR1, MTE_FRAC, 40, 4)
 FIELD(ID_AA64PFR1, GCS, 44, 4)
 FIELD(ID_AA64PFR1, THE, 48, 4)
-FIELD(ID_AA64PFR1, MTEX, 52, 4)
 FIELD(ID_AA64PFR1, DF2, 56, 4)
 FIELD(ID_AA64PFR1, PFAR, 60, 4)
 
@@ -2090,8 +2063,6 @@ typedef enum ARMMMUIdxBit {
 typedef enum ARMASIdx {
     ARMASIdx_NS = 0,
     ARMASIdx_S = 1,
-    ARMASIdx_TagNS = 2,
-    ARMASIdx_TagS = 3,
 } ARMASIdx;
 
 static inline ARMMMUIdx arm_space_to_phys(ARMSecuritySpace space)
@@ -2169,8 +2140,6 @@ FIELD(TBFLAG_A64, TBID, 12, 2)
 FIELD(TBFLAG_A64, UNPRIV, 14, 1)
 FIELD(TBFLAG_A64, ATA, 15, 1)
 FIELD(TBFLAG_A64, TCMA, 16, 2)
-FIELD(TBFLAG_A64, MTE_ACTIVE, 18, 1)
-FIELD(TBFLAG_A64, MTE0_ACTIVE, 19, 1)
 FIELD(TBFLAG_A64, SMEEXC_EL, 20, 2)
 FIELD(TBFLAG_A64, PSTATE_SM, 22, 1)
 FIELD(TBFLAG_A64, PSTATE_ZA, 23, 1)
@@ -2222,9 +2191,6 @@ static inline bool bswap_code(bool sctlr_b)
     return 0;
 #endif
 }
-
-void cpu_get_tb_cpu_state(CPUARMState *env, vaddr *pc,
-                          uint64_t *cs_base, uint32_t *flags);
 
 enum {
     QEMU_PSCI_CONDUIT_DISABLED = 0,
@@ -2301,15 +2267,8 @@ static inline uint64_t *aa64_vfp_qreg(CPUARMState *env, unsigned regno)
 extern const uint64_t pred_esz_masks[5];
 
 #define PAGE_BTI            PAGE_TARGET_1
-#define PAGE_MTE            PAGE_TARGET_2
-#define PAGE_TARGET_STICKY  PAGE_MTE
-
-#define LOG2_TAG_GRANULE 4
-#define TAG_GRANULE      (1 << LOG2_TAG_GRANULE)
 
 #ifdef CONFIG_USER_ONLY
-
-#define TARGET_PAGE_DATA_SIZE (TARGET_PAGE_SIZE >> (LOG2_TAG_GRANULE + 1))
 
 #ifdef TARGET_TAGGED_ADDRESSES
 static inline target_ulong cpu_untagged_addr(CPUState *cs, target_ulong x)

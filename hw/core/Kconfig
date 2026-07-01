@@ -16,11 +16,6 @@ config GENERIC_LOADER
     bool
     default y
 
-config GUEST_LOADER
-    bool
-    default y
-    depends on TCG && DEVICE_TREE
-
 config OR_IRQ
     bool
 

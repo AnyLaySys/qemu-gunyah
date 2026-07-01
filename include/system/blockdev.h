@@ -8,7 +8,7 @@
 typedef enum {
     IF_DEFAULT = -1,
     IF_NONE = 0,
-    IF_FLOPPY, IF_PFLASH, IF_MTD, IF_SD, IF_VIRTIO, IF_XEN,
+    IF_FLOPPY, IF_PFLASH, IF_MTD, IF_SD, IF_VIRTIO,
     IF_COUNT
 } BlockInterfaceType;
 

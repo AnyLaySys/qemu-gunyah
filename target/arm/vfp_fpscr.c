@@ -20,8 +20,6 @@ uint32_t vfp_get_fpsr(CPUARMState *env)
     uint32_t fpsr = env->vfp.fpsr;
     uint32_t i;
 
-    fpsr |= vfp_get_fpsr_from_host(env);
-
     i = env->vfp.qc[0] | env->vfp.qc[1] | env->vfp.qc[2] | env->vfp.qc[3];
     fpsr |= i ? FPSR_QC : 0;
     return fpsr;
@@ -47,7 +45,6 @@ void vfp_set_fpsr(CPUARMState *env, uint32_t val)
 
     val &= FPSR_NZCV_MASK | FPSR_CEXC_MASK;
     env->vfp.fpsr = val;
-    vfp_clear_float_status_exc_flags(env);
 }
 
 static void vfp_set_fpcr_masked(CPUARMState *env, uint32_t val, uint32_t mask)
@@ -64,8 +61,6 @@ static void vfp_set_fpcr_masked(CPUARMState *env, uint32_t val, uint32_t mask)
     if (!cpu_isar_feature(aa64_ebf16, cpu)) {
         val &= ~FPCR_EBF;
     }
-
-    vfp_set_fpcr_to_host(env, val, mask);
 
     if (mask & (FPCR_LEN_MASK | FPCR_STRIDE_MASK)) {
         if (!arm_feature(env, ARM_FEATURE_M)) {

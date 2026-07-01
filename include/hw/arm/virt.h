@@ -74,7 +74,6 @@ struct VirtMachineClass {
     MachineClass parent;
     bool disallow_affinity_adjustment;
     bool no_its;
-    bool no_tcg_its;
     bool no_pmu;
     bool claim_edge_triggered_timers;
     bool smbios_old_sys_ver;
@@ -86,7 +85,6 @@ struct VirtMachineClass {
     bool acpi_expose_flash;
     bool no_secure_gpio;
     bool no_cpu_topology;
-    bool no_tcg_lpa2;
     bool no_ns_el2_virt_timer_irq;
 };
 
@@ -102,10 +100,8 @@ struct VirtMachineState {
     bool highmem_mmio;
     bool highmem_redists;
     bool its;
-    bool tcg_its;
     bool virt;
     bool ras;
-    bool mte;
     bool dtb_randomness;
     bool second_ns_uart_present;
     OnOffAuto acpi;

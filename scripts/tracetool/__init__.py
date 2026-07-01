@@ -234,9 +234,9 @@ class Event(object):
         orig : Event or None
             Original Event before transformation/generation.
         event_trans : Event or None
-            Generated translation-time event ("tcg" property).
+            Generated translation-time event.
         event_exec : Event or None
-            Generated execution-time event ("tcg" property).
+            Generated execution-time event.
 
         """
         self.name = name

@@ -8,13 +8,9 @@
 #include "qemu/main-loop.h"
 #include "qemu/lockcnt.h"
 #include "exec/log.h"
-#include "system/tcg.h"
 #include "hw/boards.h"
 #include "hw/qdev-properties.h"
 #include "trace.h"
-#ifdef CONFIG_PLUGIN
-#include "qemu/plugin.h"
-#endif
 
 CPUState *cpu_by_arch_id(int64_t id)
 {
@@ -196,12 +192,6 @@ static void cpu_common_unrealizefn(DeviceState *dev)
     CPUState *cpu = CPU(dev);
 
     
-#ifdef CONFIG_PLUGIN
-    if (tcg_enabled()) {
-        qemu_plugin_vcpu_exit_hook(cpu);
-    }
-#endif
-
     
     cpu_exec_unrealizefn(cpu);
 }
@@ -246,23 +236,12 @@ static void cpu_common_initfn(Object *obj)
     cpu_exec_initfn(cpu);
 
     
-#ifdef CONFIG_PLUGIN
-    if (tcg_enabled()) {
-        cpu->plugin_state = qemu_plugin_create_vcpu_state();
-        qemu_plugin_vcpu_init_hook(cpu);
-    }
-#endif
 }
 
 static void cpu_common_finalize(Object *obj)
 {
     CPUState *cpu = CPU(obj);
 
-#ifdef CONFIG_PLUGIN
-    if (tcg_enabled()) {
-        g_free(cpu->plugin_state);
-    }
-#endif
     free_queued_cpu_work(cpu);
     
     qemu_lockcnt_destroy(&cpu->in_ioctl_lock);

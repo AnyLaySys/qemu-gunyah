@@ -60,8 +60,6 @@ _meson_option_parse() {
     --disable-debug-remap) printf "%s" -Ddebug_remap=false ;;
     --enable-debug-stack-usage) printf "%s" -Ddebug_stack_usage=true ;;
     --disable-debug-stack-usage) printf "%s" -Ddebug_stack_usage=false ;;
-    --enable-debug-tcg) printf "%s" -Ddebug_tcg=true ;;
-    --disable-debug-tcg) printf "%s" -Ddebug_tcg=false ;;
     --docdir=*) quote_sh "-Ddocdir=$2" ;;
     --enable-docs) printf "%s" -Ddocs=enabled ;;
     --disable-docs) printf "%s" -Ddocs=disabled ;;
@@ -196,10 +194,6 @@ _meson_option_parse() {
     --enable-strip) printf "%s" -Dstrip=true ;;
     --disable-strip) printf "%s" -Dstrip=false ;;
     --sysconfdir=*) quote_sh "-Dsysconfdir=$2" ;;
-    --enable-tcg) printf "%s" -Dtcg=enabled ;;
-    --disable-tcg) printf "%s" -Dtcg=disabled ;;
-    --enable-tcg-interpreter) printf "%s" -Dtcg_interpreter=true ;;
-    --disable-tcg-interpreter) printf "%s" -Dtcg_interpreter=false ;;
     --tls-priority=*) quote_sh "-Dtls_priority=$2" ;;
     --enable-tools) printf "%s" -Dtools=enabled ;;
     --disable-tools) printf "%s" -Dtools=disabled ;;

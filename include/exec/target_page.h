@@ -14,15 +14,8 @@
 #ifdef TARGET_PAGE_BITS_VARY
 # include "exec/page-vary.h"
 extern const TargetPageBits target_page;
-# ifdef CONFIG_DEBUG_TCG
-#  define TARGET_PAGE_BITS   ({ assert(target_page.decided); \
-                                target_page.bits; })
-#  define TARGET_PAGE_MASK   ({ assert(target_page.decided); \
-                                (TARGET_PAGE_TYPE)target_page.mask; })
-# else
-#  define TARGET_PAGE_BITS   target_page.bits
-#  define TARGET_PAGE_MASK   ((TARGET_PAGE_TYPE)target_page.mask)
-# endif
+# define TARGET_PAGE_BITS   target_page.bits
+# define TARGET_PAGE_MASK   ((TARGET_PAGE_TYPE)target_page.mask)
 # define TARGET_PAGE_SIZE    (-(int)TARGET_PAGE_MASK)
 #else
 # define TARGET_PAGE_BITS_MIN TARGET_PAGE_BITS

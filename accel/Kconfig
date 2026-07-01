@@ -1,4 +1,2 @@
-config TCG
-bool
 config GH
-bool
+    bool

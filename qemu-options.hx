@@ -147,12 +147,6 @@ DEF("msg", HAS_ARG, QEMU_OPTION_msg, "", QEMU_ARCH_ALL)
 
 DEF("enable-sync-profile", 0, QEMU_OPTION_enable_sync_profile, "", QEMU_ARCH_ALL)
 
-#if defined(CONFIG_TCG) && defined(CONFIG_LINUX)
-DEF("perfmap", 0, QEMU_OPTION_perfmap, "", QEMU_ARCH_ALL)
-
-DEF("jitdump", 0, QEMU_OPTION_jitdump, "", QEMU_ARCH_ALL)
-#endif
-
 DEF("object", HAS_ARG, QEMU_OPTION_object, "", QEMU_ARCH_ALL)
 
 #undef DEF

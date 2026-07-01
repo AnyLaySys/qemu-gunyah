@@ -17,7 +17,6 @@
 #include <libfdt.h>
 #include "system/runstate.h"
 #include "system/system.h"
-#include "system/tcg.h"
 #include "system/hvf.h"
 #include "system/gunyah.h"
 #include "system/gunyah_int.h"
@@ -521,11 +520,7 @@ static void create_its(VirtMachineState *vms)
  const char *itsclass = its_class_name();
  DeviceState *dev;
 
- if (!strcmp(itsclass, "arm-gicv3-its")) {
- if (!vms->tcg_its) {
- itsclass = NULL;
- }
- } else if (!strcmp(itsclass, "arm-its-gunyah")) {
+ if (!strcmp(itsclass, "arm-its-gunyah")) {
 
  itsclass = NULL;
  }
@@ -565,14 +560,6 @@ static void create_v2m(VirtMachineState *vms)
 
  fdt_add_v2m_gic_node(vms);
  vms->msi_controller = VIRT_MSI_CTRL_GICV2M;
-}
-
-static bool gicv3_nmi_present(VirtMachineState *vms)
-{
- ARMCPU *cpu = ARM_CPU(qemu_get_cpu(0));
-
- return tcg_enabled() && cpu_isar_feature(aa64_nmi, cpu) &&
- (vms->gic_version != VIRT_GIC_VERSION_2);
 }
 
 static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
@@ -634,21 +621,15 @@ static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
  redist_region_count);
 
  if (!false) {
- if (vms->tcg_its) {
  object_property_set_link(OBJECT(vms->gic), "sysmem",
  OBJECT(mem), &error_fatal);
  qdev_prop_set_bit(vms->gic, "has-lpi", true);
- }
  }
  } else {
  if (!false) {
  qdev_prop_set_bit(vms->gic, "has-virtualization-extensions",
  vms->virt);
  }
- }
-
- if (gicv3_nmi_present(vms)) {
- qdev_prop_set_bit(vms->gic, "has-nmi", true);
  }
 
  gicbusdev = SYS_BUS_DEVICE(vms->gic);
@@ -1150,19 +1131,8 @@ static void create_platform_bus(VirtMachineState *vms)
  sysbus_mmio_get_region(s, 0));
 }
 
-static void create_tag_ram(MemoryRegion *tag_sysmem,
- hwaddr base, hwaddr size,
- const char *name)
-{
- MemoryRegion *tagram = g_new(MemoryRegion, 1);
-
- memory_region_init_ram(tagram, NULL, name, size / 32, &error_fatal);
- memory_region_add_subregion(tag_sysmem, base / 32, tagram);
-}
-
 static void create_secure_ram(VirtMachineState *vms,
- MemoryRegion *secure_sysmem,
- MemoryRegion *secure_tag_sysmem)
+ MemoryRegion *secure_sysmem)
 {
  MemoryRegion *secram = g_new(MemoryRegion, 1);
  char *nodename;
@@ -1180,10 +1150,6 @@ static void create_secure_ram(VirtMachineState *vms,
  qemu_fdt_setprop_sized_cells(ms->fdt, nodename, "reg", 2, base, 2, size);
  qemu_fdt_setprop_string(ms->fdt, nodename, "status", "disabled");
  qemu_fdt_setprop_string(ms->fdt, nodename, "secure-status", "okay");
-
- if (secure_tag_sysmem) {
- create_tag_ram(secure_tag_sysmem, base, size, "mach-virt.secure-tag");
- }
 
  g_free(nodename);
 }
@@ -1468,17 +1434,7 @@ static void finalize_gic_version(VirtMachineState *vms)
  int gics_supported = 0;
 
  if (gunyah_enabled()) {
-
  gics_supported |= VIRT_GIC_VERSION_3_MASK;
- } else if (tcg_enabled()) {
- gics_supported |= VIRT_GIC_VERSION_2_MASK;
- if (module_object_class_by_name("arm-gicv3")) {
- gics_supported |= VIRT_GIC_VERSION_3_MASK;
- if (vms->virt) {
-
- gics_supported |= VIRT_GIC_VERSION_4_MASK;
- }
- }
  } else {
  error_report("Unsupported accelerator, can not determine GIC support");
  exit(1);
@@ -2045,8 +2001,6 @@ static void machvirt_init(MachineState *machine)
  const CPUArchIdList *possible_cpus;
  MemoryRegion *sysmem = get_system_memory();
  MemoryRegion *secure_sysmem = NULL;
- MemoryRegion *tag_sysmem = NULL;
- MemoryRegion *secure_tag_sysmem = NULL;
  int n, virt_max_cpus;
  bool firmware_loaded;
  bool aarch64 = true;
@@ -2163,10 +2117,6 @@ static void machvirt_init(MachineState *machine)
  object_property_set_bool(cpuobj, "pmu", false, NULL);
  }
 
- if (vmc->no_tcg_lpa2 && object_property_find(cpuobj, "lpa2")) {
- object_property_set_bool(cpuobj, "lpa2", false, NULL);
- }
-
  if (object_property_find(cpuobj, "reset-cbar")) {
  object_property_set_int(cpuobj, "reset-cbar",
  vms->memmap[VIRT_CPUPERIPHS].base,
@@ -2178,45 +2128,6 @@ static void machvirt_init(MachineState *machine)
  if (vms->secure) {
  object_property_set_link(cpuobj, "secure-memory",
  OBJECT(secure_sysmem), &error_abort);
- }
-
- if (vms->mte) {
- if (tcg_enabled()) {
-
- if (!tag_sysmem) {
-
- if (!object_property_find(cpuobj, "tag-memory")) {
- error_report("MTE requested, but not supported "
- "by the guest CPU");
- exit(1);
- }
-
- tag_sysmem = g_new(MemoryRegion, 1);
- memory_region_init(tag_sysmem, OBJECT(machine),
- "tag-memory", UINT64_MAX / 32);
-
- if (vms->secure) {
- secure_tag_sysmem = g_new(MemoryRegion, 1);
- memory_region_init(secure_tag_sysmem, OBJECT(machine),
- "secure-tag-memory",
- UINT64_MAX / 32);
-
- memory_region_add_subregion_overlap(secure_tag_sysmem,
- 0, tag_sysmem, -1);
- }
- }
-
- object_property_set_link(cpuobj, "tag-memory",
- OBJECT(tag_sysmem), &error_abort);
- if (vms->secure) {
- object_property_set_link(cpuobj, "secure-tag-memory",
- OBJECT(secure_tag_sysmem),
- &error_abort);
- }
- } else {
- error_report("MTE requested, but not supported ");
- exit(1);
- }
  }
 
  qdev_realize(DEVICE(cpuobj), NULL, &error_fatal);
@@ -2275,12 +2186,7 @@ static void machvirt_init(MachineState *machine)
  }
 
  if (vms->secure) {
- create_secure_ram(vms, secure_sysmem, secure_tag_sysmem);
- }
-
- if (tag_sysmem) {
- create_tag_ram(tag_sysmem, vms->memmap[VIRT_MEM].base,
- machine->ram_size, "mach-virt.tag");
+ create_secure_ram(vms, secure_sysmem);
  }
 
  vms->highmem_ecam &= (!firmware_loaded || aarch64);
@@ -2573,20 +2479,6 @@ static void virt_set_ras(Object *obj, bool value, Error **errp)
  vms->ras = value;
 }
 
-static bool virt_get_mte(Object *obj, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- return vms->mte;
-}
-
-static void virt_set_mte(Object *obj, bool value, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- vms->mte = value;
-}
-
 static char *virt_get_gic_version(Object *obj, Error **errp)
 {
  VirtMachineState *vms = VIRT_MACHINE(obj);
@@ -2750,21 +2642,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  MachineClass *mc = MACHINE_CLASS(oc);
  HotplugHandlerClass *hc = HOTPLUG_HANDLER_CLASS(oc);
  static const char * const valid_cpu_types[] = {
-#ifdef CONFIG_TCG
- ARM_CPU_TYPE_NAME("cortex-a7"),
- ARM_CPU_TYPE_NAME("cortex-a15"),
-#ifdef TARGET_AARCH64
- ARM_CPU_TYPE_NAME("cortex-a35"),
- ARM_CPU_TYPE_NAME("cortex-a55"),
- ARM_CPU_TYPE_NAME("cortex-a72"),
- ARM_CPU_TYPE_NAME("cortex-a76"),
- ARM_CPU_TYPE_NAME("cortex-a710"),
- ARM_CPU_TYPE_NAME("a64fx"),
- ARM_CPU_TYPE_NAME("neoverse-n1"),
- ARM_CPU_TYPE_NAME("neoverse-v1"),
- ARM_CPU_TYPE_NAME("neoverse-n2"),
-#endif
-#endif
 #ifdef TARGET_AARCH64
  ARM_CPU_TYPE_NAME("cortex-a53"),
  ARM_CPU_TYPE_NAME("cortex-a57"),
@@ -2787,11 +2664,7 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  mc->minimum_page_bits = 12;
  mc->possible_cpu_arch_ids = virt_possible_cpu_arch_ids;
  mc->cpu_index_to_instance_props = virt_cpu_index_to_props;
-#ifdef CONFIG_TCG
- mc->default_cpu_type = ARM_CPU_TYPE_NAME("cortex-a15");
-#else
  mc->default_cpu_type = ARM_CPU_TYPE_NAME("max");
-#endif
  mc->valid_cpu_types = valid_cpu_types;
  mc->hvf_get_physical_address_range = virt_hvf_get_physical_address_range;
  assert(!mc->get_hotplug_handler);
@@ -2878,12 +2751,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  "Set on/off to enable/disable reporting host memory errors "
  "to a KVM guest using ACPI and guest external abort exceptions");
 
- object_class_property_add_bool(oc, "mte", virt_get_mte, virt_set_mte);
- object_class_property_set_description(oc, "mte",
- "Set on/off to enable/disable emulating a "
- "guest CPU which implements the ARM "
- "Memory Tagging Extension");
-
  object_class_property_add_bool(oc, "its", virt_get_its,
  virt_set_its);
  object_class_property_set_description(oc, "its",
@@ -2944,16 +2811,9 @@ static void virt_instance_init(Object *obj)
 
  vms->its = true;
 
- if (vmc->no_tcg_its) {
- vms->tcg_its = false;
- } else {
- vms->tcg_its = true;
- }
  }
 
  vms->ras = false;
-
- vms->mte = false;
 
  vms->dtb_randomness = true;
 

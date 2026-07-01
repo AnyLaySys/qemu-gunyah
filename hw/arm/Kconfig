@@ -2,7 +2,7 @@ config ARM_VIRT
     bool
     default y
     depends on ARM
-    depends on GH || TCG
+    depends on GH
     select ARM_GIC
     select ACPI
     select GPIO_KEY

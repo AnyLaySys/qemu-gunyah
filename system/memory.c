@@ -14,7 +14,6 @@
 #include "exec/memory-internal.h"
 #include "exec/ram_addr.h"
 #include "system/runstate.h"
-#include "system/tcg.h"
 #include "qemu/accel.h"
 #include "hw/boards.h"
 #include "state/vmstate.h"
@@ -1771,9 +1770,6 @@ uint8_t memory_region_get_dirty_log_mask(MemoryRegion *mr)
         mask |= (1 << DIRTY_MEMORY_SYNC);
     }
 
-    if (tcg_enabled() && rb) {
-        mask |= (1 << DIRTY_MEMORY_CODE);
-    }
     return mask;
 }
 

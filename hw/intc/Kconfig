@@ -22,7 +22,6 @@ config APIC
 
 config ARM_GIC
     bool
-    select ARM_GICV3 if TCG
     select MSI_NONBROKEN
 
 config ARM_GICV3

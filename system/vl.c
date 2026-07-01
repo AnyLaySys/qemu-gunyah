@@ -20,7 +20,6 @@
 #include "system/runstate.h"
 #include "system/runstate-action.h"
 #include "system/seccomp.h"
-#include "system/tcg.h"
 
 #include "qemu/error-report.h"
 #include "qemu/sockets.h"
@@ -52,10 +51,6 @@
 #include "qemu/option.h"
 #include "qemu/config-file.h"
 #include "qemu/main-loop.h"
-#ifdef CONFIG_TCG
-#include "tcg/perf.h"
-#endif
-
 #include "disas/disas.h"
 
 #include "trace.h"
@@ -1612,15 +1607,8 @@ static void configure_accelerators(const char *progname)
         char **accel_list, **tmp;
 
         if (accelerators == NULL) {
-            bool have_tcg = accel_find("tcg");
-
-            if (have_tcg) {
-                accelerators = "tcg";
-            } else {
-                error_report("No accelerator selected and"
-                             " no default accelerator available");
-                exit(1);
-            }
+            error_report("No accelerator selected");
+            exit(1);
         }
         accel_list = g_strsplit(accelerators, ":", 0);
 
@@ -2118,14 +2106,6 @@ void qemu_init(int argc, char **argv)
             case QEMU_OPTION_DFILTER:
                 qemu_set_dfilter_ranges(optarg, &error_fatal);
                 break;
-#if defined(CONFIG_TCG) && defined(CONFIG_LINUX)
-            case QEMU_OPTION_perfmap:
-                perf_enable_perfmap();
-                break;
-            case QEMU_OPTION_jitdump:
-                perf_enable_jitdump();
-                break;
-#endif
             case QEMU_OPTION_seed:
                 qemu_guest_random_seed_main(optarg, &error_fatal);
                 break;

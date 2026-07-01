@@ -9,42 +9,6 @@
 #include "exec/mmu-access-type.h"
 #include "exec/translation-block.h"
 
-#if defined(CONFIG_TCG)
-#include "accel/tcg/getpc.h"
-
-void *probe_access(CPUArchState *env, vaddr addr, int size,
-                   MMUAccessType access_type, int mmu_idx, uintptr_t retaddr);
-
-static inline void *probe_write(CPUArchState *env, vaddr addr, int size,
-                                int mmu_idx, uintptr_t retaddr)
-{
-    return probe_access(env, addr, size, MMU_DATA_STORE, mmu_idx, retaddr);
-}
-
-static inline void *probe_read(CPUArchState *env, vaddr addr, int size,
-                               int mmu_idx, uintptr_t retaddr)
-{
-    return probe_access(env, addr, size, MMU_DATA_LOAD, mmu_idx, retaddr);
-}
-
-int probe_access_flags(CPUArchState *env, vaddr addr, int size,
-                       MMUAccessType access_type, int mmu_idx,
-                       bool nonfault, void **phost, uintptr_t retaddr);
-
-#ifndef CONFIG_USER_ONLY
-
-int probe_access_full(CPUArchState *env, vaddr addr, int size,
-                      MMUAccessType access_type, int mmu_idx,
-                      bool nonfault, void **phost,
-                      CPUTLBEntryFull **pfull, uintptr_t retaddr);
-
-int probe_access_full_mmu(CPUArchState *env, vaddr addr, int size,
-                          MMUAccessType access_type, int mmu_idx,
-                          void **phost, CPUTLBEntryFull **pfull);
-
-#endif /* !CONFIG_USER_ONLY */
-#endif /* CONFIG_TCG */
-
 static inline tb_page_addr_t tb_page_addr0(const TranslationBlock *tb)
 {
 #ifdef CONFIG_USER_ONLY

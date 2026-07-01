@@ -771,7 +771,7 @@ void dpy_gfx_update_full(QemuConsole *con)
 void dpy_gfx_replace_surface(QemuConsole *con,
                              DisplaySurface *surface)
 {
-    static const char placeholder_msg[] = "Display output is not active.";
+    static const char placeholder_msg[] = "No signal";
     DisplayState *s = con->ds;
     DisplaySurface *old_surface = con->surface;
     DisplaySurface *new_surface = surface;

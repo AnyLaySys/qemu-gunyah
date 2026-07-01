@@ -28,12 +28,6 @@ if 'CONFIG_HVF' in config_all_accel
   subdir('hvf')
 endif
 
-if 'CONFIG_TCG' in config_all_accel
-   subdir('tcg')
-else
-    arm_ss.add(files('tcg-stubs.c'))
-endif
-
 target_arch += {'arm': arm_ss}
 target_system_arch += {'arm': arm_system_ss}
 target_user_arch += {'arm': arm_user_ss}

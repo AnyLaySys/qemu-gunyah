@@ -65,8 +65,6 @@ struct CPUClass {
 
     const struct SysemuCPUOps *sysemu_ops;
 
-    const TCGCPUOps *tcg_ops;
-
     void (*init_accel_cpu)(struct AccelCPUClass *accel_cpu, CPUClass *cc);
 
     int reset_dump_flags;
@@ -100,32 +98,7 @@ struct CPUTLBEntryFull {
     } extra;
 };
 
-typedef struct CPUTLBDesc {
-    vaddr large_page_addr;
-    vaddr large_page_mask;
-    int64_t window_begin_ns;
-    size_t window_max_entries;
-    size_t n_used_entries;
-    size_t vindex;
-    CPUTLBEntry vtable[CPU_VTLB_SIZE];
-    CPUTLBEntryFull vfulltlb[CPU_VTLB_SIZE];
-    CPUTLBEntryFull *fulltlb;
-} CPUTLBDesc;
-
-typedef struct CPUTLBCommon {
-    QemuSpin lock;
-    uint16_t dirty;
-    size_t full_flush_count;
-    size_t part_flush_count;
-    size_t elide_flush_count;
-} CPUTLBCommon;
-
 typedef struct CPUTLB {
-#ifdef CONFIG_TCG
-    CPUTLBCommon c;
-    CPUTLBDesc d[NB_MMU_MODES];
-    CPUTLBDescFast f[NB_MMU_MODES];
-#endif
 } CPUTLB;
 
 typedef union IcountDecr {
@@ -244,7 +217,6 @@ struct CPUState {
 
     int cpu_index;
     int cluster_index;
-    uint32_t tcg_cflags;
     uint32_t halted;
     int32_t exception_index;
 
@@ -287,9 +259,6 @@ CPUState **android_current_cpu_ptr(void);
 #else
 extern __thread CPUState *current_cpu;
 #endif
-
-extern bool mttcg_enabled;
-#define qemu_tcg_mttcg_enabled() (mttcg_enabled)
 
 bool cpu_paging_enabled(const CPUState *cpu);
 

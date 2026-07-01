@@ -6,7 +6,6 @@
 #include "qemu/module.h"
 #include "qemu/units.h"
 #include "system/gunyah.h"
-#include "system/tcg.h"
 #include "qapi/visitor.h"
 #include "hw/qdev-properties.h"
 #include "internals.h"
@@ -575,13 +574,7 @@ static void aarch64_max_initfn(Object *obj)
         return;
     }
 
-    if (tcg_enabled()) {
-        aarch64_a57_initfn(obj);
-    }
-
-    if (tcg_enabled()) {
-        aarch64_max_tcg_initfn(obj);
-    }
+    g_assert_not_reached();
 }
 
 static const ARMCPUInfo aarch64_cpus[] = {

@@ -1,6 +1,6 @@
 project('qemu', ['c'], meson_version: '>=1.5.0',
         default_options: ['warning_level=1', 'c_std=gnu11', 'cpp_std=gnu++11', 'b_colorout=auto',
-                          'b_staticpic=false', 'stdsplit=false', 'optimization=2', 'b_pie=true'],
+                          'b_staticpic=false', 'stdsplit=false', 'optimization=2', 'b_pie=false'],
         version: files('VERSION'))
 
 meson.add_devenv({ 'MESON_BUILD_ROOT' : meson.project_build_root() })
@@ -990,10 +990,6 @@ endif
 config_host_data.set('CONFIG_PIXMAN', pixman.found())
 config_host_data.set('CONFIG_SNAPPY', snappy.found())
 config_host_data.set('CONFIG_SOLARIS', host_os == 'sunos')
-if get_option('tcg').allowed()
-  config_host_data.set('CONFIG_TCG', 1)
-  config_host_data.set('CONFIG_TCG_INTERPRETER', tcg_arch == 'tci')
-endif
 config_host_data.set('CONFIG_TSAN', get_option('tsan'))
 config_host_data.set('CONFIG_USB_LIBUSB', libusb.found())
 config_host_data.set('CONFIG_VDE', vde.found())
@@ -1054,7 +1050,6 @@ config_host_data.set('CONFIG_COROUTINE_POOL', have_coroutine_pool)
 config_host_data.set('CONFIG_DEBUG_GRAPH_LOCK', get_option('debug_graph_lock'))
 config_host_data.set('CONFIG_DEBUG_MUTEX', get_option('debug_mutex'))
 config_host_data.set('CONFIG_DEBUG_STACK_USAGE', get_option('debug_stack_usage'))
-config_host_data.set('CONFIG_DEBUG_TCG', get_option('debug_tcg'))
 config_host_data.set('CONFIG_DEBUG_REMAP', get_option('debug_remap'))
 config_host_data.set('CONFIG_QOM_CAST_DEBUG', get_option('qom_cast_debug'))
 config_host_data.set('CONFIG_REPLICATION', get_option('replication').allowed())
@@ -1635,7 +1630,7 @@ foreach target : target_dirs
     if host_long_bits < config_target['TARGET_LONG_BITS'].to_int()
       continue
     endif
-    if sym == 'CONFIG_TCG' or target in accelerator_targets.get(sym, [])
+    if target in accelerator_targets.get(sym, [])
       config_target += { sym: 'y' }
       config_all_accel += { sym: 'y' }
       target_kconfig += [ sym + '=y' ]
@@ -1871,9 +1866,6 @@ if have_system or have_user
     'hw/core',
     'target/arm',
   ]
-  if get_option('tcg').allowed()
-    trace_events_subdirs += ['accel/tcg']
-  endif
 endif
 
 
@@ -2003,16 +1995,12 @@ subdir('disas')
 subdir('state')
 subdir('monitor')
 subdir('net')
-if get_option('tcg').allowed()
-  subdir('tcg')
-endif
-subdir('fpu')
 subdir('accel')
 if get_option('plugins')
   subdir('plugins')
 endif
 
-if get_option('plugins') and 'CONFIG_TCG' in config_all_accel
+if get_option('plugins')
   subdir('contrib/plugins')
 endif
 
@@ -2678,11 +2666,6 @@ if host_arch == 'unknown'
   message('compile or work on this host CPU. You can help by volunteering')
   message('to maintain it and providing a build host for our continuous')
   message('integration setup.')
-  if get_option('tcg').allowed() and target_dirs.length() > 0
-    message()
-    message('configure has succeeded and you can continue to build, but')
-    message('QEMU will use a slow interpreter to emulate the target CPU.')
-  endif
 elif host_long_bits < 64
   message()
   warning('DEPRECATED HOST CPU')

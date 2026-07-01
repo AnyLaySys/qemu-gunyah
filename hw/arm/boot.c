@@ -8,7 +8,6 @@
 #include "hw/arm/linux-boot-if.h"
 #include "target/arm/cpu.h"
 #include "target/arm/arm-powerctl.h"
-#include "system/tcg.h"
 #include "system/system.h"
 #include "hw/boards.h"
 #include "system/reset.h"
@@ -616,9 +615,6 @@ static void do_cpu_reset(void *opaque)
             }
         }
 
-        if (tcg_enabled()) {
-            arm_rebuild_hflags(env);
-        }
     }
 }
 

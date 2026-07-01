@@ -8,9 +8,6 @@ typedef uint32_t MemOpIdx;
 
 static inline MemOpIdx make_memop_idx(MemOp op, unsigned idx)
 {
-#ifdef CONFIG_DEBUG_TCG
-    assert(idx <= 15);
-#endif
     return (op << 4) | idx;
 }
 

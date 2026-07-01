@@ -89,8 +89,6 @@ typedef struct Range Range;
 typedef struct ReservedRegion ReservedRegion;
 typedef struct SaveLiveCompletePrecopyThreadData SaveLiveCompletePrecopyThreadData;
 typedef struct SSIBus SSIBus;
-typedef struct TCGCPUOps TCGCPUOps;
-typedef struct TCGHelperInfo TCGHelperInfo;
 typedef struct TaskState TaskState;
 typedef struct TranslationBlock TranslationBlock;
 typedef struct VirtIODevice VirtIODevice;

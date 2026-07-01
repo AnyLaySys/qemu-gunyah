@@ -4108,8 +4108,8 @@ qcow2_downgrade(BlockDriverState *bs, int target_version,
             return -EINVAL;
         }
         if (ret) {
-            error_setg(errp, "Cannot downgrade an image with zstd compression "
-                       "type and existing compressed clusters");
+            error_setg(errp, "Cannot downgrade an image with existing "
+                       "compressed clusters");
             return -ENOTSUP;
         }
         s->incompatible_features &= ~QCOW2_INCOMPAT_COMPRESSION;
