@@ -21,6 +21,22 @@
 工欲善其事,必先利其器.作为Gunyah专用虚拟化管理器,我们秉承'取其精华,去其糟粕',通过深度精简,qemu-system-aarch64本体小到令人惊讶的**1.5M**,整体(包括fw,lib)小到**24M**
 # 如何使用
 1 安装[Termux](https://github.com/termux/termux-app/releases)与[Termux:X11](https://github.com/termux/termux-x11/releases)  
-2 解压产物到任何目录(如/data/local/tmp/als/qemu-gunyah)
+2 打开Termux执行
 ```bash
-printf "\033[2J\033[3J\033[H" && cd /data/local/tmp/als/qemu-gunyah && export DISPLAY=:1 XAUTHORITY=/data/data/com.termux/files/home/.Xauthority HOME=/data/data/com.termux/files/home TMPDIR=/data/data/com.termux/files/usr/tmp XDG_RUNTIME_DIR=/data/data/com.termux/files/usr/tmp LD_LIBRARY_PATH=/data/local/tmp/als/qemu-gunyah/lib:/system/lib64:/vendor/lib64 LD_PRELOAD=/data/local/tmp/als/qemu-gunyah/lib/libX11-dir.so X11_TMPDIR=/data/data/com.termux/files/usr/tmp SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=aaudio LANG=C LC_ALL=C && taskset 7f ./qemu-system-aarch64 -L ./fw -bios edk2-aarch64-gunyah.fd -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp 7 -m 4276M -object arm-confidential-guest,id=prot0,swiotlb-size=180M -object iothread,id=io0 -drive file=/sdcard/ubuntu-26.10-snapshot2-preinstalled-server-arm64.img,format=raw,if=none,id=dr0,media=disk,cache=unsafe,aio=io_uring,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=1 -netdev tap,id=usernet,ifname=tap0,script=no,downscript=no -device virtio-net-pci,netdev=usernet -device virtio-tablet-pci -device virtio-keyboard-pci -device virtio-gpu-gl-pci,xres=2376,yres=1080 -audiodev aaudio,id=aa -device virtio-snd-pci,audiodev=aa -display sdl -serial mon:stdio
+pkg update && pkg install x11-repo -y && pkg update && pkg install termux-x11-nightly xfce4 xfce4-terminal -y
+```
+3 打开Termux:X11(建议浮窗显示),Termux执行
+```bash
+termux-x11 :1
+```
+4 解压产物到任何目录(如/data/local/tmp/als/qemu-gunyah),任意终端(如`adb shell`),依次执行
+```bash
+su
+```
+```bash
+ip link show tap0 >/dev/null 2>&1 || ip tuntap add dev tap0 mode tap; ip addr flush dev tap0; ip addr add 100.99.99.1/24 dev tap0; ip link set tap0 up; sysctl -w net.ipv4.ip_forward=1; while ip rule del from 100.99.99.0/24 lookup wlan0 2>/dev/null; do :; done; while ip rule del to 100.99.99.0/24 lookup main 2>/dev/null; do :; done; ip rule add pref 100 from 100.99.99.0/24 lookup wlan0; ip rule add pref 101 to 100.99.99.0/24 lookup main; while iptables -D INPUT -i tap0 -j ACCEPT 2>/dev/null; do :; done; while iptables -D FORWARD -i tap0 -o wlan0 -j ACCEPT 2>/dev/null; do :; done; while iptables -D FORWARD -i wlan0 -o tap0 -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null; do :; done; iptables -I INPUT 1 -i tap0 -j ACCEPT; iptables -I FORWARD 1 -i tap0 -o wlan0 -j ACCEPT; iptables -I FORWARD 1 -i wlan0 -o tap0 -m state --state ESTABLISHED,RELATED -j ACCEPT; while iptables -t nat -D POSTROUTING -s 100.99.99.0/24 -o wlan0 -j MASQUERADE 2>/dev/null; do :; done; iptables -t nat -I POSTROUTING 1 -s 100.99.99.0/24 -o wlan0 -j MASQUERADE
+```
+```bash
+printf "\033[2J\033[3J\033[H" && cd /data/local/tmp/als/qemu-gunyah && export DISPLAY=:1 XAUTHORITY=/data/data/com.termux/files/home/.Xauthority HOME=/data/data/com.termux/files/home TMPDIR=/data/data/com.termux/files/usr/tmp XDG_RUNTIME_DIR=/data/data/com.termux/files/usr/tmp LD_LIBRARY_PATH=/data/local/tmp/als/qemu-gunyah/lib:/system/lib64:/vendor/lib64 LD_PRELOAD=/data/local/tmp/als/qemu-gunyah/lib/libX11-dir.so X11_TMPDIR=/data/data/com.termux/files/usr/tmp SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=aaudio LANG=C LC_ALL=C && taskset 7f ./qemu-system-aarch64 -L ./fw -bios edk2-aarch64-gunyah.fd -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp 7 -m 4276M -object arm-confidential-guest,id=prot0,swiotlb-size=180M -object iothread,id=io0 -drive file=/sdcard/ubuntu-26.10-snapshot2-preinstalled-server-arm64.img,format=raw,if=none,id=dr0,media=disk,cache=unsafe,aio=io_uring,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=1 -netdev tap,id=usernet,ifname=tap0,script=no,downscript=no -device virtio-net-pci,netdev=usernet -device virtio-tablet-pci -device virtio-keyboard-pci -device virtio-gpu-gl-pci,`wm size | awk -F'[:x ]+' '{print "xres="$4",yres="$3"}'` -audiodev aaudio,id=aa -device virtio-snd-pci,audiodev=aa -display sdl -serial mon:stdio
+```
+命令会自动获取设备分辨率
