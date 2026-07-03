@@ -15,7 +15,6 @@
 #include "system/reset.h"
 #include "system/runstate.h"
 #include "hw/pci/pci_bridge.h"
-#include "hw/mem/nvdimm.h"
 #include "system/confidential-guest-support.h"
 #include "hw/virtio/virtio-pci.h"
 #include "hw/virtio/virtio-net.h"
@@ -551,20 +550,6 @@ static void machine_check_confidential_guest_support(const Object *obj,
 {
 }
 
-static bool machine_get_nvdimm(Object *obj, Error **errp)
-{
-    MachineState *ms = MACHINE(obj);
-
-    return ms->nvdimms_state->is_enabled;
-}
-
-static void machine_set_nvdimm(Object *obj, bool value, Error **errp)
-{
-    MachineState *ms = MACHINE(obj);
-
-    ms->nvdimms_state->is_enabled = value;
-}
-
 static bool machine_get_hmat(Object *obj, Error **errp)
 {
     MachineState *ms = MACHINE(obj);
@@ -656,33 +641,6 @@ static void machine_set_mem(Object *obj, Visitor *v, const char *name,
     ms->ram_slots = mem->has_slots ? mem->slots : 0;
 out_free:
     qapi_free_MemorySizeConfiguration(mem);
-}
-
-static char *machine_get_nvdimm_persistence(Object *obj, Error **errp)
-{
-    MachineState *ms = MACHINE(obj);
-
-    return g_strdup(ms->nvdimms_state->persistence_string);
-}
-
-static void machine_set_nvdimm_persistence(Object *obj, const char *value,
-                                           Error **errp)
-{
-    MachineState *ms = MACHINE(obj);
-    NVDIMMState *nvdimms_state = ms->nvdimms_state;
-
-    if (strcmp(value, "cpu") == 0) {
-        nvdimms_state->persistence = 3;
-    } else if (strcmp(value, "mem-ctrl") == 0) {
-        nvdimms_state->persistence = 2;
-    } else {
-        error_setg(errp, "-machine nvdimm-persistence=%s: unsupported option",
-                   value);
-        return;
-    }
-
-    g_free(nvdimms_state->persistence_string);
-    nvdimms_state->persistence_string = g_strdup(value);
 }
 
 void machine_class_allow_dynamic_sysbus_dev(MachineClass *mc, const char *type)
@@ -1196,22 +1154,6 @@ static void machine_initfn(Object *obj)
     ms->kernel_cmdline = g_strdup("");
     ms->ram_size = mc->default_ram_size;
     ms->maxram_size = mc->default_ram_size;
-
-    if (mc->nvdimm_supported) {
-        ms->nvdimms_state = g_new0(NVDIMMState, 1);
-        object_property_add_bool(obj, "nvdimm",
-                                 machine_get_nvdimm, machine_set_nvdimm);
-        object_property_set_description(obj, "nvdimm",
-                                        "Set on/off to enable/disable "
-                                        "NVDIMM instantiation");
-
-        object_property_add_str(obj, "nvdimm-persistence",
-                                machine_get_nvdimm_persistence,
-                                machine_set_nvdimm_persistence);
-        object_property_set_description(obj, "nvdimm-persistence",
-                                        "Set NVDIMM persistence"
-                                        "Valid values are cpu, mem-ctrl");
-    }
 
     if (mc->cpu_index_to_instance_props && mc->get_default_cpu_node_id) {
         ms->numa_state = g_new0(NumaState, 1);

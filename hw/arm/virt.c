@@ -10,7 +10,6 @@
 #include "hw/arm/boot.h"
 #include "hw/arm/primecell.h"
 #include "hw/arm/virt.h"
-#include "hw/display/ramfb.h"
 #include "hw/char/serial-mm.h"
 #include "net/net.h"
 #include "system/device_tree.h"
@@ -18,7 +17,6 @@
 #include "system/numa.h"
 #include "system/runstate.h"
 #include "system/system.h"
-#include "system/tpm.h"
 #include "system/tcg.h"
 #include "system/hvf.h"
 #include "system/gunyah.h"
@@ -43,20 +41,14 @@
 #include "hw/intc/arm_gicv3_its_common.h"
 #include "hw/irq.h"
 #include "hvf_arm.h"
-#include "hw/firmware/smbios.h"
 #include "qapi/visitor.h"
 #include "qapi/qapi-visit-common.h"
 #include "qobject/qlist.h"
 #include "standard-headers/linux/input.h"
-#include "hw/arm/smmuv3.h"
-#include "hw/acpi/acpi.h"
 #include "target/arm/cpu-qom.h"
 #include "target/arm/internals.h"
 #include "target/arm/multiprocessing.h"
 #include "target/arm/gtimer.h"
-#include "hw/mem/pc-dimm.h"
-#include "hw/mem/nvdimm.h"
-#include "hw/acpi/generic_event_device.h"
 #include "hw/virtio/virtio-iommu.h"
 #include "hw/char/pl011.h"
 #include "qemu/guest-random.h"
@@ -131,9 +123,6 @@ static const MemMapEntry base_memmap[] = {
  [VIRT_GPIO] = { 0x09030000, 0x00001000 },
  [VIRT_UART1] = { 0x09040000, 0x00001000 },
  [VIRT_SMMU] = { 0x09050000, 0x00020000 },
- [VIRT_PCDIMM_ACPI] = { 0x09070000, MEMORY_HOTPLUG_IO_LEN },
- [VIRT_ACPI_GED] = { 0x09080000, ACPI_GED_EVT_SEL_LEN },
- [VIRT_NVDIMM_ACPI] = { 0x09090000, NVDIMM_ACPI_IO_LEN},
  [VIRT_PVTIME] = { 0x090a0000, 0x00010000 },
  [VIRT_SECURE_GPIO] = { 0x090b0000, 0x00001000 },
  [VIRT_MMIO] = { 0x0a000000, 0x00000200 },
@@ -164,7 +153,6 @@ static const int a15irqmap[] = {
  [VIRT_PCIE] = 3,
  [VIRT_GPIO] = 7,
  [VIRT_UART1] = 8,
- [VIRT_ACPI_GED] = 9,
  [VIRT_MMIO] = 16,
  [VIRT_GIC_V2M] = 48,
  [VIRT_SMMU] = 74,
@@ -551,32 +539,6 @@ static void fdt_add_pmu_nodes(const VirtMachineState *vms)
  }
 }
 
-static inline DeviceState *create_acpi_ged(VirtMachineState *vms)
-{
- DeviceState *dev;
- MachineState *ms = MACHINE(vms);
- int irq = vms->irqmap[VIRT_ACPI_GED];
- uint32_t event = ACPI_GED_PWR_DOWN_EVT;
-
- if (ms->ram_slots) {
- event |= ACPI_GED_MEM_HOTPLUG_EVT;
- }
-
- if (ms->nvdimms_state->is_enabled) {
- event |= ACPI_GED_NVDIMM_HOTPLUG_EVT;
- }
-
- dev = qdev_new(TYPE_ACPI_GED);
- qdev_prop_set_uint32(dev, "ged-event", event);
- sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
-
- sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, vms->memmap[VIRT_ACPI_GED].base);
- sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, vms->memmap[VIRT_PCDIMM_ACPI].base);
- sysbus_connect_irq(SYS_BUS_DEVICE(dev), 0, qdev_get_gpio_in(vms->gic, irq));
-
- return dev;
-}
-
 static void create_its(VirtMachineState *vms)
 {
  const char *itsclass = its_class_name();
@@ -868,14 +830,7 @@ static void create_rtc(const VirtMachineState *vms)
 static DeviceState *gpio_key_dev;
 static void virt_powerdown_req(Notifier *n, void *opaque)
 {
- VirtMachineState *s = container_of(n, VirtMachineState, powerdown_notifier);
-
- if (s->acpi_dev) {
- acpi_send_event(s->acpi_dev, ACPI_POWER_DOWN_STATUS);
- } else {
-
  qemu_set_irq(qdev_get_gpio_in(gpio_key_dev, 0), 1);
- }
 }
 
 static void create_gpio_keys(char *fdt, DeviceState *pl061_dev,
@@ -1077,60 +1032,6 @@ static void create_pcie_irq_map(const MachineState *ms,
  0x7 );
 }
 
-static void create_smmu(const VirtMachineState *vms,
- PCIBus *bus)
-{
- VirtMachineClass *vmc = VIRT_MACHINE_GET_CLASS(vms);
- char *node;
- const char compat[] = "arm,smmu-v3";
- int irq = vms->irqmap[VIRT_SMMU];
- int i;
- hwaddr base = vms->memmap[VIRT_SMMU].base;
- hwaddr size = vms->memmap[VIRT_SMMU].size;
- const char irq_names[] = "eventq\0priq\0cmdq-sync\0gerror";
- DeviceState *dev;
- MachineState *ms = MACHINE(vms);
-
- if (vms->iommu != VIRT_IOMMU_SMMUV3 || !vms->iommu_phandle) {
- return;
- }
-
- dev = qdev_new(TYPE_ARM_SMMUV3);
-
- if (!vmc->no_nested_smmu) {
- object_property_set_str(OBJECT(dev), "stage", "nested", &error_fatal);
- }
- object_property_set_link(OBJECT(dev), "primary-bus", OBJECT(bus),
- &error_abort);
- sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
- sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, base);
- for (i = 0; i < NUM_SMMU_IRQS; i++) {
- sysbus_connect_irq(SYS_BUS_DEVICE(dev), i,
- qdev_get_gpio_in(vms->gic, irq + i));
- }
-
- node = g_strdup_printf("/smmuv3@%" PRIx64, base);
- qemu_fdt_add_subnode(ms->fdt, node);
- qemu_fdt_setprop(ms->fdt, node, "compatible", compat, sizeof(compat));
- qemu_fdt_setprop_sized_cells(ms->fdt, node, "reg", 2, base, 2, size);
-
- qemu_fdt_setprop_cells(ms->fdt, node, "interrupts",
- GIC_FDT_IRQ_TYPE_SPI, irq , GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 1, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 2, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI,
- GIC_FDT_IRQ_TYPE_SPI, irq + 3, GIC_FDT_IRQ_FLAGS_EDGE_LO_HI);
-
- qemu_fdt_setprop(ms->fdt, node, "interrupt-names", irq_names,
- sizeof(irq_names));
-
- qemu_fdt_setprop(ms->fdt, node, "dma-coherent", NULL, 0);
-
- qemu_fdt_setprop_cell(ms->fdt, node, "#iommu-cells", 1);
-
- qemu_fdt_setprop_cell(ms->fdt, node, "phandle", vms->iommu_phandle);
- g_free(node);
-}
-
 static void create_virtio_iommu_dt_bindings(VirtMachineState *vms)
 {
  const char compat[] = "virtio,pci-iommu\0pci1af4,1057";
@@ -1265,19 +1166,6 @@ static void create_pcie(VirtMachineState *vms)
  qemu_fdt_setprop_cell(ms->fdt, nodename, "#interrupt-cells", 1);
  create_pcie_irq_map(ms, vms->gic_phandle, irq, nodename);
 
- if (vms->iommu) {
- vms->iommu_phandle = qemu_fdt_alloc_phandle(ms->fdt);
-
- switch (vms->iommu) {
- case VIRT_IOMMU_SMMUV3:
- create_smmu(vms, vms->bus);
- qemu_fdt_setprop_cells(ms->fdt, nodename, "iommu-map",
- 0x0, vms->iommu_phandle, 0x0, 0x10000);
- break;
- default:
- g_assert_not_reached();
- }
- }
 }
 
 static void create_platform_bus(VirtMachineState *vms)
@@ -1353,39 +1241,6 @@ static void *machvirt_dtb(const struct arm_boot_info *binfo, int *fdt_size)
  return ms->fdt;
 }
 
-static void virt_build_smbios(VirtMachineState *vms)
-{
- MachineClass *mc = MACHINE_GET_CLASS(vms);
- MachineState *ms = MACHINE(vms);
- VirtMachineClass *vmc = VIRT_MACHINE_GET_CLASS(vms);
- uint8_t *smbios_tables, *smbios_anchor;
- size_t smbios_tables_len, smbios_anchor_len;
- struct smbios_phys_mem_area mem_array;
- const char *product = "QEMU Virtual Machine";
-
- if (gunyah_enabled()) {
- product = "Gunyah Virtual Machine";
- }
-
- smbios_set_defaults("QEMU", product,
- vmc->smbios_old_sys_ver ? "1.0" : mc->name);
-
- mem_array.address = vms->memmap[VIRT_MEM].base;
- mem_array.length = ms->ram_size;
-
- smbios_get_tables(ms, SMBIOS_ENTRY_POINT_TYPE_64, &mem_array, 1,
- &smbios_tables, &smbios_tables_len,
- &smbios_anchor, &smbios_anchor_len,
- &error_fatal);
-
- if (smbios_anchor) {
- fw_cfg_add_file(vms->fw_cfg, "etc/smbios/smbios-tables",
- smbios_tables, smbios_tables_len);
- fw_cfg_add_file(vms->fw_cfg, "etc/smbios/smbios-anchor",
- smbios_anchor, smbios_anchor_len);
- }
-}
-
 static
 void virt_machine_done(Notifier *notifier, void *data)
 {
@@ -1445,8 +1300,6 @@ void virt_machine_done(Notifier *notifier, void *data)
  pci_bus_add_fw_cfg_extra_pci_roots(vms->fw_cfg, vms->bus,
  &error_abort);
 
- virt_acpi_setup(vms);
- virt_build_smbios(vms);
 }
 
 static uint64_t virt_cpu_mp_affinity(VirtMachineState *vms, int idx)
@@ -1525,12 +1378,6 @@ static void virt_set_memmap(VirtMachineState *vms, int pa_bits)
  vms->memmap[VIRT_MEM].base = 2 * GiB;
  }
 
- if (ms->ram_slots > ACPI_MAX_RAM_SLOTS) {
- error_report("unsupported number of memory slots: %"PRIu64,
- ms->ram_slots);
- exit(EXIT_FAILURE);
- }
-
  if (!vms->highmem) {
  pa_bits = 32;
  }
@@ -1557,9 +1404,6 @@ static void virt_set_memmap(VirtMachineState *vms, int pa_bits)
 
  virt_set_high_memmap(vms, base, pa_bits);
 
- if (device_memory_size > 0) {
- machine_memory_devices_init(ms, device_memory_base, device_memory_size);
- }
 }
 
 static VirtGICType finalize_gic_version_do(const char *accel_name,
@@ -2297,7 +2141,6 @@ static void machvirt_init(MachineState *machine)
  int n, virt_max_cpus;
  bool firmware_loaded;
  bool aarch64 = true;
- bool has_ged = !vmc->no_ged;
  unsigned int smp_cpus = machine->smp.cpus;
  unsigned int max_cpus = machine->smp.max_cpus;
 
@@ -2539,14 +2382,14 @@ static void machvirt_init(MachineState *machine)
 
  create_pcie(vms);
 
- if (has_ged && aarch64 && firmware_loaded && virt_is_acpi_enabled(vms)) {
- vms->acpi_dev = create_acpi_ged(vms);
- } else {
+ if (false) {
  create_gpio_devices(vms, VIRT_GPIO, sysmem);
  }
 
  if (vms->secure && !vmc->no_secure_gpio) {
+ if (false) {
  create_gpio_devices(vms, VIRT_SECURE_GPIO, secure_sysmem);
+ }
  }
 
  vms->powerdown_notifier.notify = virt_powerdown_req;
@@ -2556,20 +2399,6 @@ static void machvirt_init(MachineState *machine)
  rom_set_fw(vms->fw_cfg);
 
  create_platform_bus(vms);
-
-#ifdef CONFIG_NVDIMM
- if (machine->nvdimms_state->is_enabled) {
- const struct AcpiGenericAddress arm_virt_nvdimm_acpi_dsmio = {
- .space_id = AML_AS_SYSTEM_MEMORY,
- .address = vms->memmap[VIRT_NVDIMM_ACPI].base,
- .bit_width = NVDIMM_ACPI_IO_LEN << 3
- };
-
- nvdimm_init_acpi_state(machine->nvdimms_state, sysmem,
- arm_virt_nvdimm_acpi_dsmio,
- vms->fw_cfg, OBJECT(vms));
- }
-#endif
 
  vms->bootinfo.ram_size = machine->ram_size;
  vms->bootinfo.board_id = -1;
@@ -2756,56 +2585,6 @@ static void virt_set_dtb_randomness(Object *obj, bool value, Error **errp)
  vms->dtb_randomness = value;
 }
 
-static char *virt_get_oem_id(Object *obj, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- return g_strdup(vms->oem_id);
-}
-
-static void virt_set_oem_id(Object *obj, const char *value, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
- size_t len = strlen(value);
-
- if (len > 6) {
- error_setg(errp,
- "User specified oem-id value is bigger than 6 bytes in size");
- return;
- }
-
- strncpy(vms->oem_id, value, 6);
-}
-
-static char *virt_get_oem_table_id(Object *obj, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
-
- return g_strdup(vms->oem_table_id);
-}
-
-static void virt_set_oem_table_id(Object *obj, const char *value,
- Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(obj);
- size_t len = strlen(value);
-
- if (len > 8) {
- error_setg(errp,
- "User specified oem-table-id value is bigger than 8 bytes in size");
- return;
- }
- strncpy(vms->oem_table_id, value, 8);
-}
-
-bool virt_is_acpi_enabled(VirtMachineState *vms)
-{
- if (vms->acpi == ON_OFF_AUTO_OFF) {
- return false;
- }
- return true;
-}
-
 static void virt_get_acpi(Object *obj, Visitor *v, const char *name,
  void *opaque, Error **errp)
 {
@@ -2987,60 +2766,12 @@ static const CPUArchIdList *virt_possible_cpu_arch_ids(MachineState *ms)
  return ms->possible_cpus;
 }
 
-static void virt_memory_pre_plug(HotplugHandler *hotplug_dev, DeviceState *dev,
- Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
- const MachineState *ms = MACHINE(hotplug_dev);
- const bool is_nvdimm = object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM);
-
- if (!vms->acpi_dev) {
- error_setg(errp,
- "memory hotplug is not enabled: missing acpi-ged device");
- return;
- }
-
- if (vms->mte) {
- error_setg(errp, "memory hotplug is not enabled: MTE is enabled");
- return;
- }
-
- if (is_nvdimm && !ms->nvdimms_state->is_enabled) {
- error_setg(errp, "nvdimm is not enabled: add 'nvdimm=on' to '-M'");
- return;
- }
-
- pc_dimm_pre_plug(PC_DIMM(dev), MACHINE(hotplug_dev), errp);
-}
-
-static void virt_memory_plug(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
-
- pc_dimm_plug(PC_DIMM(dev), MACHINE(vms));
-
-#ifdef CONFIG_NVDIMM
- MachineState *ms = MACHINE(hotplug_dev);
- bool is_nvdimm = object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM);
-
- if (is_nvdimm) {
- nvdimm_plug(ms->nvdimms_state);
- }
-#endif
-
- hotplug_handler_plug(HOTPLUG_HANDLER(vms->acpi_dev),
- dev, &error_abort);
-}
-
 static void virt_machine_device_pre_plug_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
  VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
 
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_memory_pre_plug(hotplug_dev, dev, errp);
- } else if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
+ if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
  hwaddr db_start = 0, db_end = 0;
  QList *reserved_regions;
  char *resv_prop_str;
@@ -3090,10 +2821,6 @@ static void virt_machine_device_plug_cb(HotplugHandler *hotplug_dev,
  }
  }
 
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_memory_plug(hotplug_dev, dev, errp);
- }
-
  if (object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
  PCIDevice *pdev = PCI_DEVICE(dev);
 
@@ -3103,64 +2830,18 @@ static void virt_machine_device_plug_cb(HotplugHandler *hotplug_dev,
  }
 }
 
-static void virt_dimm_unplug_request(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
-
- if (!vms->acpi_dev) {
- error_setg(errp,
- "memory hotplug is not enabled: missing acpi-ged device");
- return;
- }
-
- if (object_dynamic_cast(OBJECT(dev), TYPE_NVDIMM)) {
- error_setg(errp, "nvdimm device hot unplug is not supported yet.");
- return;
- }
-
- hotplug_handler_unplug_request(HOTPLUG_HANDLER(vms->acpi_dev), dev,
- errp);
-}
-
-static void virt_dimm_unplug(HotplugHandler *hotplug_dev,
- DeviceState *dev, Error **errp)
-{
- VirtMachineState *vms = VIRT_MACHINE(hotplug_dev);
- Error *local_err = NULL;
-
- hotplug_handler_unplug(HOTPLUG_HANDLER(vms->acpi_dev), dev, &local_err);
- if (local_err) {
- goto out;
- }
-
- pc_dimm_unplug(PC_DIMM(dev), MACHINE(vms));
- qdev_unrealize(dev);
-
-out:
- error_propagate(errp, local_err);
-}
-
 static void virt_machine_device_unplug_request_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_dimm_unplug_request(hotplug_dev, dev, errp);
- } else {
  error_setg(errp, "device unplug request for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
- }
 }
 
 static void virt_machine_device_unplug_cb(HotplugHandler *hotplug_dev,
  DeviceState *dev, Error **errp)
 {
- if (object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM)) {
- virt_dimm_unplug(hotplug_dev, dev, errp);
- } else {
  error_setg(errp, "virt: device unplug for unsupported device"
  " type: %s", object_get_typename(OBJECT(dev)));
- }
 }
 
 static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
@@ -3169,7 +2850,6 @@ static HotplugHandler *virt_machine_get_hotplug_handler(MachineState *machine,
  MachineClass *mc = MACHINE_GET_CLASS(machine);
 
  if (device_is_dynamic_sysbus(mc, dev) ||
- object_dynamic_cast(OBJECT(dev), TYPE_PC_DIMM) ||
  object_dynamic_cast(OBJECT(dev), TYPE_VIRTIO_IOMMU_PCI)) {
  return HOTPLUG_HANDLER(machine);
  }
@@ -3236,7 +2916,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  mc->init = machvirt_init;
 
  mc->max_cpus = 512;
- machine_class_allow_dynamic_sysbus_dev(mc, TYPE_RAMFB_DEVICE);
 #ifdef CONFIG_TPM
  machine_class_allow_dynamic_sysbus_dev(mc, TYPE_TPM_TIS_SYSBUS);
 #endif
@@ -3262,9 +2941,7 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  hc->plug = virt_machine_device_plug_cb;
  hc->unplug_request = virt_machine_device_unplug_request_cb;
  hc->unplug = virt_machine_device_unplug_cb;
- mc->nvdimm_supported = true;
  mc->smp_props.clusters_supported = true;
- mc->auto_enable_numa_with_memhp = true;
  mc->auto_enable_numa_with_memdev = true;
 
  mc->cpu_cluster_has_numa_boundary = true;
@@ -3381,22 +3058,6 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
  object_class_property_set_description(oc, "dtb-kaslr-seed",
  "Deprecated synonym of dtb-randomness");
 
- object_class_property_add_str(oc, "x-oem-id",
- virt_get_oem_id,
- virt_set_oem_id);
- object_class_property_set_description(oc, "x-oem-id",
- "Override the default value of field OEMID "
- "in ACPI table header."
- "The string may be up to 6 bytes in size");
-
- object_class_property_add_str(oc, "x-oem-table-id",
- virt_get_oem_table_id,
- virt_set_oem_table_id);
- object_class_property_set_description(oc, "x-oem-table-id",
- "Override the default value of field OEM Table ID "
- "in ACPI table header."
- "The string may be up to 8 bytes in size");
-
 }
 
 static void virt_instance_init(Object *obj)
@@ -3441,8 +3102,6 @@ static void virt_instance_init(Object *obj)
 
  vms->irqmap = a15irqmap;
 
- vms->oem_id = g_strndup(ACPI_BUILD_APPNAME6, 6);
- vms->oem_table_id = g_strndup(ACPI_BUILD_APPNAME8, 8);
 }
 
 static const TypeInfo virt_machine_info = {

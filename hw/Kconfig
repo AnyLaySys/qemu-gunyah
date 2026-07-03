@@ -1,20 +1,15 @@
-source acpi/Kconfig
 source audio/Kconfig
 source block/Kconfig
 source char/Kconfig
 source core/Kconfig
 source display/Kconfig
-source gpio/Kconfig
 source input/Kconfig
 source intc/Kconfig
-source mem/Kconfig
-source misc/Kconfig
 source net/Kconfig
 source nvram/Kconfig
 source pci-host/Kconfig
 source pci/Kconfig
 source rtc/Kconfig
-source smbios/Kconfig
 source virtio/Kconfig
 
 source arm/Kconfig

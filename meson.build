@@ -1605,9 +1605,6 @@ endif
 
 fdt = not_found
 fdt_opt = get_option('fdt')
-if fdt_opt == 'enabled' and get_option('wrap_mode') == 'nodownload'
-  fdt_opt = 'system'
-endif
 if fdt_opt in ['enabled', 'system'] or (fdt_opt == 'auto' and have_system)
   fdt = cc.find_library('fdt', required: fdt_opt == 'system')
   if fdt.found() and cc.links('''
@@ -1617,7 +1614,7 @@ if fdt_opt in ['enabled', 'system'] or (fdt_opt == 'auto' and have_system)
        dependencies: fdt)
     fdt_opt = 'system'
   elif fdt_opt != 'system'
-    fdt_opt = get_option('wrap_mode') == 'nodownload' ? 'disabled' : 'internal'
+    fdt_opt = 'internal'
     fdt = not_found
   else
     error('system libfdt is too old (1.5.1 or newer required)')
@@ -2877,7 +2874,6 @@ if have_system
   trace_events_subdirs += [
     'audio',
     'backends',
-    'hw/acpi',
     'hw/arm',
     'hw/audio',
     'hw/block',
@@ -2885,16 +2881,12 @@ if have_system
     'hw/display',
     'hw/input',
     'hw/intc',
-    'hw/mem',
-    'hw/misc',
     'hw/net',
     'hw/nvram',
     'hw/pci',
     'hw/pci-host',
     'hw/rtc',
-    'hw/uefi',
     'hw/virtio',
-    'hw/gpio',
     'migration',
     'net',
     'system',

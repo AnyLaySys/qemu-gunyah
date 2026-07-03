@@ -1,8 +1,0 @@
-#ifndef __KVM_VIRTIO_CCW_H
-#define __KVM_VIRTIO_CCW_H
-
-#define KVM_VIRTIO_CCW_RING_ALIGN 4096
-
-#define KVM_S390_VIRTIO_CCW_NOTIFY 3
-
-#endif

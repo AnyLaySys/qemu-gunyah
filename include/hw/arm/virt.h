@@ -43,9 +43,6 @@ enum {
     VIRT_UART1,
     VIRT_SECURE_MEM,
     VIRT_SECURE_GPIO,
-    VIRT_PCDIMM_ACPI,
-    VIRT_ACPI_GED,
-    VIRT_NVDIMM_ACPI,
     VIRT_PVTIME,
     VIRT_LOWMEMMAP_LAST,
 };
@@ -88,13 +85,10 @@ struct VirtMachineClass {
     bool no_tcg_its;
     bool no_pmu;
     bool claim_edge_triggered_timers;
-    bool smbios_old_sys_ver;
     bool no_highmem_compact;
     bool no_highmem_ecam;
-    bool no_ged;   /* Machines < 4.2 have no support for ACPI GED device */
     bool kvm_no_adjvtime;
     bool no_kvm_steal_time;
-    bool acpi_expose_flash;
     bool no_secure_gpio;
     bool no_cpu_topology;
     bool no_tcg_lpa2;
@@ -138,11 +132,8 @@ struct VirtMachineState {
     int psci_conduit;
     hwaddr highest_gpa;
     DeviceState *gic;
-    DeviceState *acpi_dev;
     Notifier powerdown_notifier;
     PCIBus *bus;
-    char *oem_id;
-    char *oem_table_id;
     bool ns_el2_virt_timer_irq;
 };
 
@@ -150,9 +141,6 @@ struct VirtMachineState {
 
 #define TYPE_VIRT_MACHINE   MACHINE_TYPE_NAME("virt")
 OBJECT_DECLARE_TYPE(VirtMachineState, VirtMachineClass, VIRT_MACHINE)
-
-void virt_acpi_setup(VirtMachineState *vms);
-bool virt_is_acpi_enabled(VirtMachineState *vms);
 
 static uint32_t virt_redist_capacity(VirtMachineState *vms, int region)
 {

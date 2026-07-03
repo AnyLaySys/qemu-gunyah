@@ -20,4 +20,3 @@ system_ss.add_all(when: 'CONFIG_VIRTIO', if_true: system_virtio_ss)
 system_ss.add(when: 'CONFIG_VIRTIO', if_false: files('vhost-stub.c'))
 
 specific_ss.add_all(when: 'CONFIG_VIRTIO', if_true: specific_virtio_ss)
-system_ss.add(when: 'CONFIG_ACPI', if_true: files('virtio-acpi.c'))

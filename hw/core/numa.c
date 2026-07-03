@@ -10,9 +10,7 @@
 #include "qapi/opts-visitor.h"
 #include "qapi/qapi-visit-machine.h"
 #include "hw/core/cpu.h"
-#include "hw/mem/pc-dimm.h"
 #include "hw/boards.h"
-#include "hw/mem/memory-device.h"
 #include "qemu/option.h"
 #include "qemu/config-file.h"
 #include "qemu/cutils.h"
@@ -654,47 +652,6 @@ void numa_cpu_pre_plug(const CPUArchId *slot, DeviceState *dev, Error **errp)
 
 static void numa_stat_memory_devices(NumaNodeMem node_mem[])
 {
-    MemoryDeviceInfoList *info_list = qmp_memory_device_list();
-    MemoryDeviceInfoList *info;
-    PCDIMMDeviceInfo     *pcdimm_info;
-    VirtioPMEMDeviceInfo *vpi;
-    VirtioMEMDeviceInfo *vmi;
-    SgxEPCDeviceInfo *se;
-
-    for (info = info_list; info; info = info->next) {
-        MemoryDeviceInfo *value = info->value;
-
-        if (value) {
-            switch (value->type) {
-            case MEMORY_DEVICE_INFO_KIND_DIMM:
-            case MEMORY_DEVICE_INFO_KIND_NVDIMM:
-                pcdimm_info = value->type == MEMORY_DEVICE_INFO_KIND_DIMM ?
-                              value->u.dimm.data : value->u.nvdimm.data;
-                node_mem[pcdimm_info->node].node_mem += pcdimm_info->size;
-                node_mem[pcdimm_info->node].node_plugged_mem +=
-                    pcdimm_info->size;
-                break;
-            case MEMORY_DEVICE_INFO_KIND_VIRTIO_PMEM:
-                vpi = value->u.virtio_pmem.data;
-                node_mem[0].node_mem += vpi->size;
-                node_mem[0].node_plugged_mem += vpi->size;
-                break;
-            case MEMORY_DEVICE_INFO_KIND_VIRTIO_MEM:
-                vmi = value->u.virtio_mem.data;
-                node_mem[vmi->node].node_mem += vmi->size;
-                node_mem[vmi->node].node_plugged_mem += vmi->size;
-                break;
-            case MEMORY_DEVICE_INFO_KIND_SGX_EPC:
-                se = value->u.sgx_epc.data;
-                node_mem[se->node].node_mem += se->size;
-                node_mem[se->node].node_plugged_mem = 0;
-                break;
-            default:
-                g_assert_not_reached();
-            }
-        }
-    }
-    qapi_free_MemoryDeviceInfoList(info_list);
 }
 
 void query_numa_node_mem(NumaNodeMem node_mem[], MachineState *ms)

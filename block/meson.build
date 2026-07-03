@@ -5,18 +5,10 @@ block_ss.add(files(
   'block-backend.c',
   'graph-lock.c',
   'io.c',
-  'null.c',
   'progress_meter.c',
-  'crypto.c',
-  'qcow2.c',
-  'qcow2-cache.c',
-  'qcow2-cluster.c',
-  'qcow2-refcount.c',
-  'qcow2-snapshot.c',
-  'qcow2-threads.c',
   'raw-format.c',
   'reqlist.c',
-), zstd, zlib)
+))
 
 system_ss.add(files('block-ram-registrar.c'))
 

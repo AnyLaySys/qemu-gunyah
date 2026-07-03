@@ -46,11 +46,8 @@ qapi_all_modules = [
 ]
 if have_system
   qapi_all_modules += [
-    'acpi',
     'audio',
     'qdev',
-    'tpm',
-    'uefi',
   ]
 endif
 if have_system or have_tools

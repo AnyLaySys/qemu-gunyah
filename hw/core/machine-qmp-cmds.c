@@ -1,8 +1,6 @@
 #include "qemu/osdep.h"
-#include "hw/acpi/vmgenid.h"
 #include "hw/boards.h"
 #include "hw/intc/intc.h"
-#include "hw/mem/memory-device.h"
 #include "qapi/error.h"
 #include "qapi/qapi-builtin-visit.h"
 #include "qapi/qapi-commands-machine.h"
@@ -231,16 +229,15 @@ void qmp_system_wakeup(Error **errp)
 }
 MemoryDeviceInfoList *qmp_query_memory_devices(Error **errp)
 {
-    return qmp_memory_device_list();
+    return NULL;
 }
 MemoryInfo *qmp_query_memory_size_summary(Error **errp)
 {
     MemoryInfo *mem_info = g_new0(MemoryInfo, 1);
     MachineState *ms = MACHINE(qdev_get_machine());
     mem_info->base_memory = ms->ram_size;
-    mem_info->plugged_memory = get_plugged_memory_size();
-    mem_info->has_plugged_memory =
-        mem_info->plugged_memory != (uint64_t)-1;
+    mem_info->plugged_memory = 0;
+    mem_info->has_plugged_memory = true;
     return mem_info;
 }
 HumanReadableText *qmp_x_query_ramblock(Error **errp)
@@ -312,15 +309,6 @@ HumanReadableText *qmp_x_query_interrupt_controllers(Error **errp)
 }
 GuidInfo *qmp_query_vm_generation_id(Error **errp)
 {
-    GuidInfo *info;
-    VmGenIdState *vms;
-    Object *obj = find_vmgenid_dev();
-    if (!obj) {
-        error_setg(errp, "VM Generation ID device not found");
-        return NULL;
-    }
-    vms = VMGENID(obj);
-    info = g_malloc0(sizeof(*info));
-    info->guid = qemu_uuid_unparse_strdup(&vms->guid);
-    return info;
+    error_setg(errp, "VM Generation ID device not available in this build");
+    return NULL;
 }

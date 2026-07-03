@@ -27,8 +27,6 @@
 #include "qemu/sockets.h"
 #include "qemu/accel.h"
 #include "hw/scsi/scsi.h"
-#include "hw/firmware/smbios.h"
-#include "hw/acpi/acpi.h"
 #include "hw/loader.h"
 #include "monitor/qdev.h"
 #include "net/net.h"
@@ -2607,20 +2605,12 @@ void qemu_init(int argc, char **argv)
                 object_register_sugar_prop("ide-device", "win2k-install-hack", "true", true);
                 break;
             case QEMU_OPTION_acpitable:
-                opts = qemu_opts_parse_noisily(qemu_find_opts("acpi"),
-                                               optarg, true);
-                if (!opts) {
-                    exit(1);
-                }
-                acpi_table_add(opts, &error_fatal);
+                error_report("-acpitable is not available in this trimmed build");
+                exit(1);
                 break;
             case QEMU_OPTION_smbios:
-                opts = qemu_opts_parse_noisily(qemu_find_opts("smbios"),
-                                               optarg, false);
-                if (!opts) {
-                    exit(1);
-                }
-                smbios_entry_add(opts, &error_fatal);
+                error_report("-smbios is not available in this trimmed build");
+                exit(1);
                 break;
             case QEMU_OPTION_fwcfg:
                 opts = qemu_opts_parse_noisily(qemu_find_opts("fw_cfg"),
