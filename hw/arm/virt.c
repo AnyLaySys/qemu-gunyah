@@ -3127,5 +3127,5 @@ type_init(machvirt_machine_init);
 static void virt_machine_26_6_options(MachineClass *mc)
 {
 }
-DEFINE_VIRT_MACHINE_AS_LATEST(26, 6)
+DEFINE_VIRT_MACHINE_AS_LATEST(26, 7)
 
