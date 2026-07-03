@@ -7,6 +7,7 @@
 #include "ui/console.h"
 #include "hw/virtio/virtio.h"
 #include "qemu/log.h"
+#include "qemu/timer.h"
 
 #include "standard-headers/linux/virtio_gpu.h"
 #include "standard-headers/linux/virtio_ids.h"
@@ -38,9 +39,15 @@ struct virtio_gpu_simple_resource {
     int dmabuf_fd;
     uint8_t *remapped;
     bool virgl;
+    MemoryRegion *hostmem_mr;
+    void *hostmem_fixed;
+    uint64_t hostmem_offset;
+    uint64_t hostmem_map_size;
 
     QTAILQ_ENTRY(virtio_gpu_simple_resource) next;
 };
+
+struct virtio_gpu_gl_fence;
 
 struct virtio_gpu_framebuffer {
     pixman_format_code_t format;
@@ -77,6 +84,7 @@ enum virtio_gpu_base_conf_flags {
     VIRTIO_GPU_FLAG_CONTEXT_INIT_ENABLED,
     VIRTIO_GPU_FLAG_RESOURCE_UUID_ENABLED,
     VIRTIO_GPU_FLAG_VIRGL_ENABLED,
+    VIRTIO_GPU_FLAG_VENUS_ENABLED,
 };
 
 #define virtio_gpu_stats_enabled(_cfg) \
@@ -95,6 +103,8 @@ enum virtio_gpu_base_conf_flags {
     (_cfg.hostmem > 0)
 #define virtio_gpu_virgl_enabled(_cfg) \
     (_cfg.flags & (1 << VIRTIO_GPU_FLAG_VIRGL_ENABLED))
+#define virtio_gpu_venus_enabled(_cfg) \
+    (_cfg.flags & (1 << VIRTIO_GPU_FLAG_VENUS_ENABLED))
 
 struct virtio_gpu_base_conf {
     uint32_t max_outputs;
@@ -185,6 +195,11 @@ struct VirtIOGPU {
 
     GArray *capset_ids;
     bool virgl_inited;
+    QEMUTimer *fence_poll;
+    QSLIST_HEAD(, virtio_gpu_gl_fence) async_fenceq;
+    QEMUBH *async_fence_bh;
+    void *hostmem_mmap;
+    MemoryRegion hostmem_background;
 };
 
 struct VirtIOGPUClass {

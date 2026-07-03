@@ -1451,10 +1451,18 @@ void virtio_gpu_device_realize(DeviceState *qdev, Error **errp)
     VirtIOGPU *g = VIRTIO_GPU(qdev);
 
     if (virtio_gpu_blob_enabled(g->parent_obj.conf)) {
-        if (!virtio_gpu_have_udmabuf()) {
-            error_setg(errp, "need udmabuf for blob resources");
+        if (!virtio_gpu_virgl_enabled(g->parent_obj.conf) &&
+            !virtio_gpu_have_udmabuf()) {
+            error_setg(errp, "need virgl or udmabuf for blob resources");
             return;
         }
+    }
+
+    if (virtio_gpu_venus_enabled(g->parent_obj.conf) &&
+        (!virtio_gpu_blob_enabled(g->parent_obj.conf) ||
+         !virtio_gpu_hostmem_enabled(g->parent_obj.conf))) {
+        error_setg(errp, "venus requires enabled blob and hostmem options");
+        return;
     }
 
     if (!virtio_gpu_base_device_realize(qdev,

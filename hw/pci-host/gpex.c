@@ -8,6 +8,8 @@
 #include "hw/qdev-properties.h"
 #include "state/vmstate.h"
 #include "qemu/module.h"
+#include "system/gunyah.h"
+#include "system/gunyah_int.h"
 
 
 struct GPEXIrq {
@@ -18,6 +20,16 @@ struct GPEXIrq {
 static void gpex_set_irq(void *opaque, int irq_num, int level)
 {
     GPEXHost *s = opaque;
+
+    if (gunyah_enabled()) {
+        static int gh_gpex_irq_count;
+        if (gh_gpex_irq_count < 256) {
+            gh_report("GHDBG gpex-intx irq_index=%d mapped_spi=%d "
+                      "level=%d",
+                      irq_num, s->irq[irq_num].irq_num, level);
+            gh_gpex_irq_count++;
+        }
+    }
 
     qemu_set_irq(s->irq[irq_num].irq, level);
 }

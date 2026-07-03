@@ -13,6 +13,8 @@
 #include "net/net.h"
 #include "system/runstate.h"
 #include "system/system.h"
+#include "system/gunyah.h"
+#include "system/gunyah_int.h"
 #include "hw/loader.h"
 #include "qemu/error-report.h"
 #include "qemu/range.h"
@@ -1411,6 +1413,21 @@ static void pci_irq_handler(void *opaque, int irq_num, int level)
     change = level - pci_irq_state(pci_dev, irq_num);
     if (!change)
         return;
+
+    if (gunyah_enabled()) {
+        static int gh_pci_irq_count;
+        if (gh_pci_irq_count < 256) {
+            gh_report("GHDBG pci-intx devfn=0x%x irq_num=%d level=%d "
+                      "change=%d vendor=0x%04x device=0x%04x "
+                      "cmd=0x%04x intx_disabled=%d",
+                      pci_dev->devfn, irq_num, level, change,
+                      pci_get_word(pci_dev->config + PCI_VENDOR_ID),
+                      pci_get_word(pci_dev->config + PCI_DEVICE_ID),
+                      pci_get_word(pci_dev->config + PCI_COMMAND),
+                      pci_irq_disabled(pci_dev));
+            gh_pci_irq_count++;
+        }
+    }
 
     pci_set_irq_state(pci_dev, irq_num, level);
     pci_update_irq_status(pci_dev);

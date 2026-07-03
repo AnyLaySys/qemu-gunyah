@@ -21,6 +21,13 @@ static void virtio_gpu_gl_pci_base_realize(VirtIOPCIProxy *vpci_dev,
     DeviceState *vdev = DEVICE(g);
     int i;
 
+    if (virtio_gpu_venus_enabled(g->conf)) {
+        g->conf.flags |= 1 << VIRTIO_GPU_FLAG_BLOB_ENABLED;
+        if (!g->conf.hostmem) {
+            g->conf.hostmem = 256ULL * 1024 * 1024;
+        }
+    }
+
     if (virtio_gpu_hostmem_enabled(g->conf)) {
         vpci_dev->msix_bar_idx = 1;
         vpci_dev->modern_mem_bar_idx = 2;
@@ -80,10 +87,15 @@ typedef struct VirtIOGPUGLPCI {
 static void virtio_gpu_gl_initfn(Object *obj)
 {
     VirtIOGPUGLPCI *dev = (VirtIOGPUGLPCI *)obj;
+    VirtIOGPU *g = &dev->vdev;
 
-    virtio_instance_init_common(obj, &dev->vdev, sizeof(dev->vdev),
-                                TYPE_VIRTIO_GPU_GL);
-    VIRTIO_GPU_GL_PCI_BASE(obj)->vgpu = VIRTIO_GPU_BASE(&dev->vdev);
+    virtio_instance_init_common(obj, g, sizeof(*g), TYPE_VIRTIO_GPU_GL);
+    g->parent_obj.conf.flags |= 1 << VIRTIO_GPU_FLAG_VENUS_ENABLED;
+    g->parent_obj.conf.flags |= 1 << VIRTIO_GPU_FLAG_BLOB_ENABLED;
+    if (!g->parent_obj.conf.hostmem) {
+        g->parent_obj.conf.hostmem = 256ULL * 1024 * 1024;
+    }
+    VIRTIO_GPU_GL_PCI_BASE(obj)->vgpu = VIRTIO_GPU_BASE(g);
 }
 
 static const VirtioPCIDeviceTypeInfo virtio_gpu_gl_pci_info = {

@@ -60,6 +60,18 @@ static void gunyah_arm_gicv3_set_irq(void *opaque, int irq, int level)
 {
     GICv3State *s = (GICv3State *)opaque;
 
+    if (gunyah_enabled()) {
+        static int gh_gic_irq_count;
+        if (gh_gic_irq_count < 512) {
+            gh_report("GHDBG gic set-irq spi=%d level=%d "
+                      "notify_count=%d guest_spi_limit=%d has_notifier=%d",
+                      irq, level, irq_notify_count,
+                      s->num_irq - GIC_INTERNAL,
+                      irq_notify && irq < irq_notify_count);
+            gh_gic_irq_count++;
+        }
+    }
+
     if (!irq_notify || irq_notify_count == 0) {
         return;
     }

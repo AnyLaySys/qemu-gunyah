@@ -50,17 +50,86 @@ static inline VirtIOPCIProxy *to_virtio_pci_proxy_fast(DeviceState *d)
     return container_of(d, VirtIOPCIProxy, pci_dev.qdev);
 }
 
+static const char *gh_vdev_name(VirtIODevice *vdev)
+{
+    return vdev && vdev->name ? vdev->name : "?";
+}
+
+static const char *gh_common_reg_name(hwaddr addr)
+{
+    switch (addr) {
+    case VIRTIO_PCI_COMMON_DFSELECT:
+        return "dfselect";
+    case VIRTIO_PCI_COMMON_DF:
+        return "device_feature";
+    case VIRTIO_PCI_COMMON_GFSELECT:
+        return "gfselect";
+    case VIRTIO_PCI_COMMON_GF:
+        return "guest_feature";
+    case VIRTIO_PCI_COMMON_MSIX:
+        return "config_msix";
+    case VIRTIO_PCI_COMMON_NUMQ:
+        return "num_queues";
+    case VIRTIO_PCI_COMMON_STATUS:
+        return "status";
+    case VIRTIO_PCI_COMMON_CFGGENERATION:
+        return "cfg_generation";
+    case VIRTIO_PCI_COMMON_Q_SELECT:
+        return "queue_select";
+    case VIRTIO_PCI_COMMON_Q_SIZE:
+        return "queue_size";
+    case VIRTIO_PCI_COMMON_Q_MSIX:
+        return "queue_msix";
+    case VIRTIO_PCI_COMMON_Q_ENABLE:
+        return "queue_enable";
+    case VIRTIO_PCI_COMMON_Q_NOFF:
+        return "queue_notify_off";
+    case VIRTIO_PCI_COMMON_Q_DESCLO:
+        return "queue_desc_lo";
+    case VIRTIO_PCI_COMMON_Q_DESCHI:
+        return "queue_desc_hi";
+    case VIRTIO_PCI_COMMON_Q_AVAILLO:
+        return "queue_avail_lo";
+    case VIRTIO_PCI_COMMON_Q_AVAILHI:
+        return "queue_avail_hi";
+    case VIRTIO_PCI_COMMON_Q_USEDLO:
+        return "queue_used_lo";
+    case VIRTIO_PCI_COMMON_Q_USEDHI:
+        return "queue_used_hi";
+    case VIRTIO_PCI_COMMON_Q_RESET:
+        return "queue_reset";
+    default:
+        return "unknown";
+    }
+}
+
 static void virtio_pci_notify(DeviceState *d, uint16_t vector)
 {
     VirtIOPCIProxy *proxy = to_virtio_pci_proxy_fast(d);
+    VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
 
     if (msix_enabled(&proxy->pci_dev)) {
+        static int gh_msix_notify_count;
+        if (gunyah_enabled() && gh_msix_notify_count < 128) {
+            gh_report("GHDBG virtio-pci notify dev=%s vector=%u via msix",
+                      gh_vdev_name(vdev), vector);
+            gh_msix_notify_count++;
+        }
         if (vector != VIRTIO_NO_VECTOR) {
             msix_notify(&proxy->pci_dev, vector);
         }
     } else {
-        VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
-        pci_set_irq(&proxy->pci_dev, qatomic_read(&vdev->isr) & 1);
+        int level = vdev ? (qatomic_read(&vdev->isr) & 1) : 0;
+        static int gh_intx_notify_count;
+        if (gunyah_enabled() && gh_intx_notify_count < 256) {
+            gh_report("GHDBG virtio-pci notify dev=%s vector=%u via intx "
+                      "isr=0x%x level=%d status=0x%x intx_pin=%d",
+                      gh_vdev_name(vdev), vector, vdev ? qatomic_read(&vdev->isr) : 0,
+                      level, vdev ? vdev->status : 0,
+                      pci_intx(&proxy->pci_dev));
+            gh_intx_notify_count++;
+        }
+        pci_set_irq(&proxy->pci_dev, level);
     }
 }
 
@@ -1284,6 +1353,33 @@ static void virtio_pci_common_write(void *opaque, hwaddr addr,
         return;
     }
 
+    if (gunyah_enabled()) {
+        static int gh_common_write_count;
+        bool interesting =
+            addr == VIRTIO_PCI_COMMON_STATUS ||
+            addr == VIRTIO_PCI_COMMON_GF ||
+            addr == VIRTIO_PCI_COMMON_Q_SELECT ||
+            addr == VIRTIO_PCI_COMMON_Q_SIZE ||
+            addr == VIRTIO_PCI_COMMON_Q_MSIX ||
+            addr == VIRTIO_PCI_COMMON_Q_ENABLE ||
+            addr == VIRTIO_PCI_COMMON_Q_DESCLO ||
+            addr == VIRTIO_PCI_COMMON_Q_DESCHI ||
+            addr == VIRTIO_PCI_COMMON_Q_AVAILLO ||
+            addr == VIRTIO_PCI_COMMON_Q_AVAILHI ||
+            addr == VIRTIO_PCI_COMMON_Q_USEDLO ||
+            addr == VIRTIO_PCI_COMMON_Q_USEDHI ||
+            addr == VIRTIO_PCI_COMMON_Q_RESET;
+        if (interesting && gh_common_write_count < 512) {
+            gh_report("GHDBG virtio-pci common-write dev=%s reg=%s "
+                      "addr=0x%"HWADDR_PRIx" val=0x%"PRIx64" size=%u "
+                      "qsel=%u status=0x%x features=0x%"PRIx64,
+                      gh_vdev_name(vdev), gh_common_reg_name(addr), addr, val,
+                      size, vdev->queue_sel, vdev->status,
+                      vdev->guest_features);
+            gh_common_write_count++;
+        }
+    }
+
     switch (addr) {
     case VIRTIO_PCI_COMMON_DFSELECT:
         proxy->dfselect = val;
@@ -1366,6 +1462,24 @@ static void virtio_pci_common_write(void *opaque, hwaddr addr,
             proxy->vqs[vdev->queue_sel].enabled = 1;
             proxy->vqs[vdev->queue_sel].reset = 0;
             virtio_queue_enable(vdev, vdev->queue_sel);
+            if (gunyah_enabled()) {
+                static int gh_qenable_count;
+                if (gh_qenable_count < 64) {
+                    uint64_t desc = ((uint64_t)proxy->vqs[vdev->queue_sel].desc[1] << 32) |
+                                    proxy->vqs[vdev->queue_sel].desc[0];
+                    uint64_t avail = ((uint64_t)proxy->vqs[vdev->queue_sel].avail[1] << 32) |
+                                     proxy->vqs[vdev->queue_sel].avail[0];
+                    uint64_t used = ((uint64_t)proxy->vqs[vdev->queue_sel].used[1] << 32) |
+                                    proxy->vqs[vdev->queue_sel].used[0];
+                    gh_report("GHDBG virtio-pci queue-enabled dev=%s q=%u "
+                              "num=%u desc=0x%"PRIx64" avail=0x%"PRIx64
+                              " used=0x%"PRIx64,
+                              gh_vdev_name(vdev), vdev->queue_sel,
+                              proxy->vqs[vdev->queue_sel].num,
+                              desc, avail, used);
+                    gh_qenable_count++;
+                }
+            }
         } else {
             virtio_error(vdev, "wrong value for queue_enable %"PRIx64, val);
         }
@@ -1424,6 +1538,18 @@ static void virtio_pci_notify_write(void *opaque, hwaddr addr,
     unsigned queue = addr / virtio_pci_queue_mem_mult(proxy);
 
     if (vdev != NULL && queue < VIRTIO_QUEUE_MAX) {
+        if (gunyah_enabled()) {
+            static int gh_notify_write_count;
+            if (gh_notify_write_count < 256) {
+                gh_report("GHDBG virtio-pci notify-write dev=%s queue=%u "
+                          "addr=0x%"HWADDR_PRIx" val=0x%"PRIx64" size=%u "
+                          "qnum=%d last_avail=%u",
+                          gh_vdev_name(vdev), queue, addr, val, size,
+                          virtio_queue_get_num(vdev, queue),
+                          virtio_queue_get_last_avail_idx(vdev, queue));
+                gh_notify_write_count++;
+            }
+        }
         trace_virtio_pci_notify_write(addr, val, size);
         virtio_queue_notify(vdev, queue);
     }
@@ -1438,6 +1564,15 @@ static void virtio_pci_notify_write_pio(void *opaque, hwaddr addr,
     unsigned queue = val;
 
     if (vdev != NULL && queue < VIRTIO_QUEUE_MAX) {
+        if (gunyah_enabled()) {
+            static int gh_notify_pio_count;
+            if (gh_notify_pio_count < 256) {
+                gh_report("GHDBG virtio-pci notify-pio dev=%s queue=%u "
+                          "addr=0x%"HWADDR_PRIx" val=0x%"PRIx64" size=%u",
+                          gh_vdev_name(vdev), queue, addr, val, size);
+                gh_notify_pio_count++;
+            }
+        }
         trace_virtio_pci_notify_write_pio(addr, val, size);
         virtio_queue_notify(vdev, queue);
     }
@@ -1455,6 +1590,15 @@ static uint64_t virtio_pci_isr_read(void *opaque, hwaddr addr,
     }
 
     val = qatomic_xchg(&vdev->isr, 0);
+    if (gunyah_enabled()) {
+        static int gh_isr_read_count;
+        if (gh_isr_read_count < 256) {
+            gh_report("GHDBG virtio-pci isr-read dev=%s val=0x%"PRIx64
+                      " addr=0x%"HWADDR_PRIx" size=%u",
+                      gh_vdev_name(vdev), val, addr, size);
+            gh_isr_read_count++;
+        }
+    }
     pci_irq_deassert(&proxy->pci_dev);
     return val;
 }

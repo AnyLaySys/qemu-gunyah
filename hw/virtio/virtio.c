@@ -18,6 +18,8 @@
 #include "hw/virtio/virtio-access.h"
 #include "system/dma.h"
 #include "system/runstate.h"
+#include "system/gunyah.h"
+#include "system/gunyah_int.h"
 
 #include "standard-headers/linux/virtio_ids.h"
 #include "standard-headers/linux/virtio_blk.h"
@@ -2380,6 +2382,16 @@ static void virtio_notify_irqfd_deferred_fn(void *opaque)
     VirtQueue *vq = container_of(notifier, VirtQueue, guest_notifier);
 
     trace_virtio_notify_irqfd_deferred_fn(vq->vdev, vq);
+    if (gunyah_enabled()) {
+        static int gh_irqfd_deferred_count;
+        if (gh_irqfd_deferred_count < 256) {
+            gh_report("GHDBG virtio notify-irqfd-deferred vdev=%p vq=%p "
+                      "qidx=%u isr=0x%x",
+                      vq->vdev, vq, vq->queue_index,
+                      qatomic_read(&vq->vdev->isr));
+            gh_irqfd_deferred_count++;
+        }
+    }
     event_notifier_set(notifier);
 }
 
@@ -2387,11 +2399,30 @@ void virtio_notify_irqfd(VirtIODevice *vdev, VirtQueue *vq)
 {
     WITH_RCU_READ_LOCK_GUARD() {
         if (!virtio_should_notify(vdev, vq)) {
+            if (gunyah_enabled()) {
+                static int gh_irqfd_suppressed_count;
+                if (gh_irqfd_suppressed_count < 128) {
+                    gh_report("GHDBG virtio notify-irqfd suppressed "
+                              "vdev=%p vq=%p qidx=%u status=0x%x",
+                              vdev, vq, vq->queue_index, vdev->status);
+                    gh_irqfd_suppressed_count++;
+                }
+            }
             return;
         }
     }
 
     trace_virtio_notify_irqfd(vdev, vq);
+    if (gunyah_enabled()) {
+        static int gh_irqfd_count;
+        if (gh_irqfd_count < 256) {
+            gh_report("GHDBG virtio notify-irqfd vdev=%p vq=%p qidx=%u "
+                      "status=0x%x old_isr=0x%x",
+                      vdev, vq, vq->queue_index, vdev->status,
+                      qatomic_read(&vdev->isr));
+            gh_irqfd_count++;
+        }
+    }
 
     virtio_set_isr(vq->vdev, 0x1);
     defer_call(virtio_notify_irqfd_deferred_fn, &vq->guest_notifier);
@@ -2407,11 +2438,30 @@ void virtio_notify(VirtIODevice *vdev, VirtQueue *vq)
 {
     WITH_RCU_READ_LOCK_GUARD() {
         if (!virtio_should_notify(vdev, vq)) {
+            if (gunyah_enabled()) {
+                static int gh_notify_suppressed_count;
+                if (gh_notify_suppressed_count < 128) {
+                    gh_report("GHDBG virtio notify suppressed vdev=%p "
+                              "vq=%p qidx=%u status=0x%x",
+                              vdev, vq, vq->queue_index, vdev->status);
+                    gh_notify_suppressed_count++;
+                }
+            }
             return;
         }
     }
 
     trace_virtio_notify(vdev, vq);
+    if (gunyah_enabled()) {
+        static int gh_notify_count;
+        if (gh_notify_count < 256) {
+            gh_report("GHDBG virtio notify vdev=%p vq=%p qidx=%u "
+                      "status=0x%x old_isr=0x%x",
+                      vdev, vq, vq->queue_index, vdev->status,
+                      qatomic_read(&vdev->isr));
+            gh_notify_count++;
+        }
+    }
     virtio_irq(vq);
 }
 

@@ -21,8 +21,42 @@
 #include "hw/virtio/virtio-access.h"
 #include "hw/virtio/virtio-blk-common.h"
 #include "qemu/coroutine.h"
+#include "system/gunyah.h"
+#include "system/gunyah_int.h"
 
 static void virtio_blk_ioeventfd_attach(VirtIOBlock *s);
+
+static const char *gh_virtio_blk_type_name(uint32_t type)
+{
+    switch (type & ~(VIRTIO_BLK_T_OUT | VIRTIO_BLK_T_BARRIER)) {
+    case VIRTIO_BLK_T_IN:
+        return (type & VIRTIO_BLK_T_OUT) ? "write" : "read";
+    case VIRTIO_BLK_T_FLUSH:
+        return "flush";
+    case VIRTIO_BLK_T_GET_ID:
+        return "get-id";
+    case VIRTIO_BLK_T_DISCARD & ~VIRTIO_BLK_T_OUT:
+        return "discard";
+    case VIRTIO_BLK_T_WRITE_ZEROES & ~VIRTIO_BLK_T_OUT:
+        return "write-zeroes";
+    case VIRTIO_BLK_T_ZONE_REPORT:
+        return "zone-report";
+    case VIRTIO_BLK_T_ZONE_OPEN:
+        return "zone-open";
+    case VIRTIO_BLK_T_ZONE_CLOSE:
+        return "zone-close";
+    case VIRTIO_BLK_T_ZONE_FINISH:
+        return "zone-finish";
+    case VIRTIO_BLK_T_ZONE_RESET:
+        return "zone-reset";
+    case VIRTIO_BLK_T_ZONE_RESET_ALL:
+        return "zone-reset-all";
+    case VIRTIO_BLK_T_ZONE_APPEND & ~VIRTIO_BLK_T_OUT:
+        return "zone-append";
+    default:
+        return "unknown";
+    }
+}
 
 static void virtio_blk_init_request(VirtIOBlock *s, VirtQueue *vq,
                                     VirtIOBlockReq *req)
@@ -41,6 +75,16 @@ void virtio_blk_req_complete(VirtIOBlockReq *req, unsigned char status)
     VirtIODevice *vdev = VIRTIO_DEVICE(s);
 
     trace_virtio_blk_req_complete(vdev, req, status);
+    if (gunyah_enabled()) {
+        static int gh_complete_count;
+        if (gh_complete_count < 512) {
+            gh_report("GHDBG virtio-blk complete req=%p vq=%p elem=%u "
+                      "status=%u in_len=%zu in_iothread=%d",
+                      req, req->vq, req->elem.index, status,
+                      req->in_len, qemu_in_iothread());
+            gh_complete_count++;
+        }
+    }
 
     stb_p(&req->in->status, status);
     iov_discard_undo(&req->inhdr_undo);
@@ -88,6 +132,15 @@ static void virtio_blk_rw_complete(void *opaque, int ret)
         VirtIOBlockReq *req = next;
         next = req->mr_next;
         trace_virtio_blk_rw_complete(vdev, req, ret);
+        if (gunyah_enabled()) {
+            static int gh_rw_complete_count;
+            if (gh_rw_complete_count < 512) {
+                gh_report("GHDBG virtio-blk rw-complete req=%p elem=%u "
+                          "ret=%d qiov=%zu",
+                          req, req->elem.index, ret, req->qiov.size);
+                gh_rw_complete_count++;
+            }
+        }
 
         if (req->qiov.nalloc != -1) {
             qemu_iovec_destroy(&req->qiov);
@@ -724,6 +777,20 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb)
                               &req->inhdr_undo);
 
     type = virtio_ldl_p(vdev, &req->out.type);
+    if (gunyah_enabled()) {
+        static int gh_request_count;
+        if (gh_request_count < 512) {
+            uint64_t sector = virtio_ldq_p(vdev, &req->out.sector);
+            gh_report("GHDBG virtio-blk request req=%p elem=%u type=0x%x "
+                      "(%s) sector=%"PRIu64" out_num=%u in_num=%u "
+                      "out_len=%zu in_len=%zu",
+                      req, req->elem.index, type,
+                      gh_virtio_blk_type_name(type), sector,
+                      out_num, in_num, iov_size(out_iov, out_num),
+                      iov_size(in_iov, in_num));
+            gh_request_count++;
+        }
+    }
 
     switch (type & ~(VIRTIO_BLK_T_OUT | VIRTIO_BLK_T_BARRIER)) {
     case VIRTIO_BLK_T_IN:
@@ -850,6 +917,17 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
     VirtIOBlockReq *req;
     MultiReqBuffer mrb = {};
     bool suppress_notifications = virtio_queue_get_notification(vq);
+    unsigned handled = 0;
+
+    if (gunyah_enabled()) {
+        static int gh_vq_begin_count;
+        if (gh_vq_begin_count < 256) {
+            gh_report("GHDBG virtio-blk vq-begin s=%p vq=%p "
+                      "suppress_notifications=%d",
+                      s, vq, suppress_notifications);
+            gh_vq_begin_count++;
+        }
+    }
 
     defer_call_begin();
 
@@ -859,6 +937,7 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
         }
 
         while ((req = virtio_blk_get_request(s, vq))) {
+            handled++;
             if (virtio_blk_handle_request(req, &mrb)) {
                 virtqueue_detach_element(req->vq, &req->elem, 0);
                 g_free(req);
@@ -876,11 +955,32 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
     }
 
     defer_call_end();
+
+    if (gunyah_enabled()) {
+        static int gh_vq_end_count;
+        if (gh_vq_end_count < 256) {
+            gh_report("GHDBG virtio-blk vq-end s=%p vq=%p handled=%u "
+                      "merged_left=%d",
+                      s, vq, handled, mrb.num_reqs);
+            gh_vq_end_count++;
+        }
+    }
 }
 
 static void virtio_blk_handle_output(VirtIODevice *vdev, VirtQueue *vq)
 {
     VirtIOBlock *s = (VirtIOBlock *)vdev;
+
+    if (gunyah_enabled()) {
+        static int gh_output_count;
+        if (gh_output_count < 256) {
+            gh_report("GHDBG virtio-blk output vdev=%p vq=%p "
+                      "ioeventfd_disabled=%d ioeventfd_started=%d",
+                      vdev, vq, s->ioeventfd_disabled,
+                      s->ioeventfd_started);
+            gh_output_count++;
+        }
+    }
 
     if (!s->ioeventfd_disabled && !s->ioeventfd_started) {
         virtio_device_start_ioeventfd(vdev);
