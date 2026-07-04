@@ -1,0 +1,4 @@
+config VIRTIO_INPUT
+    bool
+    default y
+    depends on VIRTIO

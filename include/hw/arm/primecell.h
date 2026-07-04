@@ -1,0 +1,8 @@
+#ifndef PRIMECELL_H
+#define PRIMECELL_H
+
+
+#define ARM_SYSCTL_GPIO_MMC_WPROT 0
+#define ARM_SYSCTL_GPIO_MMC_CARDIN 1
+
+#endif

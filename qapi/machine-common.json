@@ -1,0 +1,19 @@
+
+
+{ 'enum': 'S390CpuEntitlement',
+  'data': [ 'auto', 'low', 'medium', 'high' ] }
+
+{ 'enum': 'CpuTopologyLevel',
+  'data': [ 'thread', 'core', 'module', 'cluster', 'die',
+            'socket', 'book', 'drawer', 'default' ] }
+
+{ 'enum': 'CacheLevelAndType',
+  'data': [ 'l1d', 'l1i', 'l2', 'l3' ] }
+
+{ 'struct': 'SmpCacheProperties',
+  'data': {
+  'cache': 'CacheLevelAndType',
+  'topology': 'CpuTopologyLevel' } }
+
+{ 'struct': 'SmpCachePropertiesWrapper',
+  'data': { 'caches': ['SmpCacheProperties'] } }

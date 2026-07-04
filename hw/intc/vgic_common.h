@@ -1,0 +1,5 @@
+
+#ifndef QEMU_ARM_VGIC_COMMON_H
+#define QEMU_ARM_VGIC_COMMON_H
+
+#endif

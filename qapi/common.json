@@ -1,0 +1,35 @@
+
+
+{ 'enum': 'IoOperationType',
+  'data': [ 'read', 'write' ] }
+
+{ 'enum': 'OnOffAuto',
+  'data': [ 'auto', 'on', 'off' ] }
+
+{ 'enum': 'OnOffSplit',
+  'data': [ 'on', 'off', 'split' ] }
+
+{ 'alternate': 'StrOrNull',
+  'data': { 's': 'str',
+            'n': 'null' } }
+
+{ 'enum': 'OffAutoPCIBAR',
+  'data': [ 'off', 'auto', 'bar0', 'bar1', 'bar2', 'bar3', 'bar4', 'bar5' ] }
+
+{ 'enum': 'PCIELinkSpeed',
+  'data': [ '2_5', '5', '8', '16', '32', '64' ] }
+
+{ 'enum': 'PCIELinkWidth',
+  'data': [ '1', '2', '4', '8', '12', '16', '32' ] }
+
+{ 'enum': 'HostMemPolicy',
+  'data': [ 'default', 'preferred', 'bind', 'interleave' ] }
+
+{ 'enum': 'NetFilterDirection',
+  'data': [ 'all', 'rx', 'tx' ] }
+
+{ 'struct': 'HumanReadableText',
+  'data': { 'human-readable-text': 'str' } }
+
+{ 'enum': 'EndianMode',
+  'data': [ 'unspecified', 'little', 'big' ] }

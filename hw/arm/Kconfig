@@ -1,0 +1,15 @@
+config ARM_VIRT
+    bool
+    default y
+    depends on ARM
+    depends on GH || TCG
+    select ARM_GIC
+    select DEVICE_TREE
+    select PCI_EXPRESS
+    select PCI_EXPRESS_GENERIC_BRIDGE
+    select PL011
+    select PL031
+    select PLATFORM_BUS
+
+config ARM_SMMUV3
+    bool

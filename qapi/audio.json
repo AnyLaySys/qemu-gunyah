@@ -1,0 +1,174 @@
+
+
+{ 'struct': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*mixing-engine':  'bool',
+    '*fixed-settings': 'bool',
+    '*frequency':      'uint32',
+    '*channels':       'uint32',
+    '*voices':         'uint32',
+    '*format':         'AudioFormat',
+    '*buffer-length':  'uint32' } }
+
+{ 'struct': 'AudiodevGenericOptions',
+  'data': {
+    '*in':  'AudiodevPerDirectionOptions',
+    '*out': 'AudiodevPerDirectionOptions' } }
+
+{ 'struct': 'AudiodevDBusOptions',
+  'data': {
+    '*in':  'AudiodevPerDirectionOptions',
+    '*out': 'AudiodevPerDirectionOptions',
+    '*nsamples': 'uint32'} }
+
+{ 'struct': 'AudiodevAlsaPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*dev':           'str',
+    '*period-length': 'uint32',
+    '*try-poll':      'bool' } }
+
+{ 'struct': 'AudiodevAlsaOptions',
+  'data': {
+    '*in':        'AudiodevAlsaPerDirectionOptions',
+    '*out':       'AudiodevAlsaPerDirectionOptions',
+    '*threshold': 'uint32' } }
+
+{ 'struct': 'AudiodevSndioOptions',
+  'data': {
+    '*in':        'AudiodevPerDirectionOptions',
+    '*out':       'AudiodevPerDirectionOptions',
+    '*dev':       'str',
+    '*latency':   'uint32'} }
+
+{ 'struct': 'AudiodevCoreaudioPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*buffer-count': 'uint32' } }
+
+{ 'struct': 'AudiodevCoreaudioOptions',
+  'data': {
+    '*in':  'AudiodevCoreaudioPerDirectionOptions',
+    '*out': 'AudiodevCoreaudioPerDirectionOptions' } }
+
+{ 'struct': 'AudiodevDsoundOptions',
+  'data': {
+    '*in':      'AudiodevPerDirectionOptions',
+    '*out':     'AudiodevPerDirectionOptions',
+    '*latency': 'uint32' } }
+
+{ 'struct': 'AudiodevJackPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*server-name':   'str',
+    '*client-name':   'str',
+    '*connect-ports': 'str',
+    '*start-server':  'bool',
+    '*exact-name':    'bool' } }
+
+{ 'struct': 'AudiodevJackOptions',
+  'data': {
+    '*in':  'AudiodevJackPerDirectionOptions',
+    '*out': 'AudiodevJackPerDirectionOptions' } }
+
+{ 'struct': 'AudiodevOssPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*dev':          'str',
+    '*buffer-count': 'uint32',
+    '*try-poll':     'bool' } }
+
+{ 'struct': 'AudiodevOssOptions',
+  'data': {
+    '*in':         'AudiodevOssPerDirectionOptions',
+    '*out':        'AudiodevOssPerDirectionOptions',
+    '*try-mmap':   'bool',
+    '*exclusive':  'bool',
+    '*dsp-policy': 'uint32' } }
+
+{ 'struct': 'AudiodevPaPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*name': 'str',
+    '*stream-name': 'str',
+    '*latency': 'uint32' } }
+
+{ 'struct': 'AudiodevPaOptions',
+  'data': {
+    '*in':     'AudiodevPaPerDirectionOptions',
+    '*out':    'AudiodevPaPerDirectionOptions',
+    '*server': 'str' } }
+
+{ 'struct': 'AudiodevPipewirePerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*name': 'str',
+    '*stream-name': 'str',
+    '*latency': 'uint32' } }
+
+{ 'struct': 'AudiodevPipewireOptions',
+  'data': {
+    '*in':     'AudiodevPipewirePerDirectionOptions',
+    '*out':    'AudiodevPipewirePerDirectionOptions' } }
+
+{ 'struct': 'AudiodevSdlPerDirectionOptions',
+  'base': 'AudiodevPerDirectionOptions',
+  'data': {
+    '*buffer-count': 'uint32' } }
+
+{ 'struct': 'AudiodevSdlOptions',
+  'data': {
+    '*in':  'AudiodevSdlPerDirectionOptions',
+    '*out': 'AudiodevSdlPerDirectionOptions' } }
+
+{ 'enum': 'AudioFormat',
+  'data': [ 'u8', 's8', 'u16', 's16', 'u32', 's32', 'f32' ] }
+
+{ 'enum': 'AudiodevDriver',
+  'data': [ { 'name': 'alsa', 'if': 'CONFIG_AUDIO_ALSA' },
+            { 'name': 'coreaudio', 'if': 'CONFIG_AUDIO_COREAUDIO' },
+            { 'name': 'dbus', 'if': 'CONFIG_DBUS_DISPLAY' },
+            { 'name': 'dsound', 'if': 'CONFIG_AUDIO_DSOUND' },
+            { 'name': 'jack', 'if': 'CONFIG_AUDIO_JACK' },
+            { 'name': 'oss', 'if': 'CONFIG_AUDIO_OSS' },
+            { 'name': 'pa', 'if': 'CONFIG_AUDIO_PA' },
+            { 'name': 'pipewire', 'if': 'CONFIG_AUDIO_PIPEWIRE' },
+            { 'name': 'sdl', 'if': 'CONFIG_AUDIO_SDL' },
+            { 'name': 'sndio', 'if': 'CONFIG_AUDIO_SNDIO' },
+            { 'name': 'spice', 'if': 'CONFIG_SPICE' },
+            { 'name': 'aaudio', 'if': 'CONFIG_AUDIO_AAUDIO' } ] }
+
+{ 'union': 'Audiodev',
+  'base': {
+    'id':            'str',
+    'driver':        'AudiodevDriver',
+    '*timer-period': 'uint32' },
+  'discriminator': 'driver',
+  'data': {
+    'alsa':      { 'type': 'AudiodevAlsaOptions',
+                   'if': 'CONFIG_AUDIO_ALSA' },
+    'coreaudio': { 'type': 'AudiodevCoreaudioOptions',
+                   'if': 'CONFIG_AUDIO_COREAUDIO' },
+    'dbus':      { 'type': 'AudiodevDBusOptions',
+                   'if': 'CONFIG_DBUS_DISPLAY' },
+    'dsound':    { 'type': 'AudiodevDsoundOptions',
+                   'if': 'CONFIG_AUDIO_DSOUND' },
+    'jack':      { 'type': 'AudiodevJackOptions',
+                   'if': 'CONFIG_AUDIO_JACK' },
+    'oss':       { 'type': 'AudiodevOssOptions',
+                   'if': 'CONFIG_AUDIO_OSS' },
+    'pa':        { 'type': 'AudiodevPaOptions',
+                   'if': 'CONFIG_AUDIO_PA' },
+    'pipewire':  { 'type': 'AudiodevPipewireOptions',
+                   'if': 'CONFIG_AUDIO_PIPEWIRE' },
+    'sdl':       { 'type': 'AudiodevSdlOptions',
+                   'if': 'CONFIG_AUDIO_SDL' },
+    'sndio':     { 'type': 'AudiodevSndioOptions',
+                   'if': 'CONFIG_AUDIO_SNDIO' },
+    'spice':     { 'type': 'AudiodevGenericOptions',
+                   'if': 'CONFIG_SPICE' },
+    'aaudio':    { 'type': 'AudiodevGenericOptions',
+                   'if': 'CONFIG_AUDIO_AAUDIO' } } }
+
+{ 'command': 'query-audiodevs',
+  'returns': ['Audiodev'] }

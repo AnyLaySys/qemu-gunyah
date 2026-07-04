@@ -1,0 +1,76 @@
+
+{ 'pragma': { 'doc-required': false } }
+
+{ 'pragma': {
+    'command-name-exceptions': [
+        'block_resize',
+        'device_add',
+        'device_del',
+        'migrate_cancel',
+        'qmp_capabilities',
+        'system_powerdown',
+        'system_reset',
+        'system_wakeup' ],
+    'command-returns-exceptions': [
+        'human-monitor-command',
+        'qom-get',
+        'query-tpm-models',
+        'query-tpm-types' ],
+    'documentation-exceptions': [
+        'AbortWrapper',
+        'AudiodevDriver',
+        'BlkdebugEvent',
+        'BlockDirtyBitmapAddWrapper',
+        'BlockDirtyBitmapMergeWrapper',
+        'BlockDirtyBitmapWrapper',
+        'BlockdevBackupWrapper',
+        'BlockdevDriver',
+        'BlockdevQcow2EncryptionFormat',
+        'BlockdevSnapshotInternalWrapper',
+        'BlockdevSnapshotSyncWrapper',
+        'BlockdevSnapshotWrapper',
+        'BlockdevVmdkAdapterType',
+        'DriveBackupWrapper',
+        'DummyForceArrays',
+        'DummyVirtioForceArrays',
+        'HotKeyMod',
+        'ImageInfoSpecificKind',
+        'InputAxis',
+        'InputButton',
+        'IscsiHeaderDigest',
+        'IscsiTransport',
+        'KeyValueKind',
+        'MemoryDeviceInfoKind',
+        'NetClientDriver',
+        'ObjectType',
+        'QKeyCode',
+        'RbdAuthMode',
+        'RbdImageEncryptionFormat',
+        'S390CpuEntitlement',
+        'S390CpuPolarization',
+        'S390CpuState',
+        'String',
+        'StringWrapper',
+        'SysEmuTarget',
+        'VncPrimaryAuth',
+        'VncVencryptSubAuth',
+        'X86CPURegister32',
+        'YankInstanceType' ],
+    'member-name-exceptions': [     # visible in:
+        'ACPISlotType',             # query-acpi-ospm-status
+        'AcpiTableOptions',         # -acpitable
+        'BlkdebugEvent',            # blockdev-add, -blockdev
+        'BlkdebugSetStateOptions',  # blockdev-add, -blockdev
+        'BlockdevAioOptions',       # blockdev-add, -blockdev
+        'BlockdevDriver',           # blockdev-add, -blockdev, ...
+        'BlockdevVmdkAdapterType',  # blockdev-create (to match VMDK spec)
+        'BlockdevVmdkSubformat',    # blockdev-create (to match VMDK spec)
+        'ObjectType',               # object-add, -object
+        'PCIELinkSpeed',            # internal only
+        'QKeyCode',                 # send-key, input-sent-event
+        'QapiErrorClass',           # QMP error replies
+        'SshHostKeyCheckMode',      # blockdev-add, -blockdev
+        'SysEmuTarget',             # query-cpu-fast, query-target
+        'UuidInfo',                 # query-uuid
+        'X86CPURegister32'          # qom-get of x86 CPU properties
+    ] } }

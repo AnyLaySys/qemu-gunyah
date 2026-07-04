@@ -1,0 +1,7 @@
+config ARM
+    bool
+    select DEVICE_TREE # needed by boot.c
+
+config AARCH64
+    bool
+    select ARM

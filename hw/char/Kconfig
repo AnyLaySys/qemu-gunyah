@@ -1,0 +1,13 @@
+config PL011
+    bool
+    select PL011_C
+
+config PL011_C
+    bool
+
+config SERIAL
+    bool
+
+config SERIAL_MM
+    bool
+    select SERIAL

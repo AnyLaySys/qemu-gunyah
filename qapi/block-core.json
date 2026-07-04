@@ -1,0 +1,924 @@
+
+
+{ 'include': 'common.json' }
+{ 'include': 'crypto.json' }
+{ 'include': 'job.json' }
+{ 'include': 'sockets.json' }
+
+{ 'struct': 'ImageInfoSpecificQCow2EncryptionBase',
+  'data': { 'format': 'BlockdevQcow2EncryptionFormat'}}
+
+{ 'union': 'ImageInfoSpecificQCow2Encryption',
+  'base': 'ImageInfoSpecificQCow2EncryptionBase',
+  'discriminator': 'format',
+  'data': { 'luks': 'QCryptoBlockInfoLUKS' } }
+
+{ 'struct': 'ImageInfoSpecificQCow2',
+  'data': {
+      'compat': 'str',
+      '*data-file': 'str',
+      '*data-file-raw': 'bool',
+      '*extended-l2': 'bool',
+      '*lazy-refcounts': 'bool',
+      '*corrupt': 'bool',
+      'refcount-bits': 'int',
+      '*encrypt': 'ImageInfoSpecificQCow2Encryption',
+      '*bitmaps': ['Qcow2BitmapInfo'],
+      'compression-type': 'Qcow2CompressionType'
+  } }
+
+{ 'struct': 'ImageInfoSpecificVmdk',
+  'data': {
+      'create-type': 'str',
+      'cid': 'int',
+      'parent-cid': 'int',
+      'extents': ['VmdkExtentInfo']
+  } }
+
+{ 'struct': 'VmdkExtentInfo',
+  'data': {
+      'filename': 'str',
+      'format': 'str',
+      'virtual-size': 'int',
+      '*cluster-size': 'int',
+      '*compressed': 'bool'
+  } }
+
+{ 'struct': 'ImageInfoSpecificRbd',
+  'data': {
+      '*encryption-format': 'RbdImageEncryptionFormat'
+  } }
+
+{ 'struct': 'ImageInfoSpecificFile',
+  'data': {
+      '*extent-size-hint': 'size'
+  } }
+
+{ 'enum': 'ImageInfoSpecificKind',
+  'data': [ 'qcow2', 'vmdk', 'luks', 'rbd', 'file' ] }
+
+{ 'struct': 'ImageInfoSpecificQCow2Wrapper',
+  'data': { 'data': 'ImageInfoSpecificQCow2' } }
+
+{ 'struct': 'ImageInfoSpecificVmdkWrapper',
+  'data': { 'data': 'ImageInfoSpecificVmdk' } }
+
+{ 'struct': 'ImageInfoSpecificLUKSWrapper',
+  'data': { 'data': 'QCryptoBlockInfoLUKS' } }
+
+{ 'struct': 'ImageInfoSpecificRbdWrapper',
+  'data': { 'data': 'ImageInfoSpecificRbd' } }
+
+{ 'struct': 'ImageInfoSpecificFileWrapper',
+  'data': { 'data': 'ImageInfoSpecificFile' } }
+
+{ 'union': 'ImageInfoSpecific',
+  'base': { 'type': 'ImageInfoSpecificKind' },
+  'discriminator': 'type',
+  'data': {
+      'qcow2': 'ImageInfoSpecificQCow2Wrapper',
+      'vmdk': 'ImageInfoSpecificVmdkWrapper',
+      'luks': 'ImageInfoSpecificLUKSWrapper',
+      'rbd': 'ImageInfoSpecificRbdWrapper',
+      'file': 'ImageInfoSpecificFileWrapper'
+  } }
+
+{ 'struct': 'ImageCheck',
+  'data': {'filename': 'str', 'format': 'str', 'check-errors': 'int',
+           '*image-end-offset': 'int', '*corruptions': 'int', '*leaks': 'int',
+           '*corruptions-fixed': 'int', '*leaks-fixed': 'int',
+           '*total-clusters': 'int', '*allocated-clusters': 'int',
+           '*fragmented-clusters': 'int', '*compressed-clusters': 'int' } }
+
+{ 'struct': 'MapEntry',
+  'data': {'start': 'int', 'length': 'int', 'data': 'bool',
+           'zero': 'bool', 'compressed': 'bool', 'depth': 'int',
+           'present': 'bool', '*offset': 'int', '*filename': 'str' } }
+
+{ 'struct': 'BlockdevCacheInfo',
+  'data': { 'writeback': 'bool',
+            'direct': 'bool',
+            'no-flush': 'bool' } }
+
+{ 'enum': 'BlockDeviceIoStatus', 'data': [ 'ok', 'failed', 'nospace' ] }
+
+{ 'enum': 'Qcow2BitmapInfoFlags',
+  'data': ['in-use', 'auto'] }
+
+{ 'struct': 'Qcow2BitmapInfo',
+  'data': {'name': 'str', 'granularity': 'uint32',
+           'flags': ['Qcow2BitmapInfoFlags'] } }
+
+{ 'struct': 'BlockMeasureInfo',
+  'data': {'required': 'int', 'fully-allocated': 'int', '*bitmaps': 'int'} }
+
+{ 'struct': 'BlockStatsSpecificFile',
+  'data': {
+      'discard-nb-ok': 'uint64',
+      'discard-nb-failed': 'uint64',
+      'discard-bytes-ok': 'uint64' } }
+
+{ 'struct': 'BlockStatsSpecificNvme',
+  'data': {
+      'completion-errors': 'uint64',
+      'aligned-accesses': 'uint64',
+      'unaligned-accesses': 'uint64' } }
+
+{ 'union': 'BlockStatsSpecific',
+  'base': { 'driver': 'BlockdevDriver' },
+  'discriminator': 'driver',
+  'data': {
+      'file': 'BlockStatsSpecificFile',
+      'host_device': { 'type': 'BlockStatsSpecificFile',
+                       'if': 'HAVE_HOST_BLOCK_DEVICE' },
+      'nvme': 'BlockStatsSpecificNvme' } }
+
+{ 'enum': 'BlockdevOnError',
+  'data': ['report', 'ignore', 'enospc', 'stop', 'auto'] }
+
+{ 'enum': 'MirrorSyncMode',
+  'data': ['top', 'full', 'none', 'incremental', 'bitmap'] }
+
+{ 'enum': 'BitmapSyncMode',
+  'data': ['on-success', 'never', 'always'] }
+
+{ 'enum': 'MirrorCopyMode',
+  'data': ['background', 'write-blocking'] }
+
+{ 'struct': 'BlockJobInfoMirror',
+  'data': { 'actively-synced': 'bool' } }
+
+{ 'union': 'BlockJobInfo',
+  'base': {'type': 'JobType', 'device': 'str', 'len': 'int',
+           'offset': 'int', 'busy': 'bool', 'paused': 'bool', 'speed': 'int',
+           'io-status': 'BlockDeviceIoStatus', 'ready': 'bool',
+           'status': 'JobStatus',
+           'auto-finalize': 'bool', 'auto-dismiss': 'bool',
+           '*error': 'str' },
+  'discriminator': 'type',
+  'data': { 'mirror': 'BlockJobInfoMirror' } }
+
+{ 'enum': 'NewImageMode',
+  'data': [ 'existing', 'absolute-paths' ] }
+
+{ 'struct': 'BlockdevSnapshotSync',
+  'data': { '*device': 'str', '*node-name': 'str',
+            'snapshot-file': 'str', '*snapshot-node-name': 'str',
+            '*format': 'str', '*mode': 'NewImageMode' } }
+
+{ 'struct': 'BlockdevSnapshot',
+  'data': { 'node': 'str', 'overlay': 'str' } }
+
+{ 'struct': 'BackupPerf',
+  'data': { '*use-copy-range': 'bool', '*max-workers': 'int',
+            '*max-chunk': 'int64', '*min-cluster-size': 'size' } }
+
+{ 'struct': 'BackupCommon',
+  'data': { '*job-id': 'str', 'device': 'str',
+            'sync': 'MirrorSyncMode', '*speed': 'int',
+            '*bitmap': 'str', '*bitmap-mode': 'BitmapSyncMode',
+            '*compress': 'bool',
+            '*on-source-error': 'BlockdevOnError',
+            '*on-target-error': 'BlockdevOnError',
+            '*auto-finalize': 'bool', '*auto-dismiss': 'bool',
+            '*filter-node-name': 'str',
+            '*discard-source': 'bool',
+            '*x-perf': { 'type': 'BackupPerf',
+                         'features': [ 'unstable' ] } } }
+
+{ 'struct': 'DriveBackup',
+  'base': 'BackupCommon',
+  'data': { 'target': 'str',
+            '*format': 'str',
+            '*mode': 'NewImageMode' } }
+
+{ 'struct': 'BlockdevBackup',
+  'base': 'BackupCommon',
+  'data': { 'target': 'str' } }
+
+{ 'enum': 'BlockPermission',
+  'data': [ 'consistent-read', 'write', 'write-unchanged', 'resize' ] }
+
+{ 'struct': 'DriveMirror',
+  'data': { '*job-id': 'str', 'device': 'str', 'target': 'str',
+            '*format': 'str', '*node-name': 'str', '*replaces': 'str',
+            'sync': 'MirrorSyncMode', '*mode': 'NewImageMode',
+            '*speed': 'int', '*granularity': 'uint32',
+            '*buf-size': 'int', '*on-source-error': 'BlockdevOnError',
+            '*on-target-error': 'BlockdevOnError',
+            '*unmap': 'bool', '*copy-mode': 'MirrorCopyMode',
+            '*auto-finalize': 'bool', '*auto-dismiss': 'bool' } }
+
+{ 'struct': 'BlockDirtyBitmap',
+  'data': { 'node': 'str', 'name': 'str' } }
+
+{ 'struct': 'BlockDirtyBitmapAdd',
+  'data': { 'node': 'str', 'name': 'str', '*granularity': 'uint32',
+            '*persistent': 'bool', '*disabled': 'bool' } }
+
+{ 'alternate': 'BlockDirtyBitmapOrStr',
+  'data': { 'local': 'str',
+            'external': 'BlockDirtyBitmap' } }
+
+{ 'struct': 'BlockDirtyBitmapMerge',
+  'data': { 'node': 'str', 'target': 'str',
+            'bitmaps': ['BlockDirtyBitmapOrStr'] } }
+
+{ 'struct': 'BlockDirtyBitmapSha256',
+  'data': {'sha256': 'str'} }
+
+{ 'struct': 'BlockJobChangeOptionsMirror',
+  'data': { 'copy-mode' : 'MirrorCopyMode' } }
+
+{ 'union': 'BlockJobChangeOptions',
+  'base': { 'id': 'str', 'type': 'JobType' },
+  'discriminator': 'type',
+  'data': { 'mirror': 'BlockJobChangeOptionsMirror' } }
+
+{ 'enum': 'BlockdevDiscardOptions',
+  'data': [ 'ignore', 'unmap' ] }
+
+{ 'enum': 'BlockdevDetectZeroesOptions',
+  'data': [ 'off', 'on', 'unmap' ] }
+
+{ 'enum': 'BlockdevAioOptions',
+  'data': [ 'io_uring' ] }
+
+{ 'struct': 'BlockdevCacheOptions',
+  'data': { '*direct': 'bool',
+            '*no-flush': 'bool' } }
+
+{ 'enum': 'BlockdevDriver',
+  'data': [ 'blkdebug', 'blklogwrites', 'blkreplay', 'blkverify', 'bochs',
+            'cloop', 'compress', 'copy-before-write', 'copy-on-read', 'dmg',
+            'file', 'snapshot-access', 'ftp', 'ftps',
+            {'name': 'gluster', 'features': [ 'deprecated' ] },
+            {'name': 'host_cdrom', 'if': 'HAVE_HOST_BLOCK_DEVICE' },
+            {'name': 'host_device', 'if': 'HAVE_HOST_BLOCK_DEVICE' },
+            'http', 'https',
+            { 'name': 'io_uring', 'if': 'CONFIG_BLKIO' },
+            'iscsi',
+            'luks', 'nfs', 'null-aio', 'null-co', 'nvme',
+            { 'name': 'nvme-io_uring', 'if': 'CONFIG_BLKIO' },
+            'parallels', 'preallocate', 'qcow', 'qcow2', 'qed', 'quorum',
+            'raw', 'rbd',
+            { 'name': 'replication', 'if': 'CONFIG_REPLICATION' },
+            'ssh', 'vdi', 'vhdx',
+            { 'name': 'virtio-blk-vhost-user', 'if': 'CONFIG_BLKIO' },
+            { 'name': 'virtio-blk-vhost-vdpa', 'if': 'CONFIG_BLKIO' },
+            'vmdk', 'vpc', 'vvfat' ] }
+
+{ 'struct': 'BlockdevOptionsFile',
+  'data': { 'filename': 'str',
+            '*pr-manager': 'str',
+            '*locking': 'OnOffAuto',
+            '*aio': 'BlockdevAioOptions',
+            '*drop-cache': {'type': 'bool',
+                            'if': 'CONFIG_LINUX'},
+            '*x-check-cache-dropped': { 'type': 'bool',
+                                        'features': [ 'unstable' ] } },
+  'features': [ { 'name': 'dynamic-auto-read-only',
+                  'if': 'CONFIG_POSIX' } ] }
+
+{ 'struct': 'BlockdevOptionsNull',
+  'data': { '*size': 'int', '*latency-ns': 'uint64', '*read-zeroes': 'bool' } }
+
+{ 'struct': 'BlockdevOptionsNVMe',
+  'data': { 'device': 'str', 'namespace': 'int' } }
+
+{ 'struct': 'BlockdevOptionsVVFAT',
+  'data': { 'dir': 'str', '*fat-type': 'int', '*floppy': 'bool',
+            '*label': 'str', '*rw': 'bool' } }
+
+{ 'struct': 'BlockdevOptionsGenericFormat',
+  'data': { 'file': 'BlockdevRef' } }
+
+{ 'struct': 'BlockdevOptionsLUKS',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { '*key-secret': 'str',
+            '*header': 'BlockdevRef'} }
+
+{ 'struct': 'BlockdevOptionsGenericCOWFormat',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { '*backing': 'BlockdevRefOrNull' } }
+
+{ 'enum': 'Qcow2OverlapCheckMode',
+  'data': [ 'none', 'constant', 'cached', 'all' ] }
+
+{ 'struct': 'Qcow2OverlapCheckFlags',
+  'data': { '*template':         'Qcow2OverlapCheckMode',
+            '*main-header':      'bool',
+            '*active-l1':        'bool',
+            '*active-l2':        'bool',
+            '*refcount-table':   'bool',
+            '*refcount-block':   'bool',
+            '*snapshot-table':   'bool',
+            '*inactive-l1':      'bool',
+            '*inactive-l2':      'bool',
+            '*bitmap-directory': 'bool' } }
+
+{ 'alternate': 'Qcow2OverlapChecks',
+  'data': { 'flags': 'Qcow2OverlapCheckFlags',
+            'mode':  'Qcow2OverlapCheckMode' } }
+
+{ 'enum': 'BlockdevQcowEncryptionFormat',
+  'data': [ 'aes' ] }
+
+{ 'union': 'BlockdevQcowEncryption',
+  'base': { 'format': 'BlockdevQcowEncryptionFormat' },
+  'discriminator': 'format',
+  'data': { 'aes': 'QCryptoBlockOptionsQCow' } }
+
+{ 'struct': 'BlockdevOptionsQcow',
+  'base': 'BlockdevOptionsGenericCOWFormat',
+  'data': { '*encrypt': 'BlockdevQcowEncryption' } }
+
+{ 'enum': 'BlockdevQcow2EncryptionFormat',
+  'data': [ 'aes', 'luks' ] }
+
+{ 'union': 'BlockdevQcow2Encryption',
+  'base': { 'format': 'BlockdevQcow2EncryptionFormat' },
+  'discriminator': 'format',
+  'data': { 'aes': 'QCryptoBlockOptionsQCow',
+            'luks': 'QCryptoBlockOptionsLUKS'} }
+
+{ 'struct': 'BlockdevOptionsPreallocate',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { '*prealloc-align': 'int', '*prealloc-size': 'int' } }
+
+{ 'struct': 'BlockdevOptionsQcow2',
+  'base': 'BlockdevOptionsGenericCOWFormat',
+  'data': { '*lazy-refcounts': 'bool',
+            '*pass-discard-request': 'bool',
+            '*pass-discard-snapshot': 'bool',
+            '*pass-discard-other': 'bool',
+            '*discard-no-unref': 'bool',
+            '*overlap-check': 'Qcow2OverlapChecks',
+            '*cache-size': 'int',
+            '*l2-cache-size': 'int',
+            '*l2-cache-entry-size': 'int',
+            '*refcount-cache-size': 'int',
+            '*cache-clean-interval': 'int',
+            '*encrypt': 'BlockdevQcow2Encryption',
+            '*data-file': 'BlockdevRef' } }
+
+{ 'enum': 'SshHostKeyCheckMode',
+  'data': [ 'none', 'hash', 'known_hosts' ] }
+
+{ 'enum': 'SshHostKeyCheckHashType',
+  'data': [ 'md5', 'sha1', 'sha256' ] }
+
+{ 'struct': 'SshHostKeyHash',
+  'data': { 'type': 'SshHostKeyCheckHashType',
+            'hash': 'str' }}
+
+{ 'union': 'SshHostKeyCheck',
+  'base': { 'mode': 'SshHostKeyCheckMode' },
+  'discriminator': 'mode',
+  'data': { 'hash': 'SshHostKeyHash' } }
+
+{ 'struct': 'BlockdevOptionsSsh',
+  'data': { 'server': 'InetSocketAddress',
+            'path': 'str',
+            '*user': 'str',
+            '*host-key-check': 'SshHostKeyCheck' } }
+
+{ 'enum': 'BlkdebugEvent', 'prefix': 'BLKDBG',
+  'data': [ 'l1_update', 'l1_grow_alloc_table', 'l1_grow_write_table',
+            'l1_grow_activate_table', 'l2_load', 'l2_update',
+            'l2_update_compressed', 'l2_alloc_cow_read', 'l2_alloc_write',
+            'read_aio', 'read_backing_aio', 'read_compressed', 'write_aio',
+            'write_compressed', 'vmstate_load', 'vmstate_save', 'cow_read',
+            'cow_write', 'reftable_load', 'reftable_grow', 'reftable_update',
+            'refblock_load', 'refblock_update', 'refblock_update_part',
+            'refblock_alloc', 'refblock_alloc_hookup', 'refblock_alloc_write',
+            'refblock_alloc_write_blocks', 'refblock_alloc_write_table',
+            'refblock_alloc_switch_table', 'cluster_alloc',
+            'cluster_alloc_bytes', 'cluster_free', 'flush_to_os',
+            'flush_to_disk', 'pwritev_rmw_head', 'pwritev_rmw_after_head',
+            'pwritev_rmw_tail', 'pwritev_rmw_after_tail', 'pwritev',
+            'pwritev_zero', 'pwritev_done', 'empty_image_prepare',
+            'l1_shrink_write_table', 'l1_shrink_free_l2_clusters',
+            'cor_write', 'cluster_alloc_space', 'none'] }
+
+{ 'enum': 'BlkdebugIOType',
+  'data': [ 'read', 'write', 'write-zeroes', 'discard', 'flush',
+            'block-status' ] }
+
+{ 'struct': 'BlkdebugInjectErrorOptions',
+  'data': { 'event': 'BlkdebugEvent',
+            '*state': 'int',
+            '*iotype': 'BlkdebugIOType',
+            '*errno': 'int',
+            '*sector': 'int',
+            '*once': 'bool',
+            '*immediately': 'bool' } }
+
+{ 'struct': 'BlkdebugSetStateOptions',
+  'data': { 'event': 'BlkdebugEvent',
+            '*state': 'int',
+            'new_state': 'int' } }
+
+{ 'struct': 'BlockdevOptionsBlkdebug',
+  'data': { 'image': 'BlockdevRef',
+            '*config': 'str',
+            '*align': 'int', '*max-transfer': 'int32',
+            '*opt-write-zero': 'int32', '*max-write-zero': 'int32',
+            '*opt-discard': 'int32', '*max-discard': 'int32',
+            '*inject-error': ['BlkdebugInjectErrorOptions'],
+            '*set-state': ['BlkdebugSetStateOptions'],
+            '*take-child-perms': ['BlockPermission'],
+            '*unshare-child-perms': ['BlockPermission'] } }
+
+{ 'struct': 'BlockdevOptionsBlklogwrites',
+  'data': { 'file': 'BlockdevRef',
+            'log': 'BlockdevRef',
+            '*log-sector-size': 'uint32',
+            '*log-append': 'bool',
+            '*log-super-update-interval': 'uint64' } }
+
+{ 'struct': 'BlockdevOptionsBlkverify',
+  'data': { 'test': 'BlockdevRef',
+            'raw': 'BlockdevRef' } }
+
+{ 'struct': 'BlockdevOptionsBlkreplay',
+  'data': { 'image': 'BlockdevRef' } }
+
+{ 'enum': 'QuorumReadPattern', 'data': [ 'quorum', 'fifo' ] }
+
+{ 'struct': 'BlockdevOptionsQuorum',
+  'data': { '*blkverify': 'bool',
+            'children': [ 'BlockdevRef' ],
+            'vote-threshold': 'int',
+            '*rewrite-corrupted': 'bool',
+            '*read-pattern': 'QuorumReadPattern' } }
+
+{ 'struct': 'BlockdevOptionsGluster',
+  'data': { 'volume': 'str',
+            'path': 'str',
+            'server': ['SocketAddress'],
+            '*debug': 'int',
+            '*logfile': 'str' } }
+
+{ 'struct': 'BlockdevOptionsIoUring',
+  'data': { 'filename': 'str' },
+  'if': 'CONFIG_BLKIO' }
+
+{ 'struct': 'BlockdevOptionsNvmeIoUring',
+  'data': { 'path': 'str' },
+  'if': 'CONFIG_BLKIO' }
+
+{ 'struct': 'BlockdevOptionsVirtioBlkVhostUser',
+  'data': { 'path': 'str' },
+  'if': 'CONFIG_BLKIO' }
+
+{ 'struct': 'BlockdevOptionsVirtioBlkVhostVdpa',
+  'data': { 'path': 'str' },
+  'features': [ { 'name' :'fdset',
+                  'if': 'CONFIG_BLKIO_VHOST_VDPA_FD' } ],
+  'if': 'CONFIG_BLKIO' }
+
+{ 'enum': 'IscsiTransport',
+  'data': [ 'tcp', 'iser' ] }
+
+{ 'enum': 'IscsiHeaderDigest',
+  'prefix': 'QAPI_ISCSI_HEADER_DIGEST',
+  'data': [ 'crc32c', 'none', 'crc32c-none', 'none-crc32c' ] }
+
+{ 'struct': 'BlockdevOptionsIscsi',
+  'data': { 'transport': 'IscsiTransport',
+            'portal': 'str',
+            'target': 'str',
+            '*lun': 'int',
+            '*user': 'str',
+            '*password-secret': 'str',
+            '*initiator-name': 'str',
+            '*header-digest': 'IscsiHeaderDigest',
+            '*timeout': 'int' } }
+
+{ 'enum': 'RbdAuthMode',
+  'data': [ 'cephx', 'none' ] }
+
+{ 'enum': 'RbdImageEncryptionFormat',
+  'data': [ 'luks', 'luks2', 'luks-any' ] }
+
+{ 'struct': 'RbdEncryptionOptionsLUKSBase',
+  'data': { 'key-secret': 'str' } }
+
+{ 'struct': 'RbdEncryptionCreateOptionsLUKSBase',
+  'base': 'RbdEncryptionOptionsLUKSBase',
+  'data': { '*cipher-alg': 'QCryptoCipherAlgo' } }
+
+{ 'struct': 'RbdEncryptionOptionsLUKS',
+  'base': 'RbdEncryptionOptionsLUKSBase',
+  'data': { } }
+
+{ 'struct': 'RbdEncryptionOptionsLUKS2',
+  'base': 'RbdEncryptionOptionsLUKSBase',
+  'data': { } }
+
+{ 'struct': 'RbdEncryptionOptionsLUKSAny',
+  'base': 'RbdEncryptionOptionsLUKSBase',
+  'data': { } }
+
+{ 'struct': 'RbdEncryptionCreateOptionsLUKS',
+  'base': 'RbdEncryptionCreateOptionsLUKSBase',
+  'data': { } }
+
+{ 'struct': 'RbdEncryptionCreateOptionsLUKS2',
+  'base': 'RbdEncryptionCreateOptionsLUKSBase',
+  'data': { } }
+
+{ 'union': 'RbdEncryptionOptions',
+  'base': { 'format': 'RbdImageEncryptionFormat',
+            '*parent': 'RbdEncryptionOptions' },
+  'discriminator': 'format',
+  'data': { 'luks': 'RbdEncryptionOptionsLUKS',
+            'luks2': 'RbdEncryptionOptionsLUKS2',
+            'luks-any': 'RbdEncryptionOptionsLUKSAny'} }
+
+{ 'union': 'RbdEncryptionCreateOptions',
+  'base': { 'format': 'RbdImageEncryptionFormat' },
+  'discriminator': 'format',
+  'data': { 'luks': 'RbdEncryptionCreateOptionsLUKS',
+            'luks2': 'RbdEncryptionCreateOptionsLUKS2' } }
+
+{ 'struct': 'BlockdevOptionsRbd',
+  'data': { 'pool': 'str',
+            '*namespace': 'str',
+            'image': 'str',
+            '*conf': 'str',
+            '*snapshot': 'str',
+            '*encrypt': 'RbdEncryptionOptions',
+            '*user': 'str',
+            '*auth-client-required': ['RbdAuthMode'],
+            '*key-secret': 'str',
+            '*server': ['InetSocketAddressBase'] } }
+
+{ 'enum' : 'ReplicationMode', 'data' : [ 'primary', 'secondary' ],
+  'if': 'CONFIG_REPLICATION' }
+
+{ 'struct': 'BlockdevOptionsReplication',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { 'mode': 'ReplicationMode',
+            '*top-id': 'str' },
+  'if': 'CONFIG_REPLICATION' }
+
+{ 'enum': 'NFSTransport',
+  'data': [ 'inet' ] }
+
+{ 'struct': 'NFSServer',
+  'data': { 'type': 'NFSTransport',
+            'host': 'str' } }
+
+{ 'struct': 'BlockdevOptionsNfs',
+  'data': { 'server': 'NFSServer',
+            'path': 'str',
+            '*user': 'int',
+            '*group': 'int',
+            '*tcp-syn-count': 'int',
+            '*readahead-size': 'int',
+            '*page-cache-size': 'int',
+            '*debug': 'int' } }
+
+{ 'struct': 'BlockdevOptionsCurlBase',
+  'data': { 'url': 'str',
+            '*readahead': 'int',
+            '*timeout': 'int',
+            '*username': 'str',
+            '*password-secret': 'str',
+            '*proxy-username': 'str',
+            '*proxy-password-secret': 'str' } }
+
+{ 'struct': 'BlockdevOptionsCurlHttp',
+  'base': 'BlockdevOptionsCurlBase',
+  'data': { '*cookie': 'str',
+            '*cookie-secret': 'str'} }
+
+{ 'struct': 'BlockdevOptionsCurlHttps',
+  'base': 'BlockdevOptionsCurlBase',
+  'data': { '*cookie': 'str',
+            '*sslverify': 'bool',
+            '*cookie-secret': 'str'} }
+
+{ 'struct': 'BlockdevOptionsCurlFtp',
+  'base': 'BlockdevOptionsCurlBase',
+  'data': { } }
+
+{ 'struct': 'BlockdevOptionsCurlFtps',
+  'base': 'BlockdevOptionsCurlBase',
+  'data': { '*sslverify': 'bool' } }
+
+{ 'struct': 'BlockdevOptionsRaw',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { '*offset': 'int', '*size': 'int' } }
+
+{ 'struct': 'BlockdevOptionsCor',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { '*bottom': 'str' } }
+
+{ 'enum': 'OnCbwError',
+  'data': [ 'break-guest-write', 'break-snapshot' ] }
+
+{ 'struct': 'BlockdevOptionsCbw',
+  'base': 'BlockdevOptionsGenericFormat',
+  'data': { 'target': 'BlockdevRef', '*bitmap': 'BlockDirtyBitmap',
+            '*on-cbw-error': 'OnCbwError', '*cbw-timeout': 'uint32',
+            '*min-cluster-size': 'size' } }
+
+{ 'union': 'BlockdevOptions',
+  'base': { 'driver': 'BlockdevDriver',
+            '*node-name': 'str',
+            '*discard': 'BlockdevDiscardOptions',
+            '*cache': 'BlockdevCacheOptions',
+            '*active': 'bool',
+            '*read-only': 'bool',
+            '*auto-read-only': 'bool',
+            '*force-share': 'bool',
+            '*detect-zeroes': 'BlockdevDetectZeroesOptions' },
+  'discriminator': 'driver',
+  'data': {
+      'blkdebug':   'BlockdevOptionsBlkdebug',
+      'blklogwrites':'BlockdevOptionsBlklogwrites',
+      'blkverify':  'BlockdevOptionsBlkverify',
+      'blkreplay':  'BlockdevOptionsBlkreplay',
+      'bochs':      'BlockdevOptionsGenericFormat',
+      'cloop':      'BlockdevOptionsGenericFormat',
+      'compress':   'BlockdevOptionsGenericFormat',
+      'copy-before-write':'BlockdevOptionsCbw',
+      'copy-on-read':'BlockdevOptionsCor',
+      'dmg':        'BlockdevOptionsGenericFormat',
+      'file':       'BlockdevOptionsFile',
+      'ftp':        'BlockdevOptionsCurlFtp',
+      'ftps':       'BlockdevOptionsCurlFtps',
+      'gluster':    'BlockdevOptionsGluster',
+      'host_cdrom':  { 'type': 'BlockdevOptionsFile',
+                       'if': 'HAVE_HOST_BLOCK_DEVICE' },
+      'host_device': { 'type': 'BlockdevOptionsFile',
+                       'if': 'HAVE_HOST_BLOCK_DEVICE' },
+      'http':       'BlockdevOptionsCurlHttp',
+      'https':      'BlockdevOptionsCurlHttps',
+      'io_uring':   { 'type': 'BlockdevOptionsIoUring',
+                      'if': 'CONFIG_BLKIO' },
+      'iscsi':      'BlockdevOptionsIscsi',
+      'luks':       'BlockdevOptionsLUKS',
+      'nfs':        'BlockdevOptionsNfs',
+      'null-aio':   'BlockdevOptionsNull',
+      'null-co':    'BlockdevOptionsNull',
+      'nvme':       'BlockdevOptionsNVMe',
+      'nvme-io_uring': { 'type': 'BlockdevOptionsNvmeIoUring',
+                         'if': 'CONFIG_BLKIO' },
+      'parallels':  'BlockdevOptionsGenericFormat',
+      'preallocate':'BlockdevOptionsPreallocate',
+      'qcow2':      'BlockdevOptionsQcow2',
+      'qcow':       'BlockdevOptionsQcow',
+      'qed':        'BlockdevOptionsGenericCOWFormat',
+      'quorum':     'BlockdevOptionsQuorum',
+      'raw':        'BlockdevOptionsRaw',
+      'rbd':        'BlockdevOptionsRbd',
+      'replication': { 'type': 'BlockdevOptionsReplication',
+                       'if': 'CONFIG_REPLICATION' },
+      'snapshot-access': 'BlockdevOptionsGenericFormat',
+      'ssh':        'BlockdevOptionsSsh',
+      'vdi':        'BlockdevOptionsGenericFormat',
+      'vhdx':       'BlockdevOptionsGenericFormat',
+      'virtio-blk-vhost-user':
+                    { 'type': 'BlockdevOptionsVirtioBlkVhostUser',
+                      'if': 'CONFIG_BLKIO' },
+      'virtio-blk-vhost-vdpa':
+                    { 'type': 'BlockdevOptionsVirtioBlkVhostVdpa',
+                      'if': 'CONFIG_BLKIO' },
+      'vmdk':       'BlockdevOptionsGenericCOWFormat',
+      'vpc':        'BlockdevOptionsGenericFormat',
+      'vvfat':      'BlockdevOptionsVVFAT'
+  } }
+
+{ 'alternate': 'BlockdevRef',
+  'data': { 'definition': 'BlockdevOptions',
+            'reference': 'str' } }
+
+{ 'alternate': 'BlockdevRefOrNull',
+  'data': { 'definition': 'BlockdevOptions',
+            'reference': 'str',
+            'null': 'null' } }
+
+{ 'command': 'blockdev-add', 'data': 'BlockdevOptions', 'boxed': true,
+  'allow-preconfig': true }
+
+{ 'struct': 'BlockdevCreateOptionsFile',
+  'data': { 'filename':             'str',
+            'size':                 'size',
+            '*preallocation':       'PreallocMode',
+            '*nocow':               'bool',
+            '*extent-size-hint':    'size'} }
+
+{ 'struct': 'BlockdevCreateOptionsGluster',
+  'data': { 'location':         'BlockdevOptionsGluster',
+            'size':             'size',
+            '*preallocation':   'PreallocMode' } }
+
+{ 'struct': 'BlockdevCreateOptionsLUKS',
+  'base': 'QCryptoBlockCreateOptionsLUKS',
+  'data': { '*file':            'BlockdevRef',
+            '*header':          'BlockdevRef',
+            'size':             'size',
+            '*preallocation':   'PreallocMode' } }
+
+{ 'struct': 'BlockdevCreateOptionsNfs',
+  'data': { 'location':         'BlockdevOptionsNfs',
+            'size':             'size' } }
+
+{ 'struct': 'BlockdevCreateOptionsParallels',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*cluster-size':    'size' } }
+
+{ 'struct': 'BlockdevCreateOptionsQcow',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*backing-file':    'str',
+            '*encrypt':         'QCryptoBlockCreateOptions' } }
+
+{ 'enum': 'BlockdevQcow2Version',
+  'data': [ 'v2', 'v3' ] }
+
+{ 'enum': 'Qcow2CompressionType',
+  'data': [ 'zlib', { 'name': 'zstd', 'if': 'CONFIG_ZSTD' } ] }
+
+{ 'struct': 'BlockdevCreateOptionsQcow2',
+  'data': { 'file':             'BlockdevRef',
+            '*data-file':       'BlockdevRef',
+            '*data-file-raw':   'bool',
+            '*extended-l2':     'bool',
+            'size':             'size',
+            '*version':         'BlockdevQcow2Version',
+            '*backing-file':    'str',
+            '*backing-fmt':     'BlockdevDriver',
+            '*encrypt':         'QCryptoBlockCreateOptions',
+            '*cluster-size':    'size',
+            '*preallocation':   'PreallocMode',
+            '*lazy-refcounts':  'bool',
+            '*refcount-bits':   'int',
+            '*compression-type':'Qcow2CompressionType' } }
+
+{ 'struct': 'BlockdevCreateOptionsQed',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*backing-file':    'str',
+            '*backing-fmt':     'BlockdevDriver',
+            '*cluster-size':    'size',
+            '*table-size':      'int' } }
+
+{ 'struct': 'BlockdevCreateOptionsRbd',
+  'data': { 'location':         'BlockdevOptionsRbd',
+            'size':             'size',
+            '*cluster-size' :   'size',
+            '*encrypt' :        'RbdEncryptionCreateOptions' } }
+
+{ 'enum': 'BlockdevVmdkSubformat',
+  'data': [ 'monolithicSparse', 'monolithicFlat', 'twoGbMaxExtentSparse',
+            'twoGbMaxExtentFlat', 'streamOptimized'] }
+
+{ 'enum': 'BlockdevVmdkAdapterType',
+  'data': [ 'ide', 'buslogic', 'lsilogic', 'legacyESX'] }
+
+{ 'struct': 'BlockdevCreateOptionsVmdk',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*extents':          ['BlockdevRef'],
+            '*subformat':       'BlockdevVmdkSubformat',
+            '*backing-file':    'str',
+            '*adapter-type':    'BlockdevVmdkAdapterType',
+            '*hwversion':       'str',
+            '*toolsversion':    'str',
+            '*zeroed-grain':    'bool' } }
+
+{ 'struct': 'BlockdevCreateOptionsSsh',
+  'data': { 'location':         'BlockdevOptionsSsh',
+            'size':             'size' } }
+
+{ 'struct': 'BlockdevCreateOptionsVdi',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*preallocation':   'PreallocMode' } }
+
+{ 'enum': 'BlockdevVhdxSubformat',
+  'data': [ 'dynamic', 'fixed' ] }
+
+{ 'struct': 'BlockdevCreateOptionsVhdx',
+  'data': { 'file':                 'BlockdevRef',
+            'size':                 'size',
+            '*log-size':            'size',
+            '*block-size':          'size',
+            '*subformat':           'BlockdevVhdxSubformat',
+            '*block-state-zero':    'bool' } }
+
+{ 'enum': 'BlockdevVpcSubformat',
+  'data': [ 'dynamic', 'fixed' ] }
+
+{ 'struct': 'BlockdevCreateOptionsVpc',
+  'data': { 'file':                 'BlockdevRef',
+            'size':                 'size',
+            '*subformat':           'BlockdevVpcSubformat',
+            '*force-size':          'bool' } }
+
+{ 'union': 'BlockdevCreateOptions',
+  'base': {
+      'driver':         'BlockdevDriver' },
+  'discriminator': 'driver',
+  'data': {
+      'file':           'BlockdevCreateOptionsFile',
+      'gluster':        'BlockdevCreateOptionsGluster',
+      'luks':           'BlockdevCreateOptionsLUKS',
+      'nfs':            'BlockdevCreateOptionsNfs',
+      'parallels':      'BlockdevCreateOptionsParallels',
+      'qcow':           'BlockdevCreateOptionsQcow',
+      'qcow2':          'BlockdevCreateOptionsQcow2',
+      'qed':            'BlockdevCreateOptionsQed',
+      'rbd':            'BlockdevCreateOptionsRbd',
+      'ssh':            'BlockdevCreateOptionsSsh',
+      'vdi':            'BlockdevCreateOptionsVdi',
+      'vhdx':           'BlockdevCreateOptionsVhdx',
+      'vmdk':           'BlockdevCreateOptionsVmdk',
+      'vpc':            'BlockdevCreateOptionsVpc'
+  } }
+
+{ 'struct': 'BlockdevAmendOptionsLUKS',
+  'base': 'QCryptoBlockAmendOptionsLUKS',
+  'data': { }
+}
+
+{ 'struct': 'BlockdevAmendOptionsQcow2',
+  'data': { '*encrypt':         'QCryptoBlockAmendOptions' } }
+
+{ 'union': 'BlockdevAmendOptions',
+  'base': {
+      'driver':         'BlockdevDriver' },
+  'discriminator': 'driver',
+  'data': {
+      'luks':           'BlockdevAmendOptionsLUKS',
+      'qcow2':          'BlockdevAmendOptionsQcow2' } }
+
+{ 'enum': 'BlockErrorAction',
+  'data': [ 'ignore', 'report', 'stop' ] }
+
+{ 'event': 'BLOCK_IMAGE_CORRUPTED',
+  'data': { 'device'     : 'str',
+            '*node-name' : 'str',
+            'msg'        : 'str',
+            '*offset'    : 'int',
+            '*size'      : 'int',
+            'fatal'      : 'bool' } }
+
+{ 'event': 'BLOCK_IO_ERROR',
+  'data': { 'qom-path': 'str', 'device': 'str', '*node-name': 'str',
+            'operation': 'IoOperationType',
+            'action': 'BlockErrorAction', '*nospace': 'bool',
+            'reason': 'str' } }
+
+{ 'event': 'BLOCK_JOB_COMPLETED',
+  'data': { 'type'  : 'JobType',
+            'device': 'str',
+            'len'   : 'int',
+            'offset': 'int',
+            'speed' : 'int',
+            '*error': 'str' } }
+
+{ 'event': 'BLOCK_JOB_CANCELLED',
+  'data': { 'type'  : 'JobType',
+            'device': 'str',
+            'len'   : 'int',
+            'offset': 'int',
+            'speed' : 'int' } }
+
+{ 'event': 'BLOCK_JOB_ERROR',
+  'data': { 'device'   : 'str',
+            'operation': 'IoOperationType',
+            'action'   : 'BlockErrorAction' } }
+
+{ 'event': 'BLOCK_JOB_READY',
+  'data': { 'type'  : 'JobType',
+            'device': 'str',
+            'len'   : 'int',
+            'offset': 'int',
+            'speed' : 'int' } }
+
+{ 'event': 'BLOCK_JOB_PENDING',
+  'data': { 'type'  : 'JobType',
+            'id'    : 'str' } }
+
+{ 'enum': 'PreallocMode',
+  'data': [ 'off', 'metadata', 'falloc', 'full' ] }
+
+{ 'enum': 'QuorumOpType',
+  'data': [ 'read', 'write', 'flush' ] }
+
+{ 'event': 'QUORUM_FAILURE',
+  'data': { 'reference': 'str', 'sector-num': 'int', 'sectors-count': 'int' } }
+
+{ 'event': 'QUORUM_REPORT_BAD',
+  'data': { 'type': 'QuorumOpType', '*error': 'str', 'node-name': 'str',
+            'sector-num': 'int', 'sectors-count': 'int' } }
+
+{ 'struct': 'BlockdevSnapshotInternal',
+  'data': { 'device': 'str', 'name': 'str' } }

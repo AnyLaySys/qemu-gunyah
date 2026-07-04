@@ -1,0 +1,98 @@
+
+{ 'command': 'rtc-reset-reinjection',
+  'if': 'TARGET_I386' }
+
+{ 'enum': 'SevState',
+  'data': ['uninit', 'launch-update', 'launch-secret', 'running',
+           'send-update', 'receive-update' ],
+  'if': 'TARGET_I386' }
+
+{ 'enum': 'SevGuestType',
+  'data': [ 'sev', 'sev-snp' ],
+  'if': 'TARGET_I386' }
+
+{ 'struct': 'SevGuestInfo',
+  'data': { 'policy': 'uint32',
+            'handle': 'uint32' },
+  'if': 'TARGET_I386' }
+
+{ 'struct': 'SevSnpGuestInfo',
+  'data': { 'snp-policy': 'uint64' },
+  'if': 'TARGET_I386' }
+
+{ 'union': 'SevInfo',
+  'base': { 'enabled': 'bool',
+            'api-major': 'uint8',
+            'api-minor' : 'uint8',
+            'build-id' : 'uint8',
+            'state' : 'SevState',
+            'sev-type' : 'SevGuestType' },
+  'discriminator': 'sev-type',
+  'data': {
+      'sev': 'SevGuestInfo',
+      'sev-snp': 'SevSnpGuestInfo' },
+  'if': 'TARGET_I386' }
+
+
+{ 'command': 'query-sev', 'returns': 'SevInfo',
+  'if': 'TARGET_I386' }
+
+{ 'struct': 'SevLaunchMeasureInfo', 'data': {'data': 'str'},
+  'if': 'TARGET_I386' }
+
+{ 'command': 'query-sev-launch-measure', 'returns': 'SevLaunchMeasureInfo',
+  'if': 'TARGET_I386' }
+
+{ 'struct': 'SevCapability',
+  'data': { 'pdh': 'str',
+            'cert-chain': 'str',
+            'cpu0-id': 'str',
+            'cbitpos': 'int',
+            'reduced-phys-bits': 'int'},
+  'if': 'TARGET_I386' }
+
+{ 'command': 'query-sev-capabilities', 'returns': 'SevCapability',
+  'if': 'TARGET_I386' }
+
+{ 'command': 'sev-inject-launch-secret',
+  'data': { 'packet-header': 'str', 'secret': 'str', '*gpa': 'uint64' },
+  'if': 'TARGET_I386' }
+
+{ 'struct': 'SevAttestationReport',
+  'data': { 'data': 'str'},
+  'if': 'TARGET_I386' }
+
+{ 'command': 'query-sev-attestation-report',
+  'data': { 'mnonce': 'str' },
+  'returns': 'SevAttestationReport',
+  'if': 'TARGET_I386' }
+
+{ 'command': 'dump-skeys',
+  'data': { 'filename': 'str' },
+  'if': 'TARGET_S390X' }
+
+{ 'struct': 'GICCapability',
+  'data': { 'version': 'int',
+            'emulated': 'bool',
+            'kernel': 'bool' },
+  'if': 'TARGET_ARM' }
+
+{ 'command': 'query-gic-capabilities', 'returns': ['GICCapability'],
+  'if': 'TARGET_ARM' }
+
+{ 'struct': 'SGXEPCSection',
+  'data': { 'node': 'int',
+            'size': 'uint64'}}
+
+{ 'struct': 'SGXInfo',
+  'data': { 'sgx': 'bool',
+            'sgx1': 'bool',
+            'sgx2': 'bool',
+            'flc': 'bool',
+            'sections': ['SGXEPCSection']},
+   'if': 'TARGET_I386' }
+
+{ 'command': 'query-sgx', 'returns': 'SGXInfo', 'if': 'TARGET_I386' }
+
+{ 'command': 'query-sgx-capabilities', 'returns': 'SGXInfo', 'if': 'TARGET_I386' }
+

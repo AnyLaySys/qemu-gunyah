@@ -1,0 +1,6 @@
+config IOMMUFD
+    bool
+
+config SPDM_SOCKET
+    bool
+    default y

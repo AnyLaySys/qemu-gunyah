@@ -1,0 +1,4 @@
+# See docs/devel/tracing.rst for syntax documentation.
+
+# announce.c
+qemu_announce_timer_del(char *id) "id: %s"

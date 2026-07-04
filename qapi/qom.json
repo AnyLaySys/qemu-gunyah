@@ -1,0 +1,243 @@
+
+{ 'include': 'block-core.json' }
+{ 'include': 'common.json' }
+{ 'include': 'crypto.json' }
+
+
+{ 'struct': 'ObjectPropertyInfo',
+  'data': { 'name': 'str',
+            'type': 'str',
+            '*description': 'str',
+            '*default-value': 'any' } }
+
+{ 'command': 'qom-list',
+  'data': { 'path': 'str' },
+  'returns': [ 'ObjectPropertyInfo' ],
+  'allow-preconfig': true }
+
+{ 'command': 'qom-get',
+  'data': { 'path': 'str', 'property': 'str' },
+  'returns': 'any',
+  'allow-preconfig': true }
+
+{ 'command': 'qom-set',
+  'data': { 'path': 'str', 'property': 'str', 'value': 'any' },
+  'allow-preconfig': true }
+
+{ 'struct': 'ObjectTypeInfo',
+  'data': { 'name': 'str', '*abstract': 'bool', '*parent': 'str' } }
+
+{ 'command': 'qom-list-types',
+  'data': { '*implements': 'str', '*abstract': 'bool' },
+  'returns': [ 'ObjectTypeInfo' ],
+  'allow-preconfig': true }
+
+{ 'command': 'qom-list-properties',
+  'data': { 'typename': 'str'},
+  'returns': [ 'ObjectPropertyInfo' ],
+  'allow-preconfig': true }
+
+{ 'struct': 'DBusVMStateProperties',
+  'data': { 'addr': 'str' ,
+            '*id-list': 'str' } }
+
+{ 'struct': 'EventLoopBaseProperties',
+  'data': { '*aio-max-batch': 'int',
+            '*thread-pool-min': 'int',
+            '*thread-pool-max': 'int' } }
+
+{ 'struct': 'IothreadProperties',
+  'base': 'EventLoopBaseProperties',
+  'data': { '*poll-max-ns': 'int',
+            '*poll-grow': 'int',
+            '*poll-shrink': 'int' } }
+
+{ 'struct': 'MainLoopProperties',
+  'base': 'EventLoopBaseProperties',
+  'data': {} }
+
+{ 'struct': 'MemoryBackendProperties',
+  'data': { '*dump': 'bool',
+            '*host-nodes': ['uint16'],
+            '*merge': 'bool',
+            '*policy': 'HostMemPolicy',
+            '*prealloc': 'bool',
+            '*prealloc-threads': 'uint32',
+            '*prealloc-context': 'str',
+            '*share': 'bool',
+            '*reserve': 'bool',
+            'size': 'size',
+            '*x-use-canonical-path-for-ramblock-id': 'bool' } }
+
+{ 'struct': 'MemoryBackendFileProperties',
+  'base': 'MemoryBackendProperties',
+  'data': { '*align': 'size',
+            '*offset': 'size',
+            '*discard-data': 'bool',
+            'mem-path': 'str',
+            '*pmem': { 'type': 'bool', 'if': 'CONFIG_LIBPMEM' },
+            '*readonly': 'bool',
+            '*rom': 'OnOffAuto' } }
+
+{ 'struct': 'MemoryBackendMemfdProperties',
+  'base': 'MemoryBackendProperties',
+  'data': { '*hugetlb': 'bool',
+            '*hugetlbsize': 'size',
+            '*seal': 'bool' },
+  'if': 'CONFIG_LINUX' }
+
+{ 'struct': 'MemoryBackendShmProperties',
+  'base': 'MemoryBackendProperties',
+  'data': { },
+  'if': 'CONFIG_POSIX' }
+
+{ 'struct': 'MemoryBackendEpcProperties',
+  'base': 'MemoryBackendProperties',
+  'data': {},
+  'if': 'CONFIG_LINUX' }
+
+{ 'struct': 'PrManagerHelperProperties',
+  'data': { 'path': 'str' },
+  'if': 'CONFIG_LINUX' }
+
+{ 'struct': 'RemoteObjectProperties',
+  'data': { 'fd': 'str', 'devid': 'str' } }
+
+{ 'struct': 'IOMMUFDProperties',
+  'data': { '*fd': 'str' } }
+
+{ 'struct': 'AcpiGenericInitiatorProperties',
+  'data': { 'pci-dev': 'str',
+            'node': 'uint32' } }
+
+{ 'struct': 'AcpiGenericPortProperties',
+  'data': { 'pci-bus': 'str',
+            'node': 'uint32' } }
+
+{ 'struct': 'RngProperties',
+  'data': { '*opened': { 'type': 'bool', 'features': ['deprecated'] } } }
+
+{ 'struct': 'RngEgdProperties',
+  'base': 'RngProperties',
+  'data': { 'chardev': 'str' } }
+
+{ 'struct': 'RngRandomProperties',
+  'base': 'RngProperties',
+  'data': { '*filename': 'str' },
+  'if': 'CONFIG_POSIX' }
+
+{ 'struct': 'SevCommonProperties',
+  'data': { '*sev-device': 'str',
+            '*cbitpos': 'uint32',
+            'reduced-phys-bits': 'uint32',
+            '*kernel-hashes': 'bool' } }
+
+{ 'struct': 'ArmConfidentialGuestProperties',
+  'data': { '*swiotlb-size': 'size' } }
+
+{ 'struct': 'SevGuestProperties',
+  'base': 'SevCommonProperties',
+  'data': { '*dh-cert-file': 'str',
+            '*session-file': 'str',
+            '*policy': 'uint32',
+            '*handle': 'uint32',
+            '*legacy-vm-type': 'OnOffAuto' } }
+
+{ 'struct': 'SevSnpGuestProperties',
+  'base': 'SevCommonProperties',
+  'data': {
+            '*policy': 'uint64',
+            '*guest-visible-workarounds': 'str',
+            '*id-block': 'str',
+            '*id-auth': 'str',
+            '*author-key-enabled': 'bool',
+            '*host-data': 'str',
+            '*vcek-disabled': 'bool' } }
+
+{ 'struct': 'ThreadContextProperties',
+  'data': { '*cpu-affinity': ['uint16'],
+            '*node-affinity': ['uint16'] } }
+
+
+{ 'enum': 'ObjectType',
+  'data': [
+    'acpi-generic-initiator',
+    'acpi-generic-port',
+    'dbus-vmstate',
+    'iommufd',
+    'iothread',
+    'main-loop',
+    { 'name': 'memory-backend-epc',
+      'if': 'CONFIG_LINUX' },
+    'memory-backend-file',
+    { 'name': 'memory-backend-memfd',
+      'if': 'CONFIG_LINUX' },
+    'memory-backend-ram',
+    { 'name': 'memory-backend-shm',
+      'if': 'CONFIG_POSIX' },
+    'pef-guest',
+    { 'name': 'pr-manager-helper',
+      'if': 'CONFIG_LINUX' },
+    'rng-builtin',
+    'rng-egd',
+    { 'name': 'rng-random',
+      'if': 'CONFIG_POSIX' },
+    'secret',
+    { 'name': 'secret_keyring',
+      'if': 'CONFIG_SECRET_KEYRING' },
+    'sev-guest',
+    'sev-snp-guest',
+    'thread-context',
+    'arm-confidential-guest',
+    's390-pv-guest',
+    'tls-creds-anon',
+    'tls-creds-psk',
+    'tls-creds-x509',
+    'tls-cipher-suites',
+    { 'name': 'x-remote-object', 'features': [ 'unstable' ] }
+  ] }
+
+{ 'union': 'ObjectOptions',
+  'base': { 'qom-type': 'ObjectType',
+            'id': 'str' },
+  'discriminator': 'qom-type',
+  'data': {
+      'acpi-generic-initiator':     'AcpiGenericInitiatorProperties',
+      'acpi-generic-port':          'AcpiGenericPortProperties',
+      'arm-confidential-guest':     'ArmConfidentialGuestProperties',
+      'dbus-vmstate':               'DBusVMStateProperties',
+      'iommufd':                    'IOMMUFDProperties',
+      'iothread':                   'IothreadProperties',
+      'main-loop':                  'MainLoopProperties',
+      'memory-backend-epc':         { 'type': 'MemoryBackendEpcProperties',
+                                      'if': 'CONFIG_LINUX' },
+      'memory-backend-file':        'MemoryBackendFileProperties',
+      'memory-backend-memfd':       { 'type': 'MemoryBackendMemfdProperties',
+                                      'if': 'CONFIG_LINUX' },
+      'memory-backend-ram':         'MemoryBackendProperties',
+      'memory-backend-shm':         { 'type': 'MemoryBackendShmProperties',
+                                      'if': 'CONFIG_POSIX' },
+      'pr-manager-helper':          { 'type': 'PrManagerHelperProperties',
+                                      'if': 'CONFIG_LINUX' },
+      'rng-builtin':                'RngProperties',
+      'rng-egd':                    'RngEgdProperties',
+      'rng-random':                 { 'type': 'RngRandomProperties',
+                                      'if': 'CONFIG_POSIX' },
+      'secret':                     'SecretProperties',
+      'secret_keyring':             { 'type': 'SecretKeyringProperties',
+                                      'if': 'CONFIG_SECRET_KEYRING' },
+      'sev-guest':                  'SevGuestProperties',
+      'sev-snp-guest':              'SevSnpGuestProperties',
+      'thread-context':             'ThreadContextProperties',
+      'tls-creds-anon':             'TlsCredsAnonProperties',
+      'tls-creds-psk':              'TlsCredsPskProperties',
+      'tls-creds-x509':             'TlsCredsX509Properties',
+      'tls-cipher-suites':          'TlsCredsProperties',
+      'x-remote-object':            'RemoteObjectProperties'
+  } }
+
+{ 'command': 'object-add', 'data': 'ObjectOptions', 'boxed': true,
+  'allow-preconfig': true }
+
+{ 'command': 'object-del', 'data': {'id': 'str'},
+  'allow-preconfig': true }

@@ -1,0 +1,13 @@
+
+
+{ 'enum': 'CompatPolicyInput',
+  'data': [ 'accept', 'reject', 'crash' ] }
+
+{ 'enum': 'CompatPolicyOutput',
+  'data': [ 'accept', 'hide' ] }
+
+{ 'struct': 'CompatPolicy',
+  'data': { '*deprecated-input': 'CompatPolicyInput',
+            '*deprecated-output': 'CompatPolicyOutput',
+            '*unstable-input': 'CompatPolicyInput',
+            '*unstable-output': 'CompatPolicyOutput' } }

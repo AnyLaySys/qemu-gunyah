@@ -1,0 +1,12 @@
+config DDC
+    bool
+    select EDID
+
+config EDID
+    bool
+
+config VIRTIO_GPU
+    bool
+    default y
+    depends on VIRTIO
+    select EDID

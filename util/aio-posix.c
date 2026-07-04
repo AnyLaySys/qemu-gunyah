@@ -1,0 +1,649 @@
+
+#include "qemu/osdep.h"
+#include "block/block.h"
+#include "block/thread-pool.h"
+#include "qemu/main-loop.h"
+#include "qemu/lockcnt.h"
+#include "qemu/rcu.h"
+#include "qemu/rcu_queue.h"
+#include "qemu/sockets.h"
+#include "qemu/cutils.h"
+#include "trace.h"
+#include "aio-posix.h"
+
+#define POLL_IDLE_INTERVAL_NS (7 * NANOSECONDS_PER_SECOND)
+
+static void adjust_polling_time(AioContext *ctx, AioPolledEvent *poll,
+                                int64_t block_ns);
+
+bool aio_poll_disabled(AioContext *ctx)
+{
+    return qatomic_read(&ctx->poll_disable_cnt);
+}
+
+void aio_add_ready_handler(AioHandlerList *ready_list,
+                           AioHandler *node,
+                           int revents)
+{
+    QLIST_SAFE_REMOVE(node, node_ready); /* remove from nested parent's list */
+    node->pfd.revents = revents;
+    QLIST_INSERT_HEAD(ready_list, node, node_ready);
+}
+
+static void aio_add_poll_ready_handler(AioHandlerList *ready_list,
+                                       AioHandler *node)
+{
+    QLIST_SAFE_REMOVE(node, node_ready); /* remove from nested parent's list */
+    node->poll_ready = true;
+    QLIST_INSERT_HEAD(ready_list, node, node_ready);
+}
+
+static AioHandler *find_aio_handler(AioContext *ctx, int fd)
+{
+    AioHandler *node;
+
+    QLIST_FOREACH(node, &ctx->aio_handlers, node) {
+        if (node->pfd.fd == fd) {
+            if (!QLIST_IS_INSERTED(node, node_deleted)) {
+                return node;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static bool aio_remove_fd_handler(AioContext *ctx, AioHandler *node)
+{
+    if (!g_source_is_destroyed(&ctx->source)) {
+        g_source_remove_poll(&ctx->source, &node->pfd);
+    }
+
+    node->pfd.revents = 0;
+    node->poll_ready = false;
+
+    if (QLIST_IS_INSERTED(node, node_deleted)) {
+        return false;
+    }
+
+    if (qemu_lockcnt_count(&ctx->list_lock)) {
+        QLIST_INSERT_HEAD_RCU(&ctx->deleted_aio_handlers, node, node_deleted);
+        return false;
+    }
+    QLIST_SAFE_REMOVE(node, node_poll);
+    QLIST_REMOVE(node, node);
+    return true;
+}
+
+void aio_set_fd_handler(AioContext *ctx,
+                        int fd,
+                        IOHandler *io_read,
+                        IOHandler *io_write,
+                        AioPollFn *io_poll,
+                        IOHandler *io_poll_ready,
+                        void *opaque)
+{
+    AioHandler *node;
+    AioHandler *new_node = NULL;
+    bool is_new = false;
+    bool deleted = false;
+    int poll_disable_change;
+
+    if (io_poll && !io_poll_ready) {
+        io_poll = NULL; /* polling only makes sense if there is a handler */
+    }
+
+    qemu_lockcnt_lock(&ctx->list_lock);
+
+    node = find_aio_handler(ctx, fd);
+
+    if (!io_read && !io_write && !io_poll) {
+        if (node == NULL) {
+            qemu_lockcnt_unlock(&ctx->list_lock);
+            return;
+        }
+        node->pfd.events = 0;
+
+        poll_disable_change = -!node->io_poll;
+    } else {
+        poll_disable_change = !io_poll - (node && !node->io_poll);
+        if (node == NULL) {
+            is_new = true;
+        }
+        new_node = g_new0(AioHandler, 1);
+
+        new_node->io_read = io_read;
+        new_node->io_write = io_write;
+        new_node->io_poll = io_poll;
+        new_node->io_poll_ready = io_poll_ready;
+        new_node->opaque = opaque;
+
+        if (is_new) {
+            new_node->pfd.fd = fd;
+        } else {
+            new_node->pfd = node->pfd;
+        }
+        g_source_add_poll(&ctx->source, &new_node->pfd);
+
+        new_node->pfd.events = (io_read ? G_IO_IN | G_IO_HUP | G_IO_ERR : 0);
+        new_node->pfd.events |= (io_write ? G_IO_OUT | G_IO_ERR : 0);
+
+        QLIST_INSERT_HEAD_RCU(&ctx->aio_handlers, new_node, node);
+    }
+
+    qatomic_set(&ctx->poll_disable_cnt,
+               qatomic_read(&ctx->poll_disable_cnt) + poll_disable_change);
+
+    ctx->fdmon_ops->update(ctx, node, new_node);
+    if (node) {
+        deleted = aio_remove_fd_handler(ctx, node);
+    }
+    qemu_lockcnt_unlock(&ctx->list_lock);
+    aio_notify(ctx);
+
+    if (deleted) {
+        g_free(node);
+    }
+}
+
+static void aio_set_fd_poll(AioContext *ctx, int fd,
+                            IOHandler *io_poll_begin,
+                            IOHandler *io_poll_end)
+{
+    AioHandler *node = find_aio_handler(ctx, fd);
+
+    if (!node) {
+        return;
+    }
+
+    node->io_poll_begin = io_poll_begin;
+    node->io_poll_end = io_poll_end;
+}
+
+void aio_set_event_notifier(AioContext *ctx,
+                            EventNotifier *notifier,
+                            EventNotifierHandler *io_read,
+                            AioPollFn *io_poll,
+                            EventNotifierHandler *io_poll_ready)
+{
+    aio_set_fd_handler(ctx, event_notifier_get_fd(notifier),
+                       (IOHandler *)io_read, NULL, io_poll,
+                       (IOHandler *)io_poll_ready, notifier);
+}
+
+void aio_set_event_notifier_poll(AioContext *ctx,
+                                 EventNotifier *notifier,
+                                 EventNotifierHandler *io_poll_begin,
+                                 EventNotifierHandler *io_poll_end)
+{
+    aio_set_fd_poll(ctx, event_notifier_get_fd(notifier),
+                    (IOHandler *)io_poll_begin,
+                    (IOHandler *)io_poll_end);
+}
+
+static bool poll_set_started(AioContext *ctx, AioHandlerList *ready_list,
+                             bool started)
+{
+    AioHandler *node;
+    bool progress = false;
+
+    if (started == ctx->poll_started) {
+        return false;
+    }
+
+    ctx->poll_started = started;
+
+    qemu_lockcnt_inc(&ctx->list_lock);
+    QLIST_FOREACH(node, &ctx->poll_aio_handlers, node_poll) {
+        IOHandler *fn;
+
+        if (QLIST_IS_INSERTED(node, node_deleted)) {
+            continue;
+        }
+
+        if (started) {
+            fn = node->io_poll_begin;
+        } else {
+            fn = node->io_poll_end;
+        }
+
+        if (fn) {
+            fn(node->opaque);
+        }
+
+        if (!started && node->io_poll(node->opaque)) {
+            aio_add_poll_ready_handler(ready_list, node);
+            progress = true;
+        }
+    }
+    qemu_lockcnt_dec(&ctx->list_lock);
+
+    return progress;
+}
+
+
+bool aio_prepare(AioContext *ctx)
+{
+    AioHandlerList ready_list = QLIST_HEAD_INITIALIZER(ready_list);
+
+    poll_set_started(ctx, &ready_list, false);
+
+    return false;
+}
+
+bool aio_pending(AioContext *ctx)
+{
+    AioHandler *node;
+    bool result = false;
+
+    qemu_lockcnt_inc(&ctx->list_lock);
+
+    QLIST_FOREACH_RCU(node, &ctx->aio_handlers, node) {
+        int revents;
+
+        revents = node->pfd.revents & node->pfd.events;
+        if (revents & (G_IO_IN | G_IO_HUP | G_IO_ERR) && node->io_read) {
+            result = true;
+            break;
+        }
+        if (revents & (G_IO_OUT | G_IO_ERR) && node->io_write) {
+            result = true;
+            break;
+        }
+    }
+    qemu_lockcnt_dec(&ctx->list_lock);
+
+    return result;
+}
+
+static void aio_free_deleted_handlers(AioContext *ctx)
+{
+    AioHandler *node;
+
+    if (QLIST_EMPTY_RCU(&ctx->deleted_aio_handlers)) {
+        return;
+    }
+    if (!qemu_lockcnt_dec_if_lock(&ctx->list_lock)) {
+        return; /* we are nested, let the parent do the freeing */
+    }
+
+    while ((node = QLIST_FIRST_RCU(&ctx->deleted_aio_handlers))) {
+        QLIST_REMOVE(node, node);
+        QLIST_REMOVE(node, node_deleted);
+        QLIST_SAFE_REMOVE(node, node_poll);
+        g_free(node);
+    }
+
+    qemu_lockcnt_inc_and_unlock(&ctx->list_lock);
+}
+
+static bool aio_dispatch_handler(AioContext *ctx, AioHandler *node)
+{
+    bool progress = false;
+    bool poll_ready;
+    int revents;
+
+    revents = node->pfd.revents & node->pfd.events;
+    node->pfd.revents = 0;
+
+    poll_ready = node->poll_ready;
+    node->poll_ready = false;
+
+    if (!QLIST_IS_INSERTED(node, node_deleted) &&
+        !QLIST_IS_INSERTED(node, node_poll) &&
+        node->io_poll) {
+        trace_poll_add(ctx, node, node->pfd.fd, revents);
+        if (ctx->poll_started && node->io_poll_begin) {
+            node->io_poll_begin(node->opaque);
+        }
+        QLIST_INSERT_HEAD(&ctx->poll_aio_handlers, node, node_poll);
+    }
+    if (!QLIST_IS_INSERTED(node, node_deleted) &&
+        poll_ready && revents == 0 && node->io_poll_ready) {
+        QLIST_SAFE_REMOVE(node, node_poll);
+
+        node->io_poll_ready(node->opaque);
+
+        if (!QLIST_IS_INSERTED(node, node_poll)) {
+            QLIST_INSERT_HEAD(&ctx->poll_aio_handlers, node, node_poll);
+        }
+
+        return node->opaque != &ctx->notifier;
+    }
+
+    if (!QLIST_IS_INSERTED(node, node_deleted) &&
+        (revents & (G_IO_IN | G_IO_HUP | G_IO_ERR)) &&
+        node->io_read) {
+        node->io_read(node->opaque);
+
+        if (node->opaque != &ctx->notifier) {
+            progress = true;
+        }
+    }
+    if (!QLIST_IS_INSERTED(node, node_deleted) &&
+        (revents & (G_IO_OUT | G_IO_ERR)) &&
+        node->io_write) {
+        node->io_write(node->opaque);
+        progress = true;
+    }
+
+    return progress;
+}
+
+static bool aio_dispatch_ready_handlers(AioContext *ctx,
+                                        AioHandlerList *ready_list,
+                                        int64_t block_ns)
+{
+    bool progress = false;
+    AioHandler *node;
+
+    while ((node = QLIST_FIRST(ready_list))) {
+        QLIST_REMOVE(node, node_ready);
+        progress = aio_dispatch_handler(ctx, node) || progress;
+
+        if (ctx->poll_max_ns && QLIST_IS_INSERTED(node, node_poll)) {
+            adjust_polling_time(ctx, &node->poll, block_ns);
+        }
+    }
+
+    return progress;
+}
+
+static bool aio_dispatch_handlers(AioContext *ctx)
+{
+    AioHandler *node, *tmp;
+    bool progress = false;
+
+    QLIST_FOREACH_SAFE_RCU(node, &ctx->aio_handlers, node, tmp) {
+        progress = aio_dispatch_handler(ctx, node) || progress;
+    }
+
+    return progress;
+}
+
+void aio_dispatch(AioContext *ctx)
+{
+    qemu_lockcnt_inc(&ctx->list_lock);
+    aio_bh_poll(ctx);
+    aio_dispatch_handlers(ctx);
+    aio_free_deleted_handlers(ctx);
+    qemu_lockcnt_dec(&ctx->list_lock);
+
+    timerlistgroup_run_timers(&ctx->tlg);
+}
+
+static bool run_poll_handlers_once(AioContext *ctx,
+                                   AioHandlerList *ready_list,
+                                   int64_t now,
+                                   int64_t *timeout)
+{
+    bool progress = false;
+    AioHandler *node;
+    AioHandler *tmp;
+
+    QLIST_FOREACH_SAFE(node, &ctx->poll_aio_handlers, node_poll, tmp) {
+        if (node->io_poll(node->opaque)) {
+            aio_add_poll_ready_handler(ready_list, node);
+
+            node->poll_idle_timeout = now + POLL_IDLE_INTERVAL_NS;
+
+            *timeout = 0;
+            if (node->opaque != &ctx->notifier) {
+                progress = true;
+            }
+        }
+
+    }
+
+    return progress;
+}
+
+static bool fdmon_supports_polling(AioContext *ctx)
+{
+    return ctx->fdmon_ops->need_wait != aio_poll_disabled;
+}
+
+static bool remove_idle_poll_handlers(AioContext *ctx,
+                                      AioHandlerList *ready_list,
+                                      int64_t now)
+{
+    AioHandler *node;
+    AioHandler *tmp;
+    bool progress = false;
+
+    if (!fdmon_supports_polling(ctx)) {
+        return false;
+    }
+
+    QLIST_FOREACH_SAFE(node, &ctx->poll_aio_handlers, node_poll, tmp) {
+        if (node->poll_idle_timeout == 0LL) {
+            node->poll_idle_timeout = now + POLL_IDLE_INTERVAL_NS;
+        } else if (now >= node->poll_idle_timeout) {
+            trace_poll_remove(ctx, node, node->pfd.fd);
+            node->poll_idle_timeout = 0LL;
+            QLIST_SAFE_REMOVE(node, node_poll);
+            if (ctx->poll_started && node->io_poll_end) {
+                node->io_poll_end(node->opaque);
+
+                if (node->io_poll(node->opaque)) {
+                    aio_add_poll_ready_handler(ready_list, node);
+                    progress = true;
+                }
+            }
+        }
+    }
+
+    return progress;
+}
+
+static bool run_poll_handlers(AioContext *ctx, AioHandlerList *ready_list,
+                              int64_t max_ns, int64_t *timeout)
+{
+    bool progress;
+    int64_t start_time, elapsed_time;
+
+    assert(qemu_lockcnt_count(&ctx->list_lock) > 0);
+
+    trace_run_poll_handlers_begin(ctx, max_ns, *timeout);
+
+    RCU_READ_LOCK_GUARD();
+
+    start_time = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+    do {
+        progress = run_poll_handlers_once(ctx, ready_list,
+                                          start_time, timeout);
+        elapsed_time = qemu_clock_get_ns(QEMU_CLOCK_REALTIME) - start_time;
+        max_ns = qemu_soonest_timeout(*timeout, max_ns);
+        assert(!(max_ns && progress));
+    } while (elapsed_time < max_ns && !ctx->fdmon_ops->need_wait(ctx));
+
+    if (remove_idle_poll_handlers(ctx, ready_list,
+                                  start_time + elapsed_time)) {
+        *timeout = 0;
+        progress = true;
+    }
+
+    if (*timeout != -1) {
+        *timeout -= MIN(*timeout, elapsed_time);
+    }
+
+    trace_run_poll_handlers_end(ctx, progress, *timeout);
+    return progress;
+}
+
+static bool try_poll_mode(AioContext *ctx, AioHandlerList *ready_list,
+                          int64_t *timeout)
+{
+    AioHandler *node;
+    int64_t max_ns;
+
+    if (QLIST_EMPTY_RCU(&ctx->poll_aio_handlers)) {
+        return false;
+    }
+
+    max_ns = 0;
+    QLIST_FOREACH(node, &ctx->poll_aio_handlers, node_poll) {
+        max_ns = MAX(max_ns, node->poll.ns);
+    }
+    max_ns = qemu_soonest_timeout(*timeout, max_ns);
+
+    if (max_ns && !ctx->fdmon_ops->need_wait(ctx)) {
+        poll_set_started(ctx, ready_list, true);
+
+        if (run_poll_handlers(ctx, ready_list, max_ns, timeout)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void adjust_polling_time(AioContext *ctx, AioPolledEvent *poll,
+                                int64_t block_ns)
+{
+    if (block_ns <= poll->ns) {
+    } else if (block_ns > ctx->poll_max_ns) {
+        int64_t old = poll->ns;
+
+        if (ctx->poll_shrink) {
+            poll->ns /= ctx->poll_shrink;
+        } else {
+            poll->ns = 0;
+        }
+
+        trace_poll_shrink(ctx, old, poll->ns);
+    } else if (poll->ns < ctx->poll_max_ns &&
+               block_ns < ctx->poll_max_ns) {
+        int64_t old = poll->ns;
+        int64_t grow = ctx->poll_grow;
+
+        if (grow == 0) {
+            grow = 2;
+        }
+
+        if (poll->ns) {
+            poll->ns *= grow;
+        } else {
+            poll->ns = 4000; /* start polling at 4 microseconds */
+        }
+
+        if (poll->ns > ctx->poll_max_ns) {
+            poll->ns = ctx->poll_max_ns;
+        }
+
+        trace_poll_grow(ctx, old, poll->ns);
+    }
+}
+
+bool aio_poll(AioContext *ctx, bool blocking)
+{
+    AioHandlerList ready_list = QLIST_HEAD_INITIALIZER(ready_list);
+    bool progress;
+    bool use_notify_me;
+    int64_t timeout;
+    int64_t start = 0;
+    int64_t block_ns = 0;
+
+    assert(in_aio_context_home_thread(ctx == iohandler_get_aio_context() ?
+                                      qemu_get_aio_context() : ctx));
+
+    qemu_lockcnt_inc(&ctx->list_lock);
+
+    if (ctx->poll_max_ns) {
+        start = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+    }
+
+    timeout = blocking ? aio_compute_timeout(ctx) : 0;
+    progress = try_poll_mode(ctx, &ready_list, &timeout);
+    assert(!(timeout && progress));
+
+    use_notify_me = timeout != 0;
+    if (use_notify_me) {
+        qatomic_set(&ctx->notify_me, qatomic_read(&ctx->notify_me) + 2);
+        smp_mb();
+
+        if (qatomic_read(&ctx->notified)) {
+            timeout = 0;
+        }
+    }
+
+    if (timeout || ctx->fdmon_ops->need_wait(ctx)) {
+        if (poll_set_started(ctx, &ready_list, false)) {
+            timeout = 0;
+            progress = true;
+        }
+
+        ctx->fdmon_ops->wait(ctx, &ready_list, timeout);
+    }
+
+    if (use_notify_me) {
+        qatomic_store_release(&ctx->notify_me,
+                             qatomic_read(&ctx->notify_me) - 2);
+    }
+
+    aio_notify_accept(ctx);
+
+    if (ctx->poll_max_ns) {
+        block_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME) - start;
+    }
+
+    progress |= aio_bh_poll(ctx);
+    progress |= aio_dispatch_ready_handlers(ctx, &ready_list, block_ns);
+
+    aio_free_deleted_handlers(ctx);
+
+    qemu_lockcnt_dec(&ctx->list_lock);
+
+    progress |= timerlistgroup_run_timers(&ctx->tlg);
+
+    return progress;
+}
+
+void aio_context_setup(AioContext *ctx)
+{
+    ctx->fdmon_ops = &fdmon_poll_ops;
+    ctx->epollfd = -1;
+
+    if (fdmon_io_uring_setup(ctx)) {
+        return;
+    }
+
+    fdmon_epoll_setup(ctx);
+}
+
+void aio_context_destroy(AioContext *ctx)
+{
+    fdmon_io_uring_destroy(ctx);
+    fdmon_epoll_disable(ctx);
+    aio_free_deleted_handlers(ctx);
+}
+
+void aio_context_use_g_source(AioContext *ctx)
+{
+    fdmon_io_uring_destroy(ctx);
+    aio_free_deleted_handlers(ctx);
+}
+
+void aio_context_set_poll_params(AioContext *ctx, int64_t max_ns,
+                                 int64_t grow, int64_t shrink, Error **errp)
+{
+    AioHandler *node;
+
+    qemu_lockcnt_inc(&ctx->list_lock);
+    QLIST_FOREACH(node, &ctx->aio_handlers, node) {
+        node->poll.ns = 0;
+    }
+    qemu_lockcnt_dec(&ctx->list_lock);
+
+    ctx->poll_max_ns = max_ns;
+    ctx->poll_grow = grow;
+    ctx->poll_shrink = shrink;
+
+    aio_notify(ctx);
+}
+
+void aio_context_set_aio_params(AioContext *ctx, int64_t max_batch)
+{
+    ctx->aio_max_batch = max_batch;
+
+    aio_notify(ctx);
+}

@@ -1,0 +1,16 @@
+config VIRTIO
+    bool
+
+config VIRTIO_PCI
+    bool
+    default y if PCI_DEVICES
+    depends on PCI
+    select VIRTIO
+    select VIRTIO_MD_SUPPORTED
+
+config VIRTIO_MMIO
+    bool
+    select VIRTIO
+
+config VIRTIO_MD_SUPPORTED
+    bool

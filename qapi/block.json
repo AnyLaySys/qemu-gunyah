@@ -1,0 +1,22 @@
+
+
+{ 'include': 'block-core.json' }
+
+
+{ 'enum': 'BiosAtaTranslation',
+  'data': ['auto', 'none', 'lba', 'large', 'rechs']}
+
+{ 'enum': 'FloppyDriveType',
+  'data': ['144', '288', '120', 'none', 'auto']}
+
+{ 'struct': 'PRManagerInfo',
+  'data': {'id': 'str', 'connected': 'bool'} }
+
+{ 'command': 'query-pr-managers', 'returns': ['PRManagerInfo'],
+  'allow-preconfig': true }
+
+{ 'event': 'DEVICE_TRAY_MOVED',
+  'data': { 'device': 'str', 'id': 'str', 'tray-open': 'bool' } }
+
+{ 'event': 'PR_MANAGER_STATUS_CHANGED',
+  'data': { 'id': 'str', 'connected': 'bool' } }

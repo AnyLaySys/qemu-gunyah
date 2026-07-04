@@ -1,0 +1,33 @@
+
+{ 'struct': 'ChardevCommon',
+  'data': { '*logfile': 'str',
+            '*logappend': 'bool' } }
+
+{ 'struct': 'ChardevMux',
+  'data': { 'chardev': 'str' },
+  'base': 'ChardevCommon' }
+
+{ 'struct': 'ChardevStdio',
+  'data': { '*signal': 'bool' },
+  'base': 'ChardevCommon' }
+
+{ 'enum': 'ChardevBackendKind',
+  'data': [ 'null',
+            'mux',
+            'stdio' ] }
+
+{ 'struct': 'ChardevCommonWrapper',
+  'data': { 'data': 'ChardevCommon' } }
+
+{ 'struct': 'ChardevMuxWrapper',
+  'data': { 'data': 'ChardevMux' } }
+
+{ 'struct': 'ChardevStdioWrapper',
+  'data': { 'data': 'ChardevStdio' } }
+
+{ 'union': 'ChardevBackend',
+  'base': { 'type': 'ChardevBackendKind' },
+  'discriminator': 'type',
+  'data': { 'null': 'ChardevCommonWrapper',
+            'mux': 'ChardevMuxWrapper',
+            'stdio': 'ChardevStdioWrapper' } }

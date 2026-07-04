@@ -1,0 +1,18 @@
+
+{ 'struct': 'VersionTriple',
+  'data': {'major': 'int', 'minor': 'int', 'micro': 'int'} }
+
+{ 'struct': 'VersionInfo',
+  'data': {'qemu': 'VersionTriple', 'package': 'str'} }
+
+{ 'command': 'query-version', 'returns': 'VersionInfo',
+  'allow-preconfig': true }
+
+{ 'command': 'quit',
+  'allow-preconfig': true }
+
+{ 'struct': 'MonitorOptions',
+  'data': {
+      '*id': 'str',
+      'chardev': 'str'
+  } }

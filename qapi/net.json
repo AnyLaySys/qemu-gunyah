@@ -1,0 +1,61 @@
+
+{ 'struct': 'NetLegacyNicOptions',
+  'data': {
+    '*netdev':  'str',
+    '*macaddr': 'str',
+    '*model':   'str',
+    '*addr':    'str',
+    '*vectors': 'uint32' } }
+
+{ 'struct': 'String',
+  'data': {
+    'str': 'str' } }
+
+{ 'struct': 'NetdevTapOptions',
+  'data': {
+    '*ifname':     'str',
+    '*script':     'str',
+    '*downscript': 'str',
+    '*vnet-hdr':   'bool' } }
+
+{ 'enum': 'NetClientDriver',
+  'data': [ 'none', 'nic', 'tap' ] }
+
+{ 'union': 'Netdev',
+  'base': { 'id': 'str', 'type': 'NetClientDriver' },
+  'discriminator': 'type',
+  'data': {
+    'nic':      'NetLegacyNicOptions',
+    'tap':      'NetdevTapOptions' } }
+
+{ 'enum': 'RxState', 'data': [ 'normal', 'none', 'all' ] }
+
+{ 'struct': 'RxFilterInfo',
+  'data': {
+    'name':               'str',
+    'promiscuous':        'bool',
+    'multicast':          'RxState',
+    'unicast':            'RxState',
+    'vlan':               'RxState',
+    'broadcast-allowed':  'bool',
+    'multicast-overflow': 'bool',
+    'unicast-overflow':   'bool',
+    'main-mac':           'str',
+    'vlan-table':         ['int'],
+    'unicast-table':      ['str'],
+    'multicast-table':    ['str'] }}
+
+{ 'event': 'NIC_RX_FILTER_CHANGED',
+  'data': { '*name': 'str', 'path': 'str' } }
+
+
+{ 'struct': 'AnnounceParameters',
+  'data': { 'initial': 'int',
+            'max': 'int',
+            'rounds': 'int',
+            'step': 'int',
+            '*interfaces': ['str'],
+            '*id' : 'str' } }
+
+{ 'event': 'FAILOVER_NEGOTIATED',
+  'data': {'device-id': 'str'} }

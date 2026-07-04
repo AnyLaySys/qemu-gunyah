@@ -1,0 +1,6 @@
+# See docs/devel/tracing.rst for syntax documentation.
+
+# audio.c
+audio_timer_start(int interval) "interval %d ms"
+audio_timer_stop(void) ""
+audio_timer_delayed(int interval) "interval %d ms"

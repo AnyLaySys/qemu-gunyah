@@ -1,0 +1,66 @@
+
+
+{ 'enum': 'NetworkAddressFamily',
+  'data': [ 'ipv4', 'ipv6', 'unix', 'vsock', 'unknown' ] }
+
+{ 'struct': 'InetSocketAddressBase',
+  'data': {
+    'host': 'str',
+    'port': 'str' } }
+
+{ 'struct': 'InetSocketAddress',
+  'base': 'InetSocketAddressBase',
+  'data': {
+    '*numeric':  'bool',
+    '*to': 'uint16',
+    '*ipv4': 'bool',
+    '*ipv6': 'bool',
+    '*keep-alive': 'bool',
+    '*mptcp': { 'type': 'bool', 'if': 'HAVE_IPPROTO_MPTCP' } } }
+
+{ 'struct': 'UnixSocketAddress',
+  'data': {
+    'path': 'str',
+    '*abstract': { 'type': 'bool', 'if': 'CONFIG_LINUX' },
+    '*tight': { 'type': 'bool', 'if': 'CONFIG_LINUX' } } }
+
+{ 'struct': 'VsockSocketAddress',
+  'data': {
+    'cid': 'str',
+    'port': 'str' } }
+
+{ 'struct': 'FdSocketAddress',
+  'data': {
+    'str': 'str' } }
+
+{ 'struct': 'InetSocketAddressWrapper',
+  'data': { 'data': 'InetSocketAddress' } }
+
+{ 'struct': 'UnixSocketAddressWrapper',
+  'data': { 'data': 'UnixSocketAddress' } }
+
+{ 'struct': 'VsockSocketAddressWrapper',
+  'data': { 'data': 'VsockSocketAddress' } }
+
+{ 'struct': 'FdSocketAddressWrapper',
+  'data': { 'data': 'FdSocketAddress' } }
+
+{ 'union': 'SocketAddressLegacy',
+  'base': { 'type': 'SocketAddressType' },
+  'discriminator': 'type',
+  'data': {
+    'inet': 'InetSocketAddressWrapper',
+    'unix': 'UnixSocketAddressWrapper',
+    'vsock': 'VsockSocketAddressWrapper',
+    'fd': 'FdSocketAddressWrapper' } }
+
+{ 'enum': 'SocketAddressType',
+  'data': [ 'inet', 'unix', 'vsock', 'fd' ] }
+
+{ 'union': 'SocketAddress',
+  'base': { 'type': 'SocketAddressType' },
+  'discriminator': 'type',
+  'data': { 'inet': 'InetSocketAddress',
+            'unix': 'UnixSocketAddress',
+            'vsock': 'VsockSocketAddress',
+            'fd': 'FdSocketAddress' } }

@@ -1,0 +1,4 @@
+config VIRTIO_SND
+    bool
+    default y
+    depends on VIRTIO

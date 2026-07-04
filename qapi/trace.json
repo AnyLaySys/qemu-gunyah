@@ -1,0 +1,14 @@
+
+
+{ 'enum': 'TraceEventState',
+  'data': ['unavailable', 'disabled', 'enabled'] }
+
+{ 'struct': 'TraceEventInfo',
+  'data': {'name': 'str', 'state': 'TraceEventState' } }
+
+{ 'command': 'trace-event-get-state',
+  'data': {'name': 'str' },
+  'returns': ['TraceEventInfo'] }
+
+{ 'command': 'trace-event-set-state',
+  'data': {'name': 'str', 'enable': 'bool', '*ignore-unavailable': 'bool' } }

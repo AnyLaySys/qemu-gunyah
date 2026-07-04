@@ -1,0 +1,13 @@
+
+{ 'struct': 'IOThreadVirtQueueMapping',
+  'data': { 'iothread': 'str', '*vqs': ['uint16'] } }
+
+
+{ 'struct': 'DummyVirtioForceArrays',
+  'data': { 'unused-iothread-vq-mapping': ['IOThreadVirtQueueMapping'] } }
+
+{ 'enum': 'GranuleMode',
+  'data': [ '4k', '8k', '16k', '64k', 'host' ] }
+
+{ 'enum': 'VMAppleVirtioBlkVariant',
+  'data': [ 'unspecified', 'root', 'aux' ] }
