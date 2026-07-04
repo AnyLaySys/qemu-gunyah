@@ -6,16 +6,17 @@
 #include "hw/qdev-properties.h"
 #include "hw/virtio/virtio.h"
 #include "hw/virtio/virtio-bus.h"
-#include "hw/virtio/virtio-gpu-pci.h"
+#include "hw/virtio/virtio-gpu-gl-pci.h"
 #include "qom/object.h"
 
-static const Property virtio_gpu_pci_base_properties[] = {
-    DEFINE_VIRTIO_GPU_PCI_PROPERTIES(VirtIOPCIProxy),
+static const Property virtio_gpu_gl_pci_base_properties[] = {
+    DEFINE_VIRTIO_GPU_GL_PCI_PROPERTIES(VirtIOPCIProxy),
 };
 
-static void virtio_gpu_pci_base_realize(VirtIOPCIProxy *vpci_dev, Error **errp)
+static void virtio_gpu_gl_pci_base_realize(VirtIOPCIProxy *vpci_dev,
+                                           Error **errp)
 {
-    VirtIOGPUPCIBase *vgpu = VIRTIO_GPU_PCI_BASE(vpci_dev);
+    VirtIOGPUGLPCIBase *vgpu = VIRTIO_GPU_GL_PCI_BASE(vpci_dev);
     VirtIOGPUBase *g = vgpu->vgpu;
     DeviceState *vdev = DEVICE(g);
     int i;
@@ -47,60 +48,56 @@ static void virtio_gpu_pci_base_realize(VirtIOPCIProxy *vpci_dev, Error **errp)
     }
 }
 
-static void virtio_gpu_pci_base_class_init(ObjectClass *klass, void *data)
+static void virtio_gpu_gl_pci_base_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
     VirtioPCIClass *k = VIRTIO_PCI_CLASS(klass);
     PCIDeviceClass *pcidev_k = PCI_DEVICE_CLASS(klass);
 
     set_bit(DEVICE_CATEGORY_DISPLAY, dc->categories);
-    device_class_set_props(dc, virtio_gpu_pci_base_properties);
+    device_class_set_props(dc, virtio_gpu_gl_pci_base_properties);
     dc->hotpluggable = false;
-    k->realize = virtio_gpu_pci_base_realize;
+    k->realize = virtio_gpu_gl_pci_base_realize;
     pcidev_k->class_id = PCI_CLASS_DISPLAY_OTHER;
 }
 
-static const TypeInfo virtio_gpu_pci_base_info = {
-    .name = TYPE_VIRTIO_GPU_PCI_BASE,
+static const TypeInfo virtio_gpu_gl_pci_base_info = {
+    .name = TYPE_VIRTIO_GPU_GL_PCI_BASE,
     .parent = TYPE_VIRTIO_PCI,
-    .instance_size = sizeof(VirtIOGPUPCIBase),
-    .class_init = virtio_gpu_pci_base_class_init,
+    .instance_size = sizeof(VirtIOGPUGLPCIBase),
+    .class_init = virtio_gpu_gl_pci_base_class_init,
     .abstract = true
 };
-module_obj(TYPE_VIRTIO_GPU_PCI_BASE);
+module_obj(TYPE_VIRTIO_GPU_GL_PCI_BASE);
 module_kconfig(VIRTIO_PCI);
 
-#define TYPE_VIRTIO_GPU_PCI "virtio-gpu-pci"
-typedef struct VirtIOGPUPCI VirtIOGPUPCI;
-DECLARE_INSTANCE_CHECKER(VirtIOGPUPCI, VIRTIO_GPU_PCI,
-                         TYPE_VIRTIO_GPU_PCI)
-
-struct VirtIOGPUPCI {
-    VirtIOGPUPCIBase parent_obj;
+#define TYPE_VIRTIO_GPU_GL_PCI "virtio-gpu-gl-pci"
+typedef struct VirtIOGPUGLPCI {
+    VirtIOGPUGLPCIBase parent_obj;
     VirtIOGPU vdev;
-};
+} VirtIOGPUGLPCI;
 
-static void virtio_gpu_initfn(Object *obj)
+static void virtio_gpu_gl_initfn(Object *obj)
 {
-    VirtIOGPUPCI *dev = VIRTIO_GPU_PCI(obj);
+    VirtIOGPUGLPCI *dev = (VirtIOGPUGLPCI *)obj;
 
     virtio_instance_init_common(obj, &dev->vdev, sizeof(dev->vdev),
-                                TYPE_VIRTIO_GPU);
-    VIRTIO_GPU_PCI_BASE(obj)->vgpu = VIRTIO_GPU_BASE(&dev->vdev);
+                                TYPE_VIRTIO_GPU_GL);
+    VIRTIO_GPU_GL_PCI_BASE(obj)->vgpu = VIRTIO_GPU_BASE(&dev->vdev);
 }
 
-static const VirtioPCIDeviceTypeInfo virtio_gpu_pci_info = {
-    .generic_name = TYPE_VIRTIO_GPU_PCI,
-    .parent = TYPE_VIRTIO_GPU_PCI_BASE,
-    .instance_size = sizeof(VirtIOGPUPCI),
-    .instance_init = virtio_gpu_initfn,
+static const VirtioPCIDeviceTypeInfo virtio_gpu_gl_pci_info = {
+    .generic_name = TYPE_VIRTIO_GPU_GL_PCI,
+    .parent = TYPE_VIRTIO_GPU_GL_PCI_BASE,
+    .instance_size = sizeof(VirtIOGPUGLPCI),
+    .instance_init = virtio_gpu_gl_initfn,
 };
-module_obj(TYPE_VIRTIO_GPU_PCI);
+module_obj(TYPE_VIRTIO_GPU_GL_PCI);
 
-static void virtio_gpu_pci_register_types(void)
+static void virtio_gpu_gl_pci_register_types(void)
 {
-    type_register_static(&virtio_gpu_pci_base_info);
-    virtio_pci_types_register(&virtio_gpu_pci_info);
+    type_register_static(&virtio_gpu_gl_pci_base_info);
+    virtio_pci_types_register(&virtio_gpu_gl_pci_info);
 }
 
-type_init(virtio_gpu_pci_register_types)
+type_init(virtio_gpu_gl_pci_register_types)

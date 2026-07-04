@@ -56,7 +56,6 @@ const size_t hw_compat_8_2_len = G_N_ELEMENTS(hw_compat_8_2);
 
 GlobalProperty hw_compat_8_1[] = {
     { TYPE_PCI_BRIDGE, "x-pci-express-writeable-slt-bug", "true" },
-    { "ramfb", "x-migrate", "off" },
     { "igb", "x-pcie-flr-init", "off" },
     { TYPE_VIRTIO_NET, "host_uso", "off"},
     { TYPE_VIRTIO_NET, "guest_uso4", "off"},

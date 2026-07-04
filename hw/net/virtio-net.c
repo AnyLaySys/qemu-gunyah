@@ -1445,7 +1445,7 @@ static int receive_filter(VirtIONet *n, const uint8_t *buf, int size)
             return 0;
     }
 
-    if (ptr[0] & 1) { // multicast
+    if (ptr[0] & 1) {
         if (!memcmp(ptr, bcast, sizeof(bcast))) {
             return !n->nobcast;
         } else if (n->nomulti) {
@@ -1459,7 +1459,7 @@ static int receive_filter(VirtIONet *n, const uint8_t *buf, int size)
                 return 1;
             }
         }
-    } else { // unicast
+    } else {
         if (n->nouni) {
             return 0;
         } else if (n->alluni || n->mac_table.uni_overflow) {

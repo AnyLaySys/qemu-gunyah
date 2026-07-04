@@ -1508,12 +1508,10 @@ if not gnutls_crypto.found()
       unsigned char data[64] = {0};
       unsigned char output[32];
 
-      // SM3 hash function test
       sm3_init(&ctx);
       sm3_update(&ctx, 64, data);
       sm3_digest(&ctx, 32, data);
 
-      // HMAC-SM3 test
       hmac_sm3_set_key(&hmac_ctx, 32, data);
       hmac_sm3_update(&hmac_ctx, 64, data);
       hmac_sm3_digest(&hmac_ctx, 32, output);

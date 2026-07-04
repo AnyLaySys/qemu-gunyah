@@ -3,7 +3,7 @@
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "hw/qdev-properties.h"
-#include "migration/vmstate.h"
+#include "state/vmstate.h"
 #include "hw/display/i2c-ddc.h"
 
 #ifndef DEBUG_I2CDDC
