@@ -36,7 +36,8 @@ struct GUNYAHState {
 };
 struct AccelCPUState {
     int fd;
-    struct gh_vcpu_run *run;
+    struct gunyah_vcpu_run *run;
+    size_t run_size;
     uint64_t last_fault_addr;
     int same_fault_count;
 };

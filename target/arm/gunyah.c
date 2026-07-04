@@ -113,7 +113,7 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
         };
         int nbell = sizeof(bells) / sizeof(bells[0]);
 
-        gh_report("creating %d doorbell DTB nodes (matching CrosVM)",
+        gh_report("creating %d doorbell DTB nodes",
                      nbell);
 
         for (i = 0; i < nbell; ++i) {
