@@ -21,42 +21,6 @@ bdrv_co_copy_range_to(void *src, int64_t src_offset, void *dst, int64_t dst_offs
 # file-win32.c
 file_paio_submit(void *acb, void *opaque, int64_t offset, int count, int type) "acb %p opaque %p offset %"PRId64" count %d type %d"
 
-# qcow2.c
-qcow2_add_task(void *co, void *bs, void *pool, const char *action, int cluster_type, uint64_t host_offset, uint64_t offset, uint64_t bytes, void *qiov, size_t qiov_offset) "co %p bs %p pool %p: %s: cluster_type %d file_cluster_offset %" PRIu64 " offset %" PRIu64 " bytes %" PRIu64 " qiov %p qiov_offset %zu"
-qcow2_writev_start_req(void *co, int64_t offset, int64_t bytes) "co %p offset 0x%" PRIx64 " bytes %" PRId64
-qcow2_writev_done_req(void *co, int ret) "co %p ret %d"
-qcow2_writev_start_part(void *co) "co %p"
-qcow2_writev_done_part(void *co, int cur_bytes) "co %p cur_bytes %d"
-qcow2_writev_data(void *co, uint64_t offset) "co %p offset 0x%" PRIx64
-qcow2_pwrite_zeroes_start_req(void *co, int64_t offset, int64_t bytes) "co %p offset 0x%" PRIx64 " bytes %" PRId64
-qcow2_pwrite_zeroes(void *co, int64_t offset, int64_t bytes) "co %p offset 0x%" PRIx64 " bytes %" PRId64
-qcow2_skip_cow(void *co, uint64_t offset, int nb_clusters) "co %p offset 0x%" PRIx64 " nb_clusters %d"
-
-# qcow2-cluster.c
-qcow2_alloc_clusters_offset(void *co, uint64_t offset, int bytes) "co %p offset 0x%" PRIx64 " bytes %d"
-qcow2_handle_copied(void *co, uint64_t guest_offset, uint64_t host_offset, uint64_t bytes) "co %p guest_offset 0x%" PRIx64 " host_offset 0x%" PRIx64 " bytes 0x%" PRIx64
-qcow2_handle_alloc(void *co, uint64_t guest_offset, uint64_t host_offset, uint64_t bytes) "co %p guest_offset 0x%" PRIx64 " host_offset 0x%" PRIx64 " bytes 0x%" PRIx64
-qcow2_do_alloc_clusters_offset(void *co, uint64_t guest_offset, uint64_t host_offset, int nb_clusters) "co %p guest_offset 0x%" PRIx64 " host_offset 0x%" PRIx64 " nb_clusters %d"
-qcow2_cluster_alloc_phys(void *co) "co %p"
-qcow2_cluster_link_l2(void *co, int nb_clusters) "co %p nb_clusters %d"
-
-qcow2_l2_allocate(void *bs, int l1_index) "bs %p l1_index %d"
-qcow2_l2_allocate_get_empty(void *bs, int l1_index) "bs %p l1_index %d"
-qcow2_l2_allocate_write_l2(void *bs, int l1_index) "bs %p l1_index %d"
-qcow2_l2_allocate_write_l1(void *bs, int l1_index) "bs %p l1_index %d"
-qcow2_l2_allocate_done(void *bs, int l1_index, int ret) "bs %p l1_index %d ret %d"
-
-# qcow2-cache.c
-qcow2_cache_get(void *co, int c, uint64_t offset, bool read_from_disk) "co %p is_l2_cache %d offset 0x%" PRIx64 " read_from_disk %d"
-qcow2_cache_get_replace_entry(void *co, int c, int i) "co %p is_l2_cache %d index %d"
-qcow2_cache_get_read(void *co, int c, int i) "co %p is_l2_cache %d index %d"
-qcow2_cache_get_done(void *co, int c, int i) "co %p is_l2_cache %d index %d"
-qcow2_cache_flush(void *co, int c) "co %p is_l2_cache %d"
-qcow2_cache_entry_flush(void *co, int c, int i) "co %p is_l2_cache %d index %d"
-
-# qcow2-refcount.c
-qcow2_process_discards_failed_region(uint64_t offset, uint64_t bytes, int ret) "offset 0x%" PRIx64 " bytes 0x%" PRIx64 " ret %d"
-
 # file-posix.c
 file_copy_file_range(void *bs, int src, int64_t src_off, int dst, int64_t dst_off, int64_t bytes, int flags, int64_t ret) "bs %p src_fd %d offset %"PRIu64" dst_fd %d offset %"PRIu64" bytes %"PRIu64" flags %d ret %"PRId64
 file_FindEjectableOpticalMedia(const char *media) "Matching using %s"

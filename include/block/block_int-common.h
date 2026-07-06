@@ -598,7 +598,6 @@ typedef enum BlockMirrorBackingMode {
 
 extern BlockDriver bdrv_file;
 extern BlockDriver bdrv_raw;
-extern BlockDriver bdrv_qcow2;
 
 extern unsigned int bdrv_drain_all_count;
 extern QemuOptsList bdrv_create_opts_simple;

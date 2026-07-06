@@ -845,7 +845,7 @@ QemuOptsList qemu_common_drive_opts = {
         },{
             .name = "format",
             .type = QEMU_OPT_STRING,
-            .help = "disk format (raw, qcow2, ...)",
+            .help = "disk format (raw, ...)",
         },{
             .name = "rerror",
             .type = QEMU_OPT_STRING,

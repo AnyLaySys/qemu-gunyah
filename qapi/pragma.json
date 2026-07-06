@@ -25,7 +25,6 @@
         'BlockDirtyBitmapWrapper',
         'BlockdevBackupWrapper',
         'BlockdevDriver',
-        'BlockdevQcow2EncryptionFormat',
         'BlockdevSnapshotInternalWrapper',
         'BlockdevSnapshotSyncWrapper',
         'BlockdevSnapshotWrapper',
