@@ -48,11 +48,11 @@ printf "\033[2J\033[3J\033[H" && cd /data/local/tmp/als/qemu-gunyah && export DI
 云山苍苍,江水泱泱,先生之风,山高水长.  
 回首过往,展望未来.当前虽有初步成效,然任重道远,不容懈怠.未来团队将保持'一张蓝图绘到底,一以贯之抓落实'的战略定力,坚信'锲而不舍,金石可镂',持续努力,久久为功,让qemu-gunyah于方寸屏幕纵横捭阖的光辉理想照进现实!
 ### 鸣谢
-[wasdwasd0105](github.com/wasdwasd0105):草创之际,全赖君光.若无先生,必无此章  
+[wasdwasd0105](https://github.com/wasdwasd0105):草创之际,全赖君光.若无先生,必无此章  
 **以下排名不分先后,按首字母顺序排列**  
-[Alhkxsj](github.com/Alhkxsj):建言献策,协同测试  
-[Goldzxcbug](github.com/Goldzxcbug):匡扶危局,协同测试  
-[loeveo](github.com/loeveo):匡扶危局,协同测试  
-[longhanlop](github.com/longhanlop):协同测试  
-[qeqenn](github.com/qeqenn):QALS前端,贡献代码,建言献策,协同测试  
-[XiaoChen515144](github.com/XiaoChen515144):协同测试
+[Alhkxsj](https://github.com/Alhkxsj):建言献策,协同测试  
+[Goldzxcbug](https://github.com/Goldzxcbug):匡扶危局,协同测试  
+[loeveo](https://github.com/loeveo):匡扶危局,协同测试  
+[longhanlop](https://github.com/longhanlop):协同测试  
+[qeqenn](https://github.com/qeqenn):QALS前端,贡献代码,建言献策,协同测试  
+[XiaoChen515144](https://github.com/XiaoChen515144):协同测试
