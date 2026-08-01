@@ -46,11 +46,11 @@ endif
 if sdl.found()
   sdl_ss = ss.source_set()
   sdl_ss.add(sdl, pixman, glib, files(
-    'sdl2-2d.c',
-    'sdl2-input.c',
-    'sdl2.c',
+    'sdl3-2d.c',
+    'sdl3-input.c',
+    'sdl3.c',
   ))
-  sdl_ss.add(when: opengl, if_true: files('sdl2-gl.c'))
+  sdl_ss.add(when: opengl, if_true: files('sdl3-gl.c'))
   ui_modules += {'sdl' : sdl_ss}
 endif
 

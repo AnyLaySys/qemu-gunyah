@@ -1247,12 +1247,11 @@ endif
 
 sdl = not_found
 if not get_option('sdl').auto() or have_system
-  sdl = dependency('sdl2', required: get_option('sdl'))
+  sdl = dependency('sdl3', required: get_option('sdl'))
 endif
 if sdl.found()
   if not cc.compiles('''
-                     #include <SDL.h>
-                     #include <SDL_syswm.h>
+                     #include <SDL3/SDL.h>
                      int main(int argc, char *argv[]) { return 0; }
                      ''', dependencies: sdl, args: '-Werror=undef')
     sdl = declare_dependency(compile_args: '-Wno-undef',

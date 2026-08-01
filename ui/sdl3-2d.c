@@ -1,25 +1,23 @@
-
 #include "qemu/osdep.h"
 #include "ui/console.h"
-#include "ui/input.h"
-#include "ui/sdl2.h"
+#include "ui/sdl3.h"
 
-static void sdl2_2d_present(struct sdl2_console *scon, bool force)
+static void sdl3_2d_present(struct sdl3_console *scon, bool force)
 {
     if (!scon->texture || (!force && !scon->render_pending)) {
         return;
     }
 
     SDL_RenderClear(scon->real_renderer);
-    SDL_RenderCopy(scon->real_renderer, scon->texture, NULL, NULL);
+    SDL_RenderTexture(scon->real_renderer, scon->texture, NULL, NULL);
     SDL_RenderPresent(scon->real_renderer);
     scon->render_pending = false;
 }
 
-void sdl2_2d_update(DisplayChangeListener *dcl,
+void sdl3_2d_update(DisplayChangeListener *dcl,
                     int x, int y, int w, int h)
 {
-    struct sdl2_console *scon = container_of(dcl, struct sdl2_console, dcl);
+    struct sdl3_console *scon = container_of(dcl, struct sdl3_console, dcl);
     DisplaySurface *surf = scon->surface;
     SDL_Rect rect;
     size_t surface_data_offset;
@@ -42,10 +40,10 @@ void sdl2_2d_update(DisplayChangeListener *dcl,
     scon->render_pending = true;
 }
 
-void sdl2_2d_switch(DisplayChangeListener *dcl,
+void sdl3_2d_switch(DisplayChangeListener *dcl,
                     DisplaySurface *new_surface)
 {
-    struct sdl2_console *scon = container_of(dcl, struct sdl2_console, dcl);
+    struct sdl3_console *scon = container_of(dcl, struct sdl3_console, dcl);
     DisplaySurface *old_surface = scon->surface;
     int format = 0;
 
@@ -60,21 +58,22 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
     }
 
     if (surface_is_placeholder(new_surface) && qemu_console_get_index(dcl->con)) {
-        sdl2_window_destroy(scon);
+        sdl3_window_destroy(scon);
         return;
     }
 
     if (!scon->real_window) {
-        sdl2_window_create(scon);
+        sdl3_window_create(scon);
     } else if (old_surface &&
                ((surface_width(old_surface)  != surface_width(new_surface)) ||
                 (surface_height(old_surface) != surface_height(new_surface)))) {
-        sdl2_window_resize(scon);
+        sdl3_window_resize(scon);
     }
 
-    SDL_RenderSetLogicalSize(scon->real_renderer,
-                             surface_width(new_surface),
-                             surface_height(new_surface));
+    SDL_SetRenderLogicalPresentation(scon->real_renderer,
+                                     surface_width(new_surface),
+                                     surface_height(new_surface),
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
     switch (surface_format(scon->surface)) {
     case PIXMAN_x1r5g5b5:
@@ -84,16 +83,22 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
         format = SDL_PIXELFORMAT_RGB565;
         break;
     case PIXMAN_a8r8g8b8:
-    case PIXMAN_x8r8g8b8:
         format = SDL_PIXELFORMAT_ARGB8888;
         break;
+    case PIXMAN_x8r8g8b8:
+        format = SDL_PIXELFORMAT_XRGB8888;
+        break;
     case PIXMAN_a8b8g8r8:
-    case PIXMAN_x8b8g8r8:
         format = SDL_PIXELFORMAT_ABGR8888;
         break;
+    case PIXMAN_x8b8g8r8:
+        format = SDL_PIXELFORMAT_XBGR8888;
+        break;
     case PIXMAN_r8g8b8a8:
-    case PIXMAN_r8g8b8x8:
         format = SDL_PIXELFORMAT_RGBA8888;
+        break;
+    case PIXMAN_r8g8b8x8:
+        format = SDL_PIXELFORMAT_RGBX8888;
         break;
     case PIXMAN_b8g8r8x8:
         format = SDL_PIXELFORMAT_BGRX8888;
@@ -108,36 +113,35 @@ void sdl2_2d_switch(DisplayChangeListener *dcl,
                                       SDL_TEXTUREACCESS_STREAMING,
                                       surface_width(new_surface),
                                       surface_height(new_surface));
-#if SDL_VERSION_ATLEAST(2, 0, 12)
-    SDL_SetTextureScaleMode(scon->texture, SDL_ScaleModeNearest);
-#endif
-    sdl2_2d_redraw(scon);
+    SDL_SetTextureBlendMode(scon->texture, SDL_BLENDMODE_NONE);
+    SDL_SetTextureScaleMode(scon->texture, SDL_SCALEMODE_NEAREST);
+    sdl3_2d_redraw(scon);
 }
 
-void sdl2_2d_refresh(DisplayChangeListener *dcl)
+void sdl3_2d_refresh(DisplayChangeListener *dcl)
 {
-    struct sdl2_console *scon = container_of(dcl, struct sdl2_console, dcl);
+    struct sdl3_console *scon = container_of(dcl, struct sdl3_console, dcl);
 
     assert(!scon->opengl);
-    sdl2_poll_events(scon);
+    sdl3_poll_events(scon);
     graphic_hw_update(dcl->con);
-    sdl2_2d_present(scon, false);
+    sdl3_2d_present(scon, false);
 }
 
-void sdl2_2d_redraw(struct sdl2_console *scon)
+void sdl3_2d_redraw(struct sdl3_console *scon)
 {
     assert(!scon->opengl);
 
     if (!scon->surface) {
         return;
     }
-    sdl2_2d_update(&scon->dcl, 0, 0,
+    sdl3_2d_update(&scon->dcl, 0, 0,
                    surface_width(scon->surface),
                    surface_height(scon->surface));
-    sdl2_2d_present(scon, true);
+    sdl3_2d_present(scon, true);
 }
 
-bool sdl2_2d_check_format(DisplayChangeListener *dcl,
+bool sdl3_2d_check_format(DisplayChangeListener *dcl,
                           pixman_format_code_t format)
 {
     return (format == PIXMAN_x8r8g8b8 ||

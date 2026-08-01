@@ -11,10 +11,6 @@
 #endif
 #endif
 
-#ifdef CONFIG_SDL
-#include <SDL.h>
-#endif
-
 #ifdef CONFIG_DARWIN
 #include <CoreFoundation/CoreFoundation.h>
 #endif
