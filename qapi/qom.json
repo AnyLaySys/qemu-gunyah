@@ -96,10 +96,6 @@
   'data': {},
   'if': 'CONFIG_LINUX' }
 
-{ 'struct': 'PrManagerHelperProperties',
-  'data': { 'path': 'str' },
-  'if': 'CONFIG_LINUX' }
-
 { 'struct': 'RemoteObjectProperties',
   'data': { 'fd': 'str', 'devid': 'str' } }
 
@@ -176,8 +172,6 @@
     { 'name': 'memory-backend-shm',
       'if': 'CONFIG_POSIX' },
     'pef-guest',
-    { 'name': 'pr-manager-helper',
-      'if': 'CONFIG_LINUX' },
     'rng-builtin',
     'rng-egd',
     { 'name': 'rng-random',
@@ -217,8 +211,6 @@
       'memory-backend-ram':         'MemoryBackendProperties',
       'memory-backend-shm':         { 'type': 'MemoryBackendShmProperties',
                                       'if': 'CONFIG_POSIX' },
-      'pr-manager-helper':          { 'type': 'PrManagerHelperProperties',
-                                      'if': 'CONFIG_LINUX' },
       'rng-builtin':                'RngProperties',
       'rng-egd':                    'RngEgdProperties',
       'rng-random':                 { 'type': 'RngRandomProperties',

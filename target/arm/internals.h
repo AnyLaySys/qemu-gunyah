@@ -4,7 +4,6 @@
 
 #include "exec/breakpoint.h"
 #include "hw/registerfields.h"
-#include "tcg/tcg-gvec-desc.h"
 #include "syndrome.h"
 #include "cpu-features.h"
 
@@ -258,20 +257,6 @@ void aarch64_cpu_register(const ARMCPUInfo *info);
 void register_cp_regs_for_features(ARMCPU *cpu);
 void init_cpreg_list(ARMCPU *cpu);
 
-void arm_translate_init(void);
-void arm_translate_code(CPUState *cs, TranslationBlock *tb,
-                        int *max_insns, vaddr pc, void *host_pc);
-
-void arm_restore_state_to_opc(CPUState *cs,
-                              const TranslationBlock *tb,
-                              const uint64_t *data);
-
-#ifdef CONFIG_TCG
-void arm_cpu_synchronize_from_tb(CPUState *cs, const TranslationBlock *tb);
-
-bool arm_cpu_exec_halt(CPUState *cs);
-#endif /* CONFIG_TCG */
-
 typedef enum ARMFPRounding {
     FPROUNDING_TIEEVEN,
     FPROUNDING_POSINF,
@@ -436,33 +421,6 @@ static inline bool extended_addresses_enabled(CPUARMState *env)
     return arm_el_is_aa64(env, 1) ||
            (arm_feature(env, ARM_FEATURE_LPAE) && (tcr & TTBCR_EAE));
 }
-
-void hw_watchpoint_update(ARMCPU *cpu, int n);
-void hw_watchpoint_update_all(ARMCPU *cpu);
-void hw_breakpoint_update(ARMCPU *cpu, int n);
-void hw_breakpoint_update_all(ARMCPU *cpu);
-
-bool arm_debug_check_breakpoint(CPUState *cs);
-
-bool arm_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
-
-vaddr arm_adjust_watchpoint_address(CPUState *cs, vaddr addr, int len);
-
-void arm_debug_excp_handler(CPUState *cs);
-
-#if defined(CONFIG_USER_ONLY) || !defined(CONFIG_TCG)
-static inline bool arm_is_psci_call(ARMCPU *cpu, int excp_type)
-{
-    return false;
-}
-static inline void arm_handle_psci_call(ARMCPU *cpu)
-{
-    g_assert_not_reached();
-}
-#else
-bool arm_is_psci_call(ARMCPU *cpu, int excp_type);
-void arm_handle_psci_call(ARMCPU *cpu);
-#endif
 
 static inline void arm_clear_exclusive(CPUARMState *env)
 {
@@ -694,18 +652,6 @@ static inline bool arm_extabort_type(MemTxResult result)
     return result != MEMTX_DECODE_ERROR;
 }
 
-#ifdef CONFIG_USER_ONLY
-void arm_cpu_record_sigsegv(CPUState *cpu, vaddr addr,
-                            MMUAccessType access_type,
-                            bool maperr, uintptr_t ra);
-void arm_cpu_record_sigbus(CPUState *cpu, vaddr addr,
-                           MMUAccessType access_type, uintptr_t ra);
-#else
-bool arm_cpu_tlb_fill_align(CPUState *cs, CPUTLBEntryFull *out, vaddr addr,
-                            MMUAccessType access_type, int mmu_idx,
-                            MemOp memop, int size, bool probe, uintptr_t ra);
-#endif
-
 static inline int arm_to_core_mmu_idx(ARMMMUIdx mmu_idx)
 {
     return mmu_idx & ARM_MMU_IDX_COREIDX_MASK;
@@ -730,33 +676,6 @@ int arm_mmu_idx_to_el(ARMMMUIdx mmu_idx);
 ARMMMUIdx arm_v7m_mmu_idx_for_secstate(CPUARMState *env, bool secstate);
 
 bool arm_s1_regime_using_lpae_format(CPUARMState *env, ARMMMUIdx mmu_idx);
-
-G_NORETURN void arm_cpu_do_unaligned_access(CPUState *cs, vaddr vaddr,
-                                            MMUAccessType access_type,
-                                            int mmu_idx, uintptr_t retaddr);
-
-#ifndef CONFIG_USER_ONLY
-void arm_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
-                                   vaddr addr, unsigned size,
-                                   MMUAccessType access_type,
-                                   int mmu_idx, MemTxAttrs attrs,
-                                   MemTxResult response, uintptr_t retaddr);
-#endif
-
-static inline void arm_call_pre_el_change_hook(ARMCPU *cpu)
-{
-    ARMELChangeHook *hook, *next;
-    QLIST_FOREACH_SAFE(hook, &cpu->pre_el_change_hooks, node, next) {
-        hook->hook(cpu, hook->opaque);
-    }
-}
-static inline void arm_call_el_change_hook(ARMCPU *cpu)
-{
-    ARMELChangeHook *hook, *next;
-    QLIST_FOREACH_SAFE(hook, &cpu->el_change_hooks, node, next) {
-        hook->hook(cpu, hook->opaque);
-    }
-}
 
 static inline bool regime_has_2_ranges(ARMMMUIdx mmu_idx)
 {
@@ -1162,78 +1081,7 @@ bool pmsav8_mpu_lookup(CPUARMState *env, uint32_t address,
                        bool is_secure, GetPhysAddrResult *result,
                        ARMMMUFaultInfo *fi, uint32_t *mregion);
 
-void arm_log_exception(CPUState *cs);
-
 #endif /* !CONFIG_USER_ONLY */
-
-FIELD(PREDDESC, OPRSZ, 0, 6)
-FIELD(PREDDESC, ESZ, 6, 2)
-FIELD(PREDDESC, DATA, 8, 24)
-
-#define SVE_MTEDESC_SHIFT 5
-
-FIELD(MTEDESC, MIDX,  0, 4)
-FIELD(MTEDESC, TBI,   4, 2)
-FIELD(MTEDESC, TCMA,  6, 2)
-FIELD(MTEDESC, WRITE, 8, 1)
-FIELD(MTEDESC, ALIGN, 9, 3)
-FIELD(MTEDESC, SIZEM1, 12, SIMD_DATA_BITS - SVE_MTEDESC_SHIFT - 12)  /* size - 1 */
-
-bool mte_probe(CPUARMState *env, uint32_t desc, uint64_t ptr);
-uint64_t mte_check(CPUARMState *env, uint32_t desc, uint64_t ptr, uintptr_t ra);
-
-uint64_t mte_mops_probe(CPUARMState *env, uint64_t ptr, uint64_t size,
-                        uint32_t desc);
-
-uint64_t mte_mops_probe_rev(CPUARMState *env, uint64_t ptr, uint64_t size,
-                            uint32_t desc);
-
-void mte_check_fail(CPUARMState *env, uint32_t desc,
-                    uint64_t dirty_ptr, uintptr_t ra);
-
-void mte_mops_set_tags(CPUARMState *env, uint64_t dirty_ptr, uint64_t size,
-                       uint32_t desc);
-
-static inline int allocation_tag_from_addr(uint64_t ptr)
-{
-    return extract64(ptr, 56, 4);
-}
-
-static inline uint64_t address_with_allocation_tag(uint64_t ptr, int rtag)
-{
-    return deposit64(ptr, 56, 4, rtag);
-}
-
-static inline bool tbi_check(uint32_t desc, int bit55)
-{
-    return (desc >> (R_MTEDESC_TBI_SHIFT + bit55)) & 1;
-}
-
-static inline bool tcma_check(uint32_t desc, int bit55, int ptr_tag)
-{
-    bool match = ((ptr_tag + bit55) & 0xf) == 0;
-    bool tcma = (desc >> (R_MTEDESC_TCMA_SHIFT + bit55)) & 1;
-    return tcma && match;
-}
-
-static inline uint64_t useronly_clean_ptr(uint64_t ptr)
-{
-#ifdef CONFIG_USER_ONLY
-    ptr &= sextract64(ptr, 0, 56);
-#endif
-    return ptr;
-}
-
-static inline uint64_t useronly_maybe_clean_ptr(uint32_t desc, uint64_t ptr)
-{
-#ifdef CONFIG_USER_ONLY
-    int64_t clean_ptr = sextract64(ptr, 0, 56);
-    if (tbi_check(desc, clean_ptr < 0)) {
-        ptr = clean_ptr;
-    }
-#endif
-    return ptr;
-}
 
 enum MVEECIState {
     ECI_NONE = 0, /* No completed beats */
@@ -1289,7 +1137,6 @@ void arm_cpu_sve_finalize(ARMCPU *cpu, Error **errp);
 void arm_cpu_sme_finalize(ARMCPU *cpu, Error **errp);
 void arm_cpu_pauth_finalize(ARMCPU *cpu, Error **errp);
 void arm_cpu_lpa2_finalize(ARMCPU *cpu, Error **errp);
-void aarch64_max_tcg_initfn(Object *obj);
 void aarch64_add_pauth_properties(Object *obj);
 void aarch64_add_sve_properties(Object *obj);
 void aarch64_add_sme_properties(Object *obj);
@@ -1303,10 +1150,6 @@ uint32_t *arm_v7m_get_sp_ptr(CPUARMState *env, bool secure,
 bool el_is_in_host(CPUARMState *env, int el);
 
 void aa32_max_features(ARMCPU *cpu);
-int exception_target_el(CPUARMState *env);
-bool arm_singlestep_active(CPUARMState *env);
-bool arm_generate_debug_exceptions(CPUARMState *env);
-
 static inline uint64_t pauth_ptr_mask(ARMVAParameters param)
 {
     int bot_pac_bit = 64 - param.tsz;
@@ -1316,8 +1159,6 @@ static inline uint64_t pauth_ptr_mask(ARMVAParameters param)
 }
 
 void define_debug_regs(ARMCPU *cpu);
-
-void define_tlb_insn_regs(ARMCPU *cpu);
 
 static inline uint64_t arm_mdcr_el2_eff(CPUARMState *env)
 {
@@ -1337,7 +1178,6 @@ static inline bool arm_fgt_active(CPUARMState *env, int el)
         (!arm_feature(env, ARM_FEATURE_EL3) || (env->cp15.scr_el3 & SCR_FGTEN));
 }
 
-void assert_hflags_rebuild_correctly(CPUARMState *env);
 
 
 typedef struct {
@@ -1372,11 +1212,5 @@ uint64_t gt_get_countervalue(CPUARMState *env);
 uint64_t gt_direct_access_timer_offset(CPUARMState *env, int timeridx);
 
 int alle1_tlbmask(CPUARMState *env);
-
-void arm_set_default_fp_behaviours(float_status *s);
-void arm_set_ah_fp_behaviours(float_status *s);
-uint32_t vfp_get_fpsr_from_host(CPUARMState *env);
-void vfp_clear_float_status_exc_flags(CPUARMState *env);
-void vfp_set_fpcr_to_host(CPUARMState *env, uint32_t val, uint32_t mask);
 
 #endif

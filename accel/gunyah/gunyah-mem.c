@@ -64,6 +64,9 @@ static void gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa,
   } else {
     gh_report("add_mem_slot OK (gpa=0x%" PRIx64 " size=0x%" PRIx64 ")", gpa,
               size);
+    if (lend) {
+      gunyah_signal_register_lend(hva, size, gpa);
+    }
   }
 }
 static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
@@ -532,6 +535,7 @@ int gunyah_create_vm(void) {
     s->slots[i].size = 0;
     s->slots[i].id = i;
   }
+  gunyah_signal_reset();
   gunyah_install_sigsegv_handler();
   memory_listener_register(&gunyah_memory_listener, &address_space_memory);
   return 0;

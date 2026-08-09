@@ -1,5 +1,0 @@
-
-#ifndef BLOCK_BLOCK_HMP_CMDS_H
-#define BLOCK_BLOCK_HMP_CMDS_H
-
-#endif

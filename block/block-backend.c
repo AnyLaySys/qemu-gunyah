@@ -2,7 +2,6 @@
 #include "qemu/osdep.h"
 #include "system/block-backend.h"
 #include "block/block_int.h"
-#include "block/blockjob.h"
 #include "block/coroutines.h"
 #include "hw/qdev-core.h"
 #include "system/blockdev.h"

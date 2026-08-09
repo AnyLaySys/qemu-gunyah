@@ -1,7 +1,7 @@
 meson_options_help() {
   printf "%s\n" '  --audio-drv-list=CHOICES Set audio driver list [default] (choices: alsa/co'
-  printf "%s\n" '                           reaudio/default/dsound/jack/oss/pa/pipewire/sdl/s'
-  printf "%s\n" '                           ndio)'
+  printf "%s\n" '                           reaudio/default/dsound/jack/oss/pa/pipewire/sndio'
+  printf "%s\n" '                           )'
   printf "%s\n" '  --bindir=VALUE           Executable directory [bin]'
   printf "%s\n" '  --block-drv-ro-whitelist=VALUE'
   printf "%s\n" '                           set block driver read-only whitelist'
@@ -10,9 +10,6 @@ meson_options_help() {
   printf "%s\n" '  --datadir=VALUE          Data file directory [share]'
   printf "%s\n" '  --disable-coroutine-pool coroutine freelist (better performance)'
   printf "%s\n" '  --disable-debug-info     Enable debug symbols and other information'
-  printf "%s\n" '  --disable-hexagon-idef-parser'
-  printf "%s\n" '                           use idef-parser to automatically generate TCG'
-  printf "%s\n" '                           code for the Hexagon frontend'
   printf "%s\n" '  --disable-install-blobs  install provided firmware blobs'
   printf "%s\n" '  --disable-qom-cast-debug cast debugging support'
   printf "%s\n" '  --disable-relocatable    toggle relocatable install'
@@ -27,10 +24,8 @@ meson_options_help() {
   printf "%s\n" '  --enable-debug-graph-lock'
   printf "%s\n" '                           graph lock debugging support'
   printf "%s\n" '  --enable-debug-mutex     mutex debugging support'
-  printf "%s\n" '  --enable-debug-remap     syscall buffer debugging support'
   printf "%s\n" '  --enable-debug-stack-usage'
   printf "%s\n" '                           measure coroutine stack usage'
-  printf "%s\n" '  --enable-debug-tcg       TCG debugging'
   printf "%s\n" '  --enable-fdt[=CHOICE]    Whether and how to find the libfdt library'
   printf "%s\n" '                           (choices: auto/disabled/enabled/internal/system)'
   printf "%s\n" '  --enable-fuzzing         build fuzzing targets'
@@ -47,10 +42,8 @@ meson_options_help() {
   printf "%s\n" '  --enable-strict-rust-lints'
   printf "%s\n" '                           Enable stricter set of Rust warnings'
   printf "%s\n" '  --enable-strip           Strip targets on install'
-  printf "%s\n" '  --enable-tcg-interpreter TCG with bytecode interpreter (slow)'
   printf "%s\n" '  --enable-trace-backends=CHOICES'
-  printf "%s\n" '                           Set available tracing backends [log] (choices:'
-  printf "%s\n" '                           dtrace/ftrace/log/nop/simple/syslog/ust)'
+  printf "%s\n" '                           Set available tracing backends [log] (choices: log)'
   printf "%s\n" '  --enable-tsan            enable thread sanitizer'
   printf "%s\n" '  --enable-ubsan           enable undefined behaviour sanitizer'
   printf "%s\n" '  --firmwarepath=VALUES    search PATH for firmware files [share/qemu-'
@@ -126,7 +119,6 @@ meson_options_help() {
   printf "%s\n" '  libcbor         libcbor support'
   printf "%s\n" '  libdaxctl       libdaxctl support'
   printf "%s\n" '  libdw           debuginfo support'
-  printf "%s\n" '  libiscsi        libiscsi userspace initiator'
   printf "%s\n" '  libkeyutils     Linux keyutils support'
   printf "%s\n" '  libnfs          libnfs block device driver'
   printf "%s\n" '  libpmem         libpmem support'
@@ -144,13 +136,11 @@ meson_options_help() {
   printf "%s\n" '  netmap          netmap network backend support'
   printf "%s\n" '  nettle          nettle cryptography support'
   printf "%s\n" '  numa            libnuma support'
-  printf "%s\n" '  opengl          OpenGL support'
   printf "%s\n" '  oss             OSS sound support'
   printf "%s\n" '  pa              PulseAudio sound support'
   printf "%s\n" '  parallels       parallels image format support'
   printf "%s\n" '  pipewire        PipeWire sound support'
   printf "%s\n" '  pixman          pixman support'
-  printf "%s\n" '  plugins         TCG plugins via shared library loading'
   printf "%s\n" '  png             PNG support with libpng'
   printf "%s\n" '  pvg             macOS paravirtualized graphics support'
   printf "%s\n" '  qatzip          QATzip compression support'
@@ -162,8 +152,6 @@ meson_options_help() {
   printf "%s\n" '  rdma            Enable RDMA-based migration'
   printf "%s\n" '  replication     replication support'
   printf "%s\n" '  rust            Rust support'
-  printf "%s\n" '  sdl             SDL user interface'
-  printf "%s\n" '  seccomp         seccomp support'
   printf "%s\n" '  slirp           libslirp user mode network backend support'
   printf "%s\n" '  slirp-smbd      use smbd (at path --smbd=*) in slirp networking'
   printf "%s\n" '  smartcard       CA smartcard emulation support'
@@ -173,7 +161,6 @@ meson_options_help() {
   printf "%s\n" '  spice           Spice server support'
   printf "%s\n" '  spice-protocol  Spice protocol support'
   printf "%s\n" '  stack-protector compiler-provided stack protection'
-  printf "%s\n" '  tcg             TCG support'
   printf "%s\n" '  tools           build support utilities that come with QEMU'
   printf "%s\n" '  tpm             TPM support'
   printf "%s\n" '  u2f             U2F emulation support'
@@ -189,7 +176,6 @@ meson_options_help() {
   printf "%s\n" '  vhost-user-blk-server'
   printf "%s\n" '                  build vhost-user-blk server'
   printf "%s\n" '  vhost-vdpa      vhost-vdpa kernel backend support'
-  printf "%s\n" '  virglrenderer   virgl rendering support'
   printf "%s\n" '  virtfs          virtio-9p support'
   printf "%s\n" '  vmdk            vmdk image format support'
   printf "%s\n" '  vmnet           vmnet.framework network backend support'
@@ -266,12 +252,8 @@ _meson_option_parse() {
     --disable-debug-graph-lock) printf "%s" -Ddebug_graph_lock=false ;;
     --enable-debug-mutex) printf "%s" -Ddebug_mutex=true ;;
     --disable-debug-mutex) printf "%s" -Ddebug_mutex=false ;;
-    --enable-debug-remap) printf "%s" -Ddebug_remap=true ;;
-    --disable-debug-remap) printf "%s" -Ddebug_remap=false ;;
     --enable-debug-stack-usage) printf "%s" -Ddebug_stack_usage=true ;;
     --disable-debug-stack-usage) printf "%s" -Ddebug_stack_usage=false ;;
-    --enable-debug-tcg) printf "%s" -Ddebug_tcg=true ;;
-    --disable-debug-tcg) printf "%s" -Ddebug_tcg=false ;;
     --enable-dmg) printf "%s" -Ddmg=enabled ;;
     --disable-dmg) printf "%s" -Ddmg=disabled ;;
     --docdir=*) quote_sh "-Ddocdir=$2" ;;
@@ -296,8 +278,6 @@ _meson_option_parse() {
     --disable-guest-agent) printf "%s" -Dguest_agent=disabled ;;
     --enable-guest-agent-msi) printf "%s" -Dguest_agent_msi=enabled ;;
     --disable-guest-agent-msi) printf "%s" -Dguest_agent_msi=disabled ;;
-    --enable-hexagon-idef-parser) printf "%s" -Dhexagon_idef_parser=true ;;
-    --disable-hexagon-idef-parser) printf "%s" -Dhexagon_idef_parser=false ;;
     --iasl=*) quote_sh "-Diasl=$2" ;;
     --enable-iconv) printf "%s" -Diconv=enabled ;;
     --disable-iconv) printf "%s" -Diconv=disabled ;;
@@ -319,8 +299,6 @@ _meson_option_parse() {
     --enable-libdw) printf "%s" -Dlibdw=enabled ;;
     --disable-libdw) printf "%s" -Dlibdw=disabled ;;
     --libexecdir=*) quote_sh "-Dlibexecdir=$2" ;;
-    --enable-libiscsi) printf "%s" -Dlibiscsi=enabled ;;
-    --disable-libiscsi) printf "%s" -Dlibiscsi=disabled ;;
     --enable-libkeyutils) printf "%s" -Dlibkeyutils=enabled ;;
     --disable-libkeyutils) printf "%s" -Dlibkeyutils=disabled ;;
     --enable-libnfs) printf "%s" -Dlibnfs=enabled ;;
@@ -361,8 +339,6 @@ _meson_option_parse() {
     --disable-nettle) printf "%s" -Dnettle=disabled ;;
     --enable-numa) printf "%s" -Dnuma=enabled ;;
     --disable-numa) printf "%s" -Dnuma=disabled ;;
-    --enable-opengl) printf "%s" -Dopengl=enabled ;;
-    --disable-opengl) printf "%s" -Dopengl=disabled ;;
     --enable-oss) printf "%s" -Doss=enabled ;;
     --disable-oss) printf "%s" -Doss=disabled ;;
     --enable-pa) printf "%s" -Dpa=enabled ;;
@@ -374,8 +350,6 @@ _meson_option_parse() {
     --enable-pixman) printf "%s" -Dpixman=enabled ;;
     --disable-pixman) printf "%s" -Dpixman=disabled ;;
     --with-pkgversion=*) quote_sh "-Dpkgversion=$2" ;;
-    --enable-plugins) printf "%s" -Dplugins=true ;;
-    --disable-plugins) printf "%s" -Dplugins=false ;;
     --enable-png) printf "%s" -Dpng=enabled ;;
     --disable-png) printf "%s" -Dpng=disabled ;;
     --prefix=*) quote_sh "-Dprefix=$2" ;;
@@ -413,10 +387,6 @@ _meson_option_parse() {
     --disable-rust) printf "%s" -Drust=disabled ;;
     --enable-safe-stack) printf "%s" -Dsafe_stack=true ;;
     --disable-safe-stack) printf "%s" -Dsafe_stack=false ;;
-    --enable-sdl) printf "%s" -Dsdl=enabled ;;
-    --disable-sdl) printf "%s" -Dsdl=disabled ;;
-    --enable-seccomp) printf "%s" -Dseccomp=enabled ;;
-    --disable-seccomp) printf "%s" -Dseccomp=disabled ;;
     --enable-slirp) printf "%s" -Dslirp=enabled ;;
     --disable-slirp) printf "%s" -Dslirp=disabled ;;
     --enable-slirp-smbd) printf "%s" -Dslirp_smbd=enabled ;;
@@ -441,10 +411,6 @@ _meson_option_parse() {
     --enable-strip) printf "%s" -Dstrip=true ;;
     --disable-strip) printf "%s" -Dstrip=false ;;
     --sysconfdir=*) quote_sh "-Dsysconfdir=$2" ;;
-    --enable-tcg) printf "%s" -Dtcg=enabled ;;
-    --disable-tcg) printf "%s" -Dtcg=disabled ;;
-    --enable-tcg-interpreter) printf "%s" -Dtcg_interpreter=true ;;
-    --disable-tcg-interpreter) printf "%s" -Dtcg_interpreter=false ;;
     --tls-priority=*) quote_sh "-Dtls_priority=$2" ;;
     --enable-tools) printf "%s" -Dtools=enabled ;;
     --disable-tools) printf "%s" -Dtools=disabled ;;
@@ -480,8 +446,6 @@ _meson_option_parse() {
     --disable-vhost-user-blk-server) printf "%s" -Dvhost_user_blk_server=disabled ;;
     --enable-vhost-vdpa) printf "%s" -Dvhost_vdpa=enabled ;;
     --disable-vhost-vdpa) printf "%s" -Dvhost_vdpa=disabled ;;
-    --enable-virglrenderer) printf "%s" -Dvirglrenderer=enabled ;;
-    --disable-virglrenderer) printf "%s" -Dvirglrenderer=disabled ;;
     --enable-virtfs) printf "%s" -Dvirtfs=enabled ;;
     --disable-virtfs) printf "%s" -Dvirtfs=disabled ;;
     --enable-vmdk) printf "%s" -Dvmdk=enabled ;;

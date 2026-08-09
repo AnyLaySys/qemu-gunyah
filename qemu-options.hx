@@ -28,7 +28,6 @@ DEF("machine", HAS_ARG, QEMU_OPTION_machine, \
     "-machine [type=]name[,prop[=value][,...]]\n"
     "                selects emulated machine ('-machine help' for list)\n"
     "                property accel=accel1[:accel2[:...]] selects accelerator\n"
-    "                supported accelerators are gunyah or tcg (default: tcg)\n"
     "                vmport=on|off|auto controls emulation of vmport (default: auto)\n"
     "                dump-guest-core=on|off include guest memory in a core dump (default=on)\n"
     "                mem-merge=on|off controls memory merge support (default: on)\n"
@@ -63,12 +62,6 @@ SRST
     Supported machine properties are:
 
     ``accel=accels1[:accels2[:...]]``
-        This is used to enable an accelerator. Depending on the target
-        architecture, gunyah or tcg can be available.
-        By default, tcg is used. If there is more than one accelerator
-        specified, the next one is used if the previous one fails to
-        initialize.
-
     ``vmport=on|off|auto``
         Enables emulation of VMWare IO port, for vmmouse etc. auto says
         to select the value based on accel and i8042. For i8042=off the
@@ -115,7 +108,6 @@ SRST
         To use the cpr-transfer migration mode, you must set aux-ram-share=on.
 
     ``memory-backend='id'``
-        An alternative to legacy ``-mem-path`` and ``mem-prealloc`` options.
         Allows to use a memory backend as main RAM.
 
         For example:
@@ -188,43 +180,10 @@ ERST
 
 DEF("accel", HAS_ARG, QEMU_OPTION_accel,
     "-accel [accel=]accelerator[,prop[=value][,...]]\n"
-    "                select accelerator (gunyah or tcg; use 'help' for a list)\n"
-    "                one-insn-per-tb=on|off (one guest instruction per TCG translation block)\n"
-    "                split-wx=on|off (enable TCG split w^x mapping)\n"
-    "                tb-size=n (TCG translation block cache size)\n"
     "                notify-vmexit=run|internal-error|disable,notify-window=n (enable notify VM exit and set notify window, x86 only)\n"
-    "                thread=single|multi (enable multi-threaded TCG)\n", QEMU_ARCH_ALL)
+    , QEMU_ARCH_ALL)
 SRST
 ``-accel name[,prop=value[,...]]``
-    This is used to enable an accelerator. Depending on the target
-    architecture, gunyah or tcg can be available. By
-    default, tcg is used. If there is more than one accelerator
-    specified, the next one is used if the previous one fails to
-    initialize.
-
-    ``one-insn-per-tb=on|off``
-        Makes the TCG accelerator put only one guest instruction into
-        each translation block. This slows down emulation a lot, but
-        can be useful in some situations, such as when trying to analyse
-        the logs produced by the ``-d`` option.
-
-    ``split-wx=on|off``
-        Controls the use of split w^x mapping for the TCG code generation
-        buffer. Some operating systems require this to be enabled, and in
-        such a case this will default on. On other operating systems, this
-        will default off, but one may enable this for testing or debugging.
-
-    ``tb-size=n``
-        Controls the size (in MiB) of the TCG translation block cache.
-
-    ``thread=single|multi``
-        Controls number of TCG threads. When the TCG is multi-threaded
-        there will be one thread per vCPU therefore taking advantage of
-        additional host cores. The default is to enable multi-threading
-        where both the back-end and front-ends support it and no
-        incompatible TCG features have been enabled (e.g.
-        icount/replay).
-
     ``notify-vmexit=run|internal-error|disable,notify-window=n``
         Enables or disables notify VM exit support on x86 host and specify
         the corresponding notify window to trigger the VM exit if enabled.
@@ -563,11 +522,7 @@ SRST
 ``-global driver.prop=value``
   \ 
 ``-global driver=driver,property=property,value=value``
-    Set default value of driver's property prop to value, e.g.:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -global ide-hd.physical_block_size=4096 disk-image.img
+    Set default value of driver's property prop to value.
 
     In particular, you can use this to set driver properties for devices
     which are created automatically by the machine model. To create a
@@ -582,7 +537,7 @@ ERST
 DEF("boot", HAS_ARG, QEMU_OPTION_boot,
     "-boot [order=drives][,once=drives][,menu=on|off]\n"
     "      [,splash=sp_name][,splash-time=sp_time][,reboot-timeout=rb_time][,strict=on|off]\n"
-    "                'drives': floppy (a), hard disk (c), CD-ROM (d), network (n)\n"
+    "                'drives': hard disk (c), CD-ROM (d), network (n)\n"
     "                'sp_name': the file's name that would be passed to bios as logo picture, if menu=on\n"
     "                'sp_time': the period that splash picture last if menu=on, unit is ms\n"
     "                'rb_timeout': the timeout before guest reboot when boot failed, unit is ms\n",
@@ -660,40 +615,12 @@ SRST
     enabled and the guest startup RAM will never increase.
 ERST
 
-DEF("mem-path", HAS_ARG, QEMU_OPTION_mempath,
-    "-mem-path FILE  provide backing storage for guest RAM\n", QEMU_ARCH_ALL)
-SRST
-``-mem-path path``
-    Allocate guest RAM from a temporarily created file in path.
-ERST
-
 DEF("mem-prealloc", 0, QEMU_OPTION_mem_prealloc,
-    "-mem-prealloc   preallocate guest memory (use with -mem-path)\n",
+    "-mem-prealloc   preallocate guest memory\n",
     QEMU_ARCH_ALL)
 SRST
 ``-mem-prealloc``
-    Preallocate memory when using -mem-path.
-ERST
-
-DEF("k", HAS_ARG, QEMU_OPTION_k,
-    "-k language     use keyboard layout (for example 'fr' for French)\n",
-    QEMU_ARCH_ALL)
-SRST
-``-k language``
-    Use keyboard layout language (for example ``fr`` for French). This
-    option is only needed where it is not easy to get raw PC keycodes
-    (e.g. on Macs, with some X11 servers or with a curses display).
-    You don't normally need to use it on PC/Linux or PC/Windows hosts.
-
-    The available layouts are:
-
-    ::
-
-        ar  de-ch  es  fo     fr-ca  hu  ja  mk     no  pt-br  sv
-        da  en-gb  et  fr     fr-ch  is  lt  nl     pl  ru     th
-        de  en-us  fi  fr-be  hr     it  lv  nl-be  pt  sl     tr
-
-    The default is ``en-us``.
+    Preallocate guest memory.
 ERST
 
 
@@ -701,37 +628,17 @@ DEF("audio", HAS_ARG, QEMU_OPTION_audio,
     "-audio [driver=]driver[,prop[=value][,...]]\n"
     "                specifies default audio backend when `audiodev` is not\n"
     "                used to create a machine or sound device;"
-    "                options are the same as for -audiodev\n"
-    "-audio [driver=]driver,model=value[,prop[=value][,...]]\n"
-    "                specifies the audio backend and device to use;\n"
-    "                apart from 'model', options are the same as for -audiodev.\n"
-    "                use '-audio model=help' to show possible devices.\n",
+    "                options are the same as for -audiodev\n",
     QEMU_ARCH_ALL)
 SRST
-``-audio [driver=]driver[,model=value][,prop[=value][,...]]``
-    If the ``model`` option is specified, ``-audio`` is a shortcut
-    for configuring both the guest audio hardware and the host audio
-    backend in one go. The guest hardware model can be set with
-    ``model=modelname``.  Use ``model=help`` to list the available
-    device types.
-
-    The following two example do exactly the same, to show how ``-audio``
-    can be used to shorten the command line length:
-
-    .. parsed-literal::
-
-        |qemu_system| -audiodev pa,id=pa -device virtio-snd-pci,audiodev=pa
-        |qemu_system| -audio pa,model=virtio
-
-    If the ``model`` option is not specified, ``-audio`` is used to
-    configure a default audio backend that will be used whenever the
+``-audio [driver=]driver[,prop[=value][,...]]``
+    ``-audio`` configures a default audio backend used whenever the
     ``audiodev`` property is not set on a device or machine.  In
     particular, ``-audio none`` ensures that no audio is produced even
     for machines that have embedded sound hardware.
 
-    In both cases, the driver option is the same as with the corresponding
-    ``-audiodev`` option below.  Use ``driver=help`` to list the available
-    drivers.
+    The driver option is the same as with the corresponding ``-audiodev``
+    option below.  Use ``driver=help`` to list the available drivers.
 
 ERST
 
@@ -786,10 +693,6 @@ DEF("audiodev", HAS_ARG, QEMU_OPTION_audiodev,
     "                in|out.name= source/sink device name\n"
     "                in|out.stream-name= name of pipewire stream\n"
     "                in|out.latency= desired latency in microseconds\n"
-#endif
-#ifdef CONFIG_AUDIO_SDL
-    "-audiodev sdl,id=id[,prop[=value][,...]]\n"
-    "                in|out.buffer-count= number of buffers\n"
 #endif
 #ifdef CONFIG_AUDIO_SNDIO
     "-audiodev sndio,id=id[,prop[=value][,...]]\n"
@@ -965,16 +868,6 @@ SRST
     ``in|out.stream-name``
         Specify the name of pipewire stream.
 
-``-audiodev sdl,id=id[,prop[=value][,...]]``
-    Creates a backend using SDL. This backend is available on most
-    systems, but you should use your platform's native backend if
-    possible.
-
-    SDL specific options are:
-
-    ``in|out.buffer-count=count``
-        Sets the count of the buffers.
-
 ``-audiodev sndio,id=id[,prop[=value][,...]]``
     Creates a backend using SNDIO. This backend is available on
     OpenBSD and most other Unix-like systems.
@@ -1047,17 +940,6 @@ SRST
     Please also refer to the wiki page for general scenarios of VT-d
     emulation in QEMU: https://wiki.qemu.org/Features/VT-d.
 
-``-device virtio-iommu-pci[,option=...]``
-    This is only supported by ``-machine q35`` (x86_64) and ``-machine virt`` (ARM).
-    It supports below options:
-
-    ``granule=val`` (possible values are 4k, 8k, 16k, 64k and host; default: host)
-        This decides the default granule to be be exposed by the
-        virtio-iommu. If host, the granule matches the host page size.
-
-    ``aw-bits=val`` (val between 32 and 64, default depends on machine)
-        This decides the address width of the IOVA address space.
-
 ERST
 
 DEF("name", HAS_ARG, QEMU_OPTION_name,
@@ -1069,9 +951,8 @@ DEF("name", HAS_ARG, QEMU_OPTION_name,
     QEMU_ARCH_ALL)
 SRST
 ``-name name``
-    Sets the name of the guest. This name will be displayed in the SDL
-    window caption. Also optionally set the top visible process name in
-    Linux. Naming of individual threads can also be enabled on Linux to
+    Sets the name of the guest and optionally the top visible process name
+    in Linux. Naming of individual threads can also be enabled on Linux to
     aid debugging.
 ERST
 
@@ -1110,17 +991,6 @@ Older options like ``-hda`` are essentially macros which expand into
 bake in a lot of assumptions from the days when QEMU was emulating a
 legacy PC, they are not recommended for modern configurations.
 
-ERST
-
-DEF("fda", HAS_ARG, QEMU_OPTION_fda,
-    "-fda/-fdb file  use 'file' as floppy disk 0/1 image\n", QEMU_ARCH_ALL)
-DEF("fdb", HAS_ARG, QEMU_OPTION_fdb, "", QEMU_ARCH_ALL)
-SRST
-``-fda file``
-  \
-``-fdb file``
-    Use file as floppy disk 0/1 image (see the :ref:`disk images` chapter in
-    the System Emulation Users Guide).
 ERST
 
 DEF("hda", HAS_ARG, QEMU_OPTION_hda,
@@ -1333,8 +1203,7 @@ SRST
 
     ``if=interface``
         This option defines on which type on interface the drive is
-        connected. Available types are: ide, scsi, sd, mtd, floppy,
-        virtio, none.
+        connected. Available types are: virtio, none.
 
     ``bus=bus,unit=unit``
         These options define where is connected the drive by defining
@@ -1444,21 +1313,6 @@ SRST
     repeatedly and is useful when the backing file is over a slow
     network. By default copy-on-read is off.
 
-    Instead of ``-cdrom`` you can use:
-
-    .. parsed-literal::
-
-        |qemu_system| -drive file=file,index=2,media=cdrom
-
-    Instead of ``-hda``, ``-hdb``, ``-hdc``, ``-hdd``, you can use:
-
-    .. parsed-literal::
-
-        |qemu_system| -drive file=file,index=0,media=disk
-        |qemu_system| -drive file=file,index=1,media=disk
-        |qemu_system| -drive file=file,index=2,media=disk
-        |qemu_system| -drive file=file,index=3,media=disk
-
     You can open an image using pre-opened file descriptors from an fd
     set:
 
@@ -1469,53 +1323,6 @@ SRST
          -add-fd fd=4,set=2,opaque="rdonly:/path/to/file" \\
          -drive file=/dev/fdset/2,index=0,media=disk
 
-    You can connect a CDROM to the slave of ide0:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -drive file=file,if=ide,index=1,media=cdrom
-
-    If you don't specify the "file=" argument, you define an empty
-    drive:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -drive if=ide,index=1,media=cdrom
-
-    Instead of ``-fda``, ``-fdb``, you can use:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -drive file=file,index=0,if=floppy
-        |qemu_system_x86| -drive file=file,index=1,if=floppy
-
-    By default, interface is "ide" and index is automatically
-    incremented:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -drive file=a -drive file=b
-
-    is interpreted like:
-
-    .. parsed-literal::
-
-        |qemu_system_x86| -hda a -hdb b
-ERST
-
-DEF("mtdblock", HAS_ARG, QEMU_OPTION_mtdblock,
-    "-mtdblock file  use 'file' as on-board Flash memory image\n",
-    QEMU_ARCH_ALL)
-SRST
-``-mtdblock file``
-    Use file as on-board Flash memory image.
-ERST
-
-DEF("sd", HAS_ARG, QEMU_OPTION_sd,
-    "-sd file        use 'file' as SecureDigital card image\n", QEMU_ARCH_ALL)
-SRST
-``-sd file``
-    Use file as SecureDigital card image.
 ERST
 
 DEF("snapshot", 0, QEMU_OPTION_snapshot,
@@ -1536,52 +1343,19 @@ SRST
 
 ERST
 
-DEF("iscsi", HAS_ARG, QEMU_OPTION_iscsi,
-    "-iscsi [user=user][,password=password][,password-secret=secret-id]\n"
-    "       [,header-digest=CRC32C|CR32C-NONE|NONE-CRC32C|NONE]\n"
-    "       [,initiator-name=initiator-iqn][,id=target-iqn]\n"
-    "       [,timeout=timeout]\n"
-    "                iSCSI session parameters\n", QEMU_ARCH_ALL)
-
-SRST
-``-iscsi``
-    Configure iSCSI session parameters.
-ERST
-
 DEFHEADING()
 
 DEFHEADING(Display options:)
 
 DEF("display", HAS_ARG, QEMU_OPTION_display,
-#if defined(CONFIG_SPICE)
-    "-display spice-app[,gl=on|off]\n"
-#endif
-#if defined(CONFIG_SDL)
-    "-display sdl[,gl=on|core|es|off][,grab-mod=<mod>][,show-cursor=on|off]\n"
-    "            [,window-close=on|off]\n"
-#endif
-#if defined(CONFIG_CURSES)
-    "-display curses[,charset=<encoding>]\n"
-#endif
-#if defined(CONFIG_COCOA)
-    "-display cocoa[,full-grab=on|off][,swap-opt-cmd=on|off]\n"
-    "              [,show-cursor=on|off][,left-command-key=on|off]\n"
-    "              [,full-screen=on|off][,zoom-to-fit=on|off]\n"
-#endif
-#if defined(CONFIG_OPENGL)
-    "-display egl-headless[,rendernode=<file>]\n"
-#endif
-#if defined(CONFIG_DBUS_DISPLAY)
-    "-display dbus[,addr=<dbusaddr>]\n"
-    "             [,gl=on|core|es|off][,rendernode=<file>]\n"
+#if defined(CONFIG_AGL)
+    "-display agl\n"
 #endif
     "-display none\n"
     "                select display backend type\n"
     "                The default display is equivalent to\n                "
-#if defined(CONFIG_SDL)
-            "\"-display sdl\"\n"
-#elif defined(CONFIG_COCOA)
-            "\"-display cocoa\"\n"
+#if defined(CONFIG_AGL)
+            "\"-display agl\"\n"
 #else
             "\"-display none\"\n"
 #endif
@@ -1591,82 +1365,8 @@ SRST
     Select type of display to use. Use ``-display help`` to list the available
     display types. Valid values for type are
 
-    ``spice-app[,gl=on|off]``
-        Start QEMU as a Spice server and launch the default Spice client
-        application. The Spice server will redirect the serial consoles
-        and QEMU monitors. (Since 4.0)
-
-    ``dbus``
-        Export the display over D-Bus interfaces. (Since 7.0)
-
-        The connection is registered with the "org.qemu" name (and queued when
-        already owned).
-
-        ``addr=<dbusaddr>`` : D-Bus bus address to connect to.
-
-        ``p2p=yes|no`` : Use peer-to-peer connection, accepted via QMP ``add_client``.
-
-        ``gl=on|off|core|es`` : Use OpenGL for rendering (the D-Bus interface
-        will share framebuffers with DMABUF file descriptors).
-
-    ``sdl``
-        Display video output via SDL (usually in a separate graphics
-        window; see the SDL documentation for other possibilities).
-        Valid parameters are:
-
-        ``grab-mod=<mods>`` : Used to select the modifier keys for toggling
-        the mouse grabbing in conjunction with the "g" key. ``<mods>`` can be
-        either ``lshift-lctrl-lalt`` or ``rctrl``.
-
-        ``gl=on|off|core|es`` : Use OpenGL for displaying
-
-        ``show-cursor=on|off`` :  Force showing the mouse cursor
-
-        ``window-close=on|off`` : Allow to quit qemu with window close button
-
-        ``zoom-to-fit=on|off`` : Expand video output to the window size,
-                                 defaults to "off"
-
-    ``curses[,charset=<encoding>]``
-        Display video output via curses. For graphics device models
-        which support a text mode, QEMU can display this output using a
-        curses/ncurses interface. Nothing is displayed when the graphics
-        device is in graphical mode or if the graphics device does not
-        support a text mode. Generally only the VGA device models
-        support text mode. The font charset used by the guest can be
-        specified with the ``charset`` option, for example
-        ``charset=CP850`` for IBM CP850 encoding. The default is
-        ``CP437``.
-
-    ``cocoa``
-        Display video output in a Cocoa window. Mac only. This interface
-        provides drop-down menus and other UI elements to configure and
-        control the VM during runtime. Valid parameters are:
-
-        ``full-grab=on|off`` : Capture all key presses, including system combos.
-                               This requires accessibility permissions, since it
-                               performs a global grab on key events.
-                               (default: off) See
-                               https://support.apple.com/en-in/guide/mac-help/mh32356/mac
-
-        ``swap-opt-cmd=on|off`` : Swap the Option and Command keys so that their
-                                  key codes match their position on non-Mac
-                                  keyboards and you can use Meta/Super and Alt
-                                  where you expect them.  (default: off)
-
-        ``show-cursor=on|off`` :  Force showing the mouse cursor
-
-        ``left-command-key=on|off`` : Disable forwarding left command key to host
-
-        ``full-screen=on|off`` : Start in fullscreen mode
-
-        ``zoom-to-fit=on|off`` : Expand video output to the window size,
-                                 defaults to "off"
-
-    ``egl-headless[,rendernode=<file>]``
-        Offload all OpenGL operations to a local DRI device. For any
-        graphical display, this display needs to be paired with another
-        display backend.
+    ``agl``
+        Display video output through the Android native window backend.
 
     ``none``
         Do not display video output. The guest will still see an
@@ -1805,55 +1505,6 @@ SRST
         pick the first available. (Since 2.9)
 ERST
 
-DEF("vga", HAS_ARG, QEMU_OPTION_vga,
-    "-vga [std|cirrus|vmware|qxl|xenfb|tcx|cg3|virtio|none]\n"
-    "                select video card type\n", QEMU_ARCH_ALL)
-SRST
-``-vga type``
-    Select type of VGA card to emulate. Valid values for type are
-
-    ``cirrus``
-        Cirrus Logic GD5446 Video card. All Windows versions starting
-        from Windows 95 should recognize and use this graphic card. For
-        optimal performances, use 16 bit color depth in the guest and
-        the host OS. (This card was the default before QEMU 2.2)
-
-    ``std``
-        Standard VGA card with Bochs VBE extensions. If your guest OS
-        supports the VESA 2.0 VBE extensions (e.g. Windows XP) and if
-        you want to use high resolution modes (>= 1280x1024x16) then you
-        should use this option. (This card is the default since QEMU
-        2.2)
-
-    ``vmware``
-        VMWare SVGA-II compatible adapter. Use it if you have
-        sufficiently recent XFree86/XOrg server or Windows guest with a
-        driver for this card.
-
-    ``qxl``
-        QXL paravirtual graphic card. It is VGA compatible (including
-        VESA 2.0 VBE support). Works best with qxl guest drivers
-        installed though. Recommended choice when using the spice
-        protocol.
-
-    ``tcx``
-        (sun4m only) Sun TCX framebuffer. This is the default
-        framebuffer for sun4m machines and offers both 8-bit and 24-bit
-        colour depths at a fixed resolution of 1024x768.
-
-    ``cg3``
-        (sun4m only) Sun cgthree framebuffer. This is a simple 8-bit
-        framebuffer for sun4m machines available in both 1024x768
-        (OpenBIOS) and 1152x900 (OBP) resolutions aimed at people
-        wishing to run older Solaris versions.
-
-    ``virtio``
-        Virtio VGA card.
-
-    ``none``
-        Disable VGA card.
-ERST
-
 DEF("full-screen", 0, QEMU_OPTION_full_screen,
     "-full-screen    start in full screen\n", QEMU_ARCH_ALL)
 SRST
@@ -1914,126 +1565,6 @@ SRST
     fields will override the same in the RSDT and the FADT (a.k.a.
     FACP), in order to ensure the field matches required by the
     Microsoft SLIC spec and the ACPI spec.
-ERST
-
-DEF("smbios", HAS_ARG, QEMU_OPTION_smbios,
-    "-smbios file=binary\n"
-    "                load SMBIOS entry from binary file\n"
-    "-smbios type=0[,vendor=str][,version=str][,date=str][,release=%d.%d]\n"
-    "              [,uefi=on|off]\n"
-    "                specify SMBIOS type 0 fields\n"
-    "-smbios type=1[,manufacturer=str][,product=str][,version=str][,serial=str]\n"
-    "              [,uuid=uuid][,sku=str][,family=str]\n"
-    "                specify SMBIOS type 1 fields\n"
-    "-smbios type=2[,manufacturer=str][,product=str][,version=str][,serial=str]\n"
-    "              [,asset=str][,location=str]\n"
-    "                specify SMBIOS type 2 fields\n"
-    "-smbios type=3[,manufacturer=str][,version=str][,serial=str][,asset=str]\n"
-    "              [,sku=str]\n"
-    "                specify SMBIOS type 3 fields\n"
-    "-smbios type=4[,sock_pfx=str][,manufacturer=str][,version=str][,serial=str]\n"
-    "              [,asset=str][,part=str][,max-speed=%d][,current-speed=%d]\n"
-    "              [,processor-family=%d][,processor-id=%d]\n"
-    "                specify SMBIOS type 4 fields\n"
-    "-smbios type=8[,external_reference=str][,internal_reference=str][,connector_type=%d][,port_type=%d]\n"
-    "                specify SMBIOS type 8 fields\n"
-    "-smbios type=11[,value=str][,path=filename]\n"
-    "                specify SMBIOS type 11 fields\n"
-    "-smbios type=17[,loc_pfx=str][,bank=str][,manufacturer=str][,serial=str]\n"
-    "               [,asset=str][,part=str][,speed=%d]\n"
-    "                specify SMBIOS type 17 fields\n"
-    "-smbios type=41[,designation=str][,kind=str][,instance=%d][,pcidev=str]\n"
-    "                specify SMBIOS type 41 fields\n",
-    QEMU_ARCH_I386 | QEMU_ARCH_ARM | QEMU_ARCH_LOONGARCH | QEMU_ARCH_RISCV)
-SRST
-``-smbios file=binary``
-    Load SMBIOS entry from binary file.
-
-``-smbios type=0[,vendor=str][,version=str][,date=str][,release=%d.%d][,uefi=on|off]``
-    Specify SMBIOS type 0 fields
-
-``-smbios type=1[,manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]``
-    Specify SMBIOS type 1 fields
-
-``-smbios type=2[,manufacturer=str][,product=str][,version=str][,serial=str][,asset=str][,location=str]``
-    Specify SMBIOS type 2 fields
-
-``-smbios type=3[,manufacturer=str][,version=str][,serial=str][,asset=str][,sku=str]``
-    Specify SMBIOS type 3 fields
-
-``-smbios type=4[,sock_pfx=str][,manufacturer=str][,version=str][,serial=str][,asset=str][,part=str][,processor-family=%d][,processor-id=%d]``
-    Specify SMBIOS type 4 fields
-
-``-smbios type=9[,slot_designation=str][,slot_type=%d][,slot_data_bus_width=%d][,current_usage=%d][,slot_length=%d][,slot_id=%d][,slot_characteristics1=%d][,slot_characteristics12=%d][,pci_device=str]``
-    Specify SMBIOS type 9 fields
-
-``-smbios type=11[,value=str][,path=filename]``
-    Specify SMBIOS type 11 fields
-
-    This argument can be repeated multiple times, and values are added in the order they are parsed.
-    Applications intending to use OEM strings data are encouraged to use their application name as
-    a prefix for the value string. This facilitates passing information for multiple applications
-    concurrently.
-
-    The ``value=str`` syntax provides the string data inline, while the ``path=filename`` syntax
-    loads data from a file on disk. Note that the file is not permitted to contain any NUL bytes.
-
-    Both the ``value`` and ``path`` options can be repeated multiple times and will be added to
-    the SMBIOS table in the order in which they appear.
-
-    Note that on the x86 architecture, the total size of all SMBIOS tables is limited to 65535
-    bytes. Thus the OEM strings data is not suitable for passing large amounts of data into the
-    guest. Instead it should be used as a indicator to inform the guest where to locate the real
-    data set, for example, by specifying the serial ID of a block device.
-
-    An example passing three strings is
-
-    .. parsed-literal::
-
-        -smbios type=11,value=cloud-init:ds=nocloud-net;s=http://10.10.0.1:8000/,\\
-                        value=anaconda:method=http://dl.fedoraproject.org/pub/fedora/linux/releases/25/x86_64/os,\\
-                        path=/some/file/with/oemstringsdata.txt
-
-    In the guest OS this is visible with the ``dmidecode`` command
-
-     .. parsed-literal::
-
-         $ dmidecode -t 11
-         Handle 0x0E00, DMI type 11, 5 bytes
-         OEM Strings
-              String 1: cloud-init:ds=nocloud-net;s=http://10.10.0.1:8000/
-              String 2: anaconda:method=http://dl.fedoraproject.org/pub/fedora/linux/releases/25/x86_64/os
-              String 3: myapp:some extra data
-
-
-``-smbios type=17[,loc_pfx=str][,bank=str][,manufacturer=str][,serial=str][,asset=str][,part=str][,speed=%d]``
-    Specify SMBIOS type 17 fields
-
-``-smbios type=41[,designation=str][,kind=str][,instance=%d][,pcidev=str]``
-    Specify SMBIOS type 41 fields
-
-    This argument can be repeated multiple times.  Its main use is to allow network interfaces be created
-    as ``enoX`` on Linux, with X being the instance number, instead of the name depending on the interface
-    position on the PCI bus.
-
-    Here is an example of use:
-
-    .. parsed-literal::
-
-        -netdev user,id=internet \\
-        -device virtio-net-pci,mac=50:54:00:00:00:42,netdev=internet,id=internet-dev \\
-        -smbios type=41,designation='Onboard LAN',instance=1,kind=ethernet,pcidev=internet-dev
-
-    In the guest OS, the device should then appear as ``eno1``:
-
-    ..parsed-literal::
-
-         $ ip -brief l
-         lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
-         eno1             UP             50:54:00:00:00:42 <BROADCAST,MULTICAST,UP,LOWER_UP>
-
-    Currently, the PCI device has to be attached to the root bus.
-
 ERST
 
 DEFHEADING()
@@ -2605,13 +2136,6 @@ SRST
     or in multiboot format.
 ERST
 
-DEF("shim", HAS_ARG, QEMU_OPTION_shim, \
-    "-shim shim.efi use 'shim.efi' to boot the kernel\n", QEMU_ARCH_ALL)
-SRST
-``-shim shim.efi``
-    Use 'shim.efi' to boot the kernel
-ERST
-
 DEF("append", HAS_ARG, QEMU_OPTION_append, \
     "-append cmdline use 'cmdline' as kernel command line\n", QEMU_ARCH_ALL)
 SRST
@@ -2959,18 +2483,6 @@ SRST
     enables an HMP monitor on localhost port 4444.
 ERST
 
-DEF("debugcon", HAS_ARG, QEMU_OPTION_debugcon, \
-    "-debugcon dev   redirect the debug console to char device 'dev'\n",
-    QEMU_ARCH_ALL)
-SRST
-``-debugcon dev``
-    Redirect the debug console to host device dev (same devices as the
-    serial port). The debug console is an I/O port which is typically
-    port 0xe9; writing to that I/O port sends output to this device. The
-    default device is ``vc`` in graphical mode and ``stdio`` in non
-    graphical mode.
-ERST
-
 DEF("pidfile", HAS_ARG, QEMU_OPTION_pidfile, \
     "-pidfile file   write PID to 'file'\n", QEMU_ARCH_ALL)
 SRST
@@ -3046,25 +2558,6 @@ SRST
     Output log in logfile instead of to stderr
 ERST
 
-DEF("dfilter", HAS_ARG, QEMU_OPTION_DFILTER, \
-    "-dfilter range,..  filter debug output to range of addresses (useful for -d cpu,exec,etc..)\n",
-    QEMU_ARCH_ALL)
-SRST
-``-dfilter range1[,...]``
-    Filter debug output to that relevant to a range of target addresses.
-    The filter spec can be either start+size, start-size or start..end
-    where start end and size are the addresses and sizes required. For
-    example:
-
-    ::
-
-            -dfilter 0x8000..0x8fff,0xffffffc000080000+0x200,0xffffffc000060000-0x1000
-
-    Will dump output for any code in the 0x1000 sized block starting at
-    0x8000 and the 0x200 sized block starting at 0xffffffc000080000 and
-    another 0x1000 sized block starting at 0xffffffc00005f000.
-ERST
-
 DEF("seed", HAS_ARG, QEMU_OPTION_seed, \
     "-seed number       seed the pseudo-random number generator\n",
     QEMU_ARCH_ALL)
@@ -3134,15 +2627,6 @@ SRST
     any of its devices. This option is a useful way for external
     programs to launch QEMU without having to cope with initialization
     race conditions.
-ERST
-
-DEF("option-rom", HAS_ARG, QEMU_OPTION_option_rom, \
-    "-option-rom rom load a file, rom, into the option ROM space\n",
-    QEMU_ARCH_ALL)
-SRST
-``-option-rom file``
-    Load the contents of file as an option ROM. This option is useful to
-    load things like EtherBoot.
 ERST
 
 DEF("rtc", HAS_ARG, QEMU_OPTION_rtc, \
@@ -3219,46 +2703,6 @@ SRST
          -prom-env 'boot-device=hd:2,\yaboot' \
          -prom-env 'boot-args=conf=hd:2,\yaboot.conf'
 ERST
-DEF("old-param", 0, QEMU_OPTION_old_param,
-    "-old-param      old param mode\n", QEMU_ARCH_ARM)
-SRST
-``-old-param``
-    Old param mode (ARM only).
-ERST
-
-DEF("sandbox", HAS_ARG, QEMU_OPTION_sandbox, \
-    "-sandbox on[,obsolete=allow|deny][,elevateprivileges=allow|deny|children]\n" \
-    "          [,spawn=allow|deny][,resourcecontrol=allow|deny]\n" \
-    "                Enable seccomp mode 2 system call filter (default 'off').\n" \
-    "                use 'obsolete' to allow obsolete system calls that are provided\n" \
-    "                    by the kernel, but typically no longer used by modern\n" \
-    "                    C library implementations.\n" \
-    "                use 'elevateprivileges' to allow or deny the QEMU process ability\n" \
-    "                    to elevate privileges using set*uid|gid system calls.\n" \
-    "                    The value 'children' will deny set*uid|gid system calls for\n" \
-    "                    main QEMU process but will allow forks and execves to run unprivileged\n" \
-    "                use 'spawn' to avoid QEMU to spawn new threads or processes by\n" \
-    "                     blocking *fork and execve\n" \
-    "                use 'resourcecontrol' to disable process affinity and schedular priority\n",
-    QEMU_ARCH_ALL)
-SRST
-``-sandbox arg[,obsolete=string][,elevateprivileges=string][,spawn=string][,resourcecontrol=string]``
-    Enable Seccomp mode 2 system call filter. 'on' will enable syscall
-    filtering and 'off' will disable it. The default is 'off'.
-
-    ``obsolete=string``
-        Enable Obsolete system calls
-
-    ``elevateprivileges=string``
-        Disable set\*uid\|gid system calls
-
-    ``spawn=string``
-        Disable \*fork and execve
-
-    ``resourcecontrol=string``
-        Disable process affinity and schedular priority
-ERST
-
 DEF("readconfig", HAS_ARG, QEMU_OPTION_readconfig,
     "-readconfig <file>\n"
     "                read config file\n", QEMU_ARCH_ALL)
@@ -3288,21 +2732,6 @@ SRST
   .. include:: ../qemu-option-trace.rst.inc
 
 ERST
-DEF("plugin", HAS_ARG, QEMU_OPTION_plugin,
-    "-plugin [file=]<file>[,<argname>=<argvalue>]\n"
-    "                load a plugin\n",
-    QEMU_ARCH_ALL)
-SRST
-``-plugin file=file[,argname=argvalue]``
-    Load a plugin.
-
-    ``file=file``
-        Load the given plugin from a shared library file.
-
-    ``argname=argvalue``
-        Argument passed to the plugin. (Can be given multiple times.)
-ERST
-
 #ifdef CONFIG_POSIX
 DEF("run-with", HAS_ARG, QEMU_OPTION_run_with,
     "-run-with [chroot=dir][user=username|uid:gid]\n"
@@ -3346,35 +2775,6 @@ SRST
         Prefix messages with guest name but only if -name guest option is set
         otherwise the option is ignored. Default is off.
 ERST
-
-DEF("enable-sync-profile", 0, QEMU_OPTION_enable_sync_profile,
-    "-enable-sync-profile\n"
-    "                enable synchronization profiling\n",
-    QEMU_ARCH_ALL)
-SRST
-``-enable-sync-profile``
-    Enable synchronization profiling.
-ERST
-
-#if defined(CONFIG_TCG) && defined(CONFIG_LINUX)
-DEF("perfmap", 0, QEMU_OPTION_perfmap,
-    "-perfmap        generate a /tmp/perf-${pid}.map file for perf\n",
-    QEMU_ARCH_ALL)
-SRST
-``-perfmap``
-    Generate a map file for Linux perf tools that will allow basic profiling
-    information to be broken down into basic blocks.
-ERST
-
-DEF("jitdump", 0, QEMU_OPTION_jitdump,
-    "-jitdump        generate a jit-${pid}.dump file for perf\n",
-    QEMU_ARCH_ALL)
-SRST
-``-jitdump``
-    Generate a dump file for Linux perf tools that maps basic blocks to symbol
-    names, line numbers and JITted code.
-ERST
-#endif
 
 DEFHEADING()
 
@@ -3553,29 +2953,6 @@ SRST
         resulting from ``/dev/iommu`` opening. Usually the iommufd is shared
         across all subsystems, bringing the benefit of centralized
         reference counting.
-
-    ``-object rng-builtin,id=id``
-        Creates a random number generator backend which obtains entropy
-        from QEMU builtin functions. The ``id`` parameter is a unique ID
-        that will be used to reference this entropy backend from the
-        ``virtio-rng`` device. By default, the ``virtio-rng`` device
-        uses this RNG backend.
-
-    ``-object rng-random,id=id,filename=/dev/random``
-        Creates a random number generator backend which obtains entropy
-        from a device on the host. The ``id`` parameter is a unique ID
-        that will be used to reference this entropy backend from the
-        ``virtio-rng`` device. The ``filename`` parameter specifies
-        which file to obtain entropy from and if omitted defaults to
-        ``/dev/urandom``.
-
-    ``-object rng-egd,id=id,chardev=chardevid``
-        Creates a random number generator backend which obtains entropy
-        from an external daemon running on the host. The ``id``
-        parameter is a unique ID that will be used to reference this
-        entropy backend from the ``virtio-rng`` device. The ``chardev``
-        parameter is the unique ID of a character device backend that
-        provides the connection to the RNG daemon.
 
     ``-object tls-creds-anon,id=id,endpoint=endpoint,dir=/path/to/cred/dir,verify-peer=on|off``
         Creates a TLS anonymous credentials object, which can be used to

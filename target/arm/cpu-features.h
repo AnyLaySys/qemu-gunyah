@@ -958,22 +958,20 @@ static inline uint64_t make_ccsidr(CCSIDRFormat format, unsigned assoc,
 
     assert(assoc != 0);
     assert(is_power_of_2(linesize));
-    assert(lg_linesize >= 4 && lg_linesize <= 7 + 4);
-
+    assert(lg_linesize >= 4 && lg_linesize <= 11);
     sets = cachesize / (assoc * linesize);
     assert(cachesize % (assoc * linesize) == 0);
 
     if (format == CCSIDR_FORMAT_LEGACY) {
-        ccsidr = deposit32(ccsidr, 28,  4, flags);
+        ccsidr = deposit32(ccsidr, 28, 4, flags);
         ccsidr = deposit32(ccsidr, 13, 15, sets - 1);
-        ccsidr = deposit32(ccsidr,  3, 10, assoc - 1);
-        ccsidr = deposit32(ccsidr,  0,  3, lg_linesize - 4);
+        ccsidr = deposit32(ccsidr, 3, 10, assoc - 1);
+        ccsidr = deposit32(ccsidr, 0, 3, lg_linesize - 4);
     } else {
         ccsidr = deposit64(ccsidr, 32, 24, sets - 1);
-        ccsidr = deposit64(ccsidr,  3, 21, assoc - 1);
-        ccsidr = deposit64(ccsidr,  0,  3, lg_linesize - 4);
+        ccsidr = deposit64(ccsidr, 3, 21, assoc - 1);
+        ccsidr = deposit64(ccsidr, 0, 3, lg_linesize - 4);
     }
-
     return ccsidr;
 }
 

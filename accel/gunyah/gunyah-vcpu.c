@@ -45,6 +45,7 @@ static void gunyah_vcpu_destroy(CPUState *cpu) {
   }
   close(cpu->accel->fd);
   g_free(cpu->accel);
+  cpu->accel = NULL;
 }
 static int gunyah_handle_unknown_exit(CPUState *cpu, struct gh_vcpu_run *run) {
   uint64_t unk_addr = run->mmio.phys_addr;
@@ -80,14 +81,9 @@ static int gunyah_handle_unknown_exit(CPUState *cpu, struct gh_vcpu_run *run) {
 }
 static int gunyah_vcpu_exec(CPUState *cpu) {
   int ret;
-  static bool handler_installed;
   if (cpu->accel->fd < 0) {
     gh_report("ERROR: vcpu fd is %d (invalid!)", cpu->accel->fd);
     return EXCP_INTERRUPT;
-  }
-  if (!handler_installed) {
-    gunyah_install_sigsegv_handler();
-    handler_installed = true;
   }
   if (qatomic_read(&gunyah_vm_stopped)) {
     return EXCP_INTERRUPT;

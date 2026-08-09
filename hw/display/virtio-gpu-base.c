@@ -95,6 +95,10 @@ virtio_gpu_get_flags(void *opaque)
     VirtIOGPUBase *g = opaque;
     int flags = GRAPHIC_FLAGS_NONE;
 
+    if (virtio_gpu_virgl_enabled(g->conf)) {
+        flags |= GRAPHIC_FLAGS_GL;
+    }
+
     if (virtio_gpu_dmabuf_enabled(g->conf)) {
         flags |= GRAPHIC_FLAGS_DMABUF;
     }
@@ -126,7 +130,8 @@ virtio_gpu_base_device_realize(DeviceState *qdev,
     virtio_init(VIRTIO_DEVICE(g), VIRTIO_ID_GPU,
                 sizeof(struct virtio_gpu_config));
 
-    virtio_add_queue(vdev, 64, ctrl_cb);
+    virtio_add_queue(vdev, virtio_gpu_virgl_enabled(g->conf) ? 256 : 64,
+                     ctrl_cb);
     virtio_add_queue(vdev, 16, cursor_cb);
 
     g->enabled_output_bitmask = 1;

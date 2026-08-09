@@ -98,9 +98,6 @@ static inline unsigned memop_size(MemOp op)
 
 static inline MemOp size_memop(unsigned size)
 {
-#ifdef CONFIG_DEBUG_TCG
-    assert((size & (size - 1)) == 0 && size >= 1 && size <= 8);
-#endif
     return (MemOp)ctz32(size);
 }
 

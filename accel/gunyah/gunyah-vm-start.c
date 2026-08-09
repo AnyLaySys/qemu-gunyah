@@ -358,30 +358,12 @@ void gunyah_start_vm(void) {
       ghdbg_hexdump("slot content", s->slots[i].mem, 32);
     }
   }
-  gunyah_install_sigsegv_handler();
   ret = gunyah_vm_ioctl(GH_VM_START);
   if (ret != 0) {
     gh_report("Failed to start VM:%s (errno=%d)", strerror(errno), errno);
     exit(1);
   }
   gh_report("VM_START OK");
-  sigbus_lend_count = 0;
-  for (i = 0; i < s->nr_slots; i++) {
-    gunyah_slot *slot = &s->slots[i];
-    if (slot->size && slot->lend && slot->mem) {
-      if (sigbus_lend_count < SIGBUS_MAX_LEND_REGIONS) {
-        sigbus_lend_regions[sigbus_lend_count].hva = slot->mem;
-        sigbus_lend_regions[sigbus_lend_count].size = slot->size;
-        sigbus_lend_regions[sigbus_lend_count].gpa = slot->start;
-        sigbus_lend_count++;
-      }
-      gh_report("LEND region hva=%p size=0x%zx kept mapped "
-                "for demand paging",
-                slot->mem, (size_t)slot->size);
-    }
-  }
-  __sync_synchronize();
-  sigbus_handler_active = 1;
   gh_report("SIGBUS handler armed with %d LEND regions", sigbus_lend_count);
   qatomic_set(&s->vm_started, 1);
 }

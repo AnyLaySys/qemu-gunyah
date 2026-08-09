@@ -14,9 +14,6 @@ config GNUTLS
 config OPENGL
     bool
 
-config X11
-    bool
-
 config PIXMAN
     bool
 

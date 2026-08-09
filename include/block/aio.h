@@ -237,6 +237,8 @@ AioContext *qemu_get_current_aio_context(void);
 
 void qemu_set_current_aio_context(AioContext *ctx);
 
+void aio_context_set_fdmon_io_uring_enabled(bool enabled);
+
 void aio_context_setup(AioContext *ctx);
 
 void aio_context_destroy(AioContext *ctx);

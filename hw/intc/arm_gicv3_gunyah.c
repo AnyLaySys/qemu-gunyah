@@ -9,7 +9,6 @@
 #include "system/gunyah_report.h"
 #include "system/runstate.h"
 #include "gicv3_internal.h"
-#include "vgic_common.h"
 #include "qom/object.h"
 #include "target/arm/cpregs.h"
 #include "qemu/event_notifier.h"

@@ -13,8 +13,15 @@
 
 #define POLL_IDLE_INTERVAL_NS (7 * NANOSECONDS_PER_SECOND)
 
+static bool fdmon_io_uring_enabled = true;
+
 static void adjust_polling_time(AioContext *ctx, AioPolledEvent *poll,
                                 int64_t block_ns);
+
+void aio_context_set_fdmon_io_uring_enabled(bool enabled)
+{
+    fdmon_io_uring_enabled = enabled;
+}
 
 bool aio_poll_disabled(AioContext *ctx)
 {
@@ -603,7 +610,7 @@ void aio_context_setup(AioContext *ctx)
     ctx->fdmon_ops = &fdmon_poll_ops;
     ctx->epollfd = -1;
 
-    if (fdmon_io_uring_setup(ctx)) {
+    if (fdmon_io_uring_enabled && fdmon_io_uring_setup(ctx)) {
         return;
     }
 

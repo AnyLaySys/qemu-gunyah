@@ -1014,16 +1014,6 @@ int job_cancel_sync(Job *job, bool force)
     return job_cancel_sync_locked(job, force);
 }
 
-void job_cancel_sync_all(void)
-{
-    Job *job;
-    JOB_LOCK_GUARD();
-
-    while ((job = job_next_locked(NULL))) {
-        job_cancel_sync_locked(job, true);
-    }
-}
-
 int job_complete_sync_locked(Job *job, Error **errp)
 {
     return job_finish_sync_locked(job, job_complete_locked, errp);

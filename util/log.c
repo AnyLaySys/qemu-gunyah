@@ -1,7 +1,6 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
-#include "qemu/range.h"
 #include "qemu/error-report.h"
 #include "qapi/error.h"
 #include "qemu/cutils.h"
@@ -27,7 +26,6 @@ static Notifier qemu_log_thread_cleanup_notifier;
 
 int qemu_loglevel;
 static bool log_per_thread;
-static GArray *debug_regions;
 
 bool qemu_log_enabled(void)
 {
@@ -304,95 +302,6 @@ bool qemu_set_log_filename_flags(const char *name, int flags, Error **errp)
     return qemu_set_log_internal(name, true, flags, errp);
 }
 
-bool qemu_log_in_addr_range(uint64_t addr)
-{
-    if (debug_regions) {
-        int i = 0;
-        for (i = 0; i < debug_regions->len; i++) {
-            Range *range = &g_array_index(debug_regions, Range, i);
-            if (range_contains(range, addr)) {
-                return true;
-            }
-        }
-        return false;
-    } else {
-        return true;
-    }
-}
-
-
-void qemu_set_dfilter_ranges(const char *filter_spec, Error **errp)
-{
-    gchar **ranges = g_strsplit(filter_spec, ",", 0);
-    int i;
-
-    if (debug_regions) {
-        g_array_unref(debug_regions);
-        debug_regions = NULL;
-    }
-
-    debug_regions = g_array_sized_new(FALSE, FALSE,
-                                      sizeof(Range), g_strv_length(ranges));
-    for (i = 0; ranges[i]; i++) {
-        const char *r = ranges[i];
-        const char *range_op, *r2, *e;
-        uint64_t r1val, r2val, lob, upb;
-        struct Range range;
-
-        range_op = strstr(r, "-");
-        r2 = range_op ? range_op + 1 : NULL;
-        if (!range_op) {
-            range_op = strstr(r, "+");
-            r2 = range_op ? range_op + 1 : NULL;
-        }
-        if (!range_op) {
-            range_op = strstr(r, "..");
-            r2 = range_op ? range_op + 2 : NULL;
-        }
-        if (!range_op) {
-            error_setg(errp, "Bad range specifier");
-            goto out;
-        }
-
-        if (qemu_strtou64(r, &e, 0, &r1val)
-            || e != range_op) {
-            error_setg(errp, "Invalid number to the left of %.*s",
-                       (int)(r2 - range_op), range_op);
-            goto out;
-        }
-        if (qemu_strtou64(r2, NULL, 0, &r2val)) {
-            error_setg(errp, "Invalid number to the right of %.*s",
-                       (int)(r2 - range_op), range_op);
-            goto out;
-        }
-
-        switch (*range_op) {
-        case '+':
-            lob = r1val;
-            upb = r1val + r2val - 1;
-            break;
-        case '-':
-            upb = r1val;
-            lob = r1val - (r2val - 1);
-            break;
-        case '.':
-            lob = r1val;
-            upb = r2val;
-            break;
-        default:
-            g_assert_not_reached();
-        }
-        if (lob > upb) {
-            error_setg(errp, "Invalid range");
-            goto out;
-        }
-        range_set_bounds(&range, lob, upb);
-        g_array_append_val(debug_regions, range);
-    }
-out:
-    g_strfreev(ranges);
-}
-
 const QEMULogItem qemu_log_items[] = {
     { CPU_LOG_TB_OUT_ASM, "out_asm",
       "show generated host assembly code for each compiled TB" },
@@ -404,10 +313,6 @@ const QEMULogItem qemu_log_items[] = {
       "show micro ops after optimization" },
     { CPU_LOG_TB_OP_IND, "op_ind",
       "show micro ops before indirect lowering" },
-#ifdef CONFIG_PLUGIN
-    { LOG_TB_OP_PLUGIN, "op_plugin",
-      "show micro ops before plugin injection" },
-#endif
     { CPU_LOG_INT, "int",
       "show interrupts/exceptions in short format" },
     { CPU_LOG_EXEC, "exec",
@@ -432,9 +337,6 @@ const QEMULogItem qemu_log_items[] = {
     { CPU_LOG_TB_NOCHAIN, "nochain",
       "do not chain compiled TBs so that \"exec\" and \"cpu\" show\n"
       "complete traces" },
-#ifdef CONFIG_PLUGIN
-    { CPU_LOG_PLUGIN, "plugin", "output from TCG plugins"},
-#endif
     { LOG_STRACE, "strace",
       "log every user-mode syscall, its input, and its result" },
     { LOG_PER_THREAD, "tid",

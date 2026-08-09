@@ -123,29 +123,6 @@ static void pci_bridge_init_alias(PCIBridge *bridge, MemoryRegion *alias,
     memory_region_add_subregion_overlap(parent_space, base, alias, 1);
 }
 
-static void pci_bridge_init_vga_aliases(PCIBridge *br, PCIBus *parent,
-                                        MemoryRegion *alias_vga)
-{
-    PCIDevice *pd = PCI_DEVICE(br);
-    uint16_t brctl = pci_get_word(pd->config + PCI_BRIDGE_CONTROL);
-
-    memory_region_init_alias(&alias_vga[QEMU_PCI_VGA_IO_LO], OBJECT(br),
-                             "pci_bridge_vga_io_lo", &br->address_space_io,
-                             QEMU_PCI_VGA_IO_LO_BASE, QEMU_PCI_VGA_IO_LO_SIZE);
-    memory_region_init_alias(&alias_vga[QEMU_PCI_VGA_IO_HI], OBJECT(br),
-                             "pci_bridge_vga_io_hi", &br->address_space_io,
-                             QEMU_PCI_VGA_IO_HI_BASE, QEMU_PCI_VGA_IO_HI_SIZE);
-    memory_region_init_alias(&alias_vga[QEMU_PCI_VGA_MEM], OBJECT(br),
-                             "pci_bridge_vga_mem", &br->address_space_mem,
-                             QEMU_PCI_VGA_MEM_BASE, QEMU_PCI_VGA_MEM_SIZE);
-
-    if (brctl & PCI_BRIDGE_CTL_VGA) {
-        pci_register_vga(pd, &alias_vga[QEMU_PCI_VGA_MEM],
-                         &alias_vga[QEMU_PCI_VGA_IO_LO],
-                         &alias_vga[QEMU_PCI_VGA_IO_HI]);
-    }
-}
-
 static void pci_bridge_region_init(PCIBridge *br)
 {
     PCIDevice *pd = PCI_DEVICE(br);
@@ -171,19 +148,15 @@ static void pci_bridge_region_init(PCIBridge *br)
                           &br->address_space_io,
                           parent->address_space_io,
                           cmd & PCI_COMMAND_IO);
-
-    pci_bridge_init_vga_aliases(br, parent, w->alias_vga);
 }
 
 static void pci_bridge_region_del(PCIBridge *br, PCIBridgeWindows *w)
 {
-    PCIDevice *pd = PCI_DEVICE(br);
-    PCIBus *parent = pci_get_bus(pd);
+    PCIBus *parent = pci_get_bus(PCI_DEVICE(br));
 
     memory_region_del_subregion(parent->address_space_io, &w->alias_io);
     memory_region_del_subregion(parent->address_space_mem, &w->alias_mem);
     memory_region_del_subregion(parent->address_space_mem, &w->alias_pref_mem);
-    pci_unregister_vga(pd);
 }
 
 static void pci_bridge_region_cleanup(PCIBridge *br, PCIBridgeWindows *w)
@@ -191,9 +164,6 @@ static void pci_bridge_region_cleanup(PCIBridge *br, PCIBridgeWindows *w)
     object_unparent(OBJECT(&w->alias_io));
     object_unparent(OBJECT(&w->alias_mem));
     object_unparent(OBJECT(&w->alias_pref_mem));
-    object_unparent(OBJECT(&w->alias_vga[QEMU_PCI_VGA_IO_LO]));
-    object_unparent(OBJECT(&w->alias_vga[QEMU_PCI_VGA_IO_HI]));
-    object_unparent(OBJECT(&w->alias_vga[QEMU_PCI_VGA_MEM]));
 }
 
 void pci_bridge_update_mappings(PCIBridge *br)

@@ -3,7 +3,6 @@
 
 #include "hw/pci/pci.h"
 #include "hw/pci/pcie.h"
-#include "hw/pci/pcie_doe.h"
 
 #define TYPE_PCI_DEVICE "pci-device"
 typedef struct PCIDeviceClass PCIDeviceClass;
@@ -72,9 +71,6 @@ struct PCIDevice {
     PCIConfigReadFunc *config_read;
     PCIConfigWriteFunc *config_write;
 
-    MemoryRegion *vga_regions[QEMU_PCI_VGA_NUM_REGIONS];
-    bool has_vga;
-
     uint8_t irq_state;
 
     uint32_t cap_present;
@@ -118,10 +114,6 @@ struct PCIDevice {
     MSIVectorUseNotifier msix_vector_use_notifier;
     MSIVectorReleaseNotifier msix_vector_release_notifier;
     MSIVectorPollNotifier msix_vector_poll_notifier;
-
-    uint16_t spdm_port;
-
-    DOECap doe_spdm;
 
     char *failover_pair_id;
     uint32_t acpi_index;

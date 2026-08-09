@@ -224,7 +224,6 @@
             {'name': 'host_device', 'if': 'HAVE_HOST_BLOCK_DEVICE' },
             'http', 'https',
             { 'name': 'io_uring', 'if': 'CONFIG_BLKIO' },
-            'iscsi',
             'luks', 'nfs', 'null-aio', 'null-co', 'nvme',
             { 'name': 'nvme-io_uring', 'if': 'CONFIG_BLKIO' },
             'parallels', 'preallocate', 'qcow', 'qed', 'quorum',
@@ -237,7 +236,6 @@
 
 { 'struct': 'BlockdevOptionsFile',
   'data': { 'filename': 'str',
-            '*pr-manager': 'str',
             '*locking': 'OnOffAuto',
             '*aio': 'BlockdevAioOptions',
             '*drop-cache': {'type': 'bool',
@@ -400,24 +398,6 @@
   'features': [ { 'name' :'fdset',
                   'if': 'CONFIG_BLKIO_VHOST_VDPA_FD' } ],
   'if': 'CONFIG_BLKIO' }
-
-{ 'enum': 'IscsiTransport',
-  'data': [ 'tcp', 'iser' ] }
-
-{ 'enum': 'IscsiHeaderDigest',
-  'prefix': 'QAPI_ISCSI_HEADER_DIGEST',
-  'data': [ 'crc32c', 'none', 'crc32c-none', 'none-crc32c' ] }
-
-{ 'struct': 'BlockdevOptionsIscsi',
-  'data': { 'transport': 'IscsiTransport',
-            'portal': 'str',
-            'target': 'str',
-            '*lun': 'int',
-            '*user': 'str',
-            '*password-secret': 'str',
-            '*initiator-name': 'str',
-            '*header-digest': 'IscsiHeaderDigest',
-            '*timeout': 'int' } }
 
 { 'enum': 'RbdAuthMode',
   'data': [ 'cephx', 'none' ] }
@@ -583,7 +563,6 @@
       'https':      'BlockdevOptionsCurlHttps',
       'io_uring':   { 'type': 'BlockdevOptionsIoUring',
                       'if': 'CONFIG_BLKIO' },
-      'iscsi':      'BlockdevOptionsIscsi',
       'luks':       'BlockdevOptionsLUKS',
       'nfs':        'BlockdevOptionsNfs',
       'null-aio':   'BlockdevOptionsNull',

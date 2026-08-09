@@ -43,9 +43,7 @@ Options:
     --help                   This help message.
     --list-backends          Print list of available backends.
     --check-backends         Check if the given backend is valid.
-    --binary <path>          Full path to QEMU binary (required for 'stap' backend).
     --group <name>           Name of the event group.
-    --probe-prefix <prefix>  Prefix for dtrace probe names (required for 'stap' backend).
 """ % {
             "script" : _SCRIPT,
             "backends" : backend_descr,
@@ -63,7 +61,6 @@ def main(args):
 
     long_opts = ["backends=", "format=", "help", "list-backends",
                  "check-backends", "group="]
-    long_opts += ["binary=", "probe-prefix="]
 
     try:
         opts, args = getopt.getopt(args[1:], "", long_opts)
@@ -74,8 +71,6 @@ def main(args):
     arg_backends = []
     arg_format = ""
     arg_group = None
-    binary = None
-    probe_prefix = None
     for opt, arg in opts:
         if opt == "--help":
             error_opt()
@@ -94,11 +89,6 @@ def main(args):
         elif opt == "--check-backends":
             check_backends = True
 
-        elif opt == "--binary":
-            binary = arg
-        elif opt == '--probe-prefix':
-            probe_prefix = arg
-
         else:
             error_opt("unhandled option: %s" % opt)
 
@@ -114,12 +104,6 @@ def main(args):
     if arg_group is None:
         error_opt("group name is required")
 
-    if arg_format == "stap":
-        if binary is None:
-            error_opt("--binary is required for SystemTAP tapset generator")
-        if probe_prefix is None:
-            error_opt("--probe-prefix is required for SystemTAP tapset generator")
-
     if len(args) < 2:
         error_opt("missing trace-events and output filepaths")
     events = []
@@ -130,8 +114,7 @@ def main(args):
     out_open(args[-1])
 
     try:
-        tracetool.generate(events, arg_group, arg_format, arg_backends,
-                           binary=binary, probe_prefix=probe_prefix)
+        tracetool.generate(events, arg_group, arg_format, arg_backends)
     except tracetool.TracetoolError as e:
         error_opt(str(e))
 

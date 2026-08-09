@@ -6,15 +6,12 @@ source display/Kconfig
 source input/Kconfig
 source intc/Kconfig
 source net/Kconfig
-source nvram/Kconfig
 source pci-host/Kconfig
 source pci/Kconfig
 source rtc/Kconfig
 source virtio/Kconfig
 
 source arm/Kconfig
-source cpu/Kconfig
-
 config TEST_DEVICES
     bool
 

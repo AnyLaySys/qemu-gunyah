@@ -1,19 +1,6 @@
 #ifndef QEMU_DISAS_H
 #define QEMU_DISAS_H
 
-#ifdef CONFIG_TCG
-void disas(FILE *out, const void *code, size_t size);
-void target_disas(FILE *out, CPUState *cpu, const DisasContextBase *db);
-#endif
-
-void monitor_disas(Monitor *mon, CPUState *cpu, uint64_t pc,
-                   int nb_insn, bool is_physical);
-
-#ifdef CONFIG_PLUGIN
-char *plugin_disas(CPUState *cpu, const DisasContextBase *db,
-                   uint64_t addr, size_t size);
-#endif
-
 const char *lookup_symbol(uint64_t orig_addr);
 
 struct syminfo;

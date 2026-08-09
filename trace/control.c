@@ -3,18 +3,7 @@
 #include "trace/control.h"
 #include "qemu/help_option.h"
 #include "qemu/option.h"
-#ifdef CONFIG_TRACE_SIMPLE
-#include "trace/simple.h"
-#endif
-#ifdef CONFIG_TRACE_FTRACE
-#include "trace/ftrace.h"
-#endif
-#ifdef CONFIG_TRACE_LOG
 #include "qemu/log.h"
-#endif
-#ifdef CONFIG_TRACE_SYSLOG
-#include <syslog.h>
-#endif
 #include "qapi/error.h"
 #include "qemu/error-report.h"
 #include "qemu/config-file.h"
@@ -30,7 +19,6 @@ static TraceEventGroup *event_groups;
 static size_t nevent_groups;
 static uint32_t next_id;
 static uint32_t next_vcpu_id;
-static bool init_trace_on_startup;
 static char *trace_opts_file;
 
 QemuOptsList qemu_trace_opts = {
@@ -64,9 +52,6 @@ void trace_event_register_group(TraceEvent **events)
     event_groups[nevent_groups].events = events;
     nevent_groups++;
 
-#ifdef CONFIG_TRACE_SIMPLE
-    st_init_group(nevent_groups - 1);
-#endif
 }
 
 
@@ -138,12 +123,6 @@ void trace_list_events(FILE *f)
     while ((ev = trace_event_iter_next(&iter)) != NULL) {
         fprintf(f, "%s\n", trace_event_get_name(ev));
     }
-#ifdef CONFIG_TRACE_DTRACE
-    fprintf(f, "This list of names of trace points may be incomplete "
-               "when using the DTrace/SystemTap backends.\n"
-               "Run 'qemu-trace-stap list %s' to print the full list.\n",
-            g_get_prgname());
-#endif
 }
 
 static void do_trace_enable_events(const char *line_buf)
@@ -228,44 +207,13 @@ static void trace_init_events(const char *fname)
 
 void trace_init_file(void)
 {
-#ifdef CONFIG_TRACE_SIMPLE
-    st_set_trace_file(trace_opts_file);
-    if (init_trace_on_startup) {
-        st_set_trace_file_enabled(true);
-    }
-#elif defined CONFIG_TRACE_LOG
     if (trace_opts_file) {
         qemu_set_log_filename(trace_opts_file, &error_fatal);
     }
-#else
-    if (trace_opts_file) {
-        fprintf(stderr, "error: --trace file=...: "
-                "option not supported by the selected tracing backends\n");
-        exit(1);
-    }
-#endif
 }
 
 bool trace_init_backends(void)
 {
-#ifdef CONFIG_TRACE_SIMPLE
-    if (!st_init()) {
-        fprintf(stderr, "failed to initialize simple tracing backend.\n");
-        return false;
-    }
-#endif
-
-#ifdef CONFIG_TRACE_FTRACE
-    if (!ftrace_init()) {
-        fprintf(stderr, "failed to initialize ftrace backend.\n");
-        return false;
-    }
-#endif
-
-#ifdef CONFIG_TRACE_SYSLOG
-    openlog(NULL, LOG_PID, LOG_DAEMON);
-#endif
-
     return true;
 }
 
@@ -280,7 +228,6 @@ void trace_opt_parse(const char *optstr)
         trace_enable_events(qemu_opt_get(opts, "enable"));
     }
     trace_init_events(qemu_opt_get(opts, "events"));
-    init_trace_on_startup = true;
     g_free(trace_opts_file);
     trace_opts_file = g_strdup(qemu_opt_get(opts, "file"));
     qemu_opts_del(opts);

@@ -8,10 +8,6 @@
 #include "qemu/module.h"
 #include "qapi/error.h"
 #include "cpu.h"
-#ifdef CONFIG_TCG
-#include "exec/translation-block.h"
-#include "accel/tcg/cpu-ops.h"
-#endif /* CONFIG_TCG */
 #include "internals.h"
 #include "cpu-features.h"
 #include "exec/exec-all.h"
@@ -19,11 +15,7 @@
 #if !defined(CONFIG_USER_ONLY)
 #include "hw/loader.h"
 #include "hw/boards.h"
-#ifdef CONFIG_TCG
-#include "hw/intc/armv7m_nvic.h"
-#endif /* CONFIG_TCG */
 #endif /* !CONFIG_USER_ONLY */
-#include "system/tcg.h"
 #include "system/hw_accel.h"
 #include "system/gunyah.h"
 #include "disas/capstone.h"
@@ -58,45 +50,6 @@ static vaddr arm_cpu_get_pc(CPUState *cs)
     }
 }
 
-#ifdef CONFIG_TCG
-void arm_cpu_synchronize_from_tb(CPUState *cs,
-                                 const TranslationBlock *tb)
-{
-    if (!(tb_cflags(tb) & CF_PCREL)) {
-        CPUARMState *env = cpu_env(cs);
-        if (is_a64(env)) {
-            env->pc = tb->pc;
-        } else {
-            env->regs[15] = tb->pc;
-        }
-    }
-}
-
-void arm_restore_state_to_opc(CPUState *cs,
-                              const TranslationBlock *tb,
-                              const uint64_t *data)
-{
-    CPUARMState *env = cpu_env(cs);
-
-    if (is_a64(env)) {
-        if (tb_cflags(tb) & CF_PCREL) {
-            env->pc = (env->pc & TARGET_PAGE_MASK) | data[0];
-        } else {
-            env->pc = data[0];
-        }
-        env->condexec_bits = 0;
-        env->exception.syndrome = data[2] << ARM_INSN_START_WORD2_SHIFT;
-    } else {
-        if (tb_cflags(tb) & CF_PCREL) {
-            env->regs[15] = (env->regs[15] & TARGET_PAGE_MASK) | data[0];
-        } else {
-            env->regs[15] = data[0];
-        }
-        env->condexec_bits = data[1];
-        env->exception.syndrome = data[2] << ARM_INSN_START_WORD2_SHIFT;
-    }
-}
-#endif /* CONFIG_TCG */
 
 #ifndef CONFIG_USER_ONLY
 static bool arm_cpu_has_work(CPUState *cs)
@@ -348,10 +301,6 @@ static void arm_cpu_reset_hold(Object *obj, ResetType type)
             initial_pc = ldl_phys(cs->as, vecbase + 4);
         }
 
-        qemu_log_mask(CPU_LOG_INT,
-                      "Loaded reset SP 0x%x PC 0x%x from vector table\n",
-                      initial_msp, initial_pc);
-
         env->regs[13] = initial_msp & 0xFFFFFFFC;
         env->regs[15] = initial_pc & ~1;
         env->thumb = initial_pc & 1;
@@ -422,26 +371,12 @@ static void arm_cpu_reset_hold(Object *obj, ResetType type)
     set_flush_inputs_to_zero(1, &env->vfp.fp_status[FPST_STD]);
     set_default_nan_mode(1, &env->vfp.fp_status[FPST_STD]);
     set_default_nan_mode(1, &env->vfp.fp_status[FPST_STD_F16]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_A32]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_A64]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_STD]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_A32_F16]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_A64_F16]);
-    arm_set_default_fp_behaviours(&env->vfp.fp_status[FPST_STD_F16]);
-    arm_set_ah_fp_behaviours(&env->vfp.fp_status[FPST_AH]);
     set_flush_to_zero(1, &env->vfp.fp_status[FPST_AH]);
     set_flush_inputs_to_zero(1, &env->vfp.fp_status[FPST_AH]);
-    arm_set_ah_fp_behaviours(&env->vfp.fp_status[FPST_AH_F16]);
 
 #ifndef CONFIG_USER_ONLY
 #endif
 
-    if (tcg_enabled()) {
-        hw_breakpoint_update_all(cpu);
-        hw_watchpoint_update_all(cpu);
-
-        arm_rebuild_hflags(env);
-    }
 }
 
 void arm_emulate_firmware_reset(CPUState *cpustate, int target_el)
@@ -525,212 +460,6 @@ void arm_emulate_firmware_reset(CPUState *cpustate, int target_el)
 }
 
 
-#if defined(CONFIG_TCG) && !defined(CONFIG_USER_ONLY)
-
-static inline bool arm_excp_unmasked(CPUState *cs, unsigned int excp_idx,
-                                     unsigned int target_el,
-                                     unsigned int cur_el, bool secure,
-                                     uint64_t hcr_el2)
-{
-    CPUARMState *env = cpu_env(cs);
-    bool pstate_unmasked;
-    bool unmasked = false;
-    bool allIntMask = false;
-
-    if (cur_el > target_el) {
-        return false;
-    }
-
-    if (cpu_isar_feature(aa64_nmi, env_archcpu(env)) &&
-        env->cp15.sctlr_el[target_el] & SCTLR_NMI && cur_el == target_el) {
-        allIntMask = env->pstate & PSTATE_ALLINT ||
-                     ((env->cp15.sctlr_el[target_el] & SCTLR_SPINTMASK) &&
-                      (env->pstate & PSTATE_SP));
-    }
-
-    switch (excp_idx) {
-    case EXCP_NMI:
-        pstate_unmasked = !allIntMask;
-        break;
-
-    case EXCP_VINMI:
-        if (!(hcr_el2 & HCR_IMO) || (hcr_el2 & HCR_TGE)) {
-            return false;
-        }
-        return !allIntMask;
-    case EXCP_VFNMI:
-        if (!(hcr_el2 & HCR_FMO) || (hcr_el2 & HCR_TGE)) {
-            return false;
-        }
-        return !allIntMask;
-    case EXCP_FIQ:
-        pstate_unmasked = (!(env->daif & PSTATE_F)) && (!allIntMask);
-        break;
-
-    case EXCP_IRQ:
-        pstate_unmasked = (!(env->daif & PSTATE_I)) && (!allIntMask);
-        break;
-
-    case EXCP_VFIQ:
-        if (!(hcr_el2 & HCR_FMO) || (hcr_el2 & HCR_TGE)) {
-            return false;
-        }
-        return !(env->daif & PSTATE_F) && (!allIntMask);
-    case EXCP_VIRQ:
-        if (!(hcr_el2 & HCR_IMO) || (hcr_el2 & HCR_TGE)) {
-            return false;
-        }
-        return !(env->daif & PSTATE_I) && (!allIntMask);
-    case EXCP_VSERR:
-        if (!(hcr_el2 & HCR_AMO) || (hcr_el2 & HCR_TGE)) {
-            return false;
-        }
-        return !(env->daif & PSTATE_A);
-    default:
-        g_assert_not_reached();
-    }
-
-    if ((target_el > cur_el) && (target_el != 1)) {
-        if (arm_feature(env, ARM_FEATURE_AARCH64)) {
-            switch (target_el) {
-            case 2:
-                if ((hcr_el2 & (HCR_E2H | HCR_TGE)) != (HCR_E2H | HCR_TGE)) {
-                        unmasked = true;
-                }
-                break;
-            case 3:
-                unmasked = true;
-                break;
-            default:
-                g_assert_not_reached();
-            }
-        } else {
-            bool hcr, scr;
-
-            switch (excp_idx) {
-            case EXCP_FIQ:
-                hcr = hcr_el2 & HCR_FMO;
-                scr = (env->cp15.scr_el3 & SCR_FIQ);
-
-                scr = scr && !((env->cp15.scr_el3 & SCR_FW) && !hcr);
-                break;
-            case EXCP_IRQ:
-                hcr = hcr_el2 & HCR_IMO;
-                scr = false;
-                break;
-            default:
-                g_assert_not_reached();
-            }
-
-            if ((scr || hcr) && !secure) {
-                unmasked = true;
-            }
-        }
-    }
-
-    return unmasked || pstate_unmasked;
-}
-
-static bool arm_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
-{
-    CPUARMState *env = cpu_env(cs);
-    uint32_t cur_el = arm_current_el(env);
-    bool secure = arm_is_secure(env);
-    uint64_t hcr_el2 = arm_hcr_el2_eff(env);
-    uint32_t target_el;
-    uint32_t excp_idx;
-
-
-    if (cpu_isar_feature(aa64_nmi, env_archcpu(env)) &&
-        (arm_sctlr(env, cur_el) & SCTLR_NMI)) {
-        if (interrupt_request & CPU_INTERRUPT_NMI) {
-            excp_idx = EXCP_NMI;
-            target_el = arm_phys_excp_target_el(cs, excp_idx, cur_el, secure);
-            if (arm_excp_unmasked(cs, excp_idx, target_el,
-                                  cur_el, secure, hcr_el2)) {
-                goto found;
-            }
-        }
-        if (interrupt_request & CPU_INTERRUPT_VINMI) {
-            excp_idx = EXCP_VINMI;
-            target_el = 1;
-            if (arm_excp_unmasked(cs, excp_idx, target_el,
-                                  cur_el, secure, hcr_el2)) {
-                goto found;
-            }
-        }
-        if (interrupt_request & CPU_INTERRUPT_VFNMI) {
-            excp_idx = EXCP_VFNMI;
-            target_el = 1;
-            if (arm_excp_unmasked(cs, excp_idx, target_el,
-                                  cur_el, secure, hcr_el2)) {
-                goto found;
-            }
-        }
-    } else {
-        if (interrupt_request & CPU_INTERRUPT_NMI) {
-            interrupt_request |= CPU_INTERRUPT_HARD;
-        }
-        if (interrupt_request & CPU_INTERRUPT_VINMI) {
-            interrupt_request |= CPU_INTERRUPT_VIRQ;
-        }
-        if (interrupt_request & CPU_INTERRUPT_VFNMI) {
-            interrupt_request |= CPU_INTERRUPT_VFIQ;
-        }
-    }
-
-    if (interrupt_request & CPU_INTERRUPT_FIQ) {
-        excp_idx = EXCP_FIQ;
-        target_el = arm_phys_excp_target_el(cs, excp_idx, cur_el, secure);
-        if (arm_excp_unmasked(cs, excp_idx, target_el,
-                              cur_el, secure, hcr_el2)) {
-            goto found;
-        }
-    }
-    if (interrupt_request & CPU_INTERRUPT_HARD) {
-        excp_idx = EXCP_IRQ;
-        target_el = arm_phys_excp_target_el(cs, excp_idx, cur_el, secure);
-        if (arm_excp_unmasked(cs, excp_idx, target_el,
-                              cur_el, secure, hcr_el2)) {
-            goto found;
-        }
-    }
-    if (interrupt_request & CPU_INTERRUPT_VIRQ) {
-        excp_idx = EXCP_VIRQ;
-        target_el = 1;
-        if (arm_excp_unmasked(cs, excp_idx, target_el,
-                              cur_el, secure, hcr_el2)) {
-            goto found;
-        }
-    }
-    if (interrupt_request & CPU_INTERRUPT_VFIQ) {
-        excp_idx = EXCP_VFIQ;
-        target_el = 1;
-        if (arm_excp_unmasked(cs, excp_idx, target_el,
-                              cur_el, secure, hcr_el2)) {
-            goto found;
-        }
-    }
-    if (interrupt_request & CPU_INTERRUPT_VSERR) {
-        excp_idx = EXCP_VSERR;
-        target_el = 1;
-        if (arm_excp_unmasked(cs, excp_idx, target_el,
-                              cur_el, secure, hcr_el2)) {
-            env->cp15.hcr_el2 &= ~HCR_VSE;
-            cpu_reset_interrupt(cs, CPU_INTERRUPT_VSERR);
-            goto found;
-        }
-    }
-    return false;
-
- found:
-    cs->exception_index = excp_idx;
-    env->exception.target_el = target_el;
-    cs->cc->tcg_ops->do_interrupt(cs);
-    return true;
-}
-
-#endif /* CONFIG_TCG && !CONFIG_USER_ONLY */
 
 void arm_cpu_update_virq(ARMCPU *cpu)
 {
@@ -880,28 +609,6 @@ static bool arm_cpu_virtio_is_big_endian(CPUState *cs)
     return arm_cpu_data_is_big_endian(env);
 }
 
-#ifdef CONFIG_TCG
-bool arm_cpu_exec_halt(CPUState *cs)
-{
-    bool leave_halt = cpu_has_work(cs);
-
-    if (leave_halt) {
-        ARMCPU *cpu = ARM_CPU(cs);
-        if (cpu->wfxt_timer) {
-            timer_del(cpu->wfxt_timer);
-        }
-    }
-    return leave_halt;
-}
-#endif
-
-static void arm_wfxt_timer_cb(void *opaque)
-{
-    ARMCPU *cpu = opaque;
-    CPUState *cs = CPU(cpu);
-
-    cpu_interrupt(cs, CPU_INTERRUPT_EXITTB);
-}
 
 static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
 {
@@ -1240,7 +947,7 @@ static void arm_cpu_initfn(Object *obj)
     cpu->psci_version = QEMU_PSCI_VERSION_0_1; /* By default assume PSCI v0.1 */
     
 
-    if (tcg_enabled() || gunyah_enabled()) {
+    if (gunyah_enabled()) {
         cpu->psci_version = QEMU_PSCI_VERSION_1_1;
     }
 }
@@ -1264,12 +971,6 @@ static const Property arm_cpu_has_el3_property =
 
 static const Property arm_cpu_cfgend_property =
             DEFINE_PROP_BOOL("cfgend", ARMCPU, cfgend, false);
-
-static const Property arm_cpu_has_vfp_property =
-            DEFINE_PROP_BOOL("vfp", ARMCPU, has_vfp, true);
-
-static const Property arm_cpu_has_vfp_d32_property =
-            DEFINE_PROP_BOOL("vfp-d32", ARMCPU, has_vfp_d32, true);
 
 static const Property arm_cpu_has_neon_property =
             DEFINE_PROP_BOOL("neon", ARMCPU, has_neon, true);
@@ -1317,9 +1018,6 @@ unsigned int gt_cntfrq_period_ns(ARMCPU *cpu)
 static void arm_cpu_propagate_feature_implications(ARMCPU *cpu)
 {
     CPUARMState *env = &cpu->env;
-    bool no_aa32 = false;
-
-
     if (arm_feature(env, ARM_FEATURE_M)) {
         set_feature(env, ARM_FEATURE_PMSA);
     }
@@ -1332,13 +1030,7 @@ static void arm_cpu_propagate_feature_implications(ARMCPU *cpu)
         }
     }
 
-    if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
-        no_aa32 = !cpu_isar_feature(aa64_aa32, cpu);
-    }
-
     if (arm_feature(env, ARM_FEATURE_V7VE)) {
-        assert(!tcg_enabled() || no_aa32 ||
-               cpu_isar_feature(aa32_arm_div, cpu));
         set_feature(env, ARM_FEATURE_LPAE);
         set_feature(env, ARM_FEATURE_V7);
     }
@@ -1361,8 +1053,6 @@ static void arm_cpu_propagate_feature_implications(ARMCPU *cpu)
     if (arm_feature(env, ARM_FEATURE_V6)) {
         set_feature(env, ARM_FEATURE_V5);
         if (!arm_feature(env, ARM_FEATURE_M)) {
-            assert(!tcg_enabled() || no_aa32 ||
-                   cpu_isar_feature(aa32_jazelle, cpu));
             set_feature(env, ARM_FEATURE_AUXCR);
         }
     }
@@ -1427,25 +1117,11 @@ void arm_cpu_post_init(Object *obj)
         if (cpu_isar_feature(aa64_fp_simd, cpu)) {
             cpu->has_vfp = true;
             cpu->has_vfp_d32 = true;
-            if (tcg_enabled()) {
-                qdev_property_add_static(DEVICE(obj),
-                                         &arm_cpu_has_vfp_property);
-            }
         }
     } else if (cpu_isar_feature(aa32_vfp, cpu)) {
         cpu->has_vfp = true;
-        if (tcg_enabled()) {
-            qdev_property_add_static(DEVICE(obj),
-                                     &arm_cpu_has_vfp_property);
-        }
         if (cpu_isar_feature(aa32_simd_r32, cpu)) {
             cpu->has_vfp_d32 = true;
-            if (tcg_enabled()
-                && !(arm_feature(&cpu->env, ARM_FEATURE_V8)
-                     && !arm_feature(&cpu->env, ARM_FEATURE_M))) {
-                qdev_property_add_static(DEVICE(obj),
-                                         &arm_cpu_has_vfp_d32_property);
-            }
         }
     }
 
@@ -1584,10 +1260,6 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
     CPUARMState *env = &cpu->env;
     Error *local_err = NULL;
 
-#if defined(CONFIG_TCG) && !defined(CONFIG_USER_ONLY)
-    tcg_cflags_set(cs, CF_PCREL);
-#endif
-
     if (cpu->host_cpu_probe_failed) {
         if (!gunyah_enabled()) {
             error_setg(errp, "The 'host' CPU type can only be used with Gunyah");
@@ -1619,7 +1291,6 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
         }
     }
 
-    if (!tcg_enabled()) {
         if (arm_feature(env, ARM_FEATURE_M)) {
             error_setg(errp,
                        "Cannot enable %s when using an M-profile guest CPU",
@@ -1638,8 +1309,6 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
                        current_accel_name());
             return;
         }
-    }
-
     {
         uint64_t scale = gt_cntfrq_period_ns(cpu);
 
@@ -1922,50 +1591,11 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
     }
 
     if (cpu_isar_feature(aa64_mte, cpu)) {
-        if (tcg_enabled()) {
-            assert(cpu->gm_blocksize >= 3 && cpu->gm_blocksize <= 6);
-        }
-
 #ifndef CONFIG_USER_ONLY
-        if (tcg_enabled() && cpu->tag_memory == NULL) {
-            cpu->isar.id_aa64pfr1 =
-                FIELD_DP64(cpu->isar.id_aa64pfr1, ID_AA64PFR1, MTE, 1);
-        }
-
         if (true) {
                 FIELD_DP64(cpu->isar.id_aa64pfr1, ID_AA64PFR1, MTE, 0);
         }
 #endif
-    }
-
-#ifndef CONFIG_USER_ONLY
-    if (tcg_enabled() && cpu_isar_feature(aa64_wfxt, cpu)) {
-        cpu->wfxt_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
-                                       arm_wfxt_timer_cb, cpu);
-    }
-#endif
-
-    if (tcg_enabled()) {
-        cpu->isar.id_aa64dfr0 =
-            FIELD_DP64(cpu->isar.id_aa64dfr0, ID_AA64DFR0, PMSVER, 0);
-        cpu->isar.id_aa64dfr0 =
-            FIELD_DP64(cpu->isar.id_aa64dfr0, ID_AA64DFR0, TRACEBUFFER, 0);
-        cpu->isar.id_aa64dfr0 =
-            FIELD_DP64(cpu->isar.id_aa64dfr0, ID_AA64DFR0, TRACEFILT, 0);
-        cpu->isar.id_dfr0 =
-            FIELD_DP32(cpu->isar.id_dfr0, ID_DFR0, TRACEFILT, 0);
-        cpu->isar.id_aa64dfr0 =
-            FIELD_DP64(cpu->isar.id_aa64dfr0, ID_AA64DFR0, TRACEVER, 0);
-        cpu->isar.id_dfr0 =
-            FIELD_DP32(cpu->isar.id_dfr0, ID_DFR0, COPTRC, 0);
-        cpu->isar.id_dfr0 =
-            FIELD_DP32(cpu->isar.id_dfr0, ID_DFR0, MMAPTRC, 0);
-        cpu->isar.id_aa64pfr0 =
-            FIELD_DP64(cpu->isar.id_aa64pfr0, ID_AA64PFR0, AMU, 0);
-        cpu->isar.id_pfr0 =
-            FIELD_DP32(cpu->isar.id_pfr0, ID_PFR0, AMU, 0);
-        cpu->isar.id_aa64pfr0 =
-            FIELD_DP64(cpu->isar.id_aa64pfr0, ID_AA64PFR0, MPAM, 0);
     }
 
     if (!cpu->has_mpu || cpu->pmsav7_dregion == 0) {
@@ -2030,12 +1660,6 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
         set_feature(env, ARM_FEATURE_VBAR);
     }
 
-#ifndef CONFIG_USER_ONLY
-    if (tcg_enabled() && cpu_isar_feature(aa64_rme, cpu)) {
-        arm_register_el_change_hook(cpu, &gt_rme_post_el_change, 0);
-    }
-#endif
-
     register_cp_regs_for_features(cpu);
 
     init_cpreg_list(cpu);
@@ -2074,16 +1698,6 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
         cpu->core_count = smp_cpus;
     }
 #endif
-
-    if (tcg_enabled()) {
-        int dcz_blocklen = 4 << cpu->dcz_blocksize;
-
-        assert(dcz_blocklen <= TARGET_PAGE_SIZE);
-
-        if (cpu_isar_feature(aa64_mte, cpu)) {
-            assert(dcz_blocklen >= 2 * TAG_GRANULE);
-        }
-    }
 
     qemu_init_vcpu(cs);
     cpu_reset(cs);
@@ -2136,30 +1750,6 @@ static const struct SysemuCPUOps arm_sysemu_ops = {
 };
 #endif
 
-#ifdef CONFIG_TCG
-static const TCGCPUOps arm_tcg_ops = {
-    .initialize = arm_translate_init,
-    .translate_code = arm_translate_code,
-    .synchronize_from_tb = arm_cpu_synchronize_from_tb,
-    .debug_excp_handler = arm_debug_excp_handler,
-    .restore_state_to_opc = arm_restore_state_to_opc,
-
-#ifdef CONFIG_USER_ONLY
-    .record_sigsegv = arm_cpu_record_sigsegv,
-    .record_sigbus = arm_cpu_record_sigbus,
-#else
-    .tlb_fill_align = arm_cpu_tlb_fill_align,
-    .cpu_exec_interrupt = arm_cpu_exec_interrupt,
-    .cpu_exec_halt = arm_cpu_exec_halt,
-    .do_interrupt = arm_cpu_do_interrupt,
-    .do_transaction_failed = arm_cpu_do_transaction_failed,
-    .do_unaligned_access = arm_cpu_do_unaligned_access,
-    .adjust_watchpoint_address = arm_adjust_watchpoint_address,
-    .debug_check_watchpoint = arm_debug_check_watchpoint,
-    .debug_check_breakpoint = arm_debug_check_breakpoint,
-#endif /* !CONFIG_USER_ONLY */
-};
-#endif /* CONFIG_TCG */
 
 static void arm_cpu_class_init(ObjectClass *oc, void *data)
 {
@@ -2186,9 +1776,6 @@ static void arm_cpu_class_init(ObjectClass *oc, void *data)
 #endif
     cc->disas_set_info = arm_disas_set_info;
 
-#ifdef CONFIG_TCG
-    cc->tcg_ops = &arm_tcg_ops;
-#endif /* CONFIG_TCG */
 }
 
 static void arm_cpu_instance_init(Object *obj)

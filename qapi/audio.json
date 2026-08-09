@@ -111,16 +111,6 @@
     '*in':     'AudiodevPipewirePerDirectionOptions',
     '*out':    'AudiodevPipewirePerDirectionOptions' } }
 
-{ 'struct': 'AudiodevSdlPerDirectionOptions',
-  'base': 'AudiodevPerDirectionOptions',
-  'data': {
-    '*buffer-count': 'uint32' } }
-
-{ 'struct': 'AudiodevSdlOptions',
-  'data': {
-    '*in':  'AudiodevSdlPerDirectionOptions',
-    '*out': 'AudiodevSdlPerDirectionOptions' } }
-
 { 'enum': 'AudioFormat',
   'data': [ 'u8', 's8', 'u16', 's16', 'u32', 's32', 'f32' ] }
 
@@ -133,7 +123,6 @@
             { 'name': 'oss', 'if': 'CONFIG_AUDIO_OSS' },
             { 'name': 'pa', 'if': 'CONFIG_AUDIO_PA' },
             { 'name': 'pipewire', 'if': 'CONFIG_AUDIO_PIPEWIRE' },
-            { 'name': 'sdl', 'if': 'CONFIG_AUDIO_SDL' },
             { 'name': 'sndio', 'if': 'CONFIG_AUDIO_SNDIO' },
             { 'name': 'spice', 'if': 'CONFIG_SPICE' },
             { 'name': 'aaudio', 'if': 'CONFIG_AUDIO_AAUDIO' } ] }
@@ -161,8 +150,6 @@
                    'if': 'CONFIG_AUDIO_PA' },
     'pipewire':  { 'type': 'AudiodevPipewireOptions',
                    'if': 'CONFIG_AUDIO_PIPEWIRE' },
-    'sdl':       { 'type': 'AudiodevSdlOptions',
-                   'if': 'CONFIG_AUDIO_SDL' },
     'sndio':     { 'type': 'AudiodevSndioOptions',
                    'if': 'CONFIG_AUDIO_SNDIO' },
     'spice':     { 'type': 'AudiodevGenericOptions',

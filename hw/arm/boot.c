@@ -7,8 +7,6 @@
 #include "hw/arm/boot.h"
 #include "hw/arm/linux-boot-if.h"
 #include "target/arm/cpu.h"
-#include "target/arm/arm-powerctl.h"
-#include "system/tcg.h"
 #include "system/system.h"
 #include "system/numa.h"
 #include "hw/boards.h"
@@ -276,56 +274,6 @@ static void set_kernel_args(const struct arm_boot_info *info, AddressSpace *as)
     }
     WRITE_WORD(p, 0);
     WRITE_WORD(p, 0);
-}
-
-static void set_kernel_args_old(const struct arm_boot_info *info,
-                                AddressSpace *as)
-{
-    hwaddr p;
-    const char *s;
-    int initrd_size = info->initrd_size;
-    hwaddr base = info->loader_start;
-
-    p = base + KERNEL_ARGS_ADDR;
-    WRITE_WORD(p, 4096);
-    WRITE_WORD(p, info->ram_size / 4096);
-    WRITE_WORD(p, 0);
-#define FLAG_READONLY 1
-#define FLAG_RDLOAD   4
-#define FLAG_RDPROMPT 8
-    WRITE_WORD(p, FLAG_READONLY | FLAG_RDLOAD | FLAG_RDPROMPT);
-    WRITE_WORD(p, (31 << 8) | 0); /* /dev/mtdblock0 */
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    if (initrd_size) {
-        WRITE_WORD(p, info->initrd_start);
-    } else {
-        WRITE_WORD(p, 0);
-    }
-    WRITE_WORD(p, initrd_size);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    WRITE_WORD(p, 0);
-    while (p < base + KERNEL_ARGS_ADDR + 256 + 1024) {
-        WRITE_WORD(p, 0);
-    }
-    s = info->kernel_cmdline;
-    if (s) {
-        address_space_write(as, p, MEMTXATTRS_UNSPECIFIED, s, strlen(s) + 1);
-    } else {
-        WRITE_WORD(p, 0);
-    }
 }
 
 static int fdt_add_memory_node(void *fdt, uint32_t acells, hwaddr mem_base,
@@ -633,20 +581,13 @@ static void do_cpu_reset(void *opaque)
                 cpu_set_pc(cs, info->loader_start);
 
                 if (!have_dtb(info)) {
-                    if (old_param) {
-                        set_kernel_args_old(info, as);
-                    } else {
-                        set_kernel_args(info, as);
-                    }
+                    set_kernel_args(info, as);
                 }
             } else if (info->secondary_cpu_reset_hook) {
                 info->secondary_cpu_reset_hook(cpu, info);
             }
         }
 
-        if (tcg_enabled()) {
-            arm_rebuild_hflags(env);
-        }
     }
 }
 
@@ -1010,6 +951,10 @@ void arm_load_kernel(ARMCPU *cpu, MachineState *ms, struct arm_boot_info *info)
         arm_setup_firmware_boot(cpu, info);
     } else {
         arm_setup_direct_kernel_boot(cpu, info);
+    }
+
+    for (cs = first_cpu; cs; cs = CPU_NEXT(cs)) {
+        ARM_CPU(cs)->env.boot_info = info;
     }
 
 

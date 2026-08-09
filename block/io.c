@@ -3,8 +3,6 @@
 #include "trace.h"
 #include "system/block-backend.h"
 #include "block/aio-wait.h"
-#include "block/blockjob.h"
-#include "block/blockjob_int.h"
 #include "block/block_int.h"
 #include "block/coroutines.h"
 #include "qemu/cutils.h"

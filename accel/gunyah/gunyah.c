@@ -41,3 +41,36 @@
 #include "gunyah-mmio.c"
 #include "gunyah-page-fault.c"
 #include "gunyah-vcpu.c"
+
+void gunyah_embedded_cleanup(void) {
+  GUNYAHState *s;
+  CPUState *cpu;
+  bool lock_acquired = false;
+  if (!gunyah_allowed || !current_machine || !current_machine->accelerator) {
+    return;
+  }
+  s = GUNYAH_STATE(current_accel());
+  qatomic_set(&gunyah_vm_stopped, true);
+  if (!bql_locked()) {
+    bql_lock();
+    lock_acquired = true;
+  }
+  CPU_FOREACH(cpu) {
+    if (cpu->created) {
+      cpu_remove_sync(cpu);
+    }
+  }
+  if (lock_acquired) {
+    bql_unlock();
+  }
+  if (s->vmfd >= 0) {
+    close(s->vmfd);
+    s->vmfd = -1;
+  }
+  if (s->fd >= 0) {
+    close(s->fd);
+    s->fd = -1;
+  }
+  qatomic_set(&s->vm_started, 0);
+  gunyah_signal_reset();
+}

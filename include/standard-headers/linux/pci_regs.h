@@ -121,7 +121,6 @@
 #define  PCI_BRIDGE_CTL_PARITY	0x01	/* Enable parity detection on secondary interface */
 #define  PCI_BRIDGE_CTL_SERR	0x02	/* The same for SERR forwarding */
 #define  PCI_BRIDGE_CTL_ISA	0x04	/* Enable ISA mode */
-#define  PCI_BRIDGE_CTL_VGA	0x08	/* Forward VGA addresses */
 #define  PCI_BRIDGE_CTL_MASTER_ABORT	0x20  /* Report master aborts */
 #define  PCI_BRIDGE_CTL_BUS_RESET	0x40	/* Secondary bus reset */
 #define  PCI_BRIDGE_CTL_FAST_BACK	0x80	/* Fast Back2Back enabled on secondary interface */

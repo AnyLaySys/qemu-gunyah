@@ -11,6 +11,7 @@
 #endif
 
 extern bool gunyah_allowed;
+struct arm_boot_info;
 
 void gunyah_set_swiotlb_size(uint64_t size);
 
@@ -22,8 +23,10 @@ DECLARE_INSTANCE_CHECKER(GUNYAHState, GUNYAH_STATE,
                          TYPE_GUNYAH_ACCEL)
 
 int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size);
+void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt);
 
 bool gunyah_addr_is_lend(uint64_t gpa);
+void gunyah_embedded_cleanup(void);
 void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
                 uint32_t gic_phandle);
 

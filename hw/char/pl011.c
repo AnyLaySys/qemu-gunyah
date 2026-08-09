@@ -279,12 +279,7 @@ static uint64_t pl011_read(void *opaque, hwaddr offset,
 
 static void pl011_set_read_trigger(PL011State *s)
 {
-#if 0
-    if (s->lcr & LCR_FEN)
-        s->read_trigger = (s->ifl >> 1) & 0x1c;
-    else
-#endif
-        s->read_trigger = 1;
+    s->read_trigger = 1;
 }
 
 static unsigned int pl011_get_baudrate(const PL011State *s)

@@ -124,7 +124,6 @@ void *rom_ptr_for_as(AddressSpace *as, hwaddr addr, size_t size);
 #define rom_add_blob_fixed_as(_f, _b, _l, _a, _as)      \
     rom_add_blob(_f, _b, _l, _l, _a, NULL, NULL, NULL, _as, true)
 
-ssize_t rom_add_vga(const char *file);
 ssize_t rom_add_option(const char *file, int32_t bootindex);
 
 #define UBOOT_MAX_GUNZIP_BYTES (64 << 20)

@@ -785,9 +785,6 @@ uint64_t arm_build_mp_affinity(int idx, uint8_t clustersz);
 #ifndef CONFIG_USER_ONLY
 extern const VMStateDescription vmstate_arm_cpu;
 
-void arm_cpu_do_interrupt(CPUState *cpu);
-void arm_v7m_cpu_do_interrupt(CPUState *cpu);
-
 hwaddr arm_cpu_get_phys_page_attrs_debug(CPUState *cpu, vaddr addr,
                                          MemTxAttrs *attrs);
 #endif /* !CONFIG_USER_ONLY */
@@ -796,8 +793,6 @@ void arm_emulate_firmware_reset(CPUState *cpustate, int target_el);
 
 #ifdef TARGET_AARCH64
 void aarch64_sve_narrow_vq(CPUARMState *env, unsigned vq);
-void aarch64_sve_change_el(CPUARMState *env, int old_el,
-                           int new_el, bool el0_a64);
 void aarch64_set_svcr(CPUARMState *env, uint64_t new, uint64_t mask);
 
 static inline uint64_t *sve_bswap64(uint64_t *dst, uint64_t *src, int nr)
@@ -817,13 +812,7 @@ static inline uint64_t *sve_bswap64(uint64_t *dst, uint64_t *src, int nr)
 
 #else
 static inline void aarch64_sve_narrow_vq(CPUARMState *env, unsigned vq) { }
-static inline void aarch64_sve_change_el(CPUARMState *env, int o,
-                                         int n, bool a)
-{ }
 #endif
-
-void aarch64_sync_32_to_64(CPUARMState *env);
-void aarch64_sync_64_to_32(CPUARMState *env);
 
 int fp_exception_el(CPUARMState *env, int cur_el);
 int sve_exception_el(CPUARMState *env, int cur_el);
@@ -1986,9 +1975,6 @@ uint64_t arm_hcr_el2_eff(CPUARMState *env);
 uint64_t arm_hcrx_el2_eff(CPUARMState *env);
 
 bool access_secure_reg(CPUARMState *env);
-
-uint32_t arm_phys_excp_target_el(CPUState *cs, uint32_t excp_idx,
-                                 uint32_t cur_el, bool secure);
 
 static inline int arm_highest_el(CPUARMState *env)
 {

@@ -17,8 +17,6 @@ typedef struct qemu_edid_info {
 void qemu_edid_generate(uint8_t *edid, size_t size,
                         qemu_edid_info *info);
 size_t qemu_edid_size(uint8_t *edid);
-void qemu_edid_region_io(MemoryRegion *region, Object *owner,
-                         uint8_t *edid, size_t size);
 
 uint32_t qemu_edid_dpi_to_mm(uint32_t dpi, uint32_t res);
 

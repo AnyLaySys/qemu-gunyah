@@ -1,13 +1,10 @@
 block_ss.add(genh)
 block_ss.add(files(
   'accounting.c',
-  'aio_task.c',
   'block-backend.c',
   'graph-lock.c',
   'io.c',
-  'progress_meter.c',
   'raw-format.c',
-  'reqlist.c',
 ))
 
 system_ss.add(files('block-ram-registrar.c'))

@@ -12,7 +12,6 @@
 #include "exec/cpu-common.h"
 #include "qemu/thread.h"
 #include "qemu/main-loop.h"
-#include "qemu/plugin.h"
 #include "system/cpus.h"
 #include "qemu/guest-random.h"
 #include "hw/nmi.h"
@@ -304,15 +303,6 @@ static void sigbus_handler(int n, siginfo_t *siginfo, void *ctx)
         sigbus_reraise();
     }
 
-    if (current_cpu) {
-        if (0) {
-            sigbus_reraise();
-        }
-    } else {
-        if (0) {
-            sigbus_reraise();
-        }
-    }
 }
 
 static void qemu_init_sigbus(void)
@@ -374,17 +364,8 @@ void qemu_wait_io_event_common(CPUState *cpu)
 
 void qemu_wait_io_event(CPUState *cpu)
 {
-    bool slept = false;
-
     while (cpu_thread_is_idle(cpu)) {
-        if (!slept) {
-            slept = true;
-            qemu_plugin_vcpu_idle_cb(cpu);
-        }
         qemu_cond_wait(cpu->halt_cond, &bql);
-    }
-    if (slept) {
-        qemu_plugin_vcpu_resume_cb(cpu);
     }
 
     qemu_wait_io_event_common(cpu);
@@ -467,10 +448,8 @@ void rust_bql_mock_lock(void)
 
 void bql_lock_impl(const char *file, int line)
 {
-    QemuMutexLockFunc bql_lock_fn = qatomic_read(&bql_mutex_lock_func);
-
     g_assert(!bql_locked());
-    bql_lock_fn(&bql, file, line);
+    qemu_mutex_lock_impl(&bql, file, line);
     set_bql_locked(true);
 }
 
@@ -774,5 +753,5 @@ exit:
 
 void qmp_inject_nmi(Error **errp)
 {
-    nmi_monitor_handle(monitor_get_cpu_index(monitor_cur()), errp);
+    nmi_monitor_handle(UNASSIGNED_CPU_INDEX, errp);
 }

@@ -1,7 +1,6 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "qemu/error-report.h"
-#include "system/tcg.h"
 #include "internals.h"
 #include "cpu-features.h"
 #include "migration/cpu.h"
@@ -854,11 +853,6 @@ static int cpu_post_load(void *opaque, int version_id)
         return -1;
     }
 
-    if (tcg_enabled()) {
-        hw_breakpoint_update_all(cpu);
-        hw_watchpoint_update_all(cpu);
-    }
-
     if (arm_feature(env, ARM_FEATURE_M) && cpu_isar_feature(aa32_lob, cpu)) {
         if (extract32(env->v7m.fpdscr[M_REG_NS],
                       FPCR_LTPSIZE_SHIFT, FPCR_LTPSIZE_LENGTH) != 4 ||
@@ -869,10 +863,6 @@ static int cpu_post_load(void *opaque, int version_id)
     }
 
     pmu_op_finish(env);
-
-    if (tcg_enabled()) {
-        arm_rebuild_hflags(env);
-    }
 
     return 0;
 }

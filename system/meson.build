@@ -19,16 +19,10 @@ system_ss.add(files(
   'runstate-hmp-cmds.c',
   'runstate.c',
   'vl.c',
-  'watchpoint.c',
-), sdl, libpmem, libdaxctl)
+), libpmem, libdaxctl)
 
 if have_tpm
   error('TPM support was removed from this trimmed build')
 endif
 
-if seccomp.found()
-  error('seccomp support was removed from this trimmed build')
-endif
-system_ss.add(when: 'CONFIG_DEVICE_TREE',
-              if_true: [fdt, files('device_tree.c')],
-              if_false: files('device_tree-stub.c'))
+system_ss.add([fdt, files('device_tree.c')])

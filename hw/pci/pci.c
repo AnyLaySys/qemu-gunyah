@@ -971,8 +971,6 @@ static void pci_init_mask_bridge(PCIDevice *d)
                  PCI_BRIDGE_CTL_PARITY |
                  PCI_BRIDGE_CTL_SERR |
                  PCI_BRIDGE_CTL_ISA |
-                 PCI_BRIDGE_CTL_VGA |
-                 PCI_BRIDGE_CTL_VGA_16BIT |
                  PCI_BRIDGE_CTL_MASTER_ABORT |
                  PCI_BRIDGE_CTL_BUS_RESET |
                  PCI_BRIDGE_CTL_FAST_BACK |
@@ -1262,7 +1260,6 @@ static void pci_unregister_io_regions(PCIDevice *pci_dev)
         memory_region_del_subregion(r->address_space, r->memory);
     }
 
-    pci_unregister_vga(pci_dev);
 }
 
 static void pci_qdev_unrealize(DeviceState *dev)
@@ -1335,67 +1332,6 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
         pci_set_long(pci_dev->wmask + addr, wmask & 0xffffffff);
         pci_set_long(pci_dev->cmask + addr, 0xffffffff);
     }
-}
-
-static void pci_update_vga(PCIDevice *pci_dev)
-{
-    uint16_t cmd;
-
-    if (!pci_dev->has_vga) {
-        return;
-    }
-
-    cmd = pci_get_word(pci_dev->config + PCI_COMMAND);
-
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_MEM],
-                              cmd & PCI_COMMAND_MEMORY);
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO],
-                              cmd & PCI_COMMAND_IO);
-    memory_region_set_enabled(pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI],
-                              cmd & PCI_COMMAND_IO);
-}
-
-void pci_register_vga(PCIDevice *pci_dev, MemoryRegion *mem,
-                      MemoryRegion *io_lo, MemoryRegion *io_hi)
-{
-    PCIBus *bus = pci_get_bus(pci_dev);
-
-    assert(!pci_dev->has_vga);
-
-    assert(memory_region_size(mem) == QEMU_PCI_VGA_MEM_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_MEM] = mem;
-    memory_region_add_subregion_overlap(bus->address_space_mem,
-                                        QEMU_PCI_VGA_MEM_BASE, mem, 1);
-
-    assert(memory_region_size(io_lo) == QEMU_PCI_VGA_IO_LO_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO] = io_lo;
-    memory_region_add_subregion_overlap(bus->address_space_io,
-                                        QEMU_PCI_VGA_IO_LO_BASE, io_lo, 1);
-
-    assert(memory_region_size(io_hi) == QEMU_PCI_VGA_IO_HI_SIZE);
-    pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI] = io_hi;
-    memory_region_add_subregion_overlap(bus->address_space_io,
-                                        QEMU_PCI_VGA_IO_HI_BASE, io_hi, 1);
-    pci_dev->has_vga = true;
-
-    pci_update_vga(pci_dev);
-}
-
-void pci_unregister_vga(PCIDevice *pci_dev)
-{
-    PCIBus *bus = pci_get_bus(pci_dev);
-
-    if (!pci_dev->has_vga) {
-        return;
-    }
-
-    memory_region_del_subregion(bus->address_space_mem,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_MEM]);
-    memory_region_del_subregion(bus->address_space_io,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_IO_LO]);
-    memory_region_del_subregion(bus->address_space_io,
-                                pci_dev->vga_regions[QEMU_PCI_VGA_IO_HI]);
-    pci_dev->has_vga = false;
 }
 
 pcibus_t pci_get_bar_addr(PCIDevice *pci_dev, int region_num)
@@ -1521,7 +1457,6 @@ static void pci_update_mappings(PCIDevice *d)
         }
     }
 
-    pci_update_vga(d);
 }
 
 static inline int pci_irq_disabled(PCIDevice *d)
@@ -1692,7 +1627,6 @@ int pci_swizzle_map_irq_fn(PCIDevice *pci_dev, int pin)
 
 static const pci_class_desc pci_class_descriptions[] =
 {
-    { 0x0001, "VGA controller", "display"},
     { 0x0100, "SCSI controller", "scsi"},
     { 0x0101, "IDE controller", "ide"},
     { 0x0102, "Floppy controller", "fdc"},
@@ -1706,9 +1640,6 @@ static const pci_class_desc pci_class_descriptions[] =
     { 0x0202, "FDDI controller", "fddi"},
     { 0x0203, "ATM controller", "atm"},
     { 0x0280, "Network controller"},
-    { 0x0300, "VGA controller", "display", 0x00ff},
-    { 0x0301, "XGA controller"},
-    { 0x0302, "3D controller"},
     { 0x0380, "Display controller"},
     { 0x0400, "Video controller", "video"},
     { 0x0401, "Audio controller", "sound"},
@@ -1852,11 +1783,6 @@ bool pci_init_nic_in_slot(PCIBus *rootbus, const char *model,
     qdev_set_nic_properties(&pci_dev->qdev, nd);
     pci_realize_and_unref(pci_dev, bus, &error_fatal);
     return true;
-}
-
-PCIDevice *pci_vga_init(PCIBus *bus)
-{
-    return NULL;
 }
 
 static bool pci_secondary_bus_in_range(PCIDevice *dev, int bus_num)
@@ -2220,19 +2146,13 @@ static void pci_add_option_rom(PCIDevice *pdev, bool is_default_rom,
     }
 
     if (!pdev->rom_bar) {
-        int class = pci_get_word(pdev->config + PCI_CLASS_DEVICE);
-
         if (DEVICE(pdev)->hotplugged) {
             error_setg(errp, "Hot-plugged device without ROM bar"
                        " can't have an option ROM");
             return;
         }
 
-        if (class == 0x0300) {
-            rom_add_vga(pdev->romfile);
-        } else {
-            rom_add_option(pdev->romfile, -1);
-        }
+        rom_add_option(pdev->romfile, -1);
         return;
     }
 

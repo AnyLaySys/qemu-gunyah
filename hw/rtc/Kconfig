@@ -1,26 +1,2 @@
-config DS1338
-    bool
-
-config M41T80
-    bool
-
-config M48T59
-    bool
-
 config PL031
-    bool
-
-config MC146818RTC
-    bool
-
-config SUN4V_RTC
-    bool
-
-config GOLDFISH_RTC
-    bool
-
-config LS7A_RTC
-    bool
-
-config RS5C372_RTC
     bool

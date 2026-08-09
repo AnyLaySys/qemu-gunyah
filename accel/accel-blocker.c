@@ -1,7 +1,0 @@
-#include "qemu/osdep.h"
-#include "qemu/lockcnt.h"
-#include "qemu/thread.h"
-#include "qemu/main-loop.h"
-#include "hw/core/cpu.h"
-#include "system/accel-blocker.h"
-static QemuLockCnt accel_in_ioctl_lock;static QemuEvent accel_in_ioctl_event;void accel_blocker_init(void){qemu_lockcnt_init(&accel_in_ioctl_lock);qemu_event_init(&accel_in_ioctl_event,false);}void accel_ioctl_begin(void){if(likely(bql_locked())){return;}qemu_lockcnt_inc(&accel_in_ioctl_lock);}void accel_ioctl_end(void){if(likely(bql_locked())){return;}qemu_lockcnt_dec(&accel_in_ioctl_lock);qemu_event_set(&accel_in_ioctl_event);}void accel_cpu_ioctl_begin(CPUState*cpu){if(unlikely(bql_locked())){return;}qemu_lockcnt_inc(&cpu->in_ioctl_lock);}void accel_cpu_ioctl_end(CPUState*cpu){if(unlikely(bql_locked())){return;}qemu_lockcnt_dec(&cpu->in_ioctl_lock);qemu_event_set(&accel_in_ioctl_event);}static bool accel_has_to_wait(void){CPUState*cpu;bool needs_to_wait=false;CPU_FOREACH(cpu){if(qemu_lockcnt_count(&cpu->in_ioctl_lock)){qemu_cpu_kick(cpu);needs_to_wait=true;}}return needs_to_wait||qemu_lockcnt_count(&accel_in_ioctl_lock);}void accel_ioctl_inhibit_begin(void){CPUState*cpu;g_assert(bql_locked());CPU_FOREACH(cpu){qemu_lockcnt_lock(&cpu->in_ioctl_lock);}qemu_lockcnt_lock(&accel_in_ioctl_lock);while(true){qemu_event_reset(&accel_in_ioctl_event);if(accel_has_to_wait()){qemu_event_wait(&accel_in_ioctl_event);}else{return;}}}void accel_ioctl_inhibit_end(void){CPUState*cpu;qemu_lockcnt_unlock(&accel_in_ioctl_lock);CPU_FOREACH(cpu){qemu_lockcnt_unlock(&cpu->in_ioctl_lock);}}

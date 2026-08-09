@@ -1460,11 +1460,8 @@ void qemu_display_register(QemuDisplay *ui)
 bool qemu_display_find_default(DisplayOptions *opts)
 {
     static DisplayType prio[] = {
-#if defined(CONFIG_SDL)
-        DISPLAY_TYPE_SDL,
-#endif
-#if defined(CONFIG_COCOA)
-        DISPLAY_TYPE_COCOA
+#if defined(CONFIG_AGL)
+        DISPLAY_TYPE_AGL,
 #endif
     };
     int i;

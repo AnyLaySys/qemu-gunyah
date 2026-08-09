@@ -31,12 +31,6 @@ OBJECT_DECLARE_SIMPLE_TYPE(QemuFixedTextConsole, QEMU_FIXED_TEXT_CONSOLE)
     object_dynamic_cast(OBJECT(c), TYPE_QEMU_FIXED_TEXT_CONSOLE)
 
 
-#define MOUSE_EVENT_LBUTTON 0x01
-#define MOUSE_EVENT_RBUTTON 0x02
-#define MOUSE_EVENT_MBUTTON 0x04
-#define MOUSE_EVENT_WHEELUP 0x08
-#define MOUSE_EVENT_WHEELDN 0x10
-
 #define QEMU_SCROLL_LOCK_LED (1 << 0)
 #define QEMU_NUM_LOCK_LED    (1 << 1)
 #define QEMU_CAPS_LOCK_LED   (1 << 2)
@@ -56,25 +50,6 @@ enum qemu_color_names {
 };
 #define ATTR2CHTYPE(c, fg, bg, bold) \
     ((bold) << 21 | (bg) << 11 | (fg) << 8 | (c))
-
-typedef void QEMUPutKBDEvent(void *opaque, int keycode);
-typedef void QEMUPutLEDEvent(void *opaque, int ledstate);
-typedef void QEMUPutMouseEvent(void *opaque, int dx, int dy, int dz, int buttons_state);
-
-typedef struct QEMUPutMouseEntry QEMUPutMouseEntry;
-typedef struct QEMUPutKbdEntry QEMUPutKbdEntry;
-typedef struct QEMUPutLEDEntry QEMUPutLEDEntry;
-
-QEMUPutMouseEntry *qemu_add_mouse_event_handler(QEMUPutMouseEvent *func,
-                                                void *opaque, int absolute,
-                                                const char *name);
-void qemu_remove_mouse_event_handler(QEMUPutMouseEntry *entry);
-void qemu_activate_mouse_event_handler(QEMUPutMouseEntry *entry);
-
-QEMUPutLEDEntry *qemu_add_led_event_handler(QEMUPutLEDEvent *func, void *opaque);
-void qemu_remove_led_event_handler(QEMUPutLEDEntry *entry);
-
-void kbd_put_ledstate(int ledstate);
 
 #define QEMU_KEY_ESC1(c) ((c) | 0xe100)
 #define QEMU_KEY_TAB        0x0009
@@ -416,10 +391,5 @@ void qemu_display_help(void);
 #ifdef CONFIG_LINUX
 int udmabuf_fd(void);
 #endif
-
-bool qemu_console_fill_device_address(QemuConsole *con,
-                                      char *device_address,
-                                      size_t size,
-                                      Error **errp);
 
 #endif

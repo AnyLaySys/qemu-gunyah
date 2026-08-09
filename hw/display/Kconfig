@@ -1,7 +1,3 @@
-config DDC
-    bool
-    select EDID
-
 config EDID
     bool
 

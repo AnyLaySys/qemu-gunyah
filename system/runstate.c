@@ -16,7 +16,6 @@
 #include "qapi/qapi-events-run-state.h"
 #include "qemu/accel.h"
 #include "qemu/error-report.h"
-#include "qemu/job.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "qemu/sockets.h"
@@ -781,7 +780,6 @@ void qemu_cleanup(int status)
     vm_shutdown();
 
     bdrv_drain_all_begin();
-    job_cancel_sync_all();
     bdrv_close_all();
 
     tpm_cleanup();

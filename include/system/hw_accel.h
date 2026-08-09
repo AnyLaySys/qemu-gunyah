@@ -4,9 +4,6 @@
 
 #include "hw/core/cpu.h"
 #include "system/gunyah.h"
-#include "system/hvf.h"
-#include "system/whpx.h"
-#include "system/nvmm.h"
 
 void cpu_synchronize_state(CPUState *cpu);
 void cpu_synchronize_post_reset(CPUState *cpu);

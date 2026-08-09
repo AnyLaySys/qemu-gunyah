@@ -24,7 +24,7 @@ extern MachineState *current_machine;
 const char *machine_class_default_cpu_type(MachineClass *mc);
 
 void machine_add_audiodev_property(MachineClass *mc);
-void machine_run_board_init(MachineState *machine, const char *mem_path, Error **errp);
+void machine_run_board_init(MachineState *machine, Error **errp);
 bool machine_usb(MachineState *machine);
 int machine_phandle_start(MachineState *machine);
 bool machine_dump_guest_core(MachineState *machine);
@@ -104,15 +104,12 @@ struct MachineClass {
     int default_cpus;
     unsigned int no_serial:1,
         no_parallel:1,
-        no_floppy:1,
         no_cdrom:1,
         pci_allow_0_address:1,
         legacy_fw_cfg_order:1;
-    bool auto_create_sdcard;
     bool is_default;
     const char *default_machine_opts;
     const char *default_boot_order;
-    const char *default_display;
     const char *default_nic;
     GPtrArray *compat_props;
     const char *hw_version;
@@ -147,9 +144,7 @@ struct MachineClass {
     const CPUArchIdList *(*possible_cpu_arch_ids)(MachineState *machine);
     int64_t (*get_default_cpu_node_id)(const MachineState *ms, int idx);
     ram_addr_t (*fixup_ram_size)(ram_addr_t size);
-    uint64_t smbios_memory_device_size;
-    bool (*create_default_memdev)(MachineState *ms, const char *path,
-                                  Error **errp);
+    bool (*create_default_memdev)(MachineState *ms, Error **errp);
 };
 
 typedef struct DeviceMemoryState {
@@ -212,7 +207,6 @@ struct MachineState {
     BootConfiguration boot_config;
     char *kernel_filename;
     char *kernel_cmdline;
-    char *shim_filename;
     char *initrd_filename;
     const char *cpu_type;
     AccelState *accelerator;
@@ -354,92 +348,5 @@ struct MachineState {
         type_register_static(&machine_initfn##_typeinfo); \
     } \
     type_init(machine_initfn##_register_types)
-
-extern GlobalProperty hw_compat_9_2[];
-extern const size_t hw_compat_9_2_len;
-
-extern GlobalProperty hw_compat_9_1[];
-extern const size_t hw_compat_9_1_len;
-
-extern GlobalProperty hw_compat_9_0[];
-extern const size_t hw_compat_9_0_len;
-
-extern GlobalProperty hw_compat_8_2[];
-extern const size_t hw_compat_8_2_len;
-
-extern GlobalProperty hw_compat_8_1[];
-extern const size_t hw_compat_8_1_len;
-
-extern GlobalProperty hw_compat_8_0[];
-extern const size_t hw_compat_8_0_len;
-
-extern GlobalProperty hw_compat_7_2[];
-extern const size_t hw_compat_7_2_len;
-
-extern GlobalProperty hw_compat_7_1[];
-extern const size_t hw_compat_7_1_len;
-
-extern GlobalProperty hw_compat_7_0[];
-extern const size_t hw_compat_7_0_len;
-
-extern GlobalProperty hw_compat_6_2[];
-extern const size_t hw_compat_6_2_len;
-
-extern GlobalProperty hw_compat_6_1[];
-extern const size_t hw_compat_6_1_len;
-
-extern GlobalProperty hw_compat_6_0[];
-extern const size_t hw_compat_6_0_len;
-
-extern GlobalProperty hw_compat_5_2[];
-extern const size_t hw_compat_5_2_len;
-
-extern GlobalProperty hw_compat_5_1[];
-extern const size_t hw_compat_5_1_len;
-
-extern GlobalProperty hw_compat_5_0[];
-extern const size_t hw_compat_5_0_len;
-
-extern GlobalProperty hw_compat_4_2[];
-extern const size_t hw_compat_4_2_len;
-
-extern GlobalProperty hw_compat_4_1[];
-extern const size_t hw_compat_4_1_len;
-
-extern GlobalProperty hw_compat_4_0[];
-extern const size_t hw_compat_4_0_len;
-
-extern GlobalProperty hw_compat_3_1[];
-extern const size_t hw_compat_3_1_len;
-
-extern GlobalProperty hw_compat_3_0[];
-extern const size_t hw_compat_3_0_len;
-
-extern GlobalProperty hw_compat_2_12[];
-extern const size_t hw_compat_2_12_len;
-
-extern GlobalProperty hw_compat_2_11[];
-extern const size_t hw_compat_2_11_len;
-
-extern GlobalProperty hw_compat_2_10[];
-extern const size_t hw_compat_2_10_len;
-
-extern GlobalProperty hw_compat_2_9[];
-extern const size_t hw_compat_2_9_len;
-
-extern GlobalProperty hw_compat_2_8[];
-extern const size_t hw_compat_2_8_len;
-
-extern GlobalProperty hw_compat_2_7[];
-extern const size_t hw_compat_2_7_len;
-
-extern GlobalProperty hw_compat_2_6[];
-extern const size_t hw_compat_2_6_len;
-
-extern GlobalProperty hw_compat_2_5[];
-extern const size_t hw_compat_2_5_len;
-
-extern GlobalProperty hw_compat_2_4[];
-extern const size_t hw_compat_2_4_len;
 
 #endif

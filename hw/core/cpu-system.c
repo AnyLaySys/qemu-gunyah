@@ -2,15 +2,12 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "exec/address-spaces.h"
-#include "exec/cputlb.h"
 #include "exec/memory.h"
-#include "exec/tb-flush.h"
 #include "exec/tswap.h"
 #include "hw/qdev-core.h"
 #include "hw/qdev-properties.h"
 #include "hw/core/sysemu-cpu-ops.h"
 #include "migration/vmstate.h"
-#include "system/tcg.h"
 
 bool cpu_has_work(CPUState *cpu)
 {
@@ -117,21 +114,6 @@ void cpu_exec_initfn(CPUState *cpu)
     object_ref(OBJECT(cpu->memory));
 }
 
-static int cpu_common_post_load(void *opaque, int version_id)
-{
-    if (tcg_enabled()) {
-        CPUState *cpu = opaque;
-
-        cpu->interrupt_request &= ~0x01;
-
-        tlb_flush(cpu);
-
-        tb_flush(cpu);
-    }
-
-    return 0;
-}
-
 static int cpu_common_pre_load(void *opaque)
 {
     CPUState *cpu = opaque;
@@ -140,24 +122,6 @@ static int cpu_common_pre_load(void *opaque)
 
     return 0;
 }
-
-static bool cpu_common_exception_index_needed(void *opaque)
-{
-    CPUState *cpu = opaque;
-
-    return tcg_enabled() && cpu->exception_index != -1;
-}
-
-static const VMStateDescription vmstate_cpu_common_exception_index = {
-    .name = "cpu_common/exception_index",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .needed = cpu_common_exception_index_needed,
-    .fields = (const VMStateField[]) {
-        VMSTATE_INT32(exception_index, CPUState),
-        VMSTATE_END_OF_LIST()
-    }
-};
 
 static bool cpu_common_crash_occurred_needed(void *opaque)
 {
@@ -182,14 +146,12 @@ const VMStateDescription vmstate_cpu_common = {
     .version_id = 1,
     .minimum_version_id = 1,
     .pre_load = cpu_common_pre_load,
-    .post_load = cpu_common_post_load,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT32(halted, CPUState),
         VMSTATE_UINT32(interrupt_request, CPUState),
         VMSTATE_END_OF_LIST()
     },
     .subsections = (const VMStateDescription * const []) {
-        &vmstate_cpu_common_exception_index,
         &vmstate_cpu_common_crash_occurred,
         NULL
     }

@@ -4,7 +4,6 @@
 
 
 #define PCI_CLASS_NOT_DEFINED            0x0000
-#define PCI_CLASS_NOT_DEFINED_VGA        0x0001
 
 #define PCI_BASE_CLASS_STORAGE           0x01
 #define PCI_CLASS_STORAGE_SCSI           0x0100
@@ -29,10 +28,6 @@
 #define PCI_CLASS_NETWORK_PICMG214       0x0206
 #define PCI_CLASS_NETWORK_OTHER          0x0280
 
-#define PCI_BASE_CLASS_DISPLAY           0x03
-#define PCI_CLASS_DISPLAY_VGA            0x0300
-#define PCI_CLASS_DISPLAY_XGA            0x0301
-#define PCI_CLASS_DISPLAY_3D             0x0302
 #define PCI_CLASS_DISPLAY_OTHER          0x0380
 
 #define PCI_BASE_CLASS_MULTIMEDIA        0x04

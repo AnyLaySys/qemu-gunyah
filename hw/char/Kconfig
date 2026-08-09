@@ -4,10 +4,3 @@ config PL011
 
 config PL011_C
     bool
-
-config SERIAL
-    bool
-
-config SERIAL_MM
-    bool
-    select SERIAL

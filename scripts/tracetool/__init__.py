@@ -233,11 +233,6 @@ class Event(object):
             The path to the input file.
         orig : Event or None
             Original Event before transformation/generation.
-        event_trans : Event or None
-            Generated translation-time event ("tcg" property).
-        event_exec : Event or None
-            Generated execution-time event ("tcg" property).
-
         """
         self.name = name
         self.properties = props
@@ -324,7 +319,6 @@ class Event(object):
 
     QEMU_TRACE               = "trace_%(name)s"
     QEMU_TRACE_NOCHECK       = "_nocheck__" + QEMU_TRACE
-    QEMU_TRACE_TCG           = QEMU_TRACE + "_tcg"
     QEMU_DSTATE              = "_TRACE_%(NAME)s_DSTATE"
     QEMU_BACKEND_DSTATE      = "TRACE_%(NAME)s_BACKEND_DSTATE"
     QEMU_EVENT               = "_TRACE_%(NAME)s_EVENT"
@@ -400,8 +394,7 @@ def try_import(mod_name, attr_name=None, attr_default=None):
         return False, None
 
 
-def generate(events, group, format, backends,
-             binary=None, probe_prefix=None):
+def generate(events, group, format, backends):
     """Generate the output for the given (format, backends) pair.
 
     Parameters
@@ -414,10 +407,6 @@ def generate(events, group, format, backends,
         Output format name.
     backends : list
         Output backend names.
-    binary : str or None
-        See tracetool.backend.dtrace.BINARY.
-    probe_prefix : str or None
-        See tracetool.backend.dtrace.PROBEPREFIX.
     """
     import tracetool
 
@@ -433,9 +422,5 @@ def generate(events, group, format, backends,
         if not tracetool.backend.exists(backend):
             raise TracetoolError("unknown backend: %s" % backend)
     backend = tracetool.backend.Wrapper(backends, format)
-
-    import tracetool.backend.dtrace
-    tracetool.backend.dtrace.BINARY = binary
-    tracetool.backend.dtrace.PROBEPREFIX = probe_prefix
 
     tracetool.format.generate(events, format, backend, group)

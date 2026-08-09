@@ -12,7 +12,6 @@ struct PCIBridgeWindows {
     MemoryRegion alias_pref_mem;
     MemoryRegion alias_mem;
     MemoryRegion alias_io;
-    MemoryRegion alias_vga[QEMU_PCI_VGA_NUM_REGIONS];
 };
 
 #define TYPE_PCI_BRIDGE "base-pci-bridge"
@@ -83,7 +82,6 @@ void pci_bridge_dev_unplug_request_cb(HotplugHandler *hotplug_dev,
 void pci_bridge_map_irq(PCIBridge *br, const char* bus_name,
                         pci_map_irq_fn map_irq);
 
-#define  PCI_BRIDGE_CTL_VGA_16BIT       0x10    /* VGA 16-bit decode */
 #define  PCI_BRIDGE_CTL_DISCARD         0x100   /* Primary discard timer */
 #define  PCI_BRIDGE_CTL_SEC_DISCARD     0x200   /* Secondary discard timer */
 #define  PCI_BRIDGE_CTL_DISCARD_STATUS  0x400   /* Discard timer status */

@@ -40,12 +40,6 @@ int (*qemu_main)(void) = os_darwin_cfrunloop_main;
 
 int main(int argc, char **argv)
 {
-#if 0  /* Disabled — use gh_disable_deferred_split KPM instead */
-#ifdef __linux__
-    prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
-#endif
-#endif
-
     qemu_init(argc, argv);
     bql_unlock();
     if (qemu_main) {

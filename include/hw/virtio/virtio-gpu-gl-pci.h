@@ -1,4 +1,3 @@
-
 #ifndef HW_VIRTIO_GPU_GL_PCI_H
 #define HW_VIRTIO_GPU_GL_PCI_H
 
@@ -19,4 +18,4 @@ struct VirtIOGPUGLPCIBase {
                     VIRTIO_PCI_FLAG_USE_IOEVENTFD_BIT, false),  \
         DEFINE_PROP_UINT32("vectors", _state, nvectors, 3)
 
-#endif /* HW_VIRTIO_GPU_GL_PCI_H */
+#endif

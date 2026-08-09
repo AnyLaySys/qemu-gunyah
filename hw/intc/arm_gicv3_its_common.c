@@ -5,7 +5,6 @@
 #include "hw/intc/arm_gicv3_its_common.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
-#include "system/gunyah.h"
 
 static int gicv3_its_pre_save(void *opaque)
 {
@@ -140,9 +139,5 @@ type_init(gicv3_its_common_register_types)
 
 const char *its_class_name(void)
 {
-    if (gunyah_enabled()) {
-        return "arm-its-gunyah";
-    } else {
-        return "arm-gicv3-its";
-    }
+    return "arm-gicv3-its";
 }

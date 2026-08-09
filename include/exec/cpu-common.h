@@ -6,7 +6,6 @@
 #include "exec/hwaddr.h"
 #endif
 #include "hw/core/cpu.h"
-#include "tcg/debug-assert.h"
 #include "exec/page-protection.h"
 
 #define EXCP_INTERRUPT  0x10000 /* async interruption */
@@ -28,9 +27,6 @@ void cpu_list_unlock(void);
 unsigned int cpu_list_generation_id_get(void);
 
 int cpu_get_free_index(void);
-
-void tcg_iommu_init_notifier_list(CPUState *cpu);
-void tcg_iommu_free_notifier_list(CPUState *cpu);
 
 #if !defined(CONFIG_USER_ONLY)
 
@@ -127,21 +123,6 @@ int cpu_memory_rw_debug(CPUState *cpu, vaddr addr,
 
 void list_cpus(void);
 
-#ifdef CONFIG_TCG
-#include "qemu/atomic.h"
-
-bool cpu_unwind_state_data(CPUState *cpu, uintptr_t host_pc, uint64_t *data);
-
-bool cpu_restore_state(CPUState *cpu, uintptr_t host_pc);
-
-static inline bool cpu_loop_exit_requested(CPUState *cpu)
-{
-    return (int32_t)qatomic_read(&cpu->neg.icount_decr.u32) < 0;
-}
-
-G_NORETURN void cpu_loop_exit_noexc(CPUState *cpu);
-G_NORETURN void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc);
-#endif /* CONFIG_TCG */
 G_NORETURN void cpu_loop_exit(CPUState *cpu);
 G_NORETURN void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc);
 
@@ -166,7 +147,6 @@ static inline CPUState *env_cpu(CPUArchState *env)
 static inline int cpu_mmu_index(CPUState *cs, bool ifetch)
 {
     int ret = cs->cc->mmu_index(cs, ifetch);
-    tcg_debug_assert(ret >= 0 && ret < NB_MMU_MODES);
     return ret;
 }
 #endif /* !CONFIG_USER_ONLY */

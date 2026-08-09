@@ -1,6 +1,5 @@
 system_ss.add(pixman)
 specific_ss.add(when: ['CONFIG_SYSTEM_ONLY'], if_true: pixman)   # for the include path
-specific_ss.add(when: ['CONFIG_SYSTEM_ONLY'], if_true: opengl)   # for the include path
 
 system_ss.add(png)
 system_ss.add(files(
@@ -8,14 +7,18 @@ system_ss.add(files(
   'cursor.c',
   'dmabuf.c',
   'input-keymap.c',
-  'input-legacy.c',
   'input.c',
   'kbd-state.c',
-  'keymaps.c',
   'qemu-pixman.c',
-  'util.c',
 ))
 system_ss.add(files('console-vc-stubs.c'))
+if is_android
+  system_ss.add(opengl, android_native_window, files(
+    'agl.c',
+    'egl-helpers.c',
+    'shader.c',
+  ))
+endif
 if dbus_display
   error('DBus display was removed from this trimmed build')
 endif
@@ -27,51 +30,15 @@ if cocoa.found()
   error('Cocoa UI was removed from this trimmed build')
 endif
 
-ui_modules = {}
-
-system_ss.add(opengl)
-if opengl.found()
-  opengl_ss = ss.source_set()
-  opengl_ss.add(pixman)
-  opengl_ss.add(when: [opengl],
-                if_true: files('shader.c', 'console-gl.c',
-                               'egl-helpers.c', 'egl-context.c'))
-  ui_modules += {'opengl' : opengl_ss}
-endif
-
 if dbus_display
   error('DBus UI was removed from this trimmed build')
 endif
 
-if sdl.found()
-  sdl_ss = ss.source_set()
-  sdl_ss.add(sdl, pixman, glib, files(
-    'sdl3-2d.c',
-    'sdl3-input.c',
-    'sdl3.c',
-  ))
-  sdl_ss.add(when: opengl, if_true: files('sdl3-gl.c'))
-  ui_modules += {'sdl' : sdl_ss}
-endif
-
 keymaps = [
-  ['atset1', 'qcode'],
   ['linux', 'qcode'],
-  ['qcode', 'atset1'],
-  ['qcode', 'atset2'],
-  ['qcode', 'atset3'],
   ['qcode', 'linux'],
-  ['qcode', 'qnum'],
-  ['qcode', 'sun'],
   ['qnum', 'qcode'],
   ['usb', 'qcode'],
-  ['win32', 'qcode'],
-  ['x11', 'qcode'],
-  ['xorgevdev', 'qcode'],
-  ['xorgkbd', 'qcode'],
-  ['xorgxquartz', 'qcode'],
-  ['xorgxwin', 'qcode'],
-  ['osx', 'qcode'],
 ]
 
 if have_system or xkbcommon.found()
@@ -88,5 +55,3 @@ if have_system or xkbcommon.found()
                             '@INPUT0@', e[0], e[1]])
   endforeach
 endif
-
-modules += {'ui': ui_modules}

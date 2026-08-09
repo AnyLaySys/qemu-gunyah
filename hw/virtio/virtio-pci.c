@@ -23,7 +23,7 @@
 #include "standard-headers/linux/virtio_ids.h"
 #include "standard-headers/linux/virtio_pci.h"
 #include "system/gunyah.h"
-#include "system/gunyah_int.h"
+#include "system/gunyah_report.h"
 #include "trace.h"
 
 #define VIRTIO_PCI_REGION_SIZE(dev)     VIRTIO_PCI_CONFIG_OFF(msix_present(dev))
@@ -1694,12 +1694,10 @@ static void virtio_pci_pre_plugged(DeviceState *d, Error **errp)
     VirtIOPCIProxy *proxy = VIRTIO_PCI(d);
     VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
 
-    
     if (gunyah_enabled()) {
         proxy->disable_legacy = ON_OFF_AUTO_ON;
         virtio_add_feature(&vdev->host_features, VIRTIO_F_IOMMU_PLATFORM);
 
-        
         proxy->nvectors = 0;
 
         gh_report("virtio-pci %s: forcing modern-only + "

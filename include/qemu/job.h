@@ -214,8 +214,6 @@ int job_cancel_sync(Job *job, bool force);
 
 int job_cancel_sync_locked(Job *job, bool force);
 
-void job_cancel_sync_all(void);
-
 int job_complete_sync_locked(Job *job, Error **errp);
 
 void job_finalize_locked(Job *job, Error **errp);

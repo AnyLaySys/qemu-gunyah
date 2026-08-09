@@ -2,7 +2,6 @@
 #include "qemu/osdep.h"
 #include "block/trace.h"
 #include "block/block_int.h"
-#include "block/blockjob.h"
 #include "block/qdict.h"
 #include "qemu/error-report.h"
 #include "block/module_block.h"
@@ -4079,8 +4078,6 @@ static void bdrv_close(BlockDriverState *bs)
 void bdrv_close_all(void)
 {
     GLOBAL_STATE_CODE();
-    assert(job_next(NULL) == NULL);
-
     bdrv_drain_all();
 
     blk_remove_all_bs();

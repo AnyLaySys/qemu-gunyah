@@ -101,17 +101,14 @@
 { 'enum'    : 'DisplayGLMode',
   'data'    : [ 'off', 'on', 'core', 'es' ] }
 
-{ 'enum'  : 'HotKeyMod',
-  'data'  : [ 'lctrl-lalt', 'lshift-lctrl-lalt', 'rctrl' ] }
-
-{ 'struct'  : 'DisplaySDL',
-  'data'    : { '*grab-mod'   : 'HotKeyMod' } }
+{ 'struct'  : 'DisplayAGL',
+  'data'    : { } }
 
 { 'enum'    : 'DisplayType',
   'data'    : [
     { 'name': 'default' },
     { 'name': 'none' },
-    { 'name': 'sdl', 'if': 'CONFIG_SDL' }
+    { 'name': 'agl', 'if': 'CONFIG_AGL' }
   ]
 }
 
@@ -123,7 +120,7 @@
                 '*gl'            : 'DisplayGLMode' },
   'discriminator' : 'type',
   'data'    : {
-      'sdl': { 'type': 'DisplaySDL', 'if': 'CONFIG_SDL' }
+      'agl': { 'type': 'DisplayAGL', 'if': 'CONFIG_AGL' }
   }
 }
 

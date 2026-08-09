@@ -19,7 +19,6 @@
 #include "hw/boards.h"
 #include "qemu/cutils.h"
 #include "system/runstate.h"
-#include "tcg/debuginfo.h"
 
 #include <zlib.h>
 
@@ -428,10 +427,6 @@ ssize_t load_elf_ram_sym(const char *filename,
                          translate_fn, translate_opaque, must_swab,
                          pentry, lowaddr, highaddr, pflags, elf_machine,
                          clear_lsb, data_swab, as, load_rom, sym_cb);
-    }
-
-    if (ret > 0) {
-        debuginfo_report_elf(filename, fd, 0);
     }
 
  fail:
@@ -1067,11 +1062,6 @@ int rom_add_elf_program(const char *name, GMappedFile *mapped_file, void *data,
 
     rom_insert(rom);
     return 0;
-}
-
-ssize_t rom_add_vga(const char *file)
-{
-    return rom_add_file(file, "vgaroms", 0, -1, true, NULL, NULL);
 }
 
 ssize_t rom_add_option(const char *file, int32_t bootindex)

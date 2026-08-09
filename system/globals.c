@@ -17,14 +17,10 @@ bool is_mlock_on_fault(MlockState state)
 }
 
 int display_opengl;
-const char* keyboard_layout;
 MlockState mlock_state;
 bool enable_cpu_pm;
 int autostart = 1;
 Chardev *parallel_hds[MAX_PARALLEL_PORTS];
-QEMUOptionRom option_rom[MAX_OPTION_ROMS];
-int nb_option_roms;
-int old_param;
 const char *qemu_name;
 unsigned int nb_prom_envs;
 const char *prom_envs[MAX_PROM_ENVS];

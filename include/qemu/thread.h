@@ -16,8 +16,6 @@ typedef struct QemuThread QemuThread;
 #include "qemu/thread-posix.h"
 #endif
 
-#include "qemu/qsp.h"
-
 #define QEMU_THREAD_JOINABLE 0
 #define QEMU_THREAD_DETACHED 1
 
@@ -36,29 +34,11 @@ void qemu_rec_mutex_lock_impl(QemuRecMutex *mutex, const char *file, int line);
 int qemu_rec_mutex_trylock_impl(QemuRecMutex *mutex, const char *file, int line);
 void qemu_rec_mutex_unlock_impl(QemuRecMutex *mutex, const char *file, int line);
 
-typedef void (*QemuMutexLockFunc)(QemuMutex *m, const char *f, int l);
-typedef int (*QemuMutexTrylockFunc)(QemuMutex *m, const char *f, int l);
-typedef void (*QemuRecMutexLockFunc)(QemuRecMutex *m, const char *f, int l);
-typedef int (*QemuRecMutexTrylockFunc)(QemuRecMutex *m, const char *f, int l);
-typedef void (*QemuCondWaitFunc)(QemuCond *c, QemuMutex *m, const char *f,
-                                 int l);
-typedef bool (*QemuCondTimedWaitFunc)(QemuCond *c, QemuMutex *m, int ms,
-                                      const char *f, int l);
-
-extern QemuMutexLockFunc bql_mutex_lock_func;
-extern QemuMutexLockFunc qemu_mutex_lock_func;
-extern QemuMutexTrylockFunc qemu_mutex_trylock_func;
-extern QemuRecMutexLockFunc qemu_rec_mutex_lock_func;
-extern QemuRecMutexTrylockFunc qemu_rec_mutex_trylock_func;
-extern QemuCondWaitFunc qemu_cond_wait_func;
-extern QemuCondTimedWaitFunc qemu_cond_timedwait_func;
-
 #define qemu_mutex_lock__raw(m)                         \
         qemu_mutex_lock_impl(m, __FILE__, __LINE__)
 #define qemu_mutex_trylock__raw(m)                      \
         qemu_mutex_trylock_impl(m, __FILE__, __LINE__)
 
-#ifdef __COVERITY__
 #define qemu_mutex_lock(m)                                              \
             qemu_mutex_lock_impl(m, __FILE__, __LINE__)
 #define qemu_mutex_trylock(m)                                           \
@@ -71,38 +51,6 @@ extern QemuCondTimedWaitFunc qemu_cond_timedwait_func;
             qemu_cond_wait_impl(c, m, __FILE__, __LINE__)
 #define qemu_cond_timedwait(c, m, ms)                                   \
             qemu_cond_timedwait_impl(c, m, ms, __FILE__, __LINE__)
-#else
-#define qemu_mutex_lock(m) ({                                           \
-            QemuMutexLockFunc _f = qatomic_read(&qemu_mutex_lock_func); \
-            _f(m, __FILE__, __LINE__);                                  \
-        })
-
-#define qemu_mutex_trylock(m) ({                                              \
-            QemuMutexTrylockFunc _f = qatomic_read(&qemu_mutex_trylock_func); \
-            _f(m, __FILE__, __LINE__);                                        \
-        })
-
-#define qemu_rec_mutex_lock(m) ({                                             \
-            QemuRecMutexLockFunc _f = qatomic_read(&qemu_rec_mutex_lock_func);\
-            _f(m, __FILE__, __LINE__);                                        \
-        })
-
-#define qemu_rec_mutex_trylock(m) ({                            \
-            QemuRecMutexTrylockFunc _f;                         \
-            _f = qatomic_read(&qemu_rec_mutex_trylock_func);    \
-            _f(m, __FILE__, __LINE__);                          \
-        })
-
-#define qemu_cond_wait(c, m) ({                                         \
-            QemuCondWaitFunc _f = qatomic_read(&qemu_cond_wait_func);   \
-            _f(c, m, __FILE__, __LINE__);                               \
-        })
-
-#define qemu_cond_timedwait(c, m, ms) ({                                       \
-            QemuCondTimedWaitFunc _f = qatomic_read(&qemu_cond_timedwait_func);\
-            _f(c, m, ms, __FILE__, __LINE__);                                  \
-        })
-#endif
 
 #define qemu_mutex_unlock(mutex) \
         qemu_mutex_unlock_impl(mutex, __FILE__, __LINE__)

@@ -1,8 +1,4 @@
 # See docs/devel/tracing.rst for syntax documentation.
 
-# hid.c
-hid_kbd_queue_full(void) "queue full"
-hid_kbd_queue_empty(void) "queue empty"
-
 # virtio-input.c
 virtio_input_queue_full(void) "queue full"

@@ -727,8 +727,6 @@ static struct {
     { "bootsplash.jpg", 11 },
     { "bootsplash.bmp", 12 },
     { "etc/boot-fail-wait", 15 },
-    { "etc/smbios/smbios-tables", 20 },
-    { "etc/smbios/smbios-anchor", 30 },
     { "etc/e820", 40 },
     { "etc/reserved-memory-end", 50 },
     { "genroms/kvmvapic.bin", 55 },

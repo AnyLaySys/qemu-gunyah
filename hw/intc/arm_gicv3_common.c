@@ -554,12 +554,9 @@ type_init(register_types)
 
 const char *gicv3_class_name(void)
 {
-    if (false) {
-        return "kvm-arm-gicv3";
-    } else if (gunyah_enabled()) {
+    if (gunyah_enabled()) {
         return "gunyah-arm-gicv3";
     } else {
-        
         return "arm-gicv3";
     }
 }

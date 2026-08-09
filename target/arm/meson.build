@@ -15,24 +15,12 @@ arm_ss.add(when: 'TARGET_AARCH64', if_true: files(
 
 arm_system_ss = ss.source_set()
 arm_system_ss.add(files(
-  'arm-powerctl.c',
   'arm-qmp-cmds.c',
-  'cortex-regs.c',
   'machine.c',
   'ptw.c',
 ))
 
 arm_user_ss = ss.source_set()
-
-if 'CONFIG_HVF' in config_all_accel
-  subdir('hvf')
-endif
-
-if 'CONFIG_TCG' in config_all_accel
-   subdir('tcg')
-else
-    arm_ss.add(files('tcg-stubs.c'))
-endif
 
 target_arch += {'arm': arm_ss}
 target_system_arch += {'arm': arm_system_ss}

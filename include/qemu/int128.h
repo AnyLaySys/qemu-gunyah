@@ -3,7 +3,7 @@
 
 #include "qemu/bswap.h"
 
-#if defined(CONFIG_INT128) && !defined(CONFIG_TCG_INTERPRETER)
+#if defined(CONFIG_INT128)
 typedef __int128_t Int128;
 typedef __int128_t __attribute__((aligned(16))) Int128Aligned;
 
@@ -448,7 +448,7 @@ Int128 int128_divu(Int128, Int128);
 Int128 int128_remu(Int128, Int128);
 Int128 int128_divs(Int128, Int128);
 Int128 int128_rems(Int128, Int128);
-#endif /* CONFIG_INT128 && !CONFIG_TCG_INTERPRETER */
+#endif /* CONFIG_INT128 */
 
 static inline void bswap128s(Int128 *s)
 {

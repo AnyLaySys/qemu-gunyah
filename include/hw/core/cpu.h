@@ -65,8 +65,6 @@ struct CPUClass {
 
     const struct SysemuCPUOps *sysemu_ops;
 
-    const TCGCPUOps *tcg_ops;
-
     void (*init_accel_cpu)(struct AccelCPUClass *accel_cpu, CPUClass *cc);
 
     int reset_dump_flags;
@@ -121,11 +119,6 @@ typedef struct CPUTLBCommon {
 } CPUTLBCommon;
 
 typedef struct CPUTLB {
-#ifdef CONFIG_TCG
-    CPUTLBCommon c;
-    CPUTLBDesc d[NB_MMU_MODES];
-    CPUTLBDescFast f[NB_MMU_MODES];
-#endif
 } CPUTLB;
 
 typedef union IcountDecr {
@@ -143,11 +136,6 @@ typedef union IcountDecr {
 
 typedef struct CPUNegativeOffsetState {
     CPUTLB tlb;
-#ifdef CONFIG_PLUGIN
-    GArray *plugin_mem_cbs;
-    uint64_t plugin_mem_value_low;
-    uint64_t plugin_mem_value_high;
-#endif
     IcountDecr icount_decr;
     bool can_do_io;
 } CPUNegativeOffsetState;
@@ -240,13 +228,8 @@ struct CPUState {
 
     QemuLockCnt in_ioctl_lock;
 
-#ifdef CONFIG_PLUGIN
-    CPUPluginState *plugin_state;
-#endif
-
     int cpu_index;
     int cluster_index;
-    uint32_t tcg_cflags;
     uint32_t halted;
     int32_t exception_index;
 
@@ -259,8 +242,6 @@ struct CPUState {
     bool ignore_memory_transaction_failures;
 
     bool prctl_unalign_sigbus;
-
-    GArray *iommu_notifiers;
 
     char neg_align[-sizeof(CPUNegativeOffsetState) % 16] QEMU_ALIGNED(16);
     CPUNegativeOffsetState neg;
@@ -289,9 +270,6 @@ CPUState **android_current_cpu_ptr(void);
 #else
 extern __thread CPUState *current_cpu;
 #endif
-
-extern bool mttcg_enabled;
-#define qemu_tcg_mttcg_enabled() (mttcg_enabled)
 
 bool cpu_paging_enabled(const CPUState *cpu);
 

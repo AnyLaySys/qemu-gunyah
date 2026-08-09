@@ -1,0 +1,41 @@
+diff --git a/src/vrend/vrend_decode.c b/src/vrend/vrend_decode.c
+index 938fbe8..a2ad51c 100644
+--- a/src/vrend/vrend_decode.c
++++ b/src/vrend/vrend_decode.c
+@@ -1695,7 +1695,11 @@ static int vrend_decode_ctx_transfer_3d(struct virgl_context *ctx,
+    struct vrend_decode_ctx *dctx = (struct vrend_decode_ctx *)ctx;
+    int ret = vrend_renderer_transfer_iov(dctx->grctx, res->res_id, info,
+                                          transfer_mode);
++#ifdef CHECK_GL_ERRORS
+    return vrend_check_no_error(dctx->grctx) || ret ? ret : EINVAL;
++#else
++   return ret;
++#endif
+ }
+ 
+ static int vrend_decode_ctx_get_blob(struct virgl_context *ctx,
+@@ -2096,8 +2100,10 @@ static int vrend_decode_ctx_submit_cmd(struct virgl_context *ctx,
+       TRACE_SCOPE_SLOW(vrend_get_comand_name(cmd));
+ 
+       ret = decode_table[cmd](gdctx->grctx, buf, len);
++#ifdef CHECK_GL_ERRORS
+       if (!vrend_check_no_error(gdctx->grctx) && !ret)
+          ret = EINVAL;
++#endif
+       if (ret) {
+          virgl_error("context %d failed to dispatch %s: %d\n",
+                gdctx->base.ctx_id, vrend_get_comand_name(cmd), ret);
+diff --git a/meson.build b/meson.build
+index 440078e..a3dfab8 100644
+--- a/meson.build
++++ b/meson.build
+@@ -464,9 +464,6 @@ if with_venus and with_host_darwin
+ endif
+ 
+ subdir('src')
+-if not with_host_windows
+-   subdir('vtest')
+-endif
+ 
+ if with_render_server == 'process'
+ subdir('server')

@@ -13,9 +13,7 @@
         'system_wakeup' ],
     'command-returns-exceptions': [
         'human-monitor-command',
-        'qom-get',
-        'query-tpm-models',
-        'query-tpm-types' ],
+        'qom-get' ],
     'documentation-exceptions': [
         'AbortWrapper',
         'AudiodevDriver',
@@ -32,12 +30,9 @@
         'DriveBackupWrapper',
         'DummyForceArrays',
         'DummyVirtioForceArrays',
-        'HotKeyMod',
         'ImageInfoSpecificKind',
         'InputAxis',
         'InputButton',
-        'IscsiHeaderDigest',
-        'IscsiTransport',
         'KeyValueKind',
         'MemoryDeviceInfoKind',
         'NetClientDriver',

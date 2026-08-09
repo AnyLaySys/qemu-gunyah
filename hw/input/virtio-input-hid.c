@@ -220,7 +220,6 @@ static void virtio_input_hid_handle_status(VirtIOInput *vinput,
         } else {
             vhid->ledstate &= ~ledbit;
         }
-        kbd_put_ledstate(vhid->ledstate);
         break;
     default:
         fprintf(stderr, "%s: unknown type %d\n", __func__,

@@ -1,4 +1,3 @@
-
 #include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "qemu/module.h"

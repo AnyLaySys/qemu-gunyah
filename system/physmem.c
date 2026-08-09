@@ -9,19 +9,10 @@
 #include "qemu/madvise.h"
 #include "qemu/lockable.h"
 
-#ifdef CONFIG_TCG
-#include "accel/tcg/cpu-ops.h"
-#endif /* CONFIG_TCG */
-
-#include "exec/exec-all.h"
-#include "exec/cputlb.h"
-#include "exec/page-protection.h"
 #include "exec/target_page.h"
-#include "exec/translation-block.h"
 #include "hw/qdev-core.h"
 #include "hw/qdev-properties.h"
 #include "hw/boards.h"
-#include "system/tcg.h"
 #include "qemu/timer.h"
 #include "qemu/config-file.h"
 #include "qemu/error-report.h"
@@ -119,14 +110,10 @@ typedef struct subpage_t {
 
 static void io_mem_init(void);
 static void memory_map_init(void);
-static void tcg_log_global_after_sync(MemoryListener *listener);
-static void tcg_commit(MemoryListener *listener);
-
 typedef struct CPUAddressSpace {
     CPUState *cpu;
     AddressSpace *as;
     struct AddressSpaceDispatch *memory_dispatch;
-    MemoryListener tcg_as_listener;
 } CPUAddressSpace;
 
 struct DirtyBitmapSnapshot {
@@ -453,132 +440,6 @@ MemoryRegion *flatview_translate(FlatView *fv, hwaddr addr, hwaddr *xlat,
     return mr;
 }
 
-typedef struct TCGIOMMUNotifier {
-    IOMMUNotifier n;
-    MemoryRegion *mr;
-    CPUState *cpu;
-    int iommu_idx;
-    bool active;
-} TCGIOMMUNotifier;
-
-static void tcg_iommu_unmap_notify(IOMMUNotifier *n, IOMMUTLBEntry *iotlb)
-{
-    TCGIOMMUNotifier *notifier = container_of(n, TCGIOMMUNotifier, n);
-
-    if (!notifier->active) {
-        return;
-    }
-    tlb_flush(notifier->cpu);
-    notifier->active = false;
-}
-
-static void tcg_register_iommu_notifier(CPUState *cpu,
-                                        IOMMUMemoryRegion *iommu_mr,
-                                        int iommu_idx)
-{
-    MemoryRegion *mr = MEMORY_REGION(iommu_mr);
-    TCGIOMMUNotifier *notifier = NULL;
-    int i;
-
-    for (i = 0; i < cpu->iommu_notifiers->len; i++) {
-        notifier = g_array_index(cpu->iommu_notifiers, TCGIOMMUNotifier *, i);
-        if (notifier->mr == mr && notifier->iommu_idx == iommu_idx) {
-            break;
-        }
-    }
-    if (i == cpu->iommu_notifiers->len) {
-        cpu->iommu_notifiers = g_array_set_size(cpu->iommu_notifiers, i + 1);
-        notifier = g_new0(TCGIOMMUNotifier, 1);
-        g_array_index(cpu->iommu_notifiers, TCGIOMMUNotifier *, i) = notifier;
-
-        notifier->mr = mr;
-        notifier->iommu_idx = iommu_idx;
-        notifier->cpu = cpu;
-        iommu_notifier_init(&notifier->n,
-                            tcg_iommu_unmap_notify,
-                            IOMMU_NOTIFIER_UNMAP,
-                            0,
-                            HWADDR_MAX,
-                            iommu_idx);
-        memory_region_register_iommu_notifier(notifier->mr, &notifier->n,
-                                              &error_fatal);
-    }
-
-    if (!notifier->active) {
-        notifier->active = true;
-    }
-}
-
-void tcg_iommu_free_notifier_list(CPUState *cpu)
-{
-    int i;
-    TCGIOMMUNotifier *notifier;
-
-    for (i = 0; i < cpu->iommu_notifiers->len; i++) {
-        notifier = g_array_index(cpu->iommu_notifiers, TCGIOMMUNotifier *, i);
-        memory_region_unregister_iommu_notifier(notifier->mr, &notifier->n);
-        g_free(notifier);
-    }
-    g_array_free(cpu->iommu_notifiers, true);
-}
-
-void tcg_iommu_init_notifier_list(CPUState *cpu)
-{
-    cpu->iommu_notifiers = g_array_new(false, true, sizeof(TCGIOMMUNotifier *));
-}
-
-MemoryRegionSection *
-address_space_translate_for_iotlb(CPUState *cpu, int asidx, hwaddr orig_addr,
-                                  hwaddr *xlat, hwaddr *plen,
-                                  MemTxAttrs attrs, int *prot)
-{
-    MemoryRegionSection *section;
-    IOMMUMemoryRegion *iommu_mr;
-    IOMMUMemoryRegionClass *imrc;
-    IOMMUTLBEntry iotlb;
-    int iommu_idx;
-    hwaddr addr = orig_addr;
-    AddressSpaceDispatch *d = cpu->cpu_ases[asidx].memory_dispatch;
-
-    for (;;) {
-        section = address_space_translate_internal(d, addr, &addr, plen, false);
-
-        iommu_mr = memory_region_get_iommu(section->mr);
-        if (!iommu_mr) {
-            break;
-        }
-
-        imrc = memory_region_get_iommu_class_nocheck(iommu_mr);
-
-        iommu_idx = imrc->attrs_to_index(iommu_mr, attrs);
-        tcg_register_iommu_notifier(cpu, iommu_mr, iommu_idx);
-        iotlb = imrc->translate(iommu_mr, addr, IOMMU_NONE, iommu_idx);
-        addr = ((iotlb.translated_addr & ~iotlb.addr_mask)
-                | (addr & iotlb.addr_mask));
-        if (!(iotlb.perm & IOMMU_RO)) {
-            *prot &= ~(PAGE_READ | PAGE_EXEC);
-        }
-        if (!(iotlb.perm & IOMMU_WO)) {
-            *prot &= ~PAGE_WRITE;
-        }
-
-        if (!*prot) {
-            goto translate_fail;
-        }
-
-        d = flatview_to_dispatch(address_space_to_flatview(iotlb.target_as));
-    }
-
-    assert(!memory_region_is_iommu(section->mr));
-    *xlat = addr;
-    return section;
-
-translate_fail:
-    assert((orig_addr & ~TARGET_PAGE_MASK) == 0);
-    *xlat = orig_addr;
-    return &d->map.sections[PHYS_SECTION_UNASSIGNED];
-}
-
 void cpu_address_space_init(CPUState *cpu, int asidx,
                             const char *prefix, MemoryRegion *mr)
 {
@@ -607,12 +468,6 @@ void cpu_address_space_init(CPUState *cpu, int asidx,
     newas = &cpu->cpu_ases[asidx];
     newas->cpu = cpu;
     newas->as = as;
-    if (tcg_enabled()) {
-        newas->tcg_as_listener.log_global_after_sync = tcg_log_global_after_sync;
-        newas->tcg_as_listener.commit = tcg_commit;
-        newas->tcg_as_listener.name = "tcg";
-        memory_listener_register(&newas->tcg_as_listener, as);
-    }
 }
 
 void cpu_address_space_destroy(CPUState *cpu, int asidx)
@@ -624,10 +479,6 @@ void cpu_address_space_destroy(CPUState *cpu, int asidx)
     assert(asidx == 0 || !false);
 
     cpuas = &cpu->cpu_ases[asidx];
-    if (tcg_enabled()) {
-        memory_listener_unregister(&cpuas->tcg_as_listener);
-    }
-
     address_space_destroy(cpuas->as);
     g_free_rcu(cpuas->as, rcu);
 
@@ -666,26 +517,6 @@ static RAMBlock *qemu_get_ram_block(ram_addr_t addr)
 found:
     ram_list.mru_block = block;
     return block;
-}
-
-void tlb_reset_dirty_range_all(ram_addr_t start, ram_addr_t length)
-{
-    CPUState *cpu;
-    ram_addr_t start1;
-    RAMBlock *block;
-    ram_addr_t end;
-
-    assert(tcg_enabled());
-    end = TARGET_PAGE_ALIGN(start + length);
-    start &= TARGET_PAGE_MASK;
-
-    RCU_READ_LOCK_GUARD();
-    block = qemu_get_ram_block(start);
-    assert(block == qemu_get_ram_block(end - 1));
-    start1 = (uintptr_t)ramblock_ptr(block, start - block->offset);
-    CPU_FOREACH(cpu) {
-        tlb_reset_dirty(cpu, start1, length);
-    }
 }
 
 bool cpu_physical_memory_test_and_clear_dirty(ram_addr_t start,
@@ -1666,8 +1497,7 @@ RAMBlock *qemu_ram_alloc_from_fd(ram_addr_t size, ram_addr_t max_size,
     assert(max_size >= size);
 
     if (!false) {
-        error_setg(errp,
-                   "host lacks kvm mmu notifiers, -mem-path unsupported");
+        error_setg(errp, "host lacks kvm mmu notifiers");
         return NULL;
     }
 
@@ -2236,42 +2066,6 @@ void address_space_dispatch_free(AddressSpaceDispatch *d)
     g_free(d);
 }
 
-static void do_nothing(CPUState *cpu, run_on_cpu_data d)
-{
-}
-
-static void tcg_log_global_after_sync(MemoryListener *listener)
-{
-    CPUAddressSpace *cpuas;
-
-    cpuas = container_of(listener, CPUAddressSpace, tcg_as_listener);
-    run_on_cpu(cpuas->cpu, do_nothing, RUN_ON_CPU_NULL);
-}
-
-static void tcg_commit_cpu(CPUState *cpu, run_on_cpu_data data)
-{
-    CPUAddressSpace *cpuas = data.host_ptr;
-
-    cpuas->memory_dispatch = address_space_to_dispatch(cpuas->as);
-    tlb_flush(cpu);
-}
-
-static void tcg_commit(MemoryListener *listener)
-{
-    CPUAddressSpace *cpuas;
-    CPUState *cpu;
-
-    assert(tcg_enabled());
-    cpuas = container_of(listener, CPUAddressSpace, tcg_as_listener);
-    cpu = cpuas->cpu;
-
-    if (cpu->halt_cond) {
-        async_run_on_cpu(cpu, tcg_commit_cpu, RUN_ON_CPU_HOST_PTR(cpuas));
-    } else {
-        tcg_commit_cpu(cpu, RUN_ON_CPU_HOST_PTR(cpuas));
-    }
-}
-
 static void memory_map_init(void)
 {
     system_memory = g_malloc(sizeof(*system_memory));
@@ -2307,11 +2101,6 @@ static void invalidate_and_set_dirty(MemoryRegion *mr, hwaddr addr,
     if (dirty_log_mask) {
         dirty_log_mask =
             cpu_physical_memory_range_includes_clean(addr, length, dirty_log_mask);
-    }
-    if (dirty_log_mask & (1 << DIRTY_MEMORY_CODE)) {
-        assert(tcg_enabled());
-        tb_invalidate_phys_range(addr, addr + length - 1);
-        dirty_log_mask &= ~(1 << DIRTY_MEMORY_CODE);
     }
     cpu_physical_memory_set_dirty_range(addr, length, dirty_log_mask);
 }
@@ -2666,10 +2455,6 @@ MemTxResult address_space_write_rom(AddressSpace *as, hwaddr addr,
 
 void cpu_flush_icache_range(hwaddr start, hwaddr len)
 {
-    if (tcg_enabled()) {
-        return;
-    }
-
     address_space_write_rom_internal(&address_space_memory,
                                      start, MEMTXATTRS_UNSPECIFIED,
                                      NULL, len, FLUSH_CACHE);

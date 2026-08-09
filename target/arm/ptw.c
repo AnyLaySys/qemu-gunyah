@@ -437,26 +437,7 @@ static bool S1_ptw_translate(CPUARMState *env, S1Translate *ptw,
         ptw->out_rw = false;
         ptw->out_space = s2.f.attrs.space;
     } else {
-#ifdef CONFIG_TCG
-        CPUTLBEntryFull *full;
-        int flags;
-
-        env->tlb_fi = fi;
-        flags = probe_access_full_mmu(env, addr, 0, MMU_DATA_LOAD,
-                                      arm_to_core_mmu_idx(s2_mmu_idx),
-                                      &ptw->out_host, &full);
-        env->tlb_fi = NULL;
-
-        if (unlikely(flags & TLB_INVALID_MASK)) {
-            goto fail;
-        }
-        ptw->out_phys = full->phys_addr | (addr & ~TARGET_PAGE_MASK);
-        ptw->out_rw = full->prot & PAGE_WRITE;
-        pte_attrs = full->extra.arm.pte_attrs;
-        ptw->out_space = full->attrs.space;
-#else
         g_assert_not_reached();
-#endif
     }
 
     if (regime_is_stage2(s2_mmu_idx)) {
@@ -571,111 +552,7 @@ static uint64_t arm_casq_ptw(CPUARMState *env, uint64_t old_val,
                              uint64_t new_val, S1Translate *ptw,
                              ARMMMUFaultInfo *fi)
 {
-#if defined(TARGET_AARCH64) && defined(CONFIG_TCG)
-    uint64_t cur_val;
-    void *host = ptw->out_host;
-
-    if (unlikely(!host)) {
-        CPUState *cs = env_cpu(env);
-        MemTxAttrs attrs = {
-            .space = ptw->out_space,
-            .secure = arm_space_is_secure(ptw->out_space),
-        };
-        AddressSpace *as = arm_addressspace(cs, attrs);
-        MemTxResult result = MEMTX_OK;
-        bool need_lock = !bql_locked();
-
-        if (need_lock) {
-            bql_lock();
-        }
-        if (ptw->out_be) {
-            cur_val = address_space_ldq_be(as, ptw->out_phys, attrs, &result);
-            if (unlikely(result != MEMTX_OK)) {
-                fi->type = ARMFault_SyncExternalOnWalk;
-                fi->ea = arm_extabort_type(result);
-                if (need_lock) {
-                    bql_unlock();
-                }
-                return old_val;
-            }
-            if (cur_val == old_val) {
-                address_space_stq_be(as, ptw->out_phys, new_val, attrs, &result);
-                if (unlikely(result != MEMTX_OK)) {
-                    fi->type = ARMFault_SyncExternalOnWalk;
-                    fi->ea = arm_extabort_type(result);
-                    if (need_lock) {
-                        bql_unlock();
-                    }
-                    return old_val;
-                }
-                cur_val = new_val;
-            }
-        } else {
-            cur_val = address_space_ldq_le(as, ptw->out_phys, attrs, &result);
-            if (unlikely(result != MEMTX_OK)) {
-                fi->type = ARMFault_SyncExternalOnWalk;
-                fi->ea = arm_extabort_type(result);
-                if (need_lock) {
-                    bql_unlock();
-                }
-                return old_val;
-            }
-            if (cur_val == old_val) {
-                address_space_stq_le(as, ptw->out_phys, new_val, attrs, &result);
-                if (unlikely(result != MEMTX_OK)) {
-                    fi->type = ARMFault_SyncExternalOnWalk;
-                    fi->ea = arm_extabort_type(result);
-                    if (need_lock) {
-                        bql_unlock();
-                    }
-                    return old_val;
-                }
-                cur_val = new_val;
-            }
-        }
-        if (need_lock) {
-            bql_unlock();
-        }
-        return cur_val;
-    }
-
-    if (unlikely(!ptw->out_rw)) {
-        int flags;
-
-        env->tlb_fi = fi;
-        flags = probe_access_full_mmu(env, ptw->out_virt, 0,
-                                      MMU_DATA_STORE,
-                                      arm_to_core_mmu_idx(ptw->in_ptw_idx),
-                                      NULL, NULL);
-        env->tlb_fi = NULL;
-
-        if (unlikely(flags & TLB_INVALID_MASK)) {
-            assert(fi->type != ARMFault_None);
-            fi->s2addr = ptw->out_virt;
-            fi->stage2 = true;
-            fi->s1ptw = true;
-            fi->s1ns = fault_s1ns(ptw->in_space, ptw->in_ptw_idx);
-            return 0;
-        }
-
-        ptw->out_rw = true;
-    }
-
-    if (ptw->out_be) {
-        old_val = cpu_to_be64(old_val);
-        new_val = cpu_to_be64(new_val);
-        cur_val = qatomic_cmpxchg__nocheck((uint64_t *)host, old_val, new_val);
-        cur_val = be64_to_cpu(cur_val);
-    } else {
-        old_val = cpu_to_le64(old_val);
-        new_val = cpu_to_le64(new_val);
-        cur_val = qatomic_cmpxchg__nocheck((uint64_t *)host, old_val, new_val);
-        cur_val = le64_to_cpu(cur_val);
-    }
-    return cur_val;
-#else
     g_assert_not_reached();
-#endif
 }
 
 static bool get_level1_table_address(CPUARMState *env, ARMMMUIdx mmu_idx,

@@ -1,8 +1,6 @@
 
 #include "qemu/osdep.h"
 #include "qom/object.h"
-#include "qapi/error.h"
-#include "hw/audio/soundhw.h"
 #include "hw/virtio/virtio-pci.h"
 #include "hw/audio/virtio-snd.h"
 
@@ -59,23 +57,9 @@ static const VirtioPCIDeviceTypeInfo virtio_snd_pci_info = {
     .class_init    = virtio_snd_pci_class_init,
 };
 
-static int virtio_snd_pci_init(PCIBus *bus, const char *audiodev)
-{
-    DeviceState *vdev = NULL;
-    VirtIOSoundPCI *dev = NULL;
-
-    vdev = qdev_new(TYPE_VIRTIO_SND_PCI);
-    assert(vdev);
-    dev = VIRTIO_SND_PCI(vdev);
-    qdev_prop_set_string(DEVICE(&dev->vdev), "audiodev", audiodev);
-    qdev_realize_and_unref(vdev, BUS(bus), &error_fatal);
-    return 0;
-}
-
 static void virtio_snd_pci_register(void)
 {
     virtio_pci_types_register(&virtio_snd_pci_info);
-    pci_register_soundhw("virtio", "Virtio Sound", virtio_snd_pci_init);
 }
 
 type_init(virtio_snd_pci_register);
