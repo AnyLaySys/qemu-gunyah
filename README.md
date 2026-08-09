@@ -1,5 +1,4 @@
 # QEMU Gunyah
-## 🟢已发布最终版(26.7.8)
 [Gunyah](https://docs.qualcomm.com/doc/80-70029-3SC/topic/virtualization.html)是高通主导并开源的Type-1型虚拟化技术  
 **QEMU Gunyah**是对应虚拟化管理器,具有如下特点
 ### ✅完整设备支持
@@ -13,22 +12,13 @@
 ### 🚀高效后端对接
 | 核心设备 | 对接实现 | 技术职责 |
 | :--- | :--- | :--- |
-| **显示** | `X11` | SDL对接X11,实现画面低延迟渲染 |
+| **显示** | `AGL` | 通过Android原生窗口与EGL/OpenGL呈现VirGL画面 |
 | **音频** | `AAudio` | 对接Android Audio,将音频流直通硬件混音器 |
 | **网络** | `TAP` | 采用Linux标准`tap0`虚拟网卡接口,在宿主机创建网络隧道以实现原生网络吞吐 |
 ### 👍体积小巧轻量
-工欲善其事,必先利其器.作为Gunyah专用虚拟化管理器,我们秉承'取其精华,去其糟粕',通过深度精简,qemu-system-aarch64本体小到令人惊讶的**1.6M**,整体(包括fw,lib)小到**17.7M**
+工欲善其事,必先利其器.作为Gunyah专用虚拟化管理器,'取其精华,去其糟粕','麻雀虽小,五脏俱全'
 # 使用
-1 安装[Termux](https://github.com/termux/termux-app/releases)与[Termux:X11](https://github.com/termux/termux-x11/releases)  
-2 打开Termux执行
-```bash
-pkg update && pkg install x11-repo -y && pkg update && pkg install termux-x11-nightly xfce4 xfce4-terminal -y
-```
-3 打开Termux:X11(建议浮窗显示),Termux执行
-```bash
-termux-x11 :1
-```
-4 解压产物到任何目录(如/data/local/tmp/als/qemu-gunyah),任意终端(如`adb shell`),依次执行
+解压产物到任何目录(如/data/local/tmp/als/qemu-gunyah),任意终端(如`adb shell`),依次执行
 ```bash
 su
 ```
@@ -38,7 +28,7 @@ ip link show tap0 >/dev/null 2>&1 || ip tuntap add dev tap0 mode tap; ip addr fl
 ```bash
 printf "\033[2J\033[3J\033[H"; cd /data/local/tmp/als/qemu-gunyah && export LD_LIBRARY_PATH=/data/local/tmp/als/qemu-gunyah/lib:/system/lib64:/vendor/lib64 && ./qemu-system-aarch64 -L ./fw -bios edk2-aarch64-gunyah.fd -M virt,confidential-guest-support=prot0 -accel gunyah -cpu host -smp $(nproc) -m 4352M -object arm-confidential-guest,id=prot0,swiotlb-size=256M -object iothread,id=io0 -drive file=/data/local/tmp/als/qemu-gunyah/ubuntu-26.10-s2-gnome-arm64.img,format=raw,if=none,id=dr0,media=disk,cache=unsafe,aio=io_uring,discard=unmap -device virtio-blk-pci,drive=dr0,num-queues=$(nproc),iothread=io0,disable-legacy=on,disable-modern=off,bootindex=1 -netdev tap,id=usernet,ifname=tap0,script=no,downscript=no -device virtio-net-pci,netdev=usernet -device virtio-tablet-pci -device virtio-keyboard-pci -device virtio-gpu-gl-pci,xres=2376,yres=1080 -audiodev aaudio,id=aa -device virtio-snd-pci,audiodev=aa -display agl -serial mon:stdio
 ```
-命令内容(包括但不限于产物解压到路径,光盘路径,磁盘路径等)需据实修改
+命令内容需据实修改,使用[App](https://github.com/AnyLaySys/als)获得画面.
 # 沿革
 丙午三月十六日,时**wasdwasd0105**先生隐于市,穷数月之功推演.大功告成之际,其慨然发一语:`我这算是前无古人了`.  
 此语既出,石破天惊.时余闻之,自负深入此道已久,遂以古人自居,连番逼问,语带机锋.先自暗忖不过是chroot/proot凡相,后听闻非也,又窃以为不过crosvm而已.惊闻其为`qemu直接调用gunyah`,如遭雷轰,方知井外有天,遂紧密配合先生开展协同测试.先生倾囊相授,余受益匪浅,心自感激.  
@@ -54,4 +44,5 @@ printf "\033[2J\033[3J\033[H"; cd /data/local/tmp/als/qemu-gunyah && export LD_L
 [loeveo](https://github.com/loeveo):匡扶危局,协同测试  
 [longhanlop](https://github.com/longhanlop):协同测试  
 [qeqenn](https://github.com/qeqenn):QALS前端,贡献代码,建言献策,协同测试  
+[woaphone](https://github.com/woaphone):匡扶危局,建言献策,协同测试  
 [XiaoChen515144](https://github.com/XiaoChen515144):协同测试
