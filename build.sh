@@ -232,10 +232,12 @@ collectJni() {
         patchelf --replace-needed "$neededName" "$packedName" "$elfPath"
       fi
       if [[ "$jniSeen" != *"|$destPath|"* ]]; then
-        cp -Lf "$sourcePath" "$destPath"
-        "$strip" --strip-all "$destPath"
-        patchelf --set-soname "$packedName" "$destPath"
-        patchelf --set-rpath '$ORIGIN' "$destPath"
+        if [ ! -f "$destPath" ]; then
+          cp -Lf "$sourcePath" "$destPath"
+          "$strip" --strip-all "$destPath"
+          patchelf --set-soname "$packedName" "$destPath"
+          patchelf --set-rpath '$ORIGIN' "$destPath"
+        fi
         jniSeen+="$destPath|"
         jniQueue+=("$destPath")
       fi

@@ -18,6 +18,18 @@ typedef struct AAudioVoiceIn {
     AAudioStream *stream;
 } AAudioVoiceIn;
 
+static int input_fd = -1;
+
+void aaudio_set_input_fd(int fd)
+{
+    int flags = fd < 0 ? -1 : fcntl(fd, F_GETFL);
+
+    if (flags >= 0) {
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+    input_fd = fd;
+}
+
 static aaudio_format_t qemu_to_aaudio_fmt(AudioFormat fmt)
 {
     switch (fmt) {
@@ -136,6 +148,12 @@ static int aaudio_init_in(HWVoiceIn *hw, struct audsettings *as,
 
     as->fmt = AUDIO_FORMAT_S16;
 
+    if (input_fd >= 0) {
+        audio_pcm_init_info(&hw->info, as);
+        hw->samples = 2048;
+        return 0;
+    }
+
     aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_INPUT);
     if (!aa->stream) {
         return -1;
@@ -164,6 +182,11 @@ static size_t aaudio_read(HWVoiceIn *hw, void *buf, size_t len)
     int frames = len / hw->info.bytes_per_frame;
     aaudio_result_t nread;
 
+    if (input_fd >= 0) {
+        ssize_t size = read(input_fd, buf, len);
+
+        return size > 0 ? size : 0;
+    }
     if (!aa->stream) {
         return 0;
     }
@@ -181,6 +204,9 @@ static void aaudio_enable_in(HWVoiceIn *hw, bool enable)
 {
     AAudioVoiceIn *aa = (AAudioVoiceIn *)hw;
 
+    if (input_fd >= 0) {
+        return;
+    }
     if (!aa->stream) {
         return;
     }

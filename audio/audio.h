@@ -136,6 +136,7 @@ static inline void *advance (void *p, int incr)
 }
 
 void audio_cleanup(void);
+void aaudio_set_input_fd(int fd);
 
 void audio_sample_to_uint64(const void *samples, int pos,
                             uint64_t *left, uint64_t *right);

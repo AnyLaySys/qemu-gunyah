@@ -8,31 +8,11 @@
 #include "qemu/error-report.h"
 #include "qemu/main-loop.h"
 #include "qemu/module.h"
-#include "system/runstate.h"
 #include "system/system.h"
 #include "ui/agl.h"
 #include "ui/console.h"
 #include "ui/egl-helpers.h"
-#include "ui/input.h"
 #include "ui/shader.h"
-
-typedef enum AGLInputType {
-    AGL_INPUT_POINTER,
-    AGL_INPUT_SCROLL,
-    AGL_INPUT_KEY,
-    AGL_INPUT_SHUTDOWN,
-} AGLInputType;
-
-typedef struct AGLInputEvent {
-    AGLInputType type;
-    float x;
-    float y;
-    int value;
-    bool down;
-    QTAILQ_ENTRY(AGLInputEvent) next;
-} AGLInputEvent;
-
-typedef QTAILQ_HEAD(AGLInputQueue, AGLInputEvent) AGLInputQueue;
 
 typedef struct AGLState {
     DisplayChangeListener dcl;
@@ -79,11 +59,6 @@ typedef struct AGLState {
     int viewport_height;
     int source_width;
     int source_height;
-    uint32_t buttons;
-    int pointer_x;
-    int pointer_y;
-    AGLInputQueue input_queue;
-    bool input_scheduled;
     EGLContext render_context;
     EGLSurface render_surface;
 } AGLState;
@@ -922,7 +897,6 @@ static void agl_display_init(DisplayState *ds, DisplayOptions *options)
     int i;
 
     assert(options->type == DISPLAY_TYPE_AGL);
-    QTAILQ_INIT(&agl.input_queue);
     if (!egl_init(NULL, DISPLAY_GL_MODE_ES, &err)) {
         error_report_err(err);
         exit(1);
@@ -981,7 +955,7 @@ static void agl_register(void)
 
 type_init(agl_register);
 
-void agl_set_native_window(ANativeWindow *window, uint32_t refresh_rate)
+void agl_set_window(ANativeWindow *window, uint32_t refresh_rate)
 {
     ANativeWindow *old;
     int width = window ? ANativeWindow_getWidth(window) : 0;
@@ -1006,198 +980,32 @@ void agl_set_native_window(ANativeWindow *window, uint32_t refresh_rate)
     qemu_notify_event();
 }
 
-static void agl_process_input_event(AGLInputEvent *event,
-                                    QemuConsole *console)
+bool agl_map(float x, float y, int *px, int *py, int *width, int *height)
 {
-    static uint32_t button_map[INPUT_BUTTON__MAX] = {
-        [INPUT_BUTTON_LEFT] = 1,
-        [INPUT_BUTTON_RIGHT] = 2,
-        [INPUT_BUTTON_MIDDLE] = 4,
-        [INPUT_BUTTON_SIDE] = 8,
-        [INPUT_BUTTON_EXTRA] = 16,
-    };
-
-    switch (event->type) {
-    case AGL_INPUT_POINTER:
-    {
-        int x;
-        int y;
-        int view_x;
-        int view_y;
-        int view_w;
-        int view_h;
-        int source_w;
-        int source_h;
-
-        pthread_mutex_lock(&agl.lock);
-        view_x = agl.viewport_x;
-        view_y = agl.viewport_y;
-        view_w = agl.viewport_width;
-        view_h = agl.viewport_height;
-        source_w = agl.source_width;
-        source_h = agl.source_height;
-        pthread_mutex_unlock(&agl.lock);
-        if (!view_w || !view_h || !source_w || !source_h) {
-            break;
-        }
-        x = qemu_input_scale_axis(event->x, view_x, view_x + view_w,
-                                  0, source_w);
-        y = qemu_input_scale_axis(event->y, view_y, view_y + view_h,
-                                  0, source_h);
-        x = CLAMP(x, 0, source_w);
-        y = CLAMP(y, 0, source_h);
-        qemu_input_update_buttons(console, button_map,
-                                  agl.buttons, event->value);
-        if (qemu_input_is_absolute(console)) {
-            qemu_input_queue_abs(console, INPUT_AXIS_X, x, 0, source_w);
-            qemu_input_queue_abs(console, INPUT_AXIS_Y, y, 0, source_h);
-        } else {
-            qemu_input_queue_rel(console, INPUT_AXIS_X, x - agl.pointer_x);
-            qemu_input_queue_rel(console, INPUT_AXIS_Y, y - agl.pointer_y);
-        }
-        agl.buttons = event->value;
-        agl.pointer_x = x;
-        agl.pointer_y = y;
-        qemu_input_event_sync();
-        break;
-    }
-    case AGL_INPUT_SCROLL:
-    {
-        InputButton vertical = event->y < 0 ? INPUT_BUTTON_WHEEL_UP :
-                                              INPUT_BUTTON_WHEEL_DOWN;
-        InputButton horizontal = event->x < 0 ? INPUT_BUTTON_WHEEL_LEFT :
-                                                INPUT_BUTTON_WHEEL_RIGHT;
-
-        if (event->y) {
-            qemu_input_queue_btn(console, vertical, true);
-            qemu_input_event_sync();
-            qemu_input_queue_btn(console, vertical, false);
-            qemu_input_event_sync();
-        }
-        if (event->x) {
-            qemu_input_queue_btn(console, horizontal, true);
-            qemu_input_event_sync();
-            qemu_input_queue_btn(console, horizontal, false);
-            qemu_input_event_sync();
-        }
-        break;
-    }
-    case AGL_INPUT_KEY:
-    {
-        int qcode = qemu_input_linux_to_qcode(event->value);
-
-        if (qcode != Q_KEY_CODE_UNMAPPED) {
-            qemu_input_event_send_key_qcode(console, qcode, event->down);
-        }
-        break;
-    }
-    case AGL_INPUT_SHUTDOWN:
-        qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_UI);
-        break;
-    }
-}
-
-static void agl_input_bh(void *opaque)
-{
-    AGLInputEvent *event;
-
-    (void)opaque;
-    for (;;) {
-        QemuConsole *console;
-
-        pthread_mutex_lock(&agl.lock);
-        event = QTAILQ_FIRST(&agl.input_queue);
-        if (event) {
-            QTAILQ_REMOVE(&agl.input_queue, event, next);
-        } else {
-            agl.input_scheduled = false;
-        }
-        console = agl.dcl.con;
-        pthread_mutex_unlock(&agl.lock);
-        if (!event) {
-            return;
-        }
-        if (console) {
-            agl_process_input_event(event, console);
-        }
-        g_free(event);
-    }
-}
-
-static void agl_queue_input(AGLInputEvent *event)
-{
-    bool schedule = false;
-
     pthread_mutex_lock(&agl.lock);
-    if (!agl.dcl.con || agl.stopping) {
+    *width = agl.source_width;
+    *height = agl.source_height;
+    if (agl.stopping || agl.viewport_width < 1 || agl.viewport_height < 1 ||
+        *width < 1 || *height < 1) {
         pthread_mutex_unlock(&agl.lock);
-        g_free(event);
-        return;
+        return false;
     }
-    QTAILQ_INSERT_TAIL(&agl.input_queue, event, next);
-    if (!agl.input_scheduled) {
-        agl.input_scheduled = true;
-        schedule = true;
-    }
+    *px = CLAMP(((int64_t)(int)x - agl.viewport_x) * *width /
+                agl.viewport_width, 0, *width);
+    *py = CLAMP(((int64_t)(int)y - agl.viewport_y) * *height /
+                agl.viewport_height, 0, *height);
     pthread_mutex_unlock(&agl.lock);
-    if (schedule) {
-        aio_bh_schedule_oneshot(qemu_get_aio_context(), agl_input_bh, NULL);
-    }
+    return true;
 }
 
-void agl_input_pointer(float x, float y, int buttons)
-{
-    AGLInputEvent *event = g_new0(AGLInputEvent, 1);
-
-    event->type = AGL_INPUT_POINTER;
-    event->x = x;
-    event->y = y;
-    event->value = buttons;
-    agl_queue_input(event);
-}
-
-void agl_input_scroll(float x, float y)
-{
-    AGLInputEvent *event = g_new0(AGLInputEvent, 1);
-
-    event->type = AGL_INPUT_SCROLL;
-    event->x = x;
-    event->y = y;
-    agl_queue_input(event);
-}
-
-void agl_input_key(int scan_code, bool down)
-{
-    AGLInputEvent *event = g_new0(AGLInputEvent, 1);
-
-    event->type = AGL_INPUT_KEY;
-    event->value = scan_code;
-    event->down = down;
-    agl_queue_input(event);
-}
-
-void agl_request_shutdown(void)
-{
-    AGLInputEvent *event = g_new0(AGLInputEvent, 1);
-
-    event->type = AGL_INPUT_SHUTDOWN;
-    agl_queue_input(event);
-}
-
-void agl_shutdown(void)
+void agl_cleanup(void)
 {
     ANativeWindow *window;
     pixman_image_t *image;
     QEMUCursor *cursor;
-    AGLInputEvent *event;
 
     pthread_mutex_lock(&agl.lock);
     agl.stopping = true;
-    while ((event = QTAILQ_FIRST(&agl.input_queue))) {
-        QTAILQ_REMOVE(&agl.input_queue, event, next);
-        g_free(event);
-    }
-    agl.input_scheduled = false;
     pthread_cond_signal(&agl.cond);
     pthread_mutex_unlock(&agl.lock);
     if (agl.thread_started) {

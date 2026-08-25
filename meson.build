@@ -3236,9 +3236,9 @@ foreach target : target_dirs
 
     if is_android and target.endswith('-softmmu')
       jni_name = 'qemu-gunyah'
-      jni_version_script = meson.current_source_dir() / 'system/agl-jni.map'
+      jni_version_script = meson.current_source_dir() / 'system/jni.map'
       emulators += {jni_name: shared_library(jni_name,
-                   files('system/agl-main.c'),
+                   files('system/jni.c'),
                    install: true,
                    c_args: c_args,
                    dependencies: arch_deps + [android_log],
