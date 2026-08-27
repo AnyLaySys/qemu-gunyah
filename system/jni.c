@@ -515,7 +515,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
     if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
     }
-    cls = (*env)->FindClass(env, "sui/k/als/vm/VMNative");
+    cls = (*env)->FindClass(env, "sui/k/als/qemu/vm/VMNative");
     if (!cls) {
         return JNI_ERR;
     }
@@ -525,7 +525,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
         return JNI_ERR;
     }
     (*env)->DeleteLocalRef(env, cls);
-    cls = (*env)->FindClass(env, "sui/k/als/vm/AGL");
+    cls = (*env)->FindClass(env, "sui/k/als/qemu/vm/AGL");
     if (!cls || (*env)->RegisterNatives(env, cls, agl_methods,
                                        ARRAY_SIZE(agl_methods)) != JNI_OK) {
         return JNI_ERR;
