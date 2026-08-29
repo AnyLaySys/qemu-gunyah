@@ -2,9 +2,8 @@
 #define GUNYAH_REPORT_H
 
 #define gh_red "\033[0;1;31m"
-#define gh_yellow "\033[0;1;38:5:185m"
+#define gh_yellow "\033[1;33m"
 #define gh_green "\033[0;32m"
-#define gh_highlight "\033[0;1;39m"
 #define gh_normal "\033[0m"
 
 void gh_report(const char *file, const char *func, int line,

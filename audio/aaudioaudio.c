@@ -11,6 +11,10 @@
 typedef struct AAudioVoiceOut {
     HWVoiceOut hw;
     AAudioStream *stream;
+    uint8_t *buffer;
+    uint32_t buffer_size;
+    uint32_t read_pos;
+    uint32_t write_pos;
 } AAudioVoiceOut;
 
 typedef struct AAudioVoiceIn {
@@ -43,8 +47,33 @@ static aaudio_format_t qemu_to_aaudio_fmt(AudioFormat fmt)
     }
 }
 
+static aaudio_data_callback_result_t aaudio_data_callback(
+    AAudioStream *stream, void *user_data, void *audio_data, int32_t frames)
+{
+    AAudioVoiceOut *aa = user_data;
+    uint8_t *out = audio_data;
+    uint32_t read_pos = qatomic_read(&aa->read_pos);
+    uint32_t write_pos = qatomic_load_acquire(&aa->write_pos);
+    size_t size = (size_t)frames * aa->hw.info.bytes_per_frame;
+    size_t available = MIN(size, (uint32_t)(write_pos - read_pos));
+    size_t offset = read_pos % aa->buffer_size;
+    size_t first = MIN(available, (size_t)aa->buffer_size - offset);
+
+    (void)stream;
+    if (available) {
+        memcpy(out, aa->buffer + offset, first);
+        memcpy(out + first, aa->buffer, available - first);
+    }
+    if (available < size) {
+        memset(out + available, 0, size - available);
+    }
+    qatomic_store_release(&aa->read_pos, read_pos + available);
+    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+}
+
 static AAudioStream *aaudio_open_stream(struct audsettings *as,
-                                        aaudio_direction_t direction)
+                                        aaudio_direction_t direction,
+                                        void *user_data)
 {
     AAudioStreamBuilder *builder = NULL;
     AAudioStream *stream = NULL;
@@ -57,13 +86,18 @@ static AAudioStream *aaudio_open_stream(struct audsettings *as,
     }
 
     AAudioStreamBuilder_setDirection(builder, direction);
-    AAudioStreamBuilder_setSampleRate(builder, as->freq);
     AAudioStreamBuilder_setChannelCount(builder, as->nchannels);
     AAudioStreamBuilder_setFormat(builder, qemu_to_aaudio_fmt(as->fmt));
-    AAudioStreamBuilder_setPerformanceMode(builder,
-                                           AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
-    AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
-    AAudioStreamBuilder_setBufferCapacityInFrames(builder, 1024 * 2);
+    AAudioStreamBuilder_setPerformanceMode(
+        builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+    if (direction == AAUDIO_DIRECTION_OUTPUT) {
+        AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_EXCLUSIVE);
+        AAudioStreamBuilder_setDataCallback(builder, aaudio_data_callback, user_data);
+    } else {
+        AAudioStreamBuilder_setSampleRate(builder, as->freq);
+        AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
+        AAudioStreamBuilder_setBufferCapacityInFrames(builder, 1024 * 2);
+    }
 
     res = AAudioStreamBuilder_openStream(builder, &stream);
     AAudioStreamBuilder_delete(builder);
@@ -71,6 +105,11 @@ static AAudioStream *aaudio_open_stream(struct audsettings *as,
     if (res != AAUDIO_OK) {
         dolog("AAudioStreamBuilder_openStream failed: %d\n", res);
         return NULL;
+    }
+
+    if (direction == AAUDIO_DIRECTION_OUTPUT) {
+        as->freq = AAudioStream_getSampleRate(stream);
+        as->nchannels = AAudioStream_getChannelCount(stream);
     }
 
     return stream;
@@ -84,13 +123,15 @@ static int aaudio_init_out(HWVoiceOut *hw, struct audsettings *as,
 
     as->fmt = AUDIO_FORMAT_S16;
 
-    aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_OUTPUT);
+    aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_OUTPUT, aa);
     if (!aa->stream) {
         return -1;
     }
 
     audio_pcm_init_info(&hw->info, as);
     hw->samples = AAudioStream_getBufferSizeInFrames(aa->stream);
+    aa->buffer_size = hw->samples * hw->info.bytes_per_frame;
+    aa->buffer = g_malloc(aa->buffer_size);
 
     return 0;
 }
@@ -104,25 +145,44 @@ static void aaudio_fini_out(HWVoiceOut *hw)
         AAudioStream_close(aa->stream);
         aa->stream = NULL;
     }
+    g_free(aa->buffer);
+    aa->buffer = NULL;
+    aa->buffer_size = 0;
 }
 
 static size_t aaudio_write(HWVoiceOut *hw, void *buf, size_t len)
 {
     AAudioVoiceOut *aa = (AAudioVoiceOut *)hw;
-    int frames = len / hw->info.bytes_per_frame;
-    aaudio_result_t written;
+    uint32_t write_pos;
+    uint32_t read_pos;
+    size_t size;
+    size_t offset;
+    size_t first;
 
-    if (!aa->stream) {
+    if (!aa->stream || !aa->buffer) {
         return 0;
     }
 
-    written = AAudioStream_write(aa->stream, buf, frames, 0);
-    if (written < 0) {
-        dolog("AAudioStream_write failed: %d\n", written);
-        return 0;
-    }
+    write_pos = qatomic_read(&aa->write_pos);
+    read_pos = qatomic_load_acquire(&aa->read_pos);
+    size = MIN(len, (size_t)(aa->buffer_size - (write_pos - read_pos)));
+    size -= size % hw->info.bytes_per_frame;
+    offset = write_pos % aa->buffer_size;
+    first = MIN(size, (size_t)aa->buffer_size - offset);
+    memcpy(aa->buffer + offset, buf, first);
+    memcpy(aa->buffer, (uint8_t *)buf + first, size - first);
+    qatomic_store_release(&aa->write_pos, write_pos + size);
 
-    return written * hw->info.bytes_per_frame;
+    return size;
+}
+
+static size_t aaudio_buffer_get_free(HWVoiceOut *hw)
+{
+    AAudioVoiceOut *aa = (AAudioVoiceOut *)hw;
+    uint32_t write_pos = qatomic_read(&aa->write_pos);
+    uint32_t read_pos = qatomic_load_acquire(&aa->read_pos);
+
+    return aa->buffer_size - (write_pos - read_pos);
 }
 
 static void aaudio_enable_out(HWVoiceOut *hw, bool enable)
@@ -154,7 +214,7 @@ static int aaudio_init_in(HWVoiceIn *hw, struct audsettings *as,
         return 0;
     }
 
-    aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_INPUT);
+    aa->stream = aaudio_open_stream(as, AAUDIO_DIRECTION_INPUT, NULL);
     if (!aa->stream) {
         return -1;
     }
@@ -233,7 +293,7 @@ static struct audio_pcm_ops aaudio_pcm_ops = {
     .init_out       = aaudio_init_out,
     .fini_out       = aaudio_fini_out,
     .write          = aaudio_write,
-    .buffer_get_free = audio_generic_buffer_get_free,
+    .buffer_get_free = aaudio_buffer_get_free,
     .run_buffer_out = audio_generic_run_buffer_out,
     .enable_out     = aaudio_enable_out,
 
