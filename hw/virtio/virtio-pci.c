@@ -58,7 +58,7 @@ static void virtio_pci_notify(DeviceState *d, uint16_t vector)
         if (vector != VIRTIO_NO_VECTOR) {
             msix_notify(&proxy->pci_dev, vector);
         }
-    } else {
+    } else if (!gunyah_enabled()) {
         VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
         pci_set_irq(&proxy->pci_dev, qatomic_read(&vdev->isr) & 1);
     }
@@ -1014,7 +1014,7 @@ static int virtio_pci_set_guest_notifiers(DeviceState *d, int nvqs, bool assign)
     VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
     VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
     int r, n;
-    bool with_irqfd = msix_enabled(&proxy->pci_dev);
+    bool with_irqfd = false;
 
     nvqs = MIN(nvqs, VIRTIO_QUEUE_MAX);
 
@@ -1697,12 +1697,6 @@ static void virtio_pci_pre_plugged(DeviceState *d, Error **errp)
     if (gunyah_enabled()) {
         proxy->disable_legacy = ON_OFF_AUTO_ON;
         virtio_add_feature(&vdev->host_features, VIRTIO_F_IOMMU_PLATFORM);
-
-        proxy->nvectors = 0;
-
-        gh_report("virtio-pci %s: forcing modern-only + "
-                  "ACCESS_PLATFORM + no-MSI-X (disable legacy)",
-                  vdev->name ? vdev->name : "?");
     }
 
     if (virtio_pci_modern(proxy)) {
@@ -1775,7 +1769,7 @@ static void virtio_pci_device_plugged(DeviceState *d, Error **errp)
                      PCI_DEVICE_ID_VIRTIO_10_BASE + virtio_bus_get_vdev_id(bus));
         pci_config_set_revision(config, 1);
     }
-    config[PCI_INTERRUPT_PIN] = 1;
+    config[PCI_INTERRUPT_PIN] = !gunyah_enabled();
 
 
     if (modern) {
@@ -1834,9 +1828,9 @@ static void virtio_pci_device_plugged(DeviceState *d, Error **errp)
 
     if (proxy->nvectors) {
         int err = msix_init_exclusive_bar(&proxy->pci_dev, proxy->nvectors,
-                                          proxy->msix_bar_idx, NULL);
+                                          proxy->msix_bar_idx,
+                                          gunyah_enabled() ? &error_fatal : NULL);
         if (err) {
-            
             if (err != -ENOTSUP) {
                 warn_report("unable to init msix vectors to %" PRIu32,
                             proxy->nvectors);

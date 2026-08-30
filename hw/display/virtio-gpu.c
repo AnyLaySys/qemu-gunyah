@@ -653,6 +653,7 @@ static bool virtio_gpu_do_set_scanout(VirtIOGPU *g,
 
     if ((res->blob && !console_has_gl(scanout->con)) ||
         !scanout->ds ||
+        scanout->ds != qemu_console_surface(scanout->con) ||
         surface_data(scanout->ds) != data + fb->offset ||
         scanout->width != r->width ||
         scanout->height != r->height) {

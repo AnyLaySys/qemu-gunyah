@@ -12,6 +12,7 @@
 #include "exec/memory.h"
 #include "system/device_tree.h"
 #include "hw/arm/fdt.h"
+#include "hw/intc/arm_gic_common.h"
 
 int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size)
 {
@@ -19,9 +20,6 @@ int gunyah_arm_set_dtb(uint64_t dtb_start, uint64_t dtb_size)
 
     state->dtb_start = dtb_start;
     state->dtb_size = dtb_size;
-
-    gh_report("set_dtb gpa=0x%"PRIx64" size=0x%"PRIx64
-                 " (deferred to VM start)", dtb_start, dtb_size);
 
     return 0;
 }
@@ -43,8 +41,6 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
     qemu_fdt_setprop_cell(fdt, nodename, "#address-cells", 2);
     qemu_fdt_setprop_cell(fdt, nodename, "#size-cells", 2);
     qemu_fdt_setprop_u64(fdt, nodename, "base-address", 0);
-    gh_report("gunyah-vm-config/memory base-address=0x0 "
-                 "(includes QEMU device I/O below 0x%"PRIx64")", mem_base);
     {
         uint64_t ram_size = current_machine->ram_size;
         uint64_t ram_top = mem_base + ram_size;
@@ -53,8 +49,6 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
             size_max = 4 * GiB;
         }
         qemu_fdt_setprop_u64(fdt, nodename, "size-max", size_max);
-        gh_report("gunyah-vm-config/memory size-max=0x%"PRIx64
-                     " (ram_top=0x%"PRIx64")", size_max, ram_top);
     }
 
     g_free(nodename);
@@ -81,10 +75,6 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
             continue;
         }
 
-        gh_report("creating SHM node shm-%x gpa=0x%"PRIx64
-                     " size=0x%"PRIx64, i, state->slots[i].start,
-                     state->slots[i].size);
-
         nodename = g_strdup_printf("/gunyah-vm-config/vdevices/shm-%x", i);
         qemu_fdt_add_subnode(fdt, nodename);
         qemu_fdt_setprop_string(fdt, nodename, "vdevice-type", "shm");
@@ -108,16 +98,9 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
             { 0x0, 0x0, 0x01 },
             { 0x1, 0x1, 0x04 },
             { 0x2, 0x2, 0x01 },
-            { 0x3, 0x3, 0x04 },
-            { 0x4, 0x4, 0x04 },
-            { 0x5, 0x5, 0x04 },
-            { 0x6, 0x6, 0x04 },
             { 0xf, 0xf, 0x01 },
         };
         int nbell = sizeof(bells) / sizeof(bells[0]);
-
-        gh_report("creating %d doorbell DTB nodes",
-                     nbell);
 
         for (i = 0; i < nbell; ++i) {
             char *p;
@@ -141,12 +124,10 @@ void gunyah_arm_fdt_customize(void *fdt, uint64_t mem_base,
     }
 
     {
-        gh_report("creating 32 virtio doorbell DTB nodes "
-                     "(labels 0x10-0x2f, SPIs 16-47)");
-        for (i = 0; i < 32; i++) {
+        for (i = 0; i < state->msi_vectors; i++) {
             char *p;
-            int label = 0x10 + i;
-            int spi = 16 + i;
+            int label = GUNYAH_MSI_SPI_BASE + i;
+            int spi = GUNYAH_MSI_SPI_BASE + i;
 
             nodename = g_strdup_printf(
                 "/gunyah-vm-config/vdevices/bell-%x", label);
@@ -177,8 +158,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
     uint64_t guest_mem_size = mem_size;
     int ret;
 
-    gh_report("Building minimal DTB from scratch (mem_base=0x%" PRIx64
-              " mem_size=0x%" PRIx64 ")", mem_base, mem_size);
     ret = fdt_create_empty_tree(fdt, 0x100000);
     if (ret) {
         error_report("fdt_create_empty_tree failed: %s", fdt_strerror(ret));
@@ -204,8 +183,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         }
         fdt_setprop_string(fdt, node, "bootargs", bootargs);
         fdt_setprop_string(fdt, node, "stdout-path", "/pl011@9000000");
-        gh_report("DTB /chosen/bootargs: %s", bootargs);
-        gh_report("DTB /chosen/stdout-path: /pl011@9000000");
     }
 
     {
@@ -217,9 +194,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         int node = fdt_add_subnode(fdt, 0, "config");
         fdt_setprop_cell(fdt, node, "kernel-address", mem_base);
         fdt_setprop_cell(fdt, node, "kernel-size", 0x1000000);
-        gh_report("DTB /config: kernel-address=0x%x kernel-size=0x%x%s",
-                  (uint32_t)mem_base, 0x1000000,
-                  binfo->firmware_loaded ? " (firmware)" : "");
     }
 
     if (gs->protected_vm && gs->swiotlb_size) {
@@ -234,11 +208,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
 
         fdt_setprop_string(fdt, node, "device_type", "memory");
         fdt_setprop(fdt, node, "reg", reg, sizeof(reg));
-        gh_report("DTB /memory: base=0x%" PRIx64 " size=0x%" PRIx64
-                  " (total=0x%" PRIx64 " lend_only=%d)%s",
-                  mem_base, guest_mem_size, mem_size,
-                  gs->protected_vm && gs->swiotlb_size,
-                  binfo->firmware_loaded ? " (firmware)" : "");
     }
 
     {
@@ -261,8 +230,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
                 fdt_setprop_string(fdt, cpu, "enable-method", "psci");
             }
         }
-        gh_report("DTB /cpus: %d CPUs with%s PSCI", ms->smp.cpus,
-                  ms->smp.cpus > 1 ? "" : "out");
     }
 
     {
@@ -278,8 +245,25 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop(fdt, node, "interrupt-controller", NULL, 0);
         fdt_setprop_cell(fdt, node, "#address-cells", 2);
         fdt_setprop_cell(fdt, node, "#size-cells", 2);
+        fdt_setprop(fdt, node, "ranges", NULL, 0);
         fdt_setprop(fdt, node, "reg", reg, sizeof(reg));
         fdt_setprop_cell(fdt, node, "phandle", 1);
+        {
+            fdt64_t v2m_reg[] = {
+                cpu_to_fdt64(GUNYAH_V2M_BASE),
+                cpu_to_fdt64(GUNYAH_V2M_SIZE),
+            };
+            int v2m = fdt_add_subnode(fdt, node, "v2m@8020000");
+
+            fdt_setprop_string(fdt, v2m, "compatible", "arm,gic-v2m-frame");
+            fdt_setprop(fdt, v2m, "msi-controller", NULL, 0);
+            fdt_setprop(fdt, v2m, "reg", v2m_reg, sizeof(v2m_reg));
+            fdt_setprop_cell(fdt, v2m, "arm,msi-base-spi",
+                             GUNYAH_MSI_SPI_BASE + GIC_INTERNAL);
+            fdt_setprop_cell(fdt, v2m, "arm,msi-num-spis",
+                             gs->msi_vectors);
+            fdt_setprop_cell(fdt, v2m, "phandle", GUNYAH_MSI_PHANDLE);
+        }
     }
 
     {
@@ -323,8 +307,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, pool, "compatible", "restricted-dma-pool");
         fdt_setprop(fdt, pool, "alignment", &alignment, sizeof(alignment));
         fdt_setprop_cell(fdt, pool, "phandle", 2);
-        gh_report("DTB reserved-memory: restricted-dma-pool at 0x%" PRIx64
-                  " size 0x%" PRIx64, start, gs->swiotlb_size);
     }
 
     {
@@ -337,16 +319,12 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt64_t reg[] = { cpu_to_fdt64(ecam), cpu_to_fdt64(ecam_size) };
         fdt32_t bus_range[] = { cpu_to_fdt32(0), cpu_to_fdt32(0) };
         fdt32_t ranges[14];
-        fdt32_t irq_map[160];
-        fdt32_t irq_mask[] = {
-            cpu_to_fdt32(0x1800), cpu_to_fdt32(0),
-            cpu_to_fdt32(0), cpu_to_fdt32(7),
+        fdt32_t msi_map[] = {
+            cpu_to_fdt32(0), cpu_to_fdt32(GUNYAH_MSI_PHANDLE),
+            cpu_to_fdt32(0), cpu_to_fdt32(0x10000),
         };
         int node = fdt_add_subnode(fdt, 0, "pcie@10000000");
         int index = 0;
-        int map_index = 0;
-        int devfn;
-        int pin;
 
         fdt_setprop_string(fdt, node, "compatible", "pci-host-ecam-generic");
         fdt_setprop_string(fdt, node, "device_type", "pci");
@@ -355,6 +333,7 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_cell(fdt, node, "linux,pci-domain", 0);
         fdt_setprop(fdt, node, "bus-range", bus_range, sizeof(bus_range));
         fdt_setprop(fdt, node, "dma-coherent", NULL, 0);
+        fdt_setprop(fdt, node, "msi-map", msi_map, sizeof(msi_map));
         fdt_setprop(fdt, node, "reg", reg, sizeof(reg));
 
         ranges[index++] = cpu_to_fdt32(0x01000000);
@@ -372,35 +351,9 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         ranges[index++] = cpu_to_fdt32(0);
         ranges[index++] = cpu_to_fdt32(mmio_size);
         fdt_setprop(fdt, node, "ranges", ranges, sizeof(ranges));
-        fdt_setprop_cell(fdt, node, "#interrupt-cells", 1);
-
-        for (devfn = 0; devfn <= 0x18; devfn += 0x8) {
-            for (pin = 0; pin < 4; pin++) {
-                int irq = 3 + ((pin + (devfn >> 3)) % 4);
-
-                irq_map[map_index++] = cpu_to_fdt32(devfn << 8);
-                irq_map[map_index++] = cpu_to_fdt32(0);
-                irq_map[map_index++] = cpu_to_fdt32(0);
-                irq_map[map_index++] = cpu_to_fdt32(pin + 1);
-                irq_map[map_index++] = cpu_to_fdt32(1);
-                irq_map[map_index++] = cpu_to_fdt32(0);
-                irq_map[map_index++] = cpu_to_fdt32(0);
-                irq_map[map_index++] = cpu_to_fdt32(0);
-                irq_map[map_index++] = cpu_to_fdt32(irq);
-                irq_map[map_index++] = cpu_to_fdt32(4);
-            }
-        }
-        fdt_setprop(fdt, node, "interrupt-map", irq_map,
-                    map_index * sizeof(fdt32_t));
-        fdt_setprop(fdt, node, "interrupt-map-mask", irq_mask,
-                    sizeof(irq_mask));
         if (gs->protected_vm && gs->swiotlb_size) {
             fdt_setprop_cell(fdt, node, "memory-region", 2);
         }
-        gh_report("DTB PCI host bridge: ECAM=0x%" PRIx64
-                  " MMIO=0x%" PRIx64 "-0x%" PRIx64
-                  " PIO=0x%" PRIx64 " IRQs SPI 3-6",
-                  ecam, mmio, mmio + mmio_size - 1, pio);
     }
 
     {
@@ -410,7 +363,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_cell(fdt, node, "clock-frequency", 24000000);
         fdt_setprop_string(fdt, node, "clock-output-names", "clk24mhz");
         fdt_setprop_cell(fdt, node, "phandle", 3);
-        gh_report("DTB /apb-pclk: 24MHz fixed clock (phandle=3)");
     }
 
     {
@@ -432,7 +384,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         if (gs->protected_vm && gs->swiotlb_size) {
             fdt_setprop_cell(fdt, node, "memory-region", 2);
         }
-        gh_report("DTB /pl011@9000000: ttyAMA0, SPI 1, level-high, 24MHz");
     }
 
     {
@@ -442,7 +393,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, node, "compatible", "qemu,fw-cfg-mmio");
         fdt_setprop(fdt, node, "reg", reg, sizeof(reg));
         fdt_setprop(fdt, node, "dma-coherent", NULL, 0);
-        gh_report("DTB /fw-cfg@9020000: fw_cfg MMIO at 0x09020000");
     }
 
     gunyah_arm_fdt_customize(fdt, mem_base, 1);

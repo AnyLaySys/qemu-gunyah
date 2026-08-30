@@ -30,6 +30,8 @@
 #include "qemu/error-report.h"
 #include "qemu/module.h"
 #include "hw/pci-host/gpex.h"
+#include "hw/pci/msi.h"
+#include "hw/pci/msix.h"
 #include "hw/virtio/virtio-pci.h"
 #include "hw/qdev-properties.h"
 #include "hw/arm/fdt.h"
@@ -91,6 +93,7 @@ static const MemMapEntry base_memmap[] = {
 
  [VIRT_GIC_DIST] = { 0x08000000, 0x00010000 },
  [VIRT_GIC_CPU] = { 0x08010000, 0x00010000 },
+ [VIRT_GIC_V2M] = { GUNYAH_V2M_BASE, GUNYAH_V2M_SIZE },
  [VIRT_GIC_HYP] = { 0x08030000, 0x00010000 },
  [VIRT_GIC_VCPU] = { 0x08040000, 0x00010000 },
 
@@ -131,6 +134,7 @@ static const int a15irqmap[] = {
  [VIRT_UART1] = 8,
  [VIRT_MMIO] = 16,
  [VIRT_SMMU] = 74,
+ [VIRT_GIC_V2M] = GUNYAH_MSI_SPI_BASE,
 };
 
 static void create_randomness(MachineState *ms, const char *node)
@@ -583,6 +587,60 @@ static void create_gic(VirtMachineState *vms, MemoryRegion *mem)
  fdt_add_gic_node(vms);
 }
 
+#define V2M_MSI_TYPER 0x008
+#define V2M_MSI_SETSPI_NS 0x040
+
+typedef struct GunyahV2MState {
+ MemoryRegion iomem;
+ DeviceState *gic;
+} GunyahV2MState;
+
+static uint64_t gunyah_v2m_read(void *opaque, hwaddr offset, unsigned size)
+{
+ if (offset == V2M_MSI_TYPER) {
+ return ((GUNYAH_MSI_SPI_BASE + GIC_INTERNAL) << 16) |
+ get_gunyah_state()->msi_vectors;
+ }
+ return 0;
+}
+
+static void gunyah_v2m_write(void *opaque, hwaddr offset, uint64_t value,
+ unsigned size)
+{
+ GunyahV2MState *s = opaque;
+ int spi;
+
+ if (offset != V2M_MSI_SETSPI_NS) {
+ return;
+ }
+ spi = (int)(value & 0x3ff) - GIC_INTERNAL;
+ if (spi < GUNYAH_MSI_SPI_BASE ||
+ spi >= GUNYAH_MSI_SPI_BASE + get_gunyah_state()->msi_vectors) {
+ return;
+ }
+ qemu_set_irq(qdev_get_gpio_in(s->gic, spi), 1);
+}
+
+static const MemoryRegionOps gunyah_v2m_ops = {
+ .read = gunyah_v2m_read,
+ .write = gunyah_v2m_write,
+ .endianness = DEVICE_LITTLE_ENDIAN,
+ .valid.min_access_size = 4,
+ .valid.max_access_size = 4,
+};
+
+static void create_gunyah_v2m(VirtMachineState *vms, MemoryRegion *mem)
+{
+ GunyahV2MState *s = g_new0(GunyahV2MState, 1);
+
+ s->gic = vms->gic;
+ memory_region_init_io(&s->iomem, NULL, &gunyah_v2m_ops, s,
+ "gunyah-gicv2m", vms->memmap[VIRT_GIC_V2M].size);
+ memory_region_add_subregion(mem, vms->memmap[VIRT_GIC_V2M].base,
+ &s->iomem);
+ msi_nonbroken = true;
+}
+
 static void create_uart(const VirtMachineState *vms, int uart,
  MemoryRegion *mem, Chardev *chr, bool secure)
 {
@@ -835,10 +893,12 @@ static void create_pcie(VirtMachineState *vms)
 
  sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, base_pio);
 
+ if (!gunyah_enabled()) {
  for (i = 0; i < PCI_NUM_PINS; i++) {
  sysbus_connect_irq(SYS_BUS_DEVICE(dev), i,
  qdev_get_gpio_in(vms->gic, irq + i));
  gpex_set_irq_num(GPEX_HOST(dev), i, irq + i);
+ }
  }
 
  pci = PCI_HOST_BRIDGE(dev);
@@ -889,8 +949,10 @@ static void create_pcie(VirtMachineState *vms)
  2, base_mmio, 2, size_mmio);
  }
 
+ if (!gunyah_enabled()) {
  qemu_fdt_setprop_cell(ms->fdt, nodename, "#interrupt-cells", 1);
  create_pcie_irq_map(ms, vms->gic_phandle, irq, nodename);
+ }
 
 }
 
@@ -927,6 +989,38 @@ static void *machvirt_dtb(const struct arm_boot_info *binfo, int *fdt_size)
  return ms->fdt;
 }
 
+static void gunyah_count_msi_vectors_device(PCIBus *bus, PCIDevice *dev,
+                                              void *opaque)
+{
+ uint32_t *vectors = opaque;
+
+ (void)bus;
+ if (msix_present(dev)) {
+ *vectors += msix_nr_vectors_allocated(dev);
+ } else if (msi_present(dev)) {
+ *vectors += msi_nr_vectors_allocated(dev);
+ }
+}
+
+static void gunyah_count_msi_vectors_bus(PCIBus *bus, void *opaque)
+{
+ pci_for_each_device_under_bus(bus, gunyah_count_msi_vectors_device, opaque);
+}
+
+static void gunyah_set_msi_vectors(VirtMachineState *vms)
+{
+ GUNYAHState *gs = get_gunyah_state();
+ uint32_t vectors = 0;
+
+ pci_for_each_bus(vms->bus, gunyah_count_msi_vectors_bus, &vectors);
+ if (vectors > NUM_IRQS - GUNYAH_MSI_SPI_BASE) {
+ error_report("Gunyah requires %u MSI vectors, only %u are available",
+ vectors, NUM_IRQS - GUNYAH_MSI_SPI_BASE);
+ exit(1);
+ }
+ gs->msi_vectors = vectors;
+}
+
 static
 void virt_machine_done(Notifier *notifier, void *data)
 {
@@ -943,6 +1037,7 @@ void virt_machine_done(Notifier *notifier, void *data)
  if (gs->protected_vm && gs->swiotlb_size) {
   main_mem_size -= gs->swiotlb_size;
  }
+ gunyah_set_msi_vectors(vms);
  if (info->firmware_loaded) {
   info->dtb_start = info->loader_start + 0x400000;
  } else {
@@ -1268,10 +1363,6 @@ static int confidential_guest_init(MachineState *ms)
  s->protected_vm = true;
  if (obj->swiotlb_size) {
   gunyah_set_swiotlb_size(obj->swiotlb_size);
-  gh_report("confidential-guest-support: protected_vm=true swiotlb=0x%"
-   PRIx64, (uint64_t)obj->swiotlb_size);
- } else {
-  gh_report("confidential-guest-support: protected_vm=true");
  }
  cgs->ready = true;
  return 0;
@@ -1428,6 +1519,10 @@ static void machvirt_init(MachineState *machine)
 
  create_gic(vms, sysmem);
 
+ if (gunyah_enabled()) {
+ create_gunyah_v2m(vms, sysmem);
+ }
+
  virt_cpu_post_init(vms, sysmem);
 
  if (!vms->secure) {
@@ -1469,8 +1564,6 @@ static void machvirt_init(MachineState *machine)
  if (vms->bootinfo.entry) {
   GUNYAHState *gs = get_gunyah_state();
   gs->kernel_entry = vms->bootinfo.entry;
-  gh_report("kernel entry from arm_load_kernel: 0x%" PRIx64,
-   gs->kernel_entry);
  }
 
  vms->machine_done.notify = virt_machine_done;

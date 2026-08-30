@@ -32,8 +32,6 @@ static int gunyah_init_vcpu(CPUState *cpu, Error **errp) {
     error_report("pthread_sigmask: %s", strerror(ret));
     exit(1);
   }
-  gh_report("init_vcpu %d (deferred - VCPU will be created at VM start)",
-            cpu->cpu_index);
   return 0;
 }
 static void gunyah_vcpu_destroy(CPUState *cpu) {
@@ -86,6 +84,7 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
     return EXCP_INTERRUPT;
   }
   if (qatomic_read(&gunyah_vm_stopped)) {
+    qatomic_set(&cpu->halted, 1);
     return EXCP_INTERRUPT;
   }
   bql_unlock();
@@ -115,11 +114,11 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
       }
       error_report("GH_VCPU_RUN: %s (errno=%d)", strerror(errno), errno);
       if (errno == EBUSY) {
-        gh_report("cpu %d: GH_VCPU_RUN returned EBUSY — "
-                  "VM shutting down, exiting",
-                  cpu->cpu_index);
+        gh_report("cpu %d: GH_VCPU_RUN returned EBUSY", cpu->cpu_index);
         qatomic_set(&gunyah_vm_stopped, true);
-        _exit(0);
+        qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
+        ret = EXCP_INTERRUPT;
+        break;
       }
       ret = -1;
       break;
@@ -156,13 +155,9 @@ void *gunyah_cpu_thread_fn(void *arg) {
   qemu_thread_get_self(cpu->thread);
   cpu->thread_id = qemu_get_thread_id();
   current_cpu = cpu;
-  gh_report("cpu_thread_fn started for cpu %d (tid=%d)", cpu->cpu_index,
-            cpu->thread_id);
   gunyah_init_vcpu(cpu, &error_fatal);
   cpu_thread_signal_created(cpu);
   qemu_guest_random_seed_thread_part2(cpu->random_seed);
-  gh_report("cpu %d entering main loop (fd=%d run=%p)", cpu->cpu_index,
-            cpu->accel->fd, cpu->accel->run);
   do {
     if (cpu_can_run(cpu)) {
       gunyah_vcpu_exec(cpu);

@@ -17,6 +17,12 @@ void gunyah_set_swiotlb_size(uint64_t size);
 
 #define gunyah_enabled() (gunyah_allowed)
 
+#define GUNYAH_V2M_BASE 0x08020000
+#define GUNYAH_V2M_SIZE 0x1000
+#define GUNYAH_MSI_SPI_BASE 16
+#define GUNYAH_MSI_PHANDLE 4
+#define GUNYAH_VM_RESTART_STATUS 82
+
 #define TYPE_GUNYAH_ACCEL ACCEL_CLASS_NAME("gunyah")
 typedef struct GUNYAHState GUNYAHState;
 DECLARE_INSTANCE_CHECKER(GUNYAHState, GUNYAH_STATE,

@@ -44,29 +44,15 @@ static void gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa,
   gumr.guest_phys_addr = gpa;
   gumr.memory_size = size;
   gumr.userspace_addr = (__u64)hva;
-  gh_report("add_mem label=%u gpa=0x%" PRIx64 " size=0x%" PRIx64
-            " hva=0x%" PRIx64 " flags=0x%x lend=%d",
-            gumr.label, (uint64_t)gumr.guest_phys_addr,
-            (uint64_t)gumr.memory_size, (uint64_t)gumr.userspace_addr,
-            gumr.flags, lend);
   ret = gunyah_vm_ioctl(
       lend ? GH_VM_ANDROID_LEND_USER_MEM : GH_VM_SET_USER_MEM_REGION, &gumr);
-  if (ret) {
-    if (!lend && errno == EEXIST) {
-      gh_report("SHARE gpa=0x%" PRIx64 " already exists — reusing"
-                " (recycled RingBlob)",
-                gpa);
-    } else {
-      gh_report("%s ioctl FAILED: %s (ret=%d, errno=%d)",
-                lend ? "LEND" : "SHARE", strerror(errno), ret, errno);
-      exit(1);
-    }
-  } else {
-    gh_report("add_mem_slot OK (gpa=0x%" PRIx64 " size=0x%" PRIx64 ")", gpa,
-              size);
-    if (lend) {
-      gunyah_signal_register_lend(hva, size, gpa);
-    }
+  if (ret && (lend || errno != EEXIST)) {
+    gh_report("%s ioctl FAILED: %s (ret=%d, errno=%d)",
+              lend ? "LEND" : "SHARE", strerror(errno), ret, errno);
+    exit(1);
+  }
+  if (!ret && lend) {
+    gunyah_signal_register_lend(hva, size, gpa);
   }
 }
 static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
@@ -96,12 +82,10 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
       fprintf(f, "1\n");
       fclose(f);
     }
-    usleep(500000);
     {
       static const char *mthp_sizes[] = {"64kB",  "128kB",  "256kB",
                                          "512kB", "1024kB", NULL};
       int mi;
-      int mthp_enabled = 0;
       for (mi = 0; mthp_sizes[mi]; mi++) {
         char path[128];
         snprintf(path, sizeof(path),
@@ -112,19 +96,15 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
           continue;
         fprintf(f, "always\n");
         fclose(f);
-        mthp_enabled++;
       }
-      gh_report("mTHP enabled=%d", mthp_enabled);
     }
     ret = madvise(base_hva, total_size, MADV_HUGEPAGE);
-    gh_report("MADV_HUGEPAGE %s", ret == 0 ? "OK" : strerror(errno));
+    if (ret) {
+      gh_report("MADV_HUGEPAGE failed: %s", strerror(errno));
+    }
     {
       const uint64_t batch_size = 2048ULL * 1024 * 1024;
       uint64_t offset;
-      gh_report("populating %" PRIu64 " MB in %" PRIu64 " x %" PRIu64
-                " MB batches",
-                total_size >> 20, (total_size + batch_size - 1) / batch_size,
-                batch_size >> 20);
       for (offset = 0; offset < total_size; offset += batch_size) {
         uint64_t len = total_size - offset;
         if (len > batch_size) {
@@ -153,11 +133,10 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
       static const struct {
         uint64_t size;
         int order;
-        const char *name;
       } collapse_levels[] = {
-          {2ULL * 1024 * 1024, 9, "2MB"}, {1ULL * 1024 * 1024, 8, "1MB"},
-          {512ULL * 1024, 7, "512KB"},    {256ULL * 1024, 6, "256KB"},
-          {128ULL * 1024, 5, "128KB"},    {64ULL * 1024, 4, "64KB"},
+          {2ULL * 1024 * 1024, 9}, {1ULL * 1024 * 1024, 8},
+          {512ULL * 1024, 7},      {256ULL * 1024, 6},
+          {128ULL * 1024, 5},      {64ULL * 1024, 4},
       };
       const uint64_t map_unit = 64ULL * 1024;
       uint64_t map_count = total_size / map_unit;
@@ -170,7 +149,6 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
         }
         goto skip_phase3;
       }
-      gh_report("cascading MADV_COLLAPSE 2MB -> 64KB");
       for (level = 0;
            level < (int)(sizeof(collapse_levels) / sizeof(collapse_levels[0]));
            level++) {
@@ -178,10 +156,6 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
         int corder = collapse_levels[level].order;
         uint64_t units_per_chunk = csize / map_unit;
         uint64_t num_chunks_lvl = total_size / csize;
-        uint64_t collapsed = 0;
-        uint64_t skipped = 0;
-        uint64_t failed = 0;
-        int last_err = 0;
         uint64_t ci;
         for (ci = 0; ci < num_chunks_lvl; ci++) {
           uint64_t map_base = ci * units_per_chunk;
@@ -194,7 +168,6 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
             }
           }
           if (!all_free) {
-            skipped++;
             continue;
           }
           ret = madvise(base_hva + ci * csize, csize, MADV_COLLAPSE);
@@ -202,16 +175,8 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
             for (u = 0; u < units_per_chunk; u++) {
               order_map[map_base + u] = corder;
             }
-            collapsed++;
-          } else {
-            failed++;
-            last_err = errno;
           }
         }
-        gh_report("%s collapse: %" PRIu64 " OK, %" PRIu64 " skipped, %" PRIu64
-                  " failed (err=%d)",
-                  collapse_levels[level].name, collapsed, skipped, failed,
-                  last_err);
       }
       {
         uint64_t uncollapsed = 0;
@@ -255,26 +220,12 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
               large_page_bytes >> 20, total_size >> 20,
               (double)large_page_bytes * 100.0 / (double)total_size);
     ret = mlock(base_hva, total_size);
-    if (ret == 0) {
-      gh_report("mlock: OK");
-    } else {
+    if (ret) {
       gh_report("mlock FAILED: %s", strerror(errno));
     }
   }
   if (lend && total_size > GUNYAH_LEND_CHUNK_SIZE) {
-    int chunk_idx = 0;
     if (need_thp) {
-      uint64_t thp_ok = 0;
-      uint64_t thp_fail = 0;
-      for (uint64_t c = 0; c < total_chunks; c++) {
-        if (need_thp[c])
-          thp_fail++;
-        else
-          thp_ok++;
-      }
-      gh_report("THP-aware LEND split: %" PRIu64 " MB total, %" PRIu64
-                " THP(2MB) chunks, %" PRIu64 " mTHP/4KB chunks",
-                total_size >> 20, thp_ok, thp_fail);
       uint64_t c = 0;
       while (c < total_chunks) {
         uint8_t is_small = need_thp[c];
@@ -288,38 +239,24 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
           uint64_t sub_sz = run_size - sub_off;
           if (sub_sz > GUNYAH_LEND_CHUNK_SIZE)
             sub_sz = GUNYAH_LEND_CHUNK_SIZE;
-          gh_report("%s-chunk[%d] gpa=0x%" PRIx64 " size=0x%" PRIx64,
-                    is_small ? "mTHP" : "THP", chunk_idx,
-                    base_gpa + run_offset + sub_off, sub_sz);
           gunyah_add_mem_slot(s, base_hva + run_offset + sub_off,
                               base_gpa + run_offset + sub_off, sub_sz, lend,
                               flags);
           sub_off += sub_sz;
-          chunk_idx++;
         }
       }
-      gh_report("THP-aware split done: %d LEND slots used", chunk_idx);
       free(need_thp);
       return;
     }
     {
       uint64_t offset = 0;
-      gh_report("splitting %" PRIu64 " MB LEND into %" PRIu64 " x %" PRIu64
-                " MB chunks",
-                total_size >> 20,
-                (uint64_t)((total_size + GUNYAH_LEND_CHUNK_SIZE - 1) /
-                           GUNYAH_LEND_CHUNK_SIZE),
-                (uint64_t)(GUNYAH_LEND_CHUNK_SIZE >> 20));
       while (offset < total_size) {
         uint64_t chunk_sz = total_size - offset;
         if (chunk_sz > GUNYAH_LEND_CHUNK_SIZE)
           chunk_sz = GUNYAH_LEND_CHUNK_SIZE;
-        gh_report("chunk[%d] gpa=0x%" PRIx64 " size=0x%" PRIx64, chunk_idx,
-                  base_gpa + offset, chunk_sz);
         gunyah_add_mem_slot(s, base_hva + offset, base_gpa + offset, chunk_sz,
                             lend, flags);
         offset += chunk_sz;
-        chunk_idx++;
       }
     }
     return;
@@ -357,10 +294,6 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   MemoryRegionSection mrs = *section;
   bool lend = is_confidential_guest(s), split = false;
   struct gunyah_slot *slot;
-  gh_report("set_phys_mem gpa=0x%" PRIx64 " size=0x%" PRIx64
-            " add=%d is_ram=%d writable=%d lend=%d",
-            (uint64_t)section->offset_within_address_space,
-            (uint64_t)int128_get64(section->size), add, is_ram, writable, lend);
   bool is_hostmem_blob = false;
   bool is_ramfb_mmio =
       is_ram && area->name && strcmp(area->name, "ramfb-mmio") == 0;
@@ -373,14 +306,6 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   }
   if (section->offset_within_address_space < GiB && !is_hostmem_blob &&
       !is_ramfb_mmio) {
-    static uint64_t last_skip_gpa = UINT64_MAX;
-    uint64_t gpa = (uint64_t)section->offset_within_address_space;
-    if (gpa != last_skip_gpa) {
-      last_skip_gpa = gpa;
-      gh_report("skipping region gpa=0x%" PRIx64 " size=0x%" PRIx64
-                " (below 1GiB) is_ram=%d add=%d",
-                gpa, (uint64_t)int128_get64(section->size), is_ram, add);
-    }
     return;
   }
   if (!is_ram) {
@@ -401,10 +326,6 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   if (!add) {
     if (slot) {
       if (is_hostmem_blob) {
-        gh_report("hostmem blob removal at gpa=0x%" PRIx64 " size=0x%" PRIx64
-                  " — freeing slot",
-                  (uint64_t)section->offset_within_address_space,
-                  (uint64_t)int128_get64(section->size));
         slot->size = 0;
         goto done;
       }
@@ -415,8 +336,6 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   } else {
     if (slot) {
       if (is_hostmem_blob) {
-        gh_report("hostmem blob reuse at gpa=0x%" PRIx64 " — freeing old slot",
-                  (uint64_t)section->offset_within_address_space);
         slot->size = 0;
         slot = NULL;
       } else {
@@ -432,17 +351,9 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   if (is_ramfb_mmio) {
     lend = false;
     flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE;
-    gh_report("ramfb-mmio region at gpa=0x%" PRIx64 " size=0x%" PRIx64
-              " using SHARE",
-              (uint64_t)section->offset_within_address_space,
-              (uint64_t)int128_get64(section->size));
   } else if (is_hostmem_blob) {
     lend = false;
     flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE;
-    gh_report("hostmem blob region at gpa=0x%" PRIx64 " size=0x%" PRIx64
-              " — using SHARE (no exec)",
-              (uint64_t)section->offset_within_address_space,
-              (uint64_t)int128_get64(section->size));
   } else {
     flags = GH_MEM_ALLOW_READ | GH_MEM_ALLOW_WRITE | GH_MEM_ALLOW_EXEC;
   }
@@ -470,6 +381,40 @@ static void gunyah_region_del(MemoryListener *listener,
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   gunyah_set_phys_mem(s, section, false);
 }
+static void gunyah_ioeventfd(MemoryRegionSection *section, bool match_data,
+                             uint64_t data, EventNotifier *notifier,
+                             int command) {
+  GUNYAHState *s = GUNYAH_STATE(current_accel());
+  struct gh_fn_ioeventfd_arg ioeventfd = {
+      .datamatch = data,
+      .addr = int128_get64(section->offset_within_address_space),
+      .len = int128_get64(section->size),
+      .fd = event_notifier_get_fd(notifier),
+      .flags = match_data ? GH_IOEVENTFD_FLAGS_DATAMATCH : 0,
+  };
+  struct gh_fn_desc fdesc = {
+      .type = GH_FN_IOEVENTFD,
+      .arg_size = sizeof(ioeventfd),
+      .arg = (__u64)&ioeventfd,
+  };
+
+  if (s->vmfd >= 0 && gunyah_vm_ioctl(command, &fdesc)) {
+    error_report("GUNYAH_IOEVENTFD %s failed: %s",
+                 command == GH_VM_ADD_FUNCTION ? "add" : "remove",
+                 strerror(errno));
+  }
+}
+static void gunyah_eventfd_add(MemoryListener *listener,
+                               MemoryRegionSection *section, bool match_data,
+                               uint64_t data, EventNotifier *notifier) {
+  gunyah_ioeventfd(section, match_data, data, notifier, GH_VM_ADD_FUNCTION);
+}
+static void gunyah_eventfd_del(MemoryListener *listener,
+                               MemoryRegionSection *section, bool match_data,
+                               uint64_t data, EventNotifier *notifier) {
+  gunyah_ioeventfd(section, match_data, data, notifier,
+                   GH_VM_REMOVE_FUNCTION);
+}
 void gunyah_set_swiotlb_size(uint64_t size) {
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   s->swiotlb_size = size;
@@ -479,7 +424,6 @@ static uint64_t gunyah_lend_end;
 static void gunyah_cache_lend_range(void) {
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   int i;
-  bool found = false;
   if (!s->protected_vm) {
     return;
   }
@@ -494,12 +438,7 @@ static void gunyah_cache_lend_range(void) {
       if (slot->start + slot->size > gunyah_lend_end) {
         gunyah_lend_end = slot->start + slot->size;
       }
-      found = true;
     }
-  }
-  if (found) {
-    gh_report("cached LEND range: 0x%" PRIx64 " - 0x%" PRIx64,
-              gunyah_lend_start, gunyah_lend_end);
   }
 }
 bool gunyah_addr_is_lend(uint64_t gpa) {
@@ -510,6 +449,8 @@ static MemoryListener gunyah_memory_listener = {
     .priority = MEMORY_LISTENER_PRIORITY_ACCEL,
     .region_add = gunyah_region_add,
     .region_del = gunyah_region_del,
+    .eventfd_add = gunyah_eventfd_add,
+    .eventfd_del = gunyah_eventfd_del,
 };
 int gunyah_create_vm(void) {
   GUNYAHState *s;

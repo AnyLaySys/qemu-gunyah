@@ -65,7 +65,9 @@ static void gunyah_start_vcpu_thread(CPUState *cpu) {
                      QEMU_THREAD_JOINABLE);
 }
 static void gunyah_kick_vcpu_thread(CPUState *cpu) { cpus_kick_thread(cpu); }
-static bool gunyah_vcpu_thread_is_idle(CPUState *cpu) { return false; }
+static bool gunyah_vcpu_thread_is_idle(CPUState *cpu) {
+  return qatomic_read(&gunyah_vm_stopped);
+}
 static void gunyah_accel_ops_class_init(ObjectClass *oc, void *data) {
   AccelOpsClass *ops = ACCEL_OPS_CLASS(oc);
   ops->create_vcpu_thread = gunyah_start_vcpu_thread;

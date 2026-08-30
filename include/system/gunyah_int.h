@@ -30,6 +30,7 @@ struct GUNYAHState {
     uint64_t dtb_size;
     bool protected_vm;
     uint64_t kernel_entry;
+    uint32_t msi_vectors;
 };
 struct AccelCPUState {
     int fd;
@@ -38,6 +39,8 @@ struct AccelCPUState {
     uint64_t last_fault_addr;
     int same_fault_count;
 };
+
+extern bool gunyah_vm_stopped;
 
 int gunyah_create_vm(void);
 
