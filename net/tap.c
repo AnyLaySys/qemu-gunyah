@@ -80,7 +80,7 @@ static ssize_t tap_receive_iov(NetClientState *nc, const struct iovec *iov,
     TAPState *s = DO_UPCAST(TAPState, nc, nc);
     size_t done;
     ssize_t n;
-    if (tap_svc_input(s, iov, iovcnt, &done)) {
+    if (tap_service_input(s, iov, iovcnt, &done)) {
         return done;
     }
     n = RETRY_ON_EINTR(writev(s->fd, iov, iovcnt));
@@ -204,7 +204,7 @@ static void tap_set_offload(NetClientState *nc, int csum, int tso4, int tso6,
 static void tap_cleanup(NetClientState *nc)
 {
     TAPState *s = DO_UPCAST(TAPState, nc, nc);
-    tap_svc_cleanup(s);
+    tap_service_cleanup(s);
     qemu_purge_queued_packets(nc);
     qemu_set_fd_handler(s->fd, NULL, NULL, NULL);
     close(s->fd);
@@ -300,7 +300,7 @@ int net_init_tap(const Netdev *netdev, const char *name,
     s->ufo = ufo;
     s->uso = uso;
     s->enabled = true;
-    tap_svc_init(s, ifname);
+    tap_service_init(s, ifname);
     qemu_set_info_str(&s->nc, "ifname=%s", ifname);
     tap_read_poll(s, true);
     return 0;

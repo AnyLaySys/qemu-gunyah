@@ -32,10 +32,10 @@ struct TAPState {
     TapDns dns[TAP_DNS_MAX];
 };
 
-void tap_svc_init(TAPState *s, const char *ifname);
-void tap_svc_set_network(uint64_t network);
-bool tap_svc_input(TAPState *s, const struct iovec *iov, int iovcnt,
-                   size_t *len);
-void tap_svc_cleanup(TAPState *s);
+void tap_service_init(TAPState *s, const char *ifname);
+void tap_service_set_network(uint64_t network);
+bool tap_service_input(TAPState *s, const struct iovec *iov, int iovcnt,
+                       size_t *len);
+void tap_service_cleanup(TAPState *s);
 
 #endif

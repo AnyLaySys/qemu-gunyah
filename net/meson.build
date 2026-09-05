@@ -7,7 +7,7 @@ system_ss.add(files(
   'util.c',
 ))
 
-system_ss.add(files('tap.c', 'tap-svc.c'))
+system_ss.add(files('tap.c', 'tap-services.c'))
 if is_android
   system_ss.add(android_native_window)
 endif

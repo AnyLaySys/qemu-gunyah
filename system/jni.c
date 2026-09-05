@@ -496,7 +496,7 @@ static void jni_stop(JNIEnv *env, jobject self)
 
 static void jni_set_network_handle(JNIEnv *env, jobject self, jlong handle)
 {
-    tap_svc_set_network(handle > 0 ? (uint64_t)handle : 0);
+    tap_service_set_network(handle > 0 ? (uint64_t)handle : 0);
 }
 
 static const JNINativeMethod vm_methods[] = {

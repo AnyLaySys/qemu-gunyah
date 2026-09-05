@@ -475,7 +475,7 @@ static bool svc_parse(const uint8_t *p, size_t n, SvcPacket *pk)
     return true;
 }
 
-void tap_svc_init(TAPState *s, const char *ifname)
+void tap_service_init(TAPState *s, const char *ifname)
 {
     int i;
 
@@ -486,13 +486,13 @@ void tap_svc_init(TAPState *s, const char *ifname)
     svc_refresh(s);
 }
 
-void tap_svc_set_network(uint64_t network)
+void tap_service_set_network(uint64_t network)
 {
     qatomic_set(&svc_network, network);
 }
 
-bool tap_svc_input(TAPState *s, const struct iovec *iov, int iovcnt,
-                   size_t *len)
+bool tap_service_input(TAPState *s, const struct iovec *iov, int iovcnt,
+                       size_t *len)
 {
     uint8_t head[80], pkt[2048];
     size_t off = s->vnet ? s->nc.vnet_hdr_len : 0;
@@ -530,7 +530,7 @@ bool tap_svc_input(TAPState *s, const struct iovec *iov, int iovcnt,
     return false;
 }
 
-void tap_svc_cleanup(TAPState *s)
+void tap_service_cleanup(TAPState *s)
 {
 #ifdef __ANDROID__
     int i;

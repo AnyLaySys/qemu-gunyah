@@ -5,7 +5,7 @@
 #include "qemu/coroutine.h"
 #include "qemu/timer.h"
 
-#include "edk2-laffstd.h"
+#include "font.h"
 
 #define FONT_HEIGHT 19
 #define FONT_WIDTH 8

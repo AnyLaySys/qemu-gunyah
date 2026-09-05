@@ -497,7 +497,7 @@ DisplaySurface *qemu_create_placeholder_surface(int w, int h,
     y = (h / FONT_HEIGHT - 1)   / 2;
     for (i = 0; i < len; i++) {
         glyph = qemu_pixman_glyph_from_font(FONT_HEIGHT,
-                                             edk2_laffstd_glyph(msg[i]));
+                                             qemu_font_glyph(msg[i]));
         qemu_pixman_glyph_render(glyph, surface->image, &fg, &bg,
                                  x+i, y, FONT_WIDTH, FONT_HEIGHT);
         qemu_pixman_image_unref(glyph);
