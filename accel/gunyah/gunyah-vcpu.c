@@ -63,9 +63,9 @@ static int gunyah_handle_unknown_exit(CPUState *cpu, struct gh_vcpu_run *run) {
       acpu->same_fault_count = 1;
     }
     if (acpu->same_fault_count > 500) {
-      gh_report("CPU#%d exit_reason=%d stuck "
-                "at addr=0x%" PRIx64 " (%d repeats)"
-                " — unresolvable fault, aborting",
+      gh_report("CPU %d: Exit reason=%d stuck "
+                "at address=0x%" PRIx64 " (%d repeats)"
+                " - unresolvable fault, aborting",
                 cpu->cpu_index, run->exit_reason, unk_addr,
                 acpu->same_fault_count);
       return -1;
@@ -80,7 +80,7 @@ static int gunyah_handle_unknown_exit(CPUState *cpu, struct gh_vcpu_run *run) {
 static int gunyah_vcpu_exec(CPUState *cpu) {
   int ret;
   if (cpu->accel->fd < 0) {
-    gh_report("ERROR: vcpu fd is %d (invalid!)", cpu->accel->fd);
+    gh_report("Error: vCPU FD is %d (invalid)", cpu->accel->fd);
     return EXCP_INTERRUPT;
   }
   if (qatomic_read(&gunyah_vm_stopped)) {
@@ -114,7 +114,7 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
       }
       error_report("GH_VCPU_RUN: %s (errno=%d)", strerror(errno), errno);
       if (errno == EBUSY) {
-        gh_report("cpu %d: GH_VCPU_RUN returned EBUSY", cpu->cpu_index);
+        gh_report("CPU %d: GH_VCPU_RUN returned EBUSY", cpu->cpu_index);
         qatomic_set(&gunyah_vm_stopped, true);
         qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
         ret = EXCP_INTERRUPT;
@@ -143,7 +143,7 @@ static int gunyah_vcpu_exec(CPUState *cpu) {
   bql_lock();
   if (ret < 0) {
     cpu_dump_state(cpu, stderr, CPU_DUMP_CODE);
-    vm_stop(RUN_STATE_INTERNAL_ERROR);
+    qemu_system_shutdown_request(SHUTDOWN_CAUSE_HOST_ERROR);
   }
   qatomic_set(&cpu->exit_request, 0);
   return ret;

@@ -17,22 +17,6 @@
     },
 
     {
-        .name       = "stop|s",
-        .args_type  = "",
-        .params     = "",
-        .help       = "stop emulation",
-        .cmd        = hmp_stop,
-    },
-
-    {
-        .name       = "cont|c",
-        .args_type  = "",
-        .params     = "",
-        .help       = "resume emulation",
-        .cmd        = hmp_cont,
-    },
-
-    {
         .name       = "system_reset",
         .args_type  = "",
         .params     = "",

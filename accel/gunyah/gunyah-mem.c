@@ -46,9 +46,9 @@ static void gunyah_add_mem_slot(GUNYAHState *s, uint8_t *hva, uint64_t gpa,
   gumr.userspace_addr = (__u64)hva;
   ret = gunyah_vm_ioctl(
       lend ? GH_VM_ANDROID_LEND_USER_MEM : GH_VM_SET_USER_MEM_REGION, &gumr);
-  if (ret && (lend || errno != EEXIST)) {
-    gh_report("%s ioctl FAILED: %s (ret=%d, errno=%d)",
-              lend ? "LEND" : "SHARE", strerror(errno), ret, errno);
+  if (ret) {
+    gh_report("%s ioctl failed: %s (ret=%d, errno=%d)",
+              lend ? "Lend" : "Share", strerror(errno), ret, errno);
     exit(1);
   }
   if (!ret && lend) {
@@ -69,9 +69,6 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
   uint8_t *need_thp = NULL;
   if (lend) {
     FILE *f;
-    gh_report("preparing LEND region: hva=0x%" PRIx64 " size=0x%" PRIx64
-              " (%" PRIu64 " MB)",
-              (uint64_t)(uintptr_t)base_hva, total_size, total_size >> 20);
     f = fopen("/proc/sys/vm/drop_caches", "w");
     if (f) {
       fprintf(f, "3\n");
@@ -98,10 +95,7 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
         fclose(f);
       }
     }
-    ret = madvise(base_hva, total_size, MADV_HUGEPAGE);
-    if (ret) {
-      gh_report("MADV_HUGEPAGE failed: %s", strerror(errno));
-    }
+    madvise(base_hva, total_size, MADV_HUGEPAGE);
     {
       const uint64_t batch_size = 2048ULL * 1024 * 1024;
       uint64_t offset;
@@ -110,15 +104,7 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
         if (len > batch_size) {
           len = batch_size;
         }
-        ret = madvise(base_hva + offset, len, MADV_POPULATE_WRITE);
-        if (ret != 0) {
-          volatile char *p = (volatile char *)base_hva + offset;
-          uint64_t npages = len / 4096;
-          uint64_t i;
-          for (i = 0; i < npages; i++) {
-            p[i * 4096] = p[i * 4096];
-          }
-        }
+        madvise(base_hva + offset, len, MADV_POPULATE_WRITE);
         if (offset + batch_size < total_size) {
           f = fopen("/proc/sys/vm/compact_memory", "w");
           if (f) {
@@ -184,14 +170,7 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
         for (mi_idx = 0; mi_idx < map_count; mi_idx++) {
           if (order_map[mi_idx] == 0) {
             uint64_t off = mi_idx * map_unit;
-            uint64_t pg;
-            ret = madvise(base_hva + off, map_unit, MADV_POPULATE_WRITE);
-            if (ret != 0) {
-              volatile char *p = (volatile char *)base_hva + off;
-              for (pg = 0; pg < map_unit / 4096; pg++) {
-                p[pg * 4096] = p[pg * 4096];
-              }
-            }
+            madvise(base_hva + off, map_unit, MADV_POPULATE_WRITE);
             uncollapsed++;
           }
         }
@@ -216,12 +195,12 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
       free(order_map);
     }
   skip_phase3:
-    gh_report("large-page coverage: %" PRIu64 " / %" PRIu64 " MB (%.1f%%)",
+    gh_report("Large-page coverage: %" PRIu64 " / %" PRIu64 " MB (%.1f%%)",
               large_page_bytes >> 20, total_size >> 20,
               (double)large_page_bytes * 100.0 / (double)total_size);
     ret = mlock(base_hva, total_size);
     if (ret) {
-      gh_report("mlock FAILED: %s", strerror(errno));
+      gh_report("mlock failed: %s", strerror(errno));
     }
   }
   if (lend && total_size > GUNYAH_LEND_CHUNK_SIZE) {
@@ -264,15 +243,9 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
   free(need_thp);
   gunyah_add_mem_slot(s, base_hva, base_gpa, total_size, lend, flags);
 }
-static bool is_confidential_guest(GUNYAHState *s) {
-  return s->protected_vm || current_machine->cgs != NULL;
-}
 static bool split_mem(GUNYAHState *s, MemoryRegion *area,
                       MemoryRegionSection *section) {
   bool writeable = !area->readonly && !area->rom_device;
-  if (!is_confidential_guest(s)) {
-    return false;
-  }
   if (!s->swiotlb_size || section->size <= s->swiotlb_size) {
     return false;
   }
@@ -292,7 +265,7 @@ static void gunyah_set_phys_mem(GUNYAHState *s, MemoryRegionSection *section,
   enum gh_mem_flags flags = 0;
   uint64_t page_size = qemu_real_host_page_size();
   MemoryRegionSection mrs = *section;
-  bool lend = is_confidential_guest(s), split = false;
+  bool lend = true, split = false;
   struct gunyah_slot *slot;
   bool is_hostmem_blob = false;
   bool is_ramfb_mmio =
@@ -402,6 +375,7 @@ static void gunyah_ioeventfd(MemoryRegionSection *section, bool match_data,
     error_report("GUNYAH_IOEVENTFD %s failed: %s",
                  command == GH_VM_ADD_FUNCTION ? "add" : "remove",
                  strerror(errno));
+    exit(1);
   }
 }
 static void gunyah_eventfd_add(MemoryListener *listener,
@@ -424,9 +398,6 @@ static uint64_t gunyah_lend_end;
 static void gunyah_cache_lend_range(void) {
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   int i;
-  if (!s->protected_vm) {
-    return;
-  }
   gunyah_lend_start = UINT64_MAX;
   gunyah_lend_end = 0;
   for (i = 0; i < s->nr_slots; i++) {
@@ -462,13 +433,13 @@ int gunyah_create_vm(void) {
                  strerror(errno));
     exit(1);
   }
-  gh_report("/dev/gunyah opened, fd=%d", s->fd);
+  gh_report("Opened /dev/gunyah, FD=%d", s->fd);
   s->vmfd = gunyah_ioctl(GH_CREATE_VM, 0);
   if (s->vmfd < 0) {
     error_report("Could not create VM: %s (errno=%d)", strerror(errno), errno);
     exit(1);
   }
-  gh_report("VM created, vmfd=%d", s->vmfd);
+  gh_report("VM created, FD=%d", s->vmfd);
   qemu_mutex_init(&s->slots_lock);
   s->nr_slots = GUNYAH_MAX_MEM_SLOTS;
   for (i = 0; i < s->nr_slots; ++i) {

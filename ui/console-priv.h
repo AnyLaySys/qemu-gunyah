@@ -5,9 +5,9 @@
 #include "qemu/coroutine.h"
 #include "qemu/timer.h"
 
-#include "vgafont.h"
+#include "edk2-laffstd.h"
 
-#define FONT_HEIGHT 16
+#define FONT_HEIGHT 19
 #define FONT_WIDTH 8
 
 struct QemuConsole {

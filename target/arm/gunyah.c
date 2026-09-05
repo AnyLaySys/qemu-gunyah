@@ -196,7 +196,7 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_cell(fdt, node, "kernel-size", 0x1000000);
     }
 
-    if (gs->protected_vm && gs->swiotlb_size) {
+    if (gs->swiotlb_size) {
         guest_mem_size -= gs->swiotlb_size;
     }
     {
@@ -286,7 +286,7 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         fdt_setprop_string(fdt, node, "method", "hvc");
     }
 
-    if (gs->protected_vm && gs->swiotlb_size) {
+    if (gs->swiotlb_size) {
         uint64_t start = mem_base + mem_size - gs->swiotlb_size;
         fdt64_t reg[] = {
             cpu_to_fdt64(start),
@@ -351,7 +351,7 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         ranges[index++] = cpu_to_fdt32(0);
         ranges[index++] = cpu_to_fdt32(mmio_size);
         fdt_setprop(fdt, node, "ranges", ranges, sizeof(ranges));
-        if (gs->protected_vm && gs->swiotlb_size) {
+        if (gs->swiotlb_size) {
             fdt_setprop_cell(fdt, node, "memory-region", 2);
         }
     }
@@ -381,7 +381,7 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
                     sizeof(clock_names));
         fdt_setprop_cell(fdt, node, "clock-frequency", 24000000);
         fdt_setprop(fdt, node, "dma-coherent", NULL, 0);
-        if (gs->protected_vm && gs->swiotlb_size) {
+        if (gs->swiotlb_size) {
             fdt_setprop_cell(fdt, node, "memory-region", 2);
         }
     }
@@ -400,8 +400,6 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         int node = fdt_add_subnode(fdt, 0, "__symbols__");
         fdt_setprop_string(fdt, node, "intc", "/intc");
     }
-    gh_report("Minimal DTB built with earlycon (totalsize=%u)",
-              fdt_totalsize(fdt));
 }
 
 int gunyah_arch_put_registers(CPUState *cs, int level)

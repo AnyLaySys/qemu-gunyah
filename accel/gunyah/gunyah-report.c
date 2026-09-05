@@ -2,32 +2,16 @@
 #include "system/gunyah_report.h"
 #undef gh_report
 static const char *gh_color_for(const char *msg) {
-  uint64_t ok, skipped, failed;
-  if (sscanf(msg,
-             "%*s collapse: %" SCNu64 " OK, %" SCNu64 " skipped, %" SCNu64
-             " failed",
-             &ok, &skipped, &failed) == 3) {
-    return failed == 0 && ok > 0 ? gh_green : gh_yellow;
-  }
-  if (strstr(msg, "FAILED") || strstr(msg, "failed") || strstr(msg, "ERROR") ||
-      strstr(msg, "Error") || strstr(msg, "CRASHED") ||
-      strstr(msg, "WDT BITE") || strstr(msg, "WILL SIGBUS") ||
-      strstr(msg, "invalid") || strstr(msg, "timeout") ||
-      strstr(msg, "Timed out") || strstr(msg, "Dependency") ||
-      strstr(msg, "dependency") || strstr(msg, "Assertion") ||
-      strstr(msg, "assert") || strstr(msg, "not supported") ||
-      strstr(msg, "unsupported") || strstr(msg, "ENOTTY") ||
-      strstr(msg, "started before") || strstr(msg, "cannot be started again") ||
-      strstr(msg, "frozen") || strstr(msg, "concurrency") ||
-      strstr(msg, "CONCUR") || strstr(msg, "WARNING") ||
-      strstr(msg, "Warning") || strstr(msg, "warn")) {
+  if (strstr(msg, "failed") || strstr(msg, "Error") ||
+      strstr(msg, "crashed") || strstr(msg, "WDT") ||
+      strstr(msg, "permanent") || strstr(msg, "stuck") ||
+      strstr(msg, "invalid") || strstr(msg, "EBUSY") ||
+      strstr(msg, "Warning")) {
     return gh_red;
   }
-  if (strstr(msg, " OK") || strstr(msg, "OK") || strstr(msg, "opened") ||
-      strstr(msg, "created") || strstr(msg, "loaded") ||
-      strstr(msg, "placed") || strstr(msg, "registered") ||
-      strstr(msg, "armed") || strstr(msg, "done") || strstr(msg, "started") ||
-      strstr(msg, "enabled") || strstr(msg, "kept mapped")) {
+  if (strstr(msg, " OK") || strstr(msg, "Opened") ||
+      strstr(msg, "created") || strstr(msg, "Installed") ||
+      strstr(msg, "Loaded")) {
     return gh_green;
   }
   return gh_yellow;

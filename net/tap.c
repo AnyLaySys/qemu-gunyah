@@ -10,6 +10,7 @@
 #include "qapi/error.h"
 #include "qemu/main-loop.h"
 #include "standard-headers/linux/virtio_net.h"
+#include "tap_int.h"
 
 #ifndef TUNSETIFF
 #define TUNSETIFF _IOW('T', 202, int)
@@ -45,13 +46,6 @@
 #define TUN_F_USO6 0x40
 #endif
 
-typedef struct TAPState {
-    NetClientState nc;
-    int fd;
-    uint8_t buf[NET_BUFSIZE];
-    bool r, w, vnet, ufo, uso, enabled;
-} TAPState;
-
 static void tap_send(void *opaque);
 static void tap_writable(void *opaque);
 
@@ -80,171 +74,13 @@ static void tap_writable(void *opaque)
     qemu_flush_queued_packets(&s->nc);
 }
 
-static uint16_t csum16(const void *data, int len)
-{
-    const uint8_t *p = data;
-    uint32_t sum = 0;
-    while (len > 1) {
-        sum += ((uint16_t)p[0] << 8) | p[1];
-        p += 2;
-        len -= 2;
-    }
-    if (len) {
-        sum += (uint16_t)p[0] << 8;
-    }
-    while (sum >> 16) {
-        sum = (sum & 0xffff) + (sum >> 16);
-    }
-    return ~sum;
-}
-
-static void st16(uint8_t *p, uint16_t v)
-{
-    p[0] = v >> 8;
-    p[1] = v;
-}
-
-static void st32(uint8_t *p, uint32_t v)
-{
-    p[0] = v >> 24;
-    p[1] = v >> 16;
-    p[2] = v >> 8;
-    p[3] = v;
-}
-
-static uint16_t ld16(const uint8_t *p)
-{
-    return ((uint16_t)p[0] << 8) | p[1];
-}
-
-static size_t tap_iov_to_buf(const struct iovec *iov, int iovcnt, uint8_t *buf,
-                             size_t max, size_t *total)
-{
-    size_t n = 0;
-    int i;
-    *total = 0;
-    for (i = 0; i < iovcnt; i++) {
-        size_t len = iov[i].iov_len;
-        *total += len;
-        if (n < max) {
-            size_t c = MIN(len, max - n);
-            memcpy(buf + n, iov[i].iov_base, c);
-            n += c;
-        }
-    }
-    return n;
-}
-
-static bool tap_dhcp(TAPState *s, const struct iovec *iov, int iovcnt,
-                     size_t *done)
-{
-    uint8_t pkt[2048], out[512];
-    static const uint8_t mac[6] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x57 };
-    static const uint8_t srv[4] = { 100, 99, 99, 1 };
-    static const uint8_t cli[4] = { 100, 99, 99, 99 };
-    static const uint8_t bcast[4] = { 100, 99, 99, 255 };
-    static const uint8_t mask[4] = { 255, 255, 255, 0 };
-    static const uint8_t dns[8] = { 223, 5, 5, 5, 119, 29, 29, 29 };
-    size_t n, off, base, opt, end, o, bp_len, len;
-    uint8_t msg = 0, resp;
-    uint16_t sport, dport;
-    n = tap_iov_to_buf(iov, iovcnt, pkt, sizeof(pkt), done);
-    off = s->vnet ? s->nc.vnet_hdr_len : 0;
-    if (n < off + 14 + 20 + 8 + 240) {
-        return false;
-    }
-    base = off;
-    if (pkt[base + 12] != 0x08 || pkt[base + 13] != 0x00 ||
-        (pkt[base + 14] & 0xf0) != 0x40 || pkt[base + 23] != 17) {
-        return false;
-    }
-    opt = base + 14 + ((pkt[base + 14] & 15) << 2);
-    if (opt + 8 + 240 > n) {
-        return false;
-    }
-    sport = ld16(pkt + opt);
-    dport = ld16(pkt + opt + 2);
-    if (sport != 68 || dport != 67) {
-        return false;
-    }
-    base = opt + 8;
-    if (pkt[base] != 1 || pkt[base + 1] != 1 || pkt[base + 2] != 6 ||
-        memcmp(pkt + base + 236, "\x63\x82\x53\x63", 4)) {
-        return false;
-    }
-    opt = base + 240;
-    end = n;
-    while (opt < end && pkt[opt] != 255) {
-        uint8_t t = pkt[opt++];
-        uint8_t l;
-        if (!t) {
-            continue;
-        }
-        if (opt >= end) {
-            return false;
-        }
-        l = pkt[opt++];
-        if (opt + l > end) {
-            return false;
-        }
-        if (t == 53 && l == 1) {
-            msg = pkt[opt];
-        }
-        opt += l;
-    }
-    if (msg != 1 && msg != 3) {
-        return false;
-    }
-    resp = msg == 1 ? 2 : 5;
-    off = s->vnet ? s->nc.vnet_hdr_len : 0;
-    memset(out, 0, sizeof(out));
-    memset(out + off, 0xff, 6);
-    memcpy(out + off + 6, mac, 6);
-    st16(out + off + 12, 0x0800);
-    o = off + 14;
-    out[o] = 0x45;
-    out[o + 8] = 64;
-    out[o + 9] = 17;
-    memcpy(out + o + 12, srv, 4);
-    memset(out + o + 16, 0xff, 4);
-    o += 20;
-    st16(out + o, 67);
-    st16(out + o + 2, 68);
-    o += 8;
-    out[o] = 2;
-    out[o + 1] = 1;
-    out[o + 2] = 6;
-    memcpy(out + o + 4, pkt + base + 4, 4);
-    memcpy(out + o + 10, pkt + base + 10, 2);
-    memcpy(out + o + 16, cli, 4);
-    memcpy(out + o + 20, srv, 4);
-    memcpy(out + o + 28, pkt + base + 28, 16);
-    memcpy(out + o + 236, "\x63\x82\x53\x63", 4);
-    o += 240;
-    out[o++] = 53; out[o++] = 1; out[o++] = resp;
-    out[o++] = 54; out[o++] = 4; memcpy(out + o, srv, 4); o += 4;
-    out[o++] = 51; out[o++] = 4; st32(out + o, 86400); o += 4;
-    out[o++] = 1; out[o++] = 4; memcpy(out + o, mask, 4); o += 4;
-    out[o++] = 3; out[o++] = 4; memcpy(out + o, srv, 4); o += 4;
-    out[o++] = 6; out[o++] = 8; memcpy(out + o, dns, 8); o += 8;
-    out[o++] = 28; out[o++] = 4; memcpy(out + o, bcast, 4); o += 4;
-    out[o++] = 255;
-    bp_len = o - (off + 14 + 20 + 8);
-    len = 20 + 8 + bp_len;
-    st16(out + off + 14 + 2, len);
-    st16(out + off + 14 + 10, csum16(out + off + 14, 20));
-    st16(out + off + 14 + 20 + 4, 8 + bp_len);
-    qemu_send_packet_async(&s->nc, out, o, NULL);
-    return true;
-}
-
 static ssize_t tap_receive_iov(NetClientState *nc, const struct iovec *iov,
                                int iovcnt)
 {
     TAPState *s = DO_UPCAST(TAPState, nc, nc);
     size_t done;
     ssize_t n;
-    if (tap_dhcp(s, iov, iovcnt, &done)) {
+    if (tap_svc_input(s, iov, iovcnt, &done)) {
         return done;
     }
     n = RETRY_ON_EINTR(writev(s->fd, iov, iovcnt));
@@ -368,6 +204,7 @@ static void tap_set_offload(NetClientState *nc, int csum, int tso4, int tso6,
 static void tap_cleanup(NetClientState *nc)
 {
     TAPState *s = DO_UPCAST(TAPState, nc, nc);
+    tap_svc_cleanup(s);
     qemu_purge_queued_packets(nc);
     qemu_set_fd_handler(s->fd, NULL, NULL, NULL);
     close(s->fd);
@@ -463,6 +300,7 @@ int net_init_tap(const Netdev *netdev, const char *name,
     s->ufo = ufo;
     s->uso = uso;
     s->enabled = true;
+    tap_svc_init(s, ifname);
     qemu_set_info_str(&s->nc, "ifname=%s", ifname);
     tap_read_poll(s, true);
     return 0;

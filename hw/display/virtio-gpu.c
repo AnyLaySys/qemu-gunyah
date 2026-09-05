@@ -17,8 +17,6 @@
 #include "qemu/units.h"
 #include "system/cpus.h"
 #include "system/dma.h"
-#include "system/gunyah.h"
-#include "system/gunyah_int.h"
 #include "system/system.h"
 #include "trace.h"
 #include "ui/console.h"
@@ -838,21 +836,9 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
         do {
             len = l;
 
-            if (gunyah_enabled() && gunyah_addr_is_lend(a)) {
-                static bool warned;
-                if (!warned) {
-                    gh_report("virtio-gpu: backing page GPA 0x%"
-                              PRIx64 " is in LEND'd memory - using "
-                              "local bounce buffer (display may be "
-                              "blank)", a);
-                    warned = true;
-                }
-                map = g_malloc0(len);
-            } else {
-                map = dma_memory_map(VIRTIO_DEVICE(g)->dma_as, a, &len,
-                                     DMA_DIRECTION_TO_DEVICE,
-                                     MEMTXATTRS_UNSPECIFIED);
-            }
+            map = dma_memory_map(VIRTIO_DEVICE(g)->dma_as, a, &len,
+                                 DMA_DIRECTION_TO_DEVICE,
+                                 MEMTXATTRS_UNSPECIFIED);
             if (!map) {
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: failed to map MMIO memory for"
                               " element %d\n", __func__, e);

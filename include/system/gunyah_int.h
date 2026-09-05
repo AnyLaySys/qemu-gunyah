@@ -28,7 +28,6 @@ struct GUNYAHState {
     uint32_t vm_started;
     uint64_t dtb_start;
     uint64_t dtb_size;
-    bool protected_vm;
     uint64_t kernel_entry;
     uint32_t msi_vectors;
 };

@@ -77,8 +77,8 @@ void qemu_pixman_linebuf_fill(pixman_image_t *linebuf, pixman_image_t *fb,
 pixman_image_t *qemu_pixman_mirror_create(pixman_format_code_t format,
                                           pixman_image_t *image);
 
-pixman_image_t *qemu_pixman_glyph_from_vgafont(int height, const uint8_t *font,
-                                               unsigned int ch);
+pixman_image_t *qemu_pixman_glyph_from_font(int height,
+                                            const uint8_t *font);
 void qemu_pixman_glyph_render(pixman_image_t *glyph,
                               pixman_image_t *surface,
                               pixman_color_t *fgcol,

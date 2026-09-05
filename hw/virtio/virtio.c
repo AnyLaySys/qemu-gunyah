@@ -31,7 +31,6 @@
 #include "standard-headers/linux/virtio_balloon.h"
 #include "standard-headers/linux/virtio_iommu.h"
 #include "standard-headers/linux/virtio_mem.h"
-#include "standard-headers/linux/virtio_vsock.h"
 
 #define VHOST_USER_MAX_CONFIG_SIZE 256
 
@@ -132,7 +131,6 @@ const char *virtio_device_names[] = {
     [VIRTIO_ID_NET] = "virtio-net",
     [VIRTIO_ID_BLOCK] = "virtio-blk",
     [VIRTIO_ID_CONSOLE] = "virtio-serial",
-    [VIRTIO_ID_RNG] = "virtio-rng",
     [VIRTIO_ID_BALLOON] = "virtio-balloon",
     [VIRTIO_ID_IOMEM] = "virtio-iomem",
     [VIRTIO_ID_RPMSG] = "virtio-rpmsg",
@@ -145,7 +143,6 @@ const char *virtio_device_names[] = {
     [VIRTIO_ID_GPU] = "virtio-gpu",
     [VIRTIO_ID_CLOCK] = "virtio-clk",
     [VIRTIO_ID_INPUT] = "virtio-input",
-    [VIRTIO_ID_VSOCK] = "vhost-vsock",
     [VIRTIO_ID_CRYPTO] = "virtio-crypto",
     [VIRTIO_ID_SIGNAL_DIST] = "virtio-signal",
     [VIRTIO_ID_PSTORE] = "virtio-pstore",
@@ -3198,7 +3195,6 @@ bool virtio_legacy_allowed(VirtIODevice *vdev)
     case VIRTIO_ID_NET:
     case VIRTIO_ID_BLOCK:
     case VIRTIO_ID_CONSOLE:
-    case VIRTIO_ID_RNG:
     case VIRTIO_ID_BALLOON:
     case VIRTIO_ID_RPMSG:
     case VIRTIO_ID_SCSI:

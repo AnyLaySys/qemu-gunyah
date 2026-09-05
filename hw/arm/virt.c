@@ -740,7 +740,7 @@ static bool virt_firmware_init(VirtMachineState *vms,
   image_size = load_image_targphys(fname, fw_base,
    vms->memmap[VIRT_MEM].size);
   if (image_size > 0) {
-   gh_report("loaded firmware '%s' (%d bytes) at GPA 0x%" PRIx64,
+   gh_report("Loaded firmware '%s' (%d bytes) at GPA 0x%" PRIx64,
     bios_name, image_size, (uint64_t)fw_base);
   }
 
@@ -1034,7 +1034,7 @@ void virt_machine_done(Notifier *notifier, void *data)
  uint64_t gunyah_dtb_size = 0x200000;
  uint64_t main_mem_size = ms->ram_size;
 
- if (gs->protected_vm && gs->swiotlb_size) {
+ if (gs->swiotlb_size) {
   main_mem_size -= gs->swiotlb_size;
  }
  gunyah_set_msi_vectors(vms);
@@ -1046,11 +1046,6 @@ void virt_machine_done(Notifier *notifier, void *data)
    gunyah_dtb_size);
  }
  info->dtb_limit = 0;
- gh_report("DTB placed at dtb_start=0x%" PRIx64
-  " dtb_size=0x%" PRIx64 " main_mem=0x%" PRIx64
-  " swiotlb=0x%" PRIx64 " firmware=%d",
-  (uint64_t)info->dtb_start, gunyah_dtb_size, main_mem_size,
-  gs->swiotlb_size, info->firmware_loaded);
 
  if (arm_load_dtb(info->dtb_start, info, info->dtb_limit, as, ms, cpu) < 0) {
  exit(1);
@@ -1360,7 +1355,6 @@ static int confidential_guest_init(MachineState *ms)
  }
 
  s = get_gunyah_state();
- s->protected_vm = true;
  if (obj->swiotlb_size) {
   gunyah_set_swiotlb_size(obj->swiotlb_size);
  }

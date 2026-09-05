@@ -4,7 +4,6 @@
 #define VIRTIO_ID_NET			1 /* virtio net */
 #define VIRTIO_ID_BLOCK			2 /* virtio block */
 #define VIRTIO_ID_CONSOLE		3 /* virtio console */
-#define VIRTIO_ID_RNG			4 /* virtio rng */
 #define VIRTIO_ID_BALLOON		5 /* virtio balloon */
 #define VIRTIO_ID_IOMEM			6 /* virtio ioMemory */
 #define VIRTIO_ID_RPMSG			7 /* virtio remote processor messaging */
@@ -17,7 +16,6 @@
 #define VIRTIO_ID_GPU			16 /* virtio GPU */
 #define VIRTIO_ID_CLOCK			17 /* virtio clock/timer */
 #define VIRTIO_ID_INPUT			18 /* virtio input */
-#define VIRTIO_ID_VSOCK			19 /* virtio vsock transport */
 #define VIRTIO_ID_CRYPTO		20 /* virtio crypto */
 #define VIRTIO_ID_SIGNAL_DIST		21 /* virtio signal distribution device */
 #define VIRTIO_ID_PSTORE		22 /* virtio pstore device */

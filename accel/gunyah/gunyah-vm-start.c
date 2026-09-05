@@ -1,34 +1,27 @@
 bool gunyah_vm_stopped;
 static bool gunyah_restart_requested;
+static bool gunyah_shutdown_requested;
 static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
   enum gh_vm_status exit_status = run->status.status;
   enum gh_vm_exit_type exit_type = run->status.exit_info.type;
   qatomic_set(&gunyah_vm_stopped, true);
   switch (exit_status) {
   case GH_VM_STATUS_CRASHED:
-    gh_report("cpu %d: VM CRASHED", cpu->cpu_index);
-    cpu_exec_end(cpu);
-    bql_lock();
-    qemu_system_guest_panicked(NULL);
-    bql_unlock();
-    cpu_exec_start(cpu);
+    gh_report("CPU %d: VM crashed", cpu->cpu_index);
+    qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_PANIC);
     break;
   case GH_VM_STATUS_EXITED:
   default:
     qatomic_set(&cpu->halted, 1);
     switch (exit_type) {
     case GH_RM_EXIT_TYPE_WDT_BITE:
-      gh_report("cpu %d: WDT BITE", cpu->cpu_index);
-      cpu_exec_end(cpu);
-      bql_lock();
-      qemu_system_guest_panicked(NULL);
-      bql_unlock();
-      cpu_exec_start(cpu);
+      gh_report("CPU %d: WDT bite", cpu->cpu_index);
+      qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_PANIC);
       break;
     case GH_RM_EXIT_TYPE_PSCI_SYSTEM_RESET:
     case GH_RM_EXIT_TYPE_PSCI_SYSTEM_RESET2:
       if (!qatomic_xchg(&gunyah_restart_requested, true)) {
-        gh_report("cpu %d: PSCI SYSTEM_RESET", cpu->cpu_index);
+        gh_report("CPU %d: PSCI SYSTEM_RESET", cpu->cpu_index);
         qemu_system_shutdown_request_with_code(
             SHUTDOWN_CAUSE_GUEST_RESET, GUNYAH_VM_RESTART_STATUS);
       }
@@ -36,9 +29,10 @@ static void gunyah_handle_vm_status(CPUState *cpu, struct gh_vcpu_run *run) {
     case GH_RM_EXIT_TYPE_VM_EXIT:
     case GH_RM_EXIT_TYPE_PSCI_POWER_OFF:
     default:
-      gh_report("cpu %d: PSCI POWER_OFF / VM_EXIT (exit_type=%d)",
-                cpu->cpu_index, exit_type);
-      qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
+      if (!qatomic_xchg(&gunyah_shutdown_requested, true)) {
+        gh_report("CPU %d: PSCI POWER_OFF", cpu->cpu_index);
+        qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
+      }
       break;
     }
   }
@@ -48,12 +42,8 @@ void gunyah_start_vm(void) {
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   CPUState *cpu;
   gunyah_cache_lend_range();
-  if (!s->protected_vm) {
-    gh_report("protected VM disabled");
-  } else {
-    gh_report("protected VM: LEND + SHARE (swiotlb=0x%" PRIx64 ")",
-              s->swiotlb_size);
-  }
+  gh_report("Protected VM: Lend + Share (SWIOTLB=0x%" PRIx64 ")",
+            s->swiotlb_size);
   CPU_FOREACH(cpu) {
     struct gh_fn_desc fdesc;
     struct gh_fn_vcpu_arg vcpu_arg;
@@ -101,7 +91,6 @@ void gunyah_start_vm(void) {
     };
     int nbell = sizeof(bells) / sizeof(bells[0]);
     EventNotifier pl011_notifier;
-    int pl011_notifier_valid = 0;
     for (i = 0; i < nbell; ++i) {
       struct gh_fn_desc fdesc;
       struct gh_fn_irqfd_arg ghirqfd = {0};
@@ -114,7 +103,6 @@ void gunyah_start_vm(void) {
       }
       if (bells[i].label == 0x1) {
         event_notifier_init_fd(&pl011_notifier, efd);
-        pl011_notifier_valid = 1;
       }
       ghirqfd.fd = efd;
       ghirqfd.label = bells[i].label;
@@ -125,17 +113,15 @@ void gunyah_start_vm(void) {
       fdesc.arg = (__u64)(&ghirqfd);
       ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
       if (ret != 0) {
-        gh_report("IRQFD bell-%x FAILED: %s (errno=%d)", bells[i].label,
+        gh_report("IRQFD bell-%x failed: %s (errno=%d)", bells[i].label,
                   strerror(errno), errno);
+        exit(1);
       }
     }
-    if (pl011_notifier_valid) {
-      gunyah_gic_register_irq_notifiers(&pl011_notifier, 1, 1);
-    }
+    gunyah_gic_register_irq_notifiers(&pl011_notifier, 1, 1);
   }
   if (s->msi_vectors) {
     EventNotifier *virtio_notifiers = g_new(EventNotifier, s->msi_vectors);
-    int virtio_ok = 0;
     for (i = 0; i < s->msi_vectors; i++) {
       struct gh_fn_desc fdesc;
       struct gh_fn_irqfd_arg ghirqfd = {0};
@@ -145,7 +131,7 @@ void gunyah_start_vm(void) {
       if (efd < 0) {
         gh_report("eventfd failed for virtio bell-%x: %s", label,
                   strerror(errno));
-        continue;
+        exit(1);
       }
       event_notifier_init_fd(&virtio_notifiers[i], efd);
       ghirqfd.fd = efd;
@@ -157,13 +143,12 @@ void gunyah_start_vm(void) {
       fdesc.arg = (__u64)(&ghirqfd);
       ret = gunyah_vm_ioctl(GH_VM_ADD_FUNCTION, &fdesc);
       if (ret != 0) {
-        gh_report("IRQFD virtio bell-%x FAILED: %s (errno=%d)", label,
+        gh_report("IRQFD virtio bell-%x failed: %s (errno=%d)", label,
                   strerror(errno), errno);
-      } else {
-        virtio_ok++;
+        exit(1);
       }
     }
-    gh_report("%d/%d virtio IRQFDs created OK", virtio_ok,
+    gh_report("%d/%d virtio IRQFDs created OK", s->msi_vectors,
               s->msi_vectors);
     gunyah_gic_register_irq_notifiers(virtio_notifiers,
                                       s->msi_vectors,
@@ -180,7 +165,6 @@ void gunyah_start_vm(void) {
                    strerror(errno), errno);
       exit(1);
     }
-    gh_report("SET_DTB_CONFIG OK");
   }
   {
     uint64_t kernel_entry = 0;
@@ -216,17 +200,17 @@ void gunyah_start_vm(void) {
         break;
       }
     }
-    if (stub_hva) {
+    if (!stub_hva) {
+      error_report("Could not find HVA for boot stub GPA=0x%" PRIx64,
+                   stub_gpa);
+      exit(1);
+    }
+    {
       uint32_t stub[] = {
           (uint32_t)(0xD2800001 | ((kernel_entry & 0xFFFF) << 5)),
           (uint32_t)(0xF2A00001 | (((kernel_entry >> 16) & 0xFFFF) << 5)),
           0xAA1F03E2, 0xAA1F03E3, 0xD61F0020};
       memcpy(stub_hva, stub, sizeof(stub));
-    } else {
-      gh_report("WARNING: could not find HVA for stub "
-                "GPA=0x%" PRIx64 ", skipping boot stub",
-                stub_gpa);
-      stub_gpa = kernel_entry;
     }
     {
       struct gh_vm_boot_context boot_ctx = {0};
@@ -235,18 +219,15 @@ void gunyah_start_vm(void) {
       boot_ctx.value = stub_gpa;
       ret = gunyah_vm_ioctl(GH_VM_SET_BOOT_CONTEXT, &boot_ctx);
       if (ret != 0) {
-        if (errno == ENOTTY) {
-          gh_report("SET_BOOT_CONTEXT not supported (ENOTTY)");
-        } else {
-          gh_report("SET_BOOT_CONTEXT PC failed: %s (errno=%d)",
-                    strerror(errno), errno);
-        }
+        error_report("GH_VM_SET_BOOT_CONTEXT failed: %s (errno=%d)",
+                     strerror(errno), errno);
+        exit(1);
       }
     }
   }
   ret = gunyah_vm_ioctl(GH_VM_START);
   if (ret != 0) {
-    gh_report("Failed to start VM:%s (errno=%d)", strerror(errno), errno);
+    gh_report("Failed to start VM: %s (errno=%d)", strerror(errno), errno);
     exit(1);
   }
   gh_report("VM_START OK");

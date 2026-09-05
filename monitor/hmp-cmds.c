@@ -42,19 +42,6 @@ void hmp_quit(Monitor *mon, const QDict *qdict)
     qmp_quit(NULL);
 }
 
-void hmp_stop(Monitor *mon, const QDict *qdict)
-{
-    qmp_stop(NULL);
-}
-
-void hmp_cont(Monitor *mon, const QDict *qdict)
-{
-    Error *err = NULL;
-
-    qmp_cont(&err);
-    hmp_handle_error(mon, err);
-}
-
 void hmp_system_reset(Monitor *mon, const QDict *qdict)
 {
     qmp_system_reset(NULL);

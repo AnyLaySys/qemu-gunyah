@@ -21,9 +21,9 @@ static int gunyah_handle_page_fault(CPUState *cpu, struct gh_vcpu_run *run) {
       return 0;
     } else {
       if (acpu->same_fault_count == max_retries + 1) {
-        gh_report("CPU#%d PAGE_FAULT at 0x%" PRIx64
-                  " PERMANENT (attempt=%d) after %d retries"
-                  " — injecting abort into guest",
+        gh_report("CPU %d: Page fault at 0x%" PRIx64
+                  " permanent (attempt=%d) after %d retries"
+                  " - injecting abort into guest",
                   cpu->cpu_index, fault_addr, attempt, acpu->same_fault_count);
       }
       run->page_fault.resume_action = GH_VCPU_RESUME_FAULT;

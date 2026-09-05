@@ -12,6 +12,7 @@
 #include <sys/syscall.h>
 #include "audio/audio.h"
 #include "block/aio.h"
+#include "net/tap_int.h"
 #include "qemu/main-loop.h"
 #include "system/gunyah.h"
 #include "system/runstate.h"
@@ -493,6 +494,11 @@ static void jni_stop(JNIEnv *env, jobject self)
     pthread_mutex_unlock(&jni_lock);
 }
 
+static void jni_set_network_handle(JNIEnv *env, jobject self, jlong handle)
+{
+    tap_svc_set_network(handle > 0 ? (uint64_t)handle : 0);
+}
+
 static const JNINativeMethod vm_methods[] = {
     { "grantRoot", "()I", (void *)jni_grant_root },
     { "run", "(Ljava/lang/String;[Ljava/lang/String;I)I",
@@ -501,6 +507,7 @@ static const JNINativeMethod vm_methods[] = {
     { "scroll", "(FF)V", (void *)jni_scroll },
     { "key", "(IZ)V", (void *)jni_key },
     { "stop", "()V", (void *)jni_stop },
+    { "setNetworkHandle", "(J)V", (void *)jni_set_network_handle },
 };
 
 static const JNINativeMethod agl_methods[] = {

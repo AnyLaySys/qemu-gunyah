@@ -211,23 +211,19 @@ void qemu_pixman_image_unref(pixman_image_t *image)
 }
 
 #ifdef CONFIG_PIXMAN
-pixman_image_t *qemu_pixman_glyph_from_vgafont(int height, const uint8_t *font,
-                                               unsigned int ch)
+pixman_image_t *qemu_pixman_glyph_from_font(int height, const uint8_t *font)
 {
     pixman_image_t *glyph;
     uint8_t *data;
-    bool bit;
     int x, y;
 
     glyph = pixman_image_create_bits(PIXMAN_a8, 8, height,
                                      NULL, 0);
     data = (uint8_t *)pixman_image_get_data(glyph);
 
-    font += height * ch;
-    for (y = 0; y < height; y++, font++) {
-        for (x = 0; x < 8; x++, data++) {
-            bit = (*font) & (1 << (7-x));
-            *data = bit ? 0xff : 0x00;
+    for (y = 0; y < height; y++) {
+        for (x = 0; x < 8; x++) {
+            *data++ = font[y] & (1u << (7 - x)) ? 0xff : 0;
         }
     }
     return glyph;

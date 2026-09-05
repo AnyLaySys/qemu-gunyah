@@ -1,9 +1,6 @@
 #include "qemu/osdep.h"
 #include "hw/boards.h"
 #include "hw/core/cpu.h"
-#include "qapi/error.h"
-#include "qapi/visitor.h"
-#include "qemu/error-report.h"
 #include "qemu/thread.h"
 #include "system/accel-ops.h"
 #include "system/cpus.h"
@@ -14,30 +11,19 @@ bool gunyah_allowed;
 static int gunyah_init(MachineState *ms) {
   GUNYAHState *s = GUNYAH_STATE(current_accel());
   int ret;
+  if (!s->swiotlb_size) {
+    gunyah_set_swiotlb_size(GUNYAH_DEFAULT_SWIOTLB_SIZE);
+  }
   ret = gunyah_create_vm();
   if (ret) {
     return ret;
   }
-  if (s->protected_vm && !s->swiotlb_size) {
-    gunyah_set_swiotlb_size(GUNYAH_DEFAULT_SWIOTLB_SIZE);
-  }
   return 0;
-}
-static bool gunyah_get_protected(Object *obj, Error **errp) {
-  GUNYAHState *s = GUNYAH_STATE(obj);
-  return s->protected_vm;
-}
-static void gunyah_set_protected(Object *obj, bool value, Error **errp) {
-  GUNYAHState *s = GUNYAH_STATE(obj);
-  s->protected_vm = value;
 }
 static void gunyah_accel_instance_init(Object *obj) {
   GUNYAHState *s = GUNYAH_STATE(obj);
   s->fd = -1;
   s->vmfd = -1;
-  s->protected_vm = false;
-  object_property_add_bool(obj, "protected", gunyah_get_protected,
-                           gunyah_set_protected);
 }
 static void gunyah_setup_post(MachineState *ms, AccelState *accel) {
   gunyah_start_vm();
