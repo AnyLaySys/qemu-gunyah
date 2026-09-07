@@ -1040,7 +1040,7 @@ void qdev_alias_all_properties(DeviceState *target, Object *source)
     object_class_property_iter_init(&iter, class);
     while ((prop = object_property_iter_next(&iter))) {
         if (object_property_find(source, prop->name)) {
-            continue; /* skip duplicate properties */
+            continue;
         }
 
         object_property_add_alias(source, prop->name,

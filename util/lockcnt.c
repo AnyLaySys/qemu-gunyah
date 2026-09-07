@@ -9,9 +9,9 @@
 
 
 #define QEMU_LOCKCNT_STATE_MASK    3
-#define QEMU_LOCKCNT_STATE_FREE    0   /* free, uncontended */
-#define QEMU_LOCKCNT_STATE_LOCKED  1   /* locked, uncontended */
-#define QEMU_LOCKCNT_STATE_WAITING 2   /* locked, contended */
+#define QEMU_LOCKCNT_STATE_FREE    0
+#define QEMU_LOCKCNT_STATE_LOCKED  1
+#define QEMU_LOCKCNT_STATE_WAITING 2
 
 #define QEMU_LOCKCNT_COUNT_STEP    4
 #define QEMU_LOCKCNT_COUNT_SHIFT   2

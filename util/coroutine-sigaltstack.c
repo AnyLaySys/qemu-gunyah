@@ -106,7 +106,7 @@ Coroutine *qemu_coroutine_new(void)
     co = g_malloc0(sizeof(*co));
     co->stack_size = COROUTINE_STACK_SIZE;
     co->stack = qemu_alloc_stack(&co->stack_size);
-    co->base.entry_arg = &old_env; /* stash away our jmp_buf */
+    co->base.entry_arg = &old_env;
 
     coTS = coroutine_get_thread_state();
     coTS->tr_handler = co;

@@ -391,7 +391,7 @@ static BusState *qbus_find_recursive(BusState *bus, const char *name,
     }
 
     if (match && !qbus_is_full(bus)) {
-        return bus;             /* root matches and isn't full */
+        return bus;
     }
 
     pick = match ? bus : NULL;
@@ -401,7 +401,7 @@ static BusState *qbus_find_recursive(BusState *bus, const char *name,
         QLIST_FOREACH(child, &dev->child_bus, sibling) {
             ret = qbus_find_recursive(child, name, bus_typename);
             if (ret && !qbus_is_full(ret)) {
-                return ret;     /* a descendant matches and isn't full */
+                return ret;
             }
             if (ret && !pick) {
                 pick = ret;
@@ -970,7 +970,7 @@ QemuOptsList qemu_device_opts = {
     .implied_opt_name = "driver",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_device_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -988,7 +988,7 @@ QemuOptsList qemu_global_opts = {
             .name = "value",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 

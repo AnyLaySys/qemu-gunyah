@@ -92,7 +92,7 @@ static int fdmon_poll_wait(AioContext *ctx, AioHandlerList *ready_list,
     }
 
     if (fdmon_epoll_try_upgrade(ctx, s->npfd)) {
-        s->npfd = 0; /* we won't need pollfds[], reset npfd */
+        s->npfd = 0;
         return ctx->fdmon_ops->wait(ctx, ready_list, timeout);
     }
 

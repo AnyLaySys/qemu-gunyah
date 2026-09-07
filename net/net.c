@@ -1103,7 +1103,7 @@ static int net_client_init1(const Netdev *netdev, bool is_netdev, Error **errp)
         }
     } else {
         if (netdev->type == NET_CLIENT_DRIVER_NONE) {
-            return 0; /* nothing to do */
+            return 0;
         }
         if (!net_client_init_fun[netdev->type]) {
             error_setg(errp, "network backend '%s' is not compiled into this binary",
@@ -1159,7 +1159,7 @@ static int net_client_init(QemuOpts *opts, bool is_netdev, Error **errp)
 
     if (ip6_net) {
         char *prefix_addr;
-        unsigned long prefix_len = 64; /* Default 64bit prefix length. */
+        unsigned long prefix_len = 64;
 
         substrings = g_strsplit(ip6_net, "/", 2);
         if (!substrings || !substrings[0]) {
@@ -1311,7 +1311,7 @@ static int net_param_nic(void *dummy, QemuOpts *opts, Error **errp)
     type = qemu_opt_get(opts, "type");
     if (type) {
         if (g_str_equal(type, "none")) {
-            return 0;    /* Nothing to do, default_net is cleared in vl.c */
+            return 0;
         }
         if (is_help_option(type)) {
             GPtrArray *nic_models = qemu_get_nic_models(TYPE_DEVICE);
@@ -1510,7 +1510,7 @@ QemuOptsList qemu_netdev_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_netdev_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -1519,7 +1519,7 @@ QemuOptsList qemu_nic_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_nic_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -1528,7 +1528,7 @@ QemuOptsList qemu_net_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_net_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };
 

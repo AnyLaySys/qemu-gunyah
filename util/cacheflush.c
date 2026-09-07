@@ -93,7 +93,7 @@ static void sys_cache_info(int *isize, int *dsize)
     }
 # endif
 }
-#endif /* sys_cache_info */
+#endif
 
 
 
@@ -136,7 +136,7 @@ static void arch_cache_info(int *isize, int *dsize)
 
 #else
 static void arch_cache_info(int *isize, int *dsize) { }
-#endif /* arch_cache_info */
+#endif
 
 
 static void fallback_cache_info(int *isize, int *dsize)
@@ -222,7 +222,7 @@ void flush_idcache_range(uintptr_t rx, uintptr_t rw, size_t len)
 
     asm volatile("isb" : : : "memory");
 }
-#endif /* CONFIG_DARWIN */
+#endif
 
 #elif defined(__mips__)
 

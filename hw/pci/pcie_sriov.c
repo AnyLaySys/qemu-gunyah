@@ -128,7 +128,7 @@ void pcie_sriov_vf_register_bar(PCIDevice *dev, int region_num,
     uint8_t type;
     pcibus_t size = memory_region_size(memory);
 
-    assert(pci_is_vf(dev)); /* PFs must use pci_register_bar */
+    assert(pci_is_vf(dev));
     assert(region_num >= 0);
     assert(region_num < PCI_NUM_REGIONS);
     type = dev->exp.sriov_vf.pf->exp.sriov_pf.vf_bar_type[region_num];

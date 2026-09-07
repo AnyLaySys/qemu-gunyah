@@ -271,7 +271,7 @@ static struct virtio_input_config virtio_keyboard_config[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0001),
             .version = const_le16(0x0001),
         },
@@ -287,7 +287,7 @@ static struct virtio_input_config virtio_keyboard_config[] = {
             (1 << LED_NUML) | (1 << LED_CAPSL) | (1 << LED_SCROLLL),
         },
     },
-    { /* end of list */ },
+    {  },
 };
 
 static void virtio_keyboard_init(Object *obj)
@@ -327,7 +327,7 @@ static struct virtio_input_config virtio_mouse_config_v1[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0002),
             .version = const_le16(0x0001),
         },
@@ -339,7 +339,7 @@ static struct virtio_input_config virtio_mouse_config_v1[] = {
             (1 << REL_X) | (1 << REL_Y),
         },
     },
-    { /* end of list */ },
+    {  },
 };
 
 static struct virtio_input_config virtio_mouse_config_v2[] = {
@@ -352,7 +352,7 @@ static struct virtio_input_config virtio_mouse_config_v2[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0002),
             .version = const_le16(0x0002),
         },
@@ -365,7 +365,7 @@ static struct virtio_input_config virtio_mouse_config_v2[] = {
             (1 << (REL_WHEEL - 8))
         },
     },
-    { /* end of list */ },
+    {  },
 };
 
 static const Property virtio_mouse_properties[] = {
@@ -419,7 +419,7 @@ static struct virtio_input_config virtio_tablet_config_v1[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0003),
             .version = const_le16(0x0001),
         },
@@ -443,7 +443,7 @@ static struct virtio_input_config virtio_tablet_config_v1[] = {
         .u.abs.min = const_le32(INPUT_EVENT_ABS_MIN),
         .u.abs.max = const_le32(INPUT_EVENT_ABS_MAX),
     },
-    { /* end of list */ },
+    {  },
 };
 
 static struct virtio_input_config virtio_tablet_config_v2[] = {
@@ -456,7 +456,7 @@ static struct virtio_input_config virtio_tablet_config_v2[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0003),
             .version = const_le16(0x0002),
         },
@@ -488,7 +488,7 @@ static struct virtio_input_config virtio_tablet_config_v2[] = {
         .u.abs.min = const_le32(INPUT_EVENT_ABS_MIN),
         .u.abs.max = const_le32(INPUT_EVENT_ABS_MAX),
     },
-    { /* end of list */ },
+    {  },
 };
 
 static const Property virtio_tablet_properties[] = {
@@ -542,7 +542,7 @@ static struct virtio_input_config virtio_multitouch_config[] = {
         .size      = sizeof(struct virtio_input_devids),
         .u.ids     = {
             .bustype = const_le16(BUS_VIRTUAL),
-            .vendor  = const_le16(0x0627), /* same we use for usb hid devices */
+            .vendor  = const_le16(0x0627),
             .product = const_le16(0x0003),
             .version = const_le16(0x0001),
         },
@@ -571,7 +571,7 @@ static struct virtio_input_config virtio_multitouch_config[] = {
         .u.abs.min = const_le32(INPUT_EVENT_ABS_MIN),
         .u.abs.max = const_le32(INPUT_EVENT_ABS_MAX),
     },
-    { /* end of list */ },
+    {  },
 };
 
 static void virtio_multitouch_init(Object *obj)

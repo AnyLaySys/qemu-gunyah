@@ -268,9 +268,9 @@ void qemu_set_tty_echo(int fd, bool echo)
 
 #ifdef CONFIG_LINUX
 static void sigbus_handler(int signal, siginfo_t *siginfo, void *ctx)
-#else /* CONFIG_LINUX */
+#else
 static void sigbus_handler(int signal)
-#endif /* CONFIG_LINUX */
+#endif
 {
     int i;
 
@@ -289,7 +289,7 @@ static void sigbus_handler(int signal)
         sigbus_oldact.sa_sigaction(signal, siginfo, ctx);
         return;
     }
-#endif /* CONFIG_LINUX */
+#endif
     warn_report("qemu_prealloc_mem: unrelated SIGBUS detected and ignored");
 }
 
@@ -522,10 +522,10 @@ bool qemu_prealloc_mem(int fd, char *area, size_t sz, int max_threads,
 #ifdef CONFIG_LINUX
         act.sa_sigaction = &sigbus_handler;
         act.sa_flags = SA_SIGINFO;
-#else /* CONFIG_LINUX */
+#else
         act.sa_handler = &sigbus_handler;
         act.sa_flags = 0;
-#endif /* CONFIG_LINUX */
+#endif
 
         ret = sigaction(SIGBUS, &act, &sigbus_oldact);
         if (ret) {

@@ -15,7 +15,7 @@
 
 #define COROUTINE_POOL_RESERVATION 64
 
-#define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
+#define NOT_DONE 0x7fffffff
 
 typedef struct BlockBackendAioNotifier {
     void (*attached_aio_context)(AioContext *new_context, void *opaque);
@@ -28,12 +28,12 @@ struct BlockBackend {
     char *name;
     int refcnt;
     BdrvChild *root;
-    AioContext *ctx; /* access with atomic operations only */
-    DriveInfo *legacy_dinfo;    /* null unless created by drive_new() */
-    QTAILQ_ENTRY(BlockBackend) link;         /* for block_backends */
-    QTAILQ_ENTRY(BlockBackend) monitor_link; /* for monitor_block_backends */
+    AioContext *ctx;
+    DriveInfo *legacy_dinfo;
+    QTAILQ_ENTRY(BlockBackend) link;
+    QTAILQ_ENTRY(BlockBackend) monitor_link;
 
-    DeviceState *dev;           /* attached device model, if any */
+    DeviceState *dev;
     const BlockDevOps *dev_ops;
     void *dev_opaque;
 
@@ -57,10 +57,10 @@ struct BlockBackend {
     NotifierList remove_bs_notifiers, insert_bs_notifiers;
     QLIST_HEAD(, BlockBackendAioNotifier) aio_notifiers;
 
-    int quiesce_counter; /* atomic: written under BQL, read by other threads */
-    QemuMutex queued_requests_lock; /* protects queued_requests */
+    int quiesce_counter;
+    QemuMutex queued_requests_lock;
     CoQueue queued_requests;
-    bool disable_request_queuing; /* atomic */
+    bool disable_request_queuing;
 
     VMChangeStateEntry *vmsh;
     bool force_allow_inactivate;
@@ -972,7 +972,7 @@ blk_check_byte_request(BlockBackend *blk, int64_t offset, int64_t bytes)
 
 bool blk_in_drain(BlockBackend *blk)
 {
-    GLOBAL_STATE_CODE(); /* change to IO_OR_GS_CODE(), if necessary */
+    GLOBAL_STATE_CODE();
     return qatomic_read(&blk->quiesce_counter);
 }
 
@@ -1640,7 +1640,7 @@ int coroutine_fn blk_co_zone_report(BlockBackend *blk, int64_t offset,
     int ret;
     IO_CODE();
 
-    blk_inc_in_flight(blk); /* increase before waiting */
+    blk_inc_in_flight(blk);
     blk_wait_while_drained(blk);
     GRAPH_RDLOCK_GUARD();
     if (!blk_is_available(blk)) {

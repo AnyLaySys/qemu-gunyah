@@ -25,7 +25,7 @@ const char *qemu_name;
 unsigned int nb_prom_envs;
 const char *prom_envs[MAX_PROM_ENVS];
 uint8_t *boot_splash_filedata;
-int only_migratable; /* turn it off unless user states otherwise */
+int only_migratable;
 
 QemuUUID qemu_uuid;
 bool qemu_uuid_set;

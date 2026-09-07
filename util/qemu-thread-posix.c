@@ -315,7 +315,7 @@ int qemu_sem_timedwait(QemuSemaphore *sem, int ms)
             rc = qemu_cond_timedwait_ts(&sem->cond, &sem->mutex, &ts,
                                         __FILE__, __LINE__);
         }
-        if (!rc) { /* timeout */
+        if (!rc) {
             break;
         }
     }

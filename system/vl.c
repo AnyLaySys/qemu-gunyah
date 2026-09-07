@@ -114,7 +114,7 @@ static int snapshot;
 static bool preconfig_requested;
 static BlockdevOptionsQueue bdo_queue = QSIMPLEQ_HEAD_INITIALIZER(bdo_queue);
 static bool nographic = false;
-static int mem_prealloc; /* force preallocation of physical target memory */
+static int mem_prealloc;
 static DisplayOptions dpy;
 static int num_serial_hds;
 static Chardev **serial_hds;
@@ -144,7 +144,7 @@ static QemuOptsList qemu_rtc_opts = {
             .name = "driftfix",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -185,7 +185,7 @@ static QemuOptsList qemu_boot_opts = {
             .name = "strict",
             .type = QEMU_OPT_BOOL,
         },
-        { /*End of list */ }
+        {  }
     },
 };
 
@@ -206,7 +206,7 @@ static QemuOptsList qemu_add_fd_opts = {
             .type = QEMU_OPT_STRING,
             .help = "free-form string used to describe fd",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -224,7 +224,7 @@ static QemuOptsList qemu_tpmdev_opts = {
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_tpmdev_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -240,7 +240,7 @@ static QemuOptsList qemu_overcommit_opts = {
             .name = "cpu-pm",
             .type = QEMU_OPT_BOOL,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -258,7 +258,7 @@ static QemuOptsList qemu_msg_opts = {
             .help = "Prepends guest name for error messages but only if "
                     "-name guest is set otherwise option is ignored\n",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -283,7 +283,7 @@ static QemuOptsList qemu_name_opts = {
                     "NOTE: The thread names are for debugging and not a\n"
                     "stable API.",
         },
-        { /* End of list */ }
+        {  }
     },
 };
 
@@ -305,7 +305,7 @@ static QemuOptsList qemu_mem_opts = {
             .name = "maxmem",
             .type = QEMU_OPT_SIZE,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -333,7 +333,7 @@ static QemuOptsList qemu_fw_cfg_opts = {
             .help = "Sets id of the object generating the fw_cfg blob "
                     "to be inserted",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -352,7 +352,7 @@ static QemuOptsList qemu_action_opts = {
             .name = "panic",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -555,7 +555,7 @@ static QemuOptsList qemu_smp_opts = {
             .name = "maxcpus",
             .type = QEMU_OPT_NUMBER,
         },
-        { /*End of list */ }
+        {  }
     },
 };
 
@@ -572,7 +572,7 @@ static QemuOptsList qemu_run_with_opts = {
             .name = "user",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -582,7 +582,7 @@ static QemuOptsList qemu_run_with_opts = {
 
 #define qemu_add_run_with_opts()
 
-#endif /* CONFIG_POSIX */
+#endif
 
 static void realtime_init(void)
 {
@@ -700,7 +700,7 @@ static const QEMUOption qemu_options[] = {
 #define ARCHHEADING(text, arch_mask)
 
 #include "qemu-options.def"
-    { /* end of list */ }
+    {  }
 };
 
 static void parse_display_qapi(const char *str)
@@ -770,7 +770,7 @@ static int parse_fw_cfg(void *opaque, QemuOpts *opts, Error **errp)
                     "should be prefixed with \"opt/\"");
     }
     if (nonempty_str(str)) {
-        size = strlen(str); /* NUL terminator NOT included in fw_cfg blob */
+        size = strlen(str);
         buf = g_memdup(str, size);
     } else if (nonempty_str(gen_id)) {
         if (!fw_cfg_add_file_from_generator(fw_cfg, object_get_objects_root(),
@@ -856,9 +856,9 @@ static void monitor_parse(const char *str)
 
 struct device_config {
     enum {
-        DEV_SERIAL,    /* -serial        */
-        DEV_PARALLEL,  /* -parallel      */
-        DEV_SCLP,      /* s390 sclp */
+        DEV_SERIAL,
+        DEV_PARALLEL,
+        DEV_SCLP,
     } type;
     const char *cmdline;
     Location loc;
@@ -1953,7 +1953,7 @@ static void qemu_create_cli_devices(void)
 
         loc_push_restore(&opt->loc);
         qmp_device_add(opt->opts, &ret_data, &error_fatal);
-        assert(ret_data == NULL); /* error_fatal aborts */
+        assert(ret_data == NULL);
         loc_pop(&opt->loc);
     }
     rom_reset_order_override();
@@ -2543,7 +2543,7 @@ void qemu_init(int argc, char **argv)
 
                 break;
             }
-#endif /* CONFIG_POSIX */
+#endif
 
             default:
                 error_report("Option not supported in this build");

@@ -36,8 +36,8 @@ void qkbd_state_key_event(QKbdState *kbd, QKeyCode qcode, bool down)
 {
     bool state = test_bit(qcode, kbd->keys);
 
-    if (down == false  /* got key-up event   */ &&
-        state == false /* key is not pressed */) {
+    if (down == false   &&
+        state == false ) {
         return;
     }
 

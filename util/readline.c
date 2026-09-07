@@ -377,7 +377,7 @@ void readline_handle_byte(ReadLineState *rs, int ch)
         case 12:
             readline_clear_screen(rs);
             break;
-        case 10: /* fallthrough */
+        case 10:
         case 13:
             rs->cmd_buf[rs->cmd_buf_size] = '\0';
             if (!rs->read_password) {
@@ -405,7 +405,7 @@ void readline_handle_byte(ReadLineState *rs, int ch)
         case 27:
             rs->esc_state = IS_ESC;
             break;
-        case 127: /* fallthrough */
+        case 127:
         case 8:
             readline_backspace(rs);
             break;
@@ -432,11 +432,11 @@ void readline_handle_byte(ReadLineState *rs, int ch)
         break;
     case IS_CSI:
         switch (ch) {
-        case 'A': /* fallthrough */
+        case 'A':
         case 'F':
             readline_up_char(rs);
             break;
-        case 'B': /* fallthrough */
+        case 'B':
         case 'E':
             readline_down_char(rs);
             break;

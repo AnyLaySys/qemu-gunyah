@@ -34,10 +34,6 @@ option('coroutine_backend', type: 'combo',
        choices: ['ucontext', 'sigaltstack', 'windows', 'auto'],
        value: 'auto', description: 'coroutine backend to use')
 
-# Everything else can be set via --enable/--disable-* option
-# on the configure script command line.  After adding an option
-# here make sure to run "make update-buildoptions".
-
 option('docs', type : 'feature', value : 'auto',
        description: 'Documentations build support')
 option('fuzzing', type : 'boolean', value: false,
@@ -93,7 +89,6 @@ option('dbus_display', type: 'feature', value: 'auto',
 option('tpm', type : 'feature', value : 'auto',
        description: 'TPM support')
 
-# Do not enable it by default even for Mingw32, because it doesn't
 option('membarrier', type: 'feature', value: 'disabled',
        description: 'membarrier system call (for Linux 4.14+ or Windows')
 

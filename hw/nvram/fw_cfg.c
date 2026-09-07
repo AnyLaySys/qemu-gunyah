@@ -30,7 +30,7 @@
 #define FW_CFG_DMA_CTL_SELECT  0x08
 #define FW_CFG_DMA_CTL_WRITE   0x10
 
-#define FW_CFG_DMA_SIGNATURE 0x51454d5520434647ULL /* "QEMU CFG" */
+#define FW_CFG_DMA_SIGNATURE 0x51454d5520434647ULL
 
 struct FWCfgEntry {
     uint32_t len;
@@ -596,7 +596,7 @@ static void fw_cfg_add_bytes_callback(FWCfgState *s, uint16_t key,
     key &= FW_CFG_ENTRY_MASK;
 
     assert(key < fw_cfg_max_entry(s) && len < UINT32_MAX);
-    assert(s->entries[arch][key].data == NULL); /* avoid key conflict */
+    assert(s->entries[arch][key].data == NULL);
 
     s->entries[arch][key].data = data;
     s->entries[arch][key].len = (uint32_t)len;
@@ -731,11 +731,11 @@ static struct {
     { "etc/reserved-memory-end", 50 },
     { "genroms/kvmvapic.bin", 55 },
     { "genroms/linuxboot.bin", 60 },
-    { }, /* VGA ROMs from pc_vga_init come here, 70. */
-    { }, /* NIC option ROMs from pc_nic_init come here, 80. */
+    { },
+    { },
     { "etc/system-states", 90 },
-    { }, /* User ROMs come here, 100. */
-    { }, /* Device FW comes here, 110. */
+    { },
+    { },
     { "etc/extra-pci-roots", 120 },
     { "etc/acpi/tables", 130 },
     { "etc/table-loader", 140 },

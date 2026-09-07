@@ -77,7 +77,7 @@ class QAPIGen:
 
 def _wrap_ifcond(ifcond: QAPISchemaIfCond, before: str, after: str) -> str:
     if before == after:
-        return after   # suppress empty #if ... #endif
+        return after
 
     assert after.startswith(before)
     out = before

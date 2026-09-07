@@ -95,7 +95,7 @@ pcibus_t pci_bridge_get_limit(const PCIDevice *bridge, uint8_t type)
     if (type & PCI_BASE_ADDRESS_SPACE_IO) {
         limit = pci_config_get_io_base(bridge,
                                       PCI_IO_LIMIT, PCI_IO_LIMIT_UPPER16);
-        limit |= 0xfff;         /* PCI bridge spec 3.2.5.6. */
+        limit |= 0xfff;
     } else {
         if (type & PCI_BASE_ADDRESS_MEM_PREFETCH) {
             limit = pci_config_get_pref_base(
@@ -103,7 +103,7 @@ pcibus_t pci_bridge_get_limit(const PCIDevice *bridge, uint8_t type)
         } else {
             limit = pci_config_get_memory_base(bridge, PCI_MEMORY_LIMIT);
         }
-        limit |= 0xfffff;       /* PCI bridge spec 3.2.5.{1, 8}. */
+        limit |= 0xfffff;
     }
     return limit;
 }

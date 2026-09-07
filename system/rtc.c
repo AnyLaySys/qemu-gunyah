@@ -15,9 +15,9 @@ static enum {
     RTC_BASE_DATETIME,
 } rtc_base_type = RTC_BASE_UTC;
 static time_t rtc_ref_start_datetime;
-static int rtc_realtime_clock_offset; /* used only with QEMU_CLOCK_REALTIME */
-static int rtc_host_datetime_offset = -1; /* valid & used only with
-                                             RTC_BASE_DATETIME */
+static int rtc_realtime_clock_offset;
+static int rtc_host_datetime_offset = -1;
+
 QEMUClockType rtc_clock;
 static time_t qemu_ref_timedate(QEMUClockType clock)
 {
@@ -68,7 +68,7 @@ time_t qemu_timedate_diff(struct tm *tm)
     case RTC_BASE_LOCALTIME:
     {
         struct tm tmp = *tm;
-        tmp.tm_isdst = -1; /* use timezone to figure it out */
+        tmp.tm_isdst = -1;
         seconds = mktime(&tmp);
         break;
     }

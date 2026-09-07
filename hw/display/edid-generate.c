@@ -321,10 +321,10 @@ uint32_t qemu_edid_dpi_to_mm(uint32_t dpi, uint32_t res)
 
 static void init_displayid(uint8_t *did)
 {
-    did[0] = 0x70; /* display id extension */
-    did[1] = 0x13; /* version 1.3 */
-    did[2] = 4;    /* length */
-    did[3] = 0x03; /* product type (0x03 == standalone display device) */
+    did[0] = 0x70;
+    did[1] = 0x13;
+    did[2] = 4;
+    did[3] = 0x03;
     edid_checksum(did + 1, did[2] + 4);
 }
 
@@ -332,20 +332,20 @@ static void qemu_displayid_generate(uint8_t *did, const Timings *timings,
                                     uint32_t xres, uint32_t yres,
                                     uint32_t xmm, uint32_t ymm)
 {
-    did[0] = 0x70; /* display id extension */
-    did[1] = 0x13; /* version 1.3 */
-    did[2] = 23;   /* length */
-    did[3] = 0x03; /* product type (0x03 == standalone display device) */
+    did[0] = 0x70;
+    did[1] = 0x13;
+    did[2] = 23;
+    did[3] = 0x03;
 
-    did[5] = 0x03; /* Detailed Timings Data Block */
-    did[6] = 0x00; /* revision */
-    did[7] = 0x14; /* block length */
+    did[5] = 0x03;
+    did[6] = 0x00;
+    did[7] = 0x14;
 
     did[8]  = timings->clock  & 0xff;
     did[9]  = (timings->clock & 0xff00) >> 8;
     did[10] = (timings->clock & 0xff0000) >> 16;
 
-    did[11] = 0x88; /* leave aspect ratio undefined */
+    did[11] = 0x88;
 
     stw_le_p(did + 12, 0xffff & (xres - 1));
     stw_le_p(did + 14, 0xffff & (timings->xblank - 1));
@@ -370,7 +370,7 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
     uint8_t *did = NULL;
     uint32_t width_mm, height_mm;
     uint32_t refresh_rate = info->refresh_rate ? info->refresh_rate : 75000;
-    uint32_t dpi = 100; /* if no width_mm/height_mm */
+    uint32_t dpi = 100;
     uint32_t large_screen = 0;
 
 
@@ -452,10 +452,10 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
 
 
     edid_colorspace(edid,
-                    0.6400, 0.3300,   /* red   */
-                    0.3000, 0.6000,   /* green */
-                    0.1500, 0.0600,   /* blue  */
-                    0.3127, 0.3290);  /* white point  */
+                    0.6400, 0.3300,
+                    0.3000, 0.6000,
+                    0.1500, 0.0600,
+                    0.3127, 0.3290);
 
 
 

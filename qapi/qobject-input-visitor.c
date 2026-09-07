@@ -18,26 +18,26 @@
 #include "qemu/keyval.h"
 
 typedef struct StackObject {
-    const char *name;            /* Name of @obj in its parent, if any */
-    QObject *obj;                /* QDict or QList being visited */
-    void *qapi; /* sanity check that caller uses same pointer */
+    const char *name;
+    QObject *obj;
+    void *qapi;
 
-    GHashTable *h;              /* If @obj is QDict: unvisited keys */
-    const QListEntry *entry;    /* If @obj is QList: unvisited tail */
-    unsigned index;             /* If @obj is QList: list index of @entry */
+    GHashTable *h;
+    const QListEntry *entry;
+    unsigned index;
 
-    QSLIST_ENTRY(StackObject) node; /* parent */
+    QSLIST_ENTRY(StackObject) node;
 } StackObject;
 
 struct QObjectInputVisitor {
     Visitor visitor;
 
     QObject *root;
-    bool keyval;                /* Assume @root made with keyval_parse() */
+    bool keyval;
 
     QSLIST_HEAD(, StackObject) stack;
 
-    GString *errname;           /* Accumulator for full_name() */
+    GString *errname;
 };
 
 static QObjectInputVisitor *to_qiv(Visitor *v)

@@ -51,7 +51,7 @@ static AnnounceParameters virtio_net_announce_params = {
 #define VIRTIO_NET_RX_QUEUE_MIN_SIZE VIRTIO_NET_RX_QUEUE_DEFAULT_SIZE
 #define VIRTIO_NET_TX_QUEUE_MIN_SIZE VIRTIO_NET_TX_QUEUE_DEFAULT_SIZE
 
-#define VIRTIO_NET_IP4_ADDR_SIZE   8        /* ipv4 saddr + daddr */
+#define VIRTIO_NET_IP4_ADDR_SIZE   8
 
 #define VIRTIO_NET_TCP_FLAG         0x3F
 #define VIRTIO_NET_TCP_HDR_LENGTH   0xF000
@@ -61,7 +61,7 @@ static AnnounceParameters virtio_net_announce_params = {
 
 #define VIRTIO_NET_IP4_HEADER_LENGTH 5
 
-#define VIRTIO_NET_IP6_ADDR_SIZE   32      /* ipv6 saddr + daddr */
+#define VIRTIO_NET_IP6_ADDR_SIZE   32
 #define VIRTIO_NET_MAX_IP6_PAYLOAD VIRTIO_NET_MAX_TCP_PAYLOAD
 
 #define VIRTIO_NET_RSC_DEFAULT_INTERVAL 300000
@@ -1396,11 +1396,11 @@ static void work_around_broken_dhclient(struct virtio_net_hdr *hdr,
     size_t csum_size = ETH_HLEN + sizeof(struct ip_header) +
                        sizeof(struct udp_header);
 
-    if ((hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) && /* missing csum */
-        (size >= csum_size && size < 1500) && /* normal sized MTU */
-        (buf[12] == 0x08 && buf[13] == 0x00) && /* ethertype == IPv4 */
-        (buf[23] == 17) && /* ip.protocol == UDP */
-        (buf[34] == 0 && buf[35] == 67)) { /* udp.srcport == bootps */
+    if ((hdr->flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+        (size >= csum_size && size < 1500) &&
+        (buf[12] == 0x08 && buf[13] == 0x00) &&
+        (buf[23] == 17) &&
+        (buf[34] == 0 && buf[35] == 67)) {
         net_checksum_calculate(buf, size, CSUM_UDP);
         hdr->flags &= ~VIRTIO_NET_HDR_F_NEEDS_CSUM;
     }
@@ -1959,7 +1959,7 @@ coalesce:
             return RSC_FINAL;
         }
 
-        o_unit->payload += n_unit->payload; /* update new data len */
+        o_unit->payload += n_unit->payload;
 
         write_unit_ip_len(o_unit, o_ip_len + n_unit->payload);
 
@@ -2569,8 +2569,8 @@ static void virtio_net_tx_bh(void *opaque)
 
     ret = virtio_net_flush_tx(q);
     if (ret == -EBUSY || ret == -EINVAL) {
-        return; /* Notification re-enable handled by tx_complete or device
-                 * broken */
+        return;
+
     }
 
     if (ret >= n->tx_burst) {
@@ -2811,7 +2811,7 @@ static int virtio_net_tx_waiting_pre_load(void *opaque)
         return -EINVAL;
     }
 
-    return 0; /* all good */
+    return 0;
 }
 
 static const VMStateDescription vmstate_virtio_net_tx_waiting = {
@@ -3327,7 +3327,7 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     n->vqs[0].tx_waiting = 0;
     n->tx_burst = n->net_conf.txburst;
     virtio_net_set_mrg_rx_bufs(n, 0, 0, 0);
-    n->promisc = 1; /* for compatibility */
+    n->promisc = 1;
 
     n->mac_table.macs = g_malloc0(MAC_TABLE_ENTRIES * ETH_ALEN);
 

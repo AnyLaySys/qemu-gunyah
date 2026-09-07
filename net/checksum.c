@@ -80,7 +80,7 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
     ip = (struct ip_header *)((uint8_t *)data + mac_hdr_len);
 
     if (IP_HEADER_VERSION(ip) != IP_HEADER_VERSION_4) {
-        return; /* not IPv4 */
+        return;
     }
 
     if (csum_flag & CSUM_IP) {
@@ -90,7 +90,7 @@ void net_checksum_calculate(void *data, int length, int csum_flag)
     }
 
     if (IP4_IS_FRAGMENT(ip)) {
-        return; /* a fragmented IP packet */
+        return;
     }
 
     ip_len = lduw_be_p(&ip->ip_len);

@@ -2,7 +2,7 @@
 
 #ifdef CONFIG_AF_VSOCK
 #include <linux/vm_sockets.h>
-#endif /* CONFIG_AF_VSOCK */
+#endif
 
 #include "monitor/monitor.h"
 #include "qapi/clone-visitor.h"
@@ -70,7 +70,7 @@ NetworkAddressFamily inet_netfamily(int family)
     case PF_UNIX:  return NETWORK_ADDRESS_FAMILY_UNIX;
 #ifdef CONFIG_AF_VSOCK
     case PF_VSOCK: return NETWORK_ADDRESS_FAMILY_VSOCK;
-#endif /* CONFIG_AF_VSOCK */
+#endif
     }
     return NETWORK_ADDRESS_FAMILY_UNKNOWN;
 }
@@ -509,7 +509,7 @@ static int inet_parse_flag(const char *flagname, const char *optstr, bool *val,
 
     end = strstr(optstr, ",");
     if (end) {
-        if (end[1] == ',') { /* Reject 'ipv6=on,,foo' */
+        if (end[1] == ',') {
             error_setg(errp, "error parsing '%s' flag '%s'", flagname, optstr);
             return -1;
         }
@@ -754,7 +754,7 @@ static int vsock_parse(VsockSocketAddress *addr, const char *str,
     vsock_unsupported(errp);
     return -1;
 }
-#endif /* CONFIG_AF_VSOCK */
+#endif
 
 static bool saddr_is_abstract(UnixSocketAddress *saddr)
 {
@@ -1235,7 +1235,7 @@ socket_sockaddr_to_address_vsock(struct sockaddr_storage *sa,
 
     return addr;
 }
-#endif /* CONFIG_AF_VSOCK */
+#endif
 
 SocketAddress *
 socket_sockaddr_to_address(struct sockaddr_storage *sa,

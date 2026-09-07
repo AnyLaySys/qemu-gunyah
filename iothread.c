@@ -47,7 +47,7 @@ static void iothread_stop_bh(void *opaque)
 {
     IOThread *iothread = opaque;
 
-    iothread->running = false; /* stop iothread_run() */
+    iothread->running = false;
 
     if (iothread->main_loop) {
         g_main_loop_quit(iothread->main_loop);
@@ -168,7 +168,7 @@ static void iothread_init(EventLoopBase *base, Error **errp)
 
 typedef struct {
     const char *name;
-    ptrdiff_t offset; /* field's byte offset in IOThread struct */
+    ptrdiff_t offset;
 } IOThreadParamInfo;
 
 static IOThreadParamInfo poll_max_ns_info = {

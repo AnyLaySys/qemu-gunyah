@@ -62,13 +62,13 @@ void cursor_print_ascii_art(QEMUCursor *c, const char *prefix)
         fprintf(stderr, "%s: %2d: |", prefix, y);
         for (x = 0; x < c->width; x++, data++) {
             if ((*data & 0xff000000) != 0xff000000) {
-                fprintf(stderr, " "); /* transparent */
+                fprintf(stderr, " ");
             } else if ((*data & 0x00ffffff) == 0x00ffffff) {
-                fprintf(stderr, "."); /* white */
+                fprintf(stderr, ".");
             } else if ((*data & 0x00ffffff) == 0x00000000) {
-                fprintf(stderr, "X"); /* black */
+                fprintf(stderr, "X");
             } else {
-                fprintf(stderr, "o"); /* other */
+                fprintf(stderr, "o");
             }
         }
         fprintf(stderr, "|\n");
@@ -164,7 +164,7 @@ void cursor_set_mono(QEMUCursor *c,
         data = c->data;
         for (y = 0; y < c->height; y++) {
             for (x = 0; x < c->width; x++, data++) {
-                if (*data == 0 /* transparent */ &&
+                if (*data == 0  &&
                         ((x > 0 && data[-1] == inverted) ||
                          (x + 1 < c->width && data[1] == inverted) ||
                          (y > 0 && data[-c->width] == inverted) ||
@@ -193,7 +193,7 @@ void cursor_get_mono_mask(QEMUCursor *c, int transparent, uint8_t *mask)
     for (y = 0; y < c->height; y++) {
         bit = 0x80;
         for (x = 0; x < c->width; x++, data++) {
-            if ((*data & 0x80000000) == 0x0) { /* Alpha < 0x80 (128) */
+            if ((*data & 0x80000000) == 0x0) {
                 if (transparent != 0) {
                     mask[x/8] |= bit;
                 }

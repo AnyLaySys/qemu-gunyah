@@ -23,7 +23,7 @@ typedef QSLIST_HEAD(, CoroutinePoolBatch) CoroutinePool;
 
 static unsigned int global_pool_hard_max_size;
 
-static QemuMutex global_pool_lock; /* protects the following variables */
+static QemuMutex global_pool_lock;
 static CoroutinePool global_pool = QSLIST_HEAD_INITIALIZER(global_pool);
 static unsigned int global_pool_size;
 static unsigned int global_pool_max_size = COROUTINE_POOL_BATCH_MAX_SIZE;

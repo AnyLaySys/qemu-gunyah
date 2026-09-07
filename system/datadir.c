@@ -49,7 +49,7 @@ void qemu_add_data_dir(char *path)
     }
     for (i = 0; i < data_dir_idx; i++) {
         if (strcmp(data_dir[i], path) == 0) {
-            g_free(path); /* duplicate */
+            g_free(path);
             return;
         }
     }

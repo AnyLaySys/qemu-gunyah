@@ -44,29 +44,29 @@ AddressSpace *arm_boot_address_space(ARMCPU *cpu,
 }
 
 static const ARMInsnFixup bootloader_aarch64[] = {
-    { 0x580000c0 }, /* ldr x0, arg ; Load the lower 32-bits of DTB */
-    { 0xaa1f03e1 }, /* mov x1, xzr */
-    { 0xaa1f03e2 }, /* mov x2, xzr */
-    { 0xaa1f03e3 }, /* mov x3, xzr */
-    { 0x58000084 }, /* ldr x4, entry ; Load the lower 32-bits of kernel entry */
-    { 0xd61f0080 }, /* br x4      ; Jump to the kernel entry point */
-    { 0, FIXUP_ARGPTR_LO }, /* arg: .word @DTB Lower 32-bits */
-    { 0, FIXUP_ARGPTR_HI}, /* .word @DTB Higher 32-bits */
-    { 0, FIXUP_ENTRYPOINT_LO }, /* entry: .word @Kernel Entry Lower 32-bits */
-    { 0, FIXUP_ENTRYPOINT_HI }, /* .word @Kernel Entry Higher 32-bits */
+    { 0x580000c0 },
+    { 0xaa1f03e1 },
+    { 0xaa1f03e2 },
+    { 0xaa1f03e3 },
+    { 0x58000084 },
+    { 0xd61f0080 },
+    { 0, FIXUP_ARGPTR_LO },
+    { 0, FIXUP_ARGPTR_HI},
+    { 0, FIXUP_ENTRYPOINT_LO },
+    { 0, FIXUP_ENTRYPOINT_HI },
     { 0, FIXUP_TERMINATOR }
 };
 
 
 static const ARMInsnFixup bootloader[] = {
-    { 0xe28fe004 }, /* add     lr, pc, #4 */
-    { 0xe51ff004 }, /* ldr     pc, [pc, #-4] */
+    { 0xe28fe004 },
+    { 0xe51ff004 },
     { 0, FIXUP_BOARD_SETUP },
 #define BOOTLOADER_NO_BOARD_SETUP_OFFSET 3
-    { 0xe3a00000 }, /* mov     r0, #0 */
-    { 0xe59f1004 }, /* ldr     r1, [pc, #4] */
-    { 0xe59f2004 }, /* ldr     r2, [pc, #4] */
-    { 0xe59ff004 }, /* ldr     pc, [pc, #4] */
+    { 0xe3a00000 },
+    { 0xe59f1004 },
+    { 0xe59f2004 },
+    { 0xe59ff004 },
     { 0, FIXUP_BOARDID },
     { 0, FIXUP_ARGPTR_LO },
     { 0, FIXUP_ENTRYPOINT_LO },
@@ -74,23 +74,23 @@ static const ARMInsnFixup bootloader[] = {
 };
 
 #define DSB_INSN 0xf57ff04f
-#define CP15_DSB_INSN 0xee070f9a /* mcr cp15, 0, r0, c7, c10, 4 */
+#define CP15_DSB_INSN 0xee070f9a
 
 static const ARMInsnFixup smpboot[] = {
-    { 0xe59f2028 }, /* ldr r2, gic_cpu_if */
-    { 0xe59f0028 }, /* ldr r0, bootreg_addr */
-    { 0xe3a01001 }, /* mov r1, #1 */
-    { 0xe5821000 }, /* str r1, [r2] - set GICC_CTLR.Enable */
-    { 0xe3a010ff }, /* mov r1, #0xff */
-    { 0xe5821004 }, /* str r1, [r2, 4] - set GIC_PMR.Priority to 0xff */
-    { 0, FIXUP_DSB },   /* dsb */
-    { 0xe320f003 }, /* wfi */
-    { 0xe5901000 }, /* ldr     r1, [r0] */
-    { 0xe1110001 }, /* tst     r1, r1 */
-    { 0x0afffffb }, /* beq     <wfi> */
-    { 0xe12fff11 }, /* bx      r1 */
-    { 0, FIXUP_GIC_CPU_IF }, /* gic_cpu_if: .word 0x.... */
-    { 0, FIXUP_BOOTREG }, /* bootreg_addr: .word 0x.... */
+    { 0xe59f2028 },
+    { 0xe59f0028 },
+    { 0xe3a01001 },
+    { 0xe5821000 },
+    { 0xe3a010ff },
+    { 0xe5821004 },
+    { 0, FIXUP_DSB },
+    { 0xe320f003 },
+    { 0xe5901000 },
+    { 0xe1110001 },
+    { 0x0afffffb },
+    { 0xe12fff11 },
+    { 0, FIXUP_GIC_CPU_IF },
+    { 0, FIXUP_BOOTREG },
     { 0, FIXUP_TERMINATOR }
 };
 
@@ -165,27 +165,27 @@ void arm_write_secure_board_setup_dummy_smc(ARMCPU *cpu,
     AddressSpace *as = arm_boot_address_space(cpu, info);
     int n;
     uint32_t mvbar_blob[] = {
-        0xeafffffe, /* (spin) */
-        0xeafffffe, /* (spin) */
-        0xe1b0f00e, /* movs pc, lr ;SMC exception return */
-        0xeafffffe, /* (spin) */
-        0xeafffffe, /* (spin) */
-        0xeafffffe, /* (spin) */
-        0xeafffffe, /* (spin) */
-        0xeafffffe, /* (spin) */
+        0xeafffffe,
+        0xeafffffe,
+        0xe1b0f00e,
+        0xeafffffe,
+        0xeafffffe,
+        0xeafffffe,
+        0xeafffffe,
+        0xeafffffe,
     };
     uint32_t board_setup_blob[] = {
-        0xee110f51, /* mrc     p15, 0, r0, c1, c1, 2  ;read NSACR */
-        0xe3800b03, /* orr     r0, #0xc00             ;set CP11, CP10 */
-        0xee010f51, /* mcr     p15, 0, r0, c1, c1, 2  ;write NSACR */
-        0xe3a00e00 + (mvbar_addr >> 4), /* mov r0, #mvbar_addr */
-        0xee0c0f30, /* mcr     p15, 0, r0, c12, c0, 1 ;set MVBAR */
-        0xee110f11, /* mrc     p15, 0, r0, c1 , c1, 0 ;read SCR */
-        0xe3800031, /* orr     r0, #0x31              ;enable AW, FW, NS */
-        0xee010f11, /* mcr     p15, 0, r0, c1, c1, 0  ;write SCR */
-        0xe1a0100e, /* mov     r1, lr                 ;save LR across SMC */
-        0xe1600070, /* smc     #0                     ;call monitor to flush SCR */
-        0xe1a0f001, /* mov     pc, r1                 ;return */
+        0xee110f51,
+        0xe3800b03,
+        0xee010f51,
+        0xe3a00e00 + (mvbar_addr >> 4),
+        0xee0c0f30,
+        0xee110f11,
+        0xe3800031,
+        0xee010f11,
+        0xe1a0100e,
+        0xe1600070,
+        0xe1a0f001,
     };
 
     assert((mvbar_addr & 0x1f) == 0 && (mvbar_addr >> 4) < 0x100);
@@ -553,7 +553,7 @@ static void do_cpu_reset(void *opaque)
                 env->cp15.sctlr_el[1] |= SCTLR_B;
                 break;
             case ARM_ENDIANNESS_UNKNOWN:
-                break; /* Board's decision */
+                break;
             default:
                 g_assert_not_reached();
             }

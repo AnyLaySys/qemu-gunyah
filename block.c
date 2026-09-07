@@ -37,7 +37,7 @@
 #include <windows.h>
 #endif
 
-#define NOT_DONE 0x7fffffff /* used while emulated sync operation in progress */
+#define NOT_DONE 0x7fffffff
 
 static QTAILQ_HEAD(, BlockDriverState) graph_bdrv_states =
     QTAILQ_HEAD_INITIALIZER(graph_bdrv_states);
@@ -410,7 +410,7 @@ static int bdrv_format_is_whitelisted(const char *format_name, bool read_only)
     const char **p;
 
     if (!whitelist_rw[0] && !whitelist_ro[0]) {
-        return 1;               /* no whitelist, anything goes */
+        return 1;
     }
 
     for (p = whitelist_rw; *p; p++) {
@@ -1517,7 +1517,7 @@ QemuOptsList bdrv_runtime_opts = {
             .type = QEMU_OPT_BOOL,
             .help = "always accept other writers (default: off)",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -1535,7 +1535,7 @@ QemuOptsList bdrv_create_opts_simple = {
             .type = QEMU_OPT_STRING,
             .help = "Preallocation mode (allowed values: off)"
         },
-        { /* end of list */ }
+        {  }
     }
 };
 
@@ -2463,7 +2463,7 @@ static void bdrv_child_free(BdrvChild *child)
     GLOBAL_STATE_CODE();
     GRAPH_RDLOCK_GUARD_MAINLOOP();
 
-    assert(!child->next.le_prev); /* not in children list */
+    assert(!child->next.le_prev);
 
     g_free(child->name);
     g_free(child);
@@ -3717,7 +3717,7 @@ bdrv_reopen_parse_file_or_backing(BDRVReopenState *reopen_state,
 
     switch (qobject_type(value)) {
     case QTYPE_QNULL:
-        assert(is_backing); /* The 'file' option does not allow a null value */
+        assert(is_backing);
         new_child_bs = NULL;
         break;
     case QTYPE_QSTRING:
@@ -3935,7 +3935,7 @@ bdrv_reopen_prepare(BDRVReopenState *reopen_state, BlockReopenQueue *queue,
                 if (child) {
                     if (!strcmp(child->bs->node_name,
                                 qstring_get_str(qobject_to(QString, new)))) {
-                        continue; /* Found child with this name, skip option */
+                        continue;
                     }
                 }
             }
@@ -4027,9 +4027,9 @@ static void bdrv_close(BlockDriverState *bs)
     GLOBAL_STATE_CODE();
     assert(!bs->refcnt);
 
-    bdrv_drained_begin(bs); /* complete I/O */
+    bdrv_drained_begin(bs);
     bdrv_flush(bs);
-    bdrv_drain(bs); /* in case flush left pending I/O */
+    bdrv_drain(bs);
 
     if (bs->drv) {
         if (bs->drv->bdrv_close) {
@@ -4387,7 +4387,7 @@ BlockDriverState *bdrv_insert_node(BlockDriverState *bs, QDict *options,
                                             errp);
     assert(bdrv_get_aio_context(bs) == ctx);
 
-    options = NULL; /* bdrv_new_open_driver() eats options */
+    options = NULL;
     if (!new_node_bs) {
         error_prepend(errp, "Could not create node: ");
         goto fail;
@@ -6221,8 +6221,7 @@ void bdrv_refresh_filename(BlockDriverState *bs)
     BlockDriverState *primary_child_bs;
     QDict *opts;
     bool backing_overridden;
-    bool generate_json_filename; /* Whether our default implementation should
-                                    fill exact_filename (false) or not (true) */
+    bool generate_json_filename;
 
     GLOBAL_STATE_CODE();
 

@@ -891,7 +891,7 @@ static int64_t get_file_size(int fd)
             }
         }
     }
-#endif /* defined(__linux__) */
+#endif
 
     size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
@@ -937,7 +937,7 @@ static int64_t get_file_align(int fd)
         }
         daxctl_unref(ctx);
     }
-#endif /* defined(__linux__) && defined(CONFIG_LIBDAXCTL) */
+#endif
 
     return align;
 }
@@ -1075,7 +1075,7 @@ static ram_addr_t find_ram_offset(ram_addr_t size)
     RAMBlock *block, *next_block;
     ram_addr_t offset = RAM_ADDR_MAX, mingap = RAM_ADDR_MAX;
 
-    assert(size != 0); /* it would hand out same offset multiple times */
+    assert(size != 0);
 
     if (QLIST_EMPTY_RCU(&ram_list.blocks)) {
         return 0;
@@ -1444,7 +1444,7 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
         QLIST_INSERT_BEFORE_RCU(block, new_block, next);
     } else if (last_block) {
         QLIST_INSERT_AFTER_RCU(last_block, new_block, next);
-    } else { /* list is empty */
+    } else {
         QLIST_INSERT_HEAD_RCU(&ram_list.blocks, new_block, next);
     }
     ram_list.mru_block = NULL;
@@ -1629,7 +1629,7 @@ RAMBlock *qemu_ram_alloc_internal(ram_addr_t size, ram_addr_t max_size,
     assert(!host ^ (ram_flags & RAM_PREALLOC));
     assert(max_size >= size);
 
-#ifdef CONFIG_POSIX         /* ignore RAM_SHARED for Windows */
+#ifdef CONFIG_POSIX
     if (!host) {
         if (!share_flags && current_machine->aux_ram_share) {
             ram_flags |= RAM_SHARED;
@@ -1802,7 +1802,7 @@ void qemu_ram_remap(ram_addr_t addr)
         }
     }
 }
-#endif /* !_WIN32 */
+#endif
 
 static void *qemu_ram_ptr_length(RAMBlock *block, ram_addr_t addr,
                                  hwaddr *size, bool lock,
@@ -2959,7 +2959,7 @@ int ram_block_discard_range(RAMBlock *rb, uint64_t start, size_t length)
             goto err;
         }
 
-        errno = ENOTSUP; /* If we are missing MADVISE etc */
+        errno = ENOTSUP;
 
         need_madvise = (rb->page_size == qemu_real_host_page_size());
         need_fallocate = rb->fd != -1;

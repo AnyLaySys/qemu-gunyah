@@ -342,8 +342,8 @@ void audio_sample_from_uint64(void *samples, int pos,
 struct rate {
     uint64_t opos;
     uint64_t opos_inc;
-    uint32_t ipos;              /* position in the input stream (integer) */
-    struct st_sample ilast;          /* last sample in the input stream */
+    uint32_t ipos;
+    struct st_sample ilast;
 };
 
 void *st_rate_start (int inrate, int outrate)

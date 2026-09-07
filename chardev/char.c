@@ -398,7 +398,7 @@ ChardevBackend *qemu_chr_parse_opts(QemuOpts *opts, Error **errp)
     } else {
         ChardevCommon *ccom = g_new0(ChardevCommon, 1);
         qemu_chr_parse_common(opts, ccom);
-        backend->u.null.data = ccom; /* Any ChardevCommon member would work */
+        backend->u.null.data = ccom;
     }
 
     return backend;
@@ -570,7 +570,7 @@ QemuOptsList qemu_chardev_opts = {
             .name = "logappend",
             .type = QEMU_OPT_BOOL,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 

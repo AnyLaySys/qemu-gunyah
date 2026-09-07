@@ -201,7 +201,7 @@ void *load_device_tree_from_sysfs(void)
     return host_fdt;
 }
 
-#endif /* CONFIG_LINUX */
+#endif
 
 static int findnode_nofail(void *fdt, const char *node_path)
 {

@@ -1033,7 +1033,7 @@ bdrv_co_do_copy_on_readv(BdrvChild *child, int64_t offset, int64_t bytes,
         int64_t pnum;
 
         if (skip_write) {
-            ret = 1; /* "already allocated", so nothing will be copied */
+            ret = 1;
             pnum = MIN(align_bytes, max_transfer);
         } else {
             ret = bdrv_co_is_allocated(bs, align_offset,
@@ -1226,8 +1226,8 @@ static bool bdrv_init_padding(BlockDriverState *bs,
     int64_t sum;
 
     bdrv_check_request(offset, bytes, &error_abort);
-    assert(align <= INT_MAX); /* documented in block/block_int.h */
-    assert(align <= SIZE_MAX / 2); /* so we can allocate the buffer */
+    assert(align <= INT_MAX);
+    assert(align <= SIZE_MAX / 2);
 
     memset(pad, 0, sizeof(*pad));
 
@@ -1241,7 +1241,7 @@ static bool bdrv_init_padding(BlockDriverState *bs,
         return false;
     }
 
-    assert(bytes); /* Nothing good in aligning zero-length requests */
+    assert(bytes);
 
     sum = pad->head + bytes + pad->tail;
     pad->buf_len = (sum > align && pad->head && pad->tail) ? 2 * align : align;
@@ -1955,7 +1955,7 @@ bdrv_co_do_block_status(BlockDriverState *bs, bool want_zero,
                         int64_t *pnum, int64_t *map, BlockDriverState **file)
 {
     int64_t total_size;
-    int64_t n; /* bytes */
+    int64_t n;
     int ret;
     int64_t local_map = 0;
     BlockDriverState *local_file = NULL;
@@ -2137,7 +2137,7 @@ bdrv_co_common_block_status_above(BlockDriverState *bs,
     int dummy;
     IO_CODE();
 
-    assert(!include_base || base); /* Can't include NULL base */
+    assert(!include_base || base);
     assert_bdrv_graph_readable();
 
     if (!depth) {

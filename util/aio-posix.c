@@ -32,7 +32,7 @@ void aio_add_ready_handler(AioHandlerList *ready_list,
                            AioHandler *node,
                            int revents)
 {
-    QLIST_SAFE_REMOVE(node, node_ready); /* remove from nested parent's list */
+    QLIST_SAFE_REMOVE(node, node_ready);
     node->pfd.revents = revents;
     QLIST_INSERT_HEAD(ready_list, node, node_ready);
 }
@@ -40,7 +40,7 @@ void aio_add_ready_handler(AioHandlerList *ready_list,
 static void aio_add_poll_ready_handler(AioHandlerList *ready_list,
                                        AioHandler *node)
 {
-    QLIST_SAFE_REMOVE(node, node_ready); /* remove from nested parent's list */
+    QLIST_SAFE_REMOVE(node, node_ready);
     node->poll_ready = true;
     QLIST_INSERT_HEAD(ready_list, node, node_ready);
 }
@@ -97,7 +97,7 @@ void aio_set_fd_handler(AioContext *ctx,
     int poll_disable_change;
 
     if (io_poll && !io_poll_ready) {
-        io_poll = NULL; /* polling only makes sense if there is a handler */
+        io_poll = NULL;
     }
 
     qemu_lockcnt_lock(&ctx->list_lock);
@@ -271,7 +271,7 @@ static void aio_free_deleted_handlers(AioContext *ctx)
         return;
     }
     if (!qemu_lockcnt_dec_if_lock(&ctx->list_lock)) {
-        return; /* we are nested, let the parent do the freeing */
+        return;
     }
 
     while ((node = QLIST_FIRST_RCU(&ctx->deleted_aio_handlers))) {
@@ -530,7 +530,7 @@ static void adjust_polling_time(AioContext *ctx, AioPolledEvent *poll,
         if (poll->ns) {
             poll->ns *= grow;
         } else {
-            poll->ns = 4000; /* start polling at 4 microseconds */
+            poll->ns = 4000;
         }
 
         if (poll->ns > ctx->poll_max_ns) {

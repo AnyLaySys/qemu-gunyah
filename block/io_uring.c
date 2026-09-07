@@ -1,13 +1,3 @@
-/*
- * Linux io_uring support.
- *
- * Copyright (C) 2009 IBM, Corp.
- * Copyright (C) 2009 Red Hat, Inc.
- * Copyright (C) 2019 Aarushi Mehta
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or later.
- * See the COPYING file in the top-level directory.
- */
 #include "qemu/osdep.h"
 #include <liburing.h>
 #include "block/aio.h"
@@ -20,10 +10,8 @@
 #include "system/block-backend.h"
 #include "trace.h"
 
-/* Only used for assertions.  */
 #include "qemu/coroutine_int.h"
 
-/* io_uring ring size */
 #define MAX_ENTRIES 128
 
 typedef struct LuringAIOCB {
@@ -34,10 +22,6 @@ typedef struct LuringAIOCB {
     bool is_read;
     QSIMPLEQ_ENTRY(LuringAIOCB) next;
 
-    /*
-     * Buffered reads may require resubmission, see
-     * luring_resubmit_short_read().
-     */
     int total_read;
     QEMUIOVector resubmit_qiov;
 } LuringAIOCB;
@@ -54,42 +38,26 @@ struct LuringState {
 
     struct io_uring ring;
 
-    /* No locking required, only accessed from AioContext home thread */
     LuringQueue io_q;
 
     QEMUBH *completion_bh;
 };
 
-/**
- * luring_resubmit:
- *
- * Resubmit a request by appending it to submit_queue.  The caller must ensure
- * that ioq_submit() is called later so that submit_queue requests are started.
- */
 static void luring_resubmit(LuringState *s, LuringAIOCB *luringcb)
 {
     QSIMPLEQ_INSERT_TAIL(&s->io_q.submit_queue, luringcb, next);
     s->io_q.in_queue++;
 }
 
-/**
- * luring_resubmit_short_read:
- *
- * Short reads are rare but may occur. The remaining read request needs to be
- * resubmitted.
- */
 static void luring_resubmit_short_read(LuringState *s, LuringAIOCB *luringcb,
                                        int nread)
 {
     QEMUIOVector *resubmit_qiov;
     size_t remaining;
 
-
-    /* Update read position */
     luringcb->total_read += nread;
     remaining = luringcb->qiov->size - luringcb->total_read;
 
-    /* Shorten qiov */
     resubmit_qiov = &luringcb->resubmit_qiov;
     if (resubmit_qiov->iov == NULL) {
         qemu_iovec_init(resubmit_qiov, luringcb->qiov->niov);
@@ -99,7 +67,6 @@ static void luring_resubmit_short_read(LuringState *s, LuringAIOCB *luringcb,
     qemu_iovec_concat(resubmit_qiov, luringcb->qiov, luringcb->total_read,
                       remaining);
 
-    /* Update sqe */
     luringcb->sqeq.off += nread;
     luringcb->sqeq.addr = (uintptr_t)luringcb->resubmit_qiov.iov;
     luringcb->sqeq.len = luringcb->resubmit_qiov.niov;
@@ -107,19 +74,6 @@ static void luring_resubmit_short_read(LuringState *s, LuringAIOCB *luringcb,
     luring_resubmit(s, luringcb);
 }
 
-/**
- * luring_process_completions:
- * @s: AIO state
- *
- * Fetches completed I/O requests, consumes cqes and invokes their callbacks
- * The function is somewhat tricky because it supports nested event loops, for
- * example when a request callback invokes aio_poll().
- *
- * Function schedules BH completion so it  can be called again in a nested
- * event loop.  When there are no events left  to complete the BH is being
- * canceled.
- *
- */
 static void luring_process_completions(LuringState *s)
 {
     struct io_uring_cqe *cqes;
@@ -127,21 +81,6 @@ static void luring_process_completions(LuringState *s)
 
     defer_call_begin();
 
-    /*
-     * Request completion callbacks can run the nested event loop.
-     * Schedule ourselves so the nested event loop will "see" remaining
-     * completed requests and process them.  Without this, completion
-     * callbacks that wait for other requests using a nested event loop
-     * would hang forever.
-     *
-     * This workaround is needed because io_uring uses poll_wait, which
-     * is woken up when new events are added to the uring, thus polling on
-     * the same uring fd will block unless more events are received.
-     *
-     * Other leaf block drivers (drivers that access the data themselves)
-     * are networking based, so they poll sockets for data and run the
-     * correct coroutine.
-     */
     qemu_bh_schedule(s->completion_bh);
 
     while (io_uring_peek_cqe(&s->ring, &cqes) == 0) {
@@ -157,27 +96,12 @@ static void luring_process_completions(LuringState *s)
         io_uring_cqe_seen(&s->ring, cqes);
         cqes = NULL;
 
-        /* Change counters one-by-one because we can be nested. */
         s->io_q.in_flight--;
 
-        /* total_read is non-zero only for resubmitted read requests */
         total_bytes = ret + luringcb->total_read;
 
         if (ret < 0) {
-            /*
-             * Only writev/readv/fsync requests on regular files or host block
-             * devices are submitted. Therefore -EAGAIN is not expected but it's
-             * known to happen sometimes with Linux SCSI. Submit again and hope
-             * the request completes successfully.
-             *
-             * For more information, see:
-             * https://lore.kernel.org/io-uring/20210727165811.284510-3-axboe@kernel.dk/T/#u
-             *
-             * If the code is changed to submit other types of requests in the
-             * future, then this workaround may need to be extended to deal with
-             * genuine -EAGAIN results that should not be resubmitted
-             * immediately.
-             */
+
             if (ret == -EINTR || ret == -EAGAIN) {
                 luring_resubmit(s, luringcb);
                 continue;
@@ -186,15 +110,15 @@ static void luring_process_completions(LuringState *s)
             goto end;
         } else if (total_bytes == luringcb->qiov->size) {
             ret = 0;
-        /* Only read/write */
+
         } else {
-            /* Short Read/Write */
+
             if (luringcb->is_read) {
                 if (ret > 0) {
                     luring_resubmit_short_read(s, luringcb, ret);
                     continue;
                 } else {
-                    /* Pad with zeroes */
+
                     qemu_iovec_memset(luringcb->qiov, total_bytes, 0,
                                       luringcb->qiov->size - total_bytes);
                     ret = 0;
@@ -207,12 +131,6 @@ end:
         luringcb->ret = ret;
         qemu_iovec_destroy(&luringcb->resubmit_qiov);
 
-        /*
-         * If the coroutine is already entered it must be in ioq_submit()
-         * and will notice luringcb->ret has been filled in when it
-         * eventually runs later. Coroutines cannot be entered recursively
-         * so avoid doing that!
-         */
         assert(luringcb->co->ctx == s->aio_context);
         if (!qemu_coroutine_entered(luringcb->co)) {
             aio_co_wake(luringcb->co);
@@ -230,22 +148,19 @@ static int ioq_submit(LuringState *s)
     LuringAIOCB *luringcb, *luringcb_next;
 
     while (s->io_q.in_queue > 0) {
-        /*
-         * Try to fetch sqes from the ring for requests waiting in
-         * the overflow queue
-         */
+
         QSIMPLEQ_FOREACH_SAFE(luringcb, &s->io_q.submit_queue, next,
                               luringcb_next) {
             struct io_uring_sqe *sqes = io_uring_get_sqe(&s->ring);
             if (!sqes) {
                 break;
             }
-            /* Prep sqe for submission */
+
             *sqes = luringcb->sqeq;
             QSIMPLEQ_REMOVE_HEAD(&s->io_q.submit_queue, next);
         }
         ret = io_uring_submit(&s->ring);
-        /* Prevent infinite loop if submission is refused */
+
         if (ret <= 0) {
             if (ret == -EAGAIN || ret == -EINTR) {
                 continue;
@@ -258,10 +173,7 @@ static int ioq_submit(LuringState *s)
     s->io_q.blocked = (s->io_q.in_queue > 0);
 
     if (s->io_q.in_flight) {
-        /*
-         * We can try to complete something just right away if there are
-         * still requests in-flight.
-         */
+
         luring_process_completions(s);
     }
     return ret;
@@ -318,17 +230,6 @@ static void luring_deferred_fn(void *opaque)
     }
 }
 
-/**
- * luring_do_submit:
- * @fd: file descriptor for I/O
- * @luringcb: AIO control block
- * @s: AIO state
- * @offset: offset for request
- * @type: type of request
- *
- * Fetches sqes from ring, adds to pending queue and preps them
- *
- */
 static int luring_do_submit(int fd, LuringAIOCB *luringcb, LuringState *s,
                             uint64_t offset, int type, BdrvRequestFlags flags)
 {

@@ -37,7 +37,7 @@ QemuOptsList qemu_trace_opts = {
             .name = "file",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -189,9 +189,9 @@ static void trace_init_events(const char *fname)
     while (fgets(line_buf, sizeof(line_buf), fp)) {
         loc_set_file(fname, ++line_idx);
         size_t len = strlen(line_buf);
-        if (len > 1) {              /* skip empty lines */
+        if (len > 1) {
             line_buf[len - 1] = '\0';
-            if ('#' == line_buf[0]) { /* skip commented lines */
+            if ('#' == line_buf[0]) {
                 continue;
             }
             trace_enable_events(line_buf);

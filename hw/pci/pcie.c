@@ -531,7 +531,7 @@ void pcie_cap_slot_unplug_request_cb(HotplugHandler *hotplug_dev,
 
     dev->pending_deleted_event = true;
     dev->pending_deleted_expires_ms =
-        qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 5000; /* 5 secs */
+        qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 5000;
 
     if (pci_dev->devfn &&
         !bus->devices[0]) {
@@ -651,8 +651,8 @@ void pcie_cap_slot_reset(PCIDevice *dev)
     }
 
     pci_word_test_and_clear_mask(exp_cap + PCI_EXP_SLTSTA,
-                                 PCI_EXP_SLTSTA_EIS |/* on reset,
-                                                        the lock is released */
+                                 PCI_EXP_SLTSTA_EIS |
+
                                  PCI_EXP_SLTSTA_CC |
                                  PCI_EXP_SLTSTA_PDC |
                                  PCI_EXP_SLTSTA_ABP);
@@ -714,7 +714,7 @@ void pcie_cap_slot_write_config(PCIDevice *dev,
 
     if (pci_word_test_and_clear_mask(exp_cap + PCI_EXP_SLTCTL,
                                      PCI_EXP_SLTCTL_EIC)) {
-        sltsta ^= PCI_EXP_SLTSTA_EIS; /* toggle PCI_EXP_SLTSTA_EIS bit */
+        sltsta ^= PCI_EXP_SLTSTA_EIS;
         pci_set_word(exp_cap + PCI_EXP_SLTSTA, sltsta);
         PCIE_DEV_PRINTF(dev, "PCI_EXP_SLTCTL_EIC: "
                         "sltsta -> 0x%02"PRIx16"\n",

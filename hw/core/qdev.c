@@ -67,7 +67,7 @@ static void bus_add_child(BusState *bus, DeviceState *child)
     object_property_add_link(OBJECT(bus), name,
                              object_get_typename(OBJECT(child)),
                              (Object **)&kid->child,
-                             NULL, /* read-only property */
+                             NULL,
                              0);
 }
 

@@ -438,7 +438,7 @@ static void host_memory_backend_set_reserve(Object *o, bool value, Error **errp)
     }
     backend->reserve = value;
 }
-#endif /* CONFIG_LINUX */
+#endif
 
 static bool
 host_memory_backend_get_use_canonical_path(Object *obj, Error **errp)
@@ -518,7 +518,7 @@ host_memory_backend_class_init(ObjectClass *oc, void *data)
         host_memory_backend_get_reserve, host_memory_backend_set_reserve);
     object_class_property_set_description(oc, "reserve",
         "Reserve swap space (or huge pages) if applicable");
-#endif /* CONFIG_LINUX */
+#endif
     object_class_property_add_bool(oc, "x-use-canonical-path-for-ramblock-id",
         host_memory_backend_get_use_canonical_path,
         host_memory_backend_set_use_canonical_path);

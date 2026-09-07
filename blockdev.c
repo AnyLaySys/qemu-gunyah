@@ -562,7 +562,7 @@ QemuOptsList qemu_legacy_drive_opts = {
             .help = "copy read data from backing file into image file",
         },
 
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -875,7 +875,7 @@ QemuOptsList qemu_common_drive_opts = {
             .help = "whether to account for failed I/O operations "
                     "in the statistics",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -883,6 +883,6 @@ QemuOptsList qemu_drive_opts = {
     .name = "drive",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_drive_opts.head),
     .desc = {
-        { /* end of list */ }
+        {  }
     },
 };

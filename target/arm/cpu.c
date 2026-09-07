@@ -15,7 +15,7 @@
 #if !defined(CONFIG_USER_ONLY)
 #include "hw/loader.h"
 #include "hw/boards.h"
-#endif /* !CONFIG_USER_ONLY */
+#endif
 #include "system/hw_accel.h"
 #include "system/gunyah.h"
 #include "disas/capstone.h"
@@ -63,7 +63,7 @@ static bool arm_cpu_has_work(CPUState *cs)
          | CPU_INTERRUPT_VFIQ | CPU_INTERRUPT_VIRQ | CPU_INTERRUPT_VSERR
          | CPU_INTERRUPT_EXITTB);
 }
-#endif /* !CONFIG_USER_ONLY */
+#endif
 
 static int arm_cpu_mmu_index(CPUState *cs, bool ifetch)
 {
@@ -249,8 +249,8 @@ static void arm_cpu_reset_hold(Object *obj, ResetType type)
 
     if (arm_feature(env, ARM_FEATURE_M)) {
 #ifndef CONFIG_USER_ONLY
-        uint32_t initial_msp; /* Loaded from 0x0 */
-        uint32_t initial_pc; /* Loaded from 0x4 */
+        uint32_t initial_msp;
+        uint32_t initial_pc;
         uint8_t *rom;
         uint32_t vecbase;
 #endif
@@ -944,7 +944,7 @@ static void arm_cpu_initfn(Object *obj)
 #endif
 
     cpu->dtb_compatible = "qemu,unknown";
-    cpu->psci_version = QEMU_PSCI_VERSION_0_1; /* By default assume PSCI v0.1 */
+    cpu->psci_version = QEMU_PSCI_VERSION_0_1;
     
 
     if (gunyah_enabled()) {
@@ -1361,7 +1361,7 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
         uint32_t u;
 
         u = cpu->isar.mvfr0;
-        u = FIELD_DP32(u, MVFR0, SIMDREG, 1); /* 16 registers */
+        u = FIELD_DP32(u, MVFR0, SIMDREG, 1);
         cpu->isar.mvfr0 = u;
     }
 

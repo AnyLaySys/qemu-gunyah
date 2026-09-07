@@ -166,7 +166,7 @@ void graphic_hw_gl_block(QemuConsole *con, bool block)
 
     if (block) {
         timeout = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
-        timeout += 1000; /* one sec */
+        timeout += 1000;
         timer_mod(con->gl_unblock_timer, timeout);
     } else {
         timer_del(con->gl_unblock_timer);

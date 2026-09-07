@@ -129,7 +129,7 @@ static QString *parse_string(JSONParserContext *ctxt, JSONToken *token)
                         cp |= trailing & 0x3FF;
                         ptr += 6;
                     } else {
-                        cp = -1; /* invalid */
+                        cp = -1;
                     }
                 }
 

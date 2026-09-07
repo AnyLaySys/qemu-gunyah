@@ -281,7 +281,7 @@ static void aaudio_enable_in(HWVoiceIn *hw, bool enable)
 
 static void *aaudio_audio_init(Audiodev *dev, Error **errp)
 {
-    return &aaudio_audio_init; /* non-NULL = success */
+    return &aaudio_audio_init;
 }
 
 static void aaudio_audio_fini(void *opaque)

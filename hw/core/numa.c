@@ -19,7 +19,7 @@ QemuOptsList qemu_numa_opts = {
     .name = "numa",
     .implied_opt_name = "type",
     .head = QTAILQ_HEAD_INITIALIZER(qemu_numa_opts.head),
-    .desc = { { 0 } } /* validated with OptsVisitor */
+    .desc = { { 0 } }
 };
 
 static int have_memdevs;
@@ -29,9 +29,7 @@ bool numa_uses_legacy_mem(void)
 }
 
 static int have_mem;
-static int max_numa_nodeid; /* Highest specified NUMA node ID, plus one.
-                             * For all nodes, nodeid < max_numa_nodeid
-                             */
+static int max_numa_nodeid;
 
 static void parse_numa_node(MachineState *ms, NumaNodeOptions *node,
                             Error **errp)

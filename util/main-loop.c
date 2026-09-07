@@ -72,7 +72,7 @@ static int qemu_signal_init(Error **errp)
     return 0;
 }
 
-#else /* _WIN32 */
+#else
 
 static int qemu_signal_init(Error **errp)
 {
@@ -401,7 +401,7 @@ static void pollfds_poll(GArray *pollfds, int nfds, fd_set *rfds,
 static int os_host_main_loop_wait(int64_t timeout)
 {
     GMainContext *context = g_main_context_default();
-    GPollFD poll_fds[1024 * 2]; /* this is probably overkill */
+    GPollFD poll_fds[1024 * 2];
     int select_ret = 0;
     int g_poll_ret, ret, i, n_poll_fds;
     PollingEntry *pe;
@@ -508,7 +508,7 @@ void main_loop_wait(int nonblocking)
         mlpoll.timeout = 0;
     }
 
-    g_array_set_size(gpollfds, 0); /* reset for new iteration */
+    g_array_set_size(gpollfds, 0);
     notifier_list_notify(&main_loop_poll_notifiers, &mlpoll);
 
     if (mlpoll.timeout == UINT32_MAX) {

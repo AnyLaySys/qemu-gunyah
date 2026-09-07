@@ -641,7 +641,7 @@ void qemu_opts_print(QemuOpts *opts, const char *separator)
     const char *sep = "";
 
     if (opts->id) {
-        printf("id=%s", opts->id); /* passed id_wellformed -> no commas */
+        printf("id=%s", opts->id);
         sep = separator;
     }
 

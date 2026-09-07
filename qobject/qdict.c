@@ -19,8 +19,8 @@ QDict *qdict_new(void)
 
 static unsigned int tdb_hash(const char *name)
 {
-    unsigned value;    /* Used to compute the hash value.  */
-    unsigned   i;      /* Used to cycle through random values. */
+    unsigned value;
+    unsigned   i;
 
     for (value = 0x238F13AF * strlen(name), i = 0; name[i]; i++) {
         value = (value + (((const unsigned char *)name)[i] << (i * 5 % 24)));

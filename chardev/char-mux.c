@@ -64,7 +64,7 @@ static const char * const mux_help[] = {
     NULL
 };
 
-int term_escape_char = 0x01; /* ctrl-a is used for escape */
+int term_escape_char = 0x01;
 static void mux_print_help(Chardev *chr)
 {
     int i, j;

@@ -197,7 +197,7 @@ int module_load(const char *prefix, const char *name, Error **errp)
 
     if (g_hash_table_contains(loaded_modules, module_name)) {
         g_free(module_name);
-        return 2; /* module already loaded */
+        return 2;
     }
     g_hash_table_add(loaded_modules, module_name);
 
@@ -255,12 +255,12 @@ int module_load(const char *prefix, const char *name, Error **errp)
         } else if (ret != 0) {
             error_setg_errno(errp, errno, "error trying to access %s", fname);
         } else if (module_load_dso(fname, export_symbols, errp)) {
-            rv = 1; /* module successfully loaded */
+            rv = 1;
         }
         g_free(fname);
         goto out;
     }
-    rv = 0; /* module not found */
+    rv = 0;
 
 out:
     if (rv <= 0) {

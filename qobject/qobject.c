@@ -18,8 +18,8 @@ QEMU_BUILD_BUG_MSG(
     "base qobject must be at offset 0");
 
 static void (*qdestroy[QTYPE__MAX])(QObject *) = {
-    [QTYPE_NONE] = NULL,               /* No such object exists */
-    [QTYPE_QNULL] = NULL,              /* qnull_ is indestructible */
+    [QTYPE_NONE] = NULL,
+    [QTYPE_QNULL] = NULL,
     [QTYPE_QNUM] = qnum_destroy_obj,
     [QTYPE_QSTRING] = qstring_destroy_obj,
     [QTYPE_QDICT] = qdict_destroy_obj,
@@ -36,7 +36,7 @@ void qobject_destroy(QObject *obj)
 
 
 static bool (*qis_equal[QTYPE__MAX])(const QObject *, const QObject *) = {
-    [QTYPE_NONE] = NULL,               /* No such object exists */
+    [QTYPE_NONE] = NULL,
     [QTYPE_QNULL] = qnull_is_equal,
     [QTYPE_QNUM] = qnum_is_equal,
     [QTYPE_QSTRING] = qstring_is_equal,

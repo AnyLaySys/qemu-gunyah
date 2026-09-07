@@ -14,18 +14,18 @@
 #include "trace.h"
 #include "qapi/qapi-events-misc.h"
 
-#define RTC_DR      0x00    /* Data read register */
-#define RTC_MR      0x04    /* Match register */
-#define RTC_LR      0x08    /* Data load register */
-#define RTC_CR      0x0c    /* Control register */
-#define RTC_IMSC    0x10    /* Interrupt mask and set register */
-#define RTC_RIS     0x14    /* Raw interrupt status register */
-#define RTC_MIS     0x18    /* Masked interrupt status register */
-#define RTC_ICR     0x1c    /* Interrupt clear register */
+#define RTC_DR      0x00
+#define RTC_MR      0x04
+#define RTC_LR      0x08
+#define RTC_CR      0x0c
+#define RTC_IMSC    0x10
+#define RTC_RIS     0x14
+#define RTC_MIS     0x18
+#define RTC_ICR     0x1c
 
 static const unsigned char pl031_id[] = {
-    0x31, 0x10, 0x14, 0x00,         /* Device ID        */
-    0x0d, 0xf0, 0x05, 0xb1          /* Cell ID      */
+    0x31, 0x10, 0x14, 0x00,
+    0x0d, 0xf0, 0x05, 0xb1
 };
 
 static void pl031_update(PL031State *s)

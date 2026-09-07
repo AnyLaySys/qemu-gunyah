@@ -95,7 +95,7 @@ static const char *pl011_regname(hwaddr offset)
 }
 
 static const uint32_t irqmask[] = {
-    INT_E | INT_MS | INT_RT | INT_TX | INT_RX, /* combined IRQ */
+    INT_E | INT_MS | INT_RT | INT_TX | INT_RX,
     INT_RX,
     INT_TX,
     INT_RT,
@@ -224,43 +224,43 @@ static uint64_t pl011_read(void *opaque, hwaddr offset,
     uint64_t r;
 
     switch (offset >> 2) {
-    case 0: /* UARTDR */
+    case 0:
         r = pl011_read_rxdata(s);
         break;
-    case 1: /* UARTRSR */
+    case 1:
         r = s->rsr;
         break;
-    case 6: /* UARTFR */
+    case 6:
         r = s->flags;
         break;
-    case 8: /* UARTILPR */
+    case 8:
         r = s->ilpr;
         break;
-    case 9: /* UARTIBRD */
+    case 9:
         r = s->ibrd;
         break;
-    case 10: /* UARTFBRD */
+    case 10:
         r = s->fbrd;
         break;
-    case 11: /* UARTLCR_H */
+    case 11:
         r = s->lcr;
         break;
-    case 12: /* UARTCR */
+    case 12:
         r = s->cr;
         break;
-    case 13: /* UARTIFLS */
+    case 13:
         r = s->ifl;
         break;
-    case 14: /* UARTIMSC */
+    case 14:
         r = s->int_enabled;
         break;
-    case 15: /* UARTRIS */
+    case 15:
         r = s->int_level;
         break;
-    case 16: /* UARTMIS */
+    case 16:
         r = s->int_level & s->int_enabled;
         break;
-    case 18: /* UARTDMACR */
+    case 18:
         r = s->dmacr;
         break;
     case 0x3f8 ... 0x400:
@@ -344,27 +344,27 @@ static void pl011_write(void *opaque, hwaddr offset,
     trace_pl011_write(offset, value, pl011_regname(offset));
 
     switch (offset >> 2) {
-    case 0: /* UARTDR */
+    case 0:
         ch = value;
         pl011_write_txdata(s, ch);
         break;
-    case 1: /* UARTRSR/UARTECR */
+    case 1:
         s->rsr = 0;
         break;
-    case 6: /* UARTFR */
+    case 6:
         break;
-    case 8: /* UARTILPR */
+    case 8:
         s->ilpr = value;
         break;
-    case 9: /* UARTIBRD */
+    case 9:
         s->ibrd = value & IBRD_MASK;
         pl011_trace_baudrate_change(s);
         break;
-    case 10: /* UARTFBRD */
+    case 10:
         s->fbrd = value & FBRD_MASK;
         pl011_trace_baudrate_change(s);
         break;
-    case 11: /* UARTLCR_H */
+    case 11:
         if ((s->lcr ^ value) & LCR_FEN) {
             pl011_reset_rx_fifo(s);
             pl011_reset_tx_fifo(s);
@@ -378,23 +378,23 @@ static void pl011_write(void *opaque, hwaddr offset,
         s->lcr = value;
         pl011_set_read_trigger(s);
         break;
-    case 12: /* UARTCR */
+    case 12:
         s->cr = value;
         pl011_loopback_mdmctrl(s);
         break;
-    case 13: /* UARTIFS */
+    case 13:
         s->ifl = value;
         pl011_set_read_trigger(s);
         break;
-    case 14: /* UARTIMSC */
+    case 14:
         s->int_enabled = value;
         pl011_update(s);
         break;
-    case 17: /* UARTICR */
+    case 17:
         s->int_level &= ~value;
         pl011_update(s);
         break;
-    case 18: /* UARTDMACR */
+    case 18:
         s->dmacr = value;
         if (value & 3) {
             qemu_log_mask(LOG_UNIMP, "pl011: DMA not implemented\n");

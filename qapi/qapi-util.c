@@ -99,7 +99,7 @@ int parse_qapi_name(const char *str, bool complete)
 {
     const char *p = str;
 
-    if (*p == '_') {            /* Downstream __RFQDN_ */
+    if (*p == '_') {
         p++;
         if (*p != '_') {
             return -1;

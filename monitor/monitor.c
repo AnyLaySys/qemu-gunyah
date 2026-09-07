@@ -12,7 +12,7 @@
 IOThread *mon_iothread;
 
 QemuMutex monitor_lock;
-static GHashTable *coroutine_mon; /* Maps Coroutine* to Monitor* */
+static GHashTable *coroutine_mon;
 
 MonitorList mon_list;
 static bool monitor_destroyed;
@@ -394,6 +394,6 @@ QemuOptsList qemu_mon_opts = {
             .name = "chardev",
             .type = QEMU_OPT_STRING,
         },
-        { /* end of list */ }
+        {  }
     },
 };

@@ -1785,8 +1785,8 @@ void object_property_allow_set_link(const Object *obj, const char *name,
 typedef struct {
     union {
         Object **targetp;
-        Object *target; /* if OBJ_PROP_LINK_DIRECT, when holding the pointer  */
-        ptrdiff_t offset; /* if OBJ_PROP_LINK_CLASS */
+        Object *target;
+        ptrdiff_t offset;
     };
     void (*check)(const Object *, const char *, Object *, Error **);
     ObjectPropertyLinkFlags flags;

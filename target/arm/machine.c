@@ -282,7 +282,7 @@ static const VMStateDescription vmstate_za = {
         VMSTATE_END_OF_LIST()
     }
 };
-#endif /* AARCH64 */
+#endif
 
 static bool serror_needed(void *opaque)
 {

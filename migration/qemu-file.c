@@ -20,7 +20,7 @@ struct QEMUFile {
     bool is_writable;
 
     int buf_index;
-    int buf_size; /* 0 when writing */
+    int buf_size;
     uint8_t buf[IO_BUF_SIZE];
 
     DECLARE_BITMAP(may_free, MAX_IOV_SIZE);
@@ -298,7 +298,7 @@ int qemu_file_get_fd(QEMUFile *f)
 
     fde = QTAILQ_FIRST(&f->fds);
     if (fde) {
-        qemu_get_byte(f);       /* Drop the dummy byte */
+        qemu_get_byte(f);
         fd = fde->fd;
         QTAILQ_REMOVE(&f->fds, fde, entry);
         g_free(fde);

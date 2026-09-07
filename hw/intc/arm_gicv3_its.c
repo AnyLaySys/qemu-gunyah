@@ -18,7 +18,7 @@ struct GICv3ITSClass {
 };
 
 typedef enum ItsCmdType {
-    NONE = 0, /* internal indication for GITS_TRANSLATER write */
+    NONE = 0,
     CLEAR = 1,
     DISCARD = 2,
     INTERRUPT = 3,

@@ -2003,7 +2003,7 @@ static void audio_validate_opts(Audiodev *dev, Error **errp)
 
     if (!dev->has_timer_period) {
         dev->has_timer_period = true;
-        dev->timer_period = 10000; /* 100Hz -> 10ms */
+        dev->timer_period = 10000;
     }
 }
 

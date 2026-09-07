@@ -87,8 +87,8 @@ try:
 except ImportError:
     try:
         from pip._vendor import distlib
-        import pip._vendor.distlib.scripts  # noqa, pylint: disable=unused-import
-        import pip._vendor.distlib.version  # noqa, pylint: disable=unused-import
+        import pip._vendor.distlib.scripts
+        import pip._vendor.distlib.version
     except ImportError:
         HAVE_DISTLIB = False
 
@@ -278,7 +278,7 @@ def check_ensurepip() -> None:
         raise Ouch(msg)
 
 
-def make_venv(  # pylint: disable=too-many-arguments
+def make_venv(
     env_dir: Union[str, Path],
     system_site_packages: bool = False,
     clear: bool = True,
@@ -672,7 +672,7 @@ def _parse_groups(file: str) -> Dict[str, Dict[str, Any]]:
 
     with open(file, "r", encoding="ascii") as depfile:
         contents = depfile.read()
-        return tomllib.loads(contents)  # type: ignore
+        return tomllib.loads(contents)
 
 
 def ensure_group(
@@ -814,7 +814,7 @@ def main() -> int:
         return 1
     except SystemExit:
         raise
-    except:  # pylint: disable=bare-except
+    except:
         logger.exception("mkvenv did not complete successfully:")
         return 2
     return 0

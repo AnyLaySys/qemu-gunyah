@@ -352,7 +352,7 @@ static uint8_t virtio_blk_handle_discard_write_zeroes(VirtIOBlockReq *req,
         goto err;
     }
 
-    if (is_write_zeroes) { /* VIRTIO_BLK_T_WRITE_ZEROES */
+    if (is_write_zeroes) {
         int blk_aio_flags = 0;
 
         if (flags & VIRTIO_BLK_WRITE_ZEROES_FLAG_UNMAP) {
@@ -365,7 +365,7 @@ static uint8_t virtio_blk_handle_discard_write_zeroes(VirtIOBlockReq *req,
         blk_aio_pwrite_zeroes(s->blk, sector << BDRV_SECTOR_BITS,
                               bytes, blk_aio_flags,
                               virtio_blk_discard_write_zeroes_complete, req);
-    } else { /* VIRTIO_BLK_T_DISCARD */
+    } else {
         if (unlikely(flags & VIRTIO_BLK_WRITE_ZEROES_FLAG_UNMAP)) {
             err_status = VIRTIO_BLK_S_UNSUPP;
             goto err;
@@ -924,7 +924,7 @@ static void virtio_blk_handle_output(VirtIODevice *vdev, VirtQueue *vq)
 static void virtio_blk_dma_restart_bh(void *opaque)
 {
     VirtIOBlockReq *req = opaque;
-    VirtIOBlock *s = req->dev; /* we're called with at least one request */
+    VirtIOBlock *s = req->dev;
 
     MultiReqBuffer mrb = {};
 
@@ -1382,7 +1382,7 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
 
     memory_region_transaction_commit();
 
-    assert(nvqs > 0); /* enforced during ->realize() */
+    assert(nvqs > 0);
     r = blk_set_aio_context(s->conf.conf.blk, s->vq_aio_context[0],
                             &local_err);
     if (r < 0) {
@@ -1391,7 +1391,7 @@ static int virtio_blk_start_ioeventfd(VirtIODevice *vdev)
 
     s->ioeventfd_starting = false;
     s->ioeventfd_started = true;
-    smp_wmb(); /* paired with aio_notify_accept() on the read side */
+    smp_wmb();
 
     if (!blk_in_drain(s->conf.conf.blk)) {
         virtio_blk_ioeventfd_attach(s);

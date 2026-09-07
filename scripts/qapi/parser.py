@@ -330,7 +330,7 @@ class QAPISchemaParser:
             raise QAPIParseError(self, "expected string or '}'")
         while True:
             key = self.val
-            assert isinstance(key, str)  # Guaranteed by tok == "'"
+            assert isinstance(key, str)
 
             self.accept()
             if self.tok != ':':

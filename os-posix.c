@@ -60,9 +60,9 @@ void os_set_proc_name(const char *s)
 }
 
 
-static struct passwd *user_pwd;    /*   NULL   non-NULL   NULL   */
-static uid_t user_uid = (uid_t)-1; /*   -1      -1        >=0    */
-static gid_t user_gid = (gid_t)-1; /*   -1      -1        >=0    */
+static struct passwd *user_pwd;
+static uid_t user_uid = (uid_t)-1;
+static gid_t user_gid = (gid_t)-1;
 
 bool os_set_runas(const char *user_id)
 {
@@ -80,13 +80,13 @@ bool os_set_runas(const char *user_id)
     }
 
     rc = qemu_strtoul(user_id, &ep, 0, &lv);
-    got_uid = lv; /* overflow here is ID in C99 */
+    got_uid = lv;
     if (rc || *ep != ':' || got_uid != lv || got_uid == (uid_t)-1) {
         return false;
     }
 
     rc = qemu_strtoul(ep + 1, 0, 0, &lv);
-    got_gid = lv; /* overflow here is ID in C99 */
+    got_gid = lv;
     if (rc || got_gid != lv || got_gid == (gid_t)-1) {
         return false;
     }

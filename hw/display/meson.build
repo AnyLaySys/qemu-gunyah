@@ -2,6 +2,7 @@ hw_display_modules = {}
 
 system_ss.add(when: 'CONFIG_EDID', if_true: files('edid-generate.c'))
 system_ss.add(when: 'CONFIG_VIRTIO', if_true: files('virtio-dmabuf.c'))
+system_ss.add(files('ramfb.c'))
 
 if config_all_devices.has_key('CONFIG_VIRTIO_PCI')
   virtio_gpu_gl_pci_ss = ss.source_set()

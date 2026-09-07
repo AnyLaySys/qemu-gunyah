@@ -2361,7 +2361,7 @@ config_host_data.set('CONFIG_AF_VSOCK', cc.has_header_symbol(
 ))
 
 have_vss = false
-have_vss_sdk = false # old xp/2003 SDK
+have_vss_sdk = false
 if host_os == 'windows' and 'cpp' in all_languages
   have_vss = cxx.compiles('''
     #define __MIDL_user_allocate_free_DEFINED__

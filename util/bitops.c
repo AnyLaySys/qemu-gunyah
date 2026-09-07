@@ -56,8 +56,8 @@ unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
 
 found_first:
     tmp &= (~0UL >> (BITS_PER_LONG - size));
-    if (tmp == 0UL) {           /* Are any bits set? */
-        return result + size;   /* Nope. */
+    if (tmp == 0UL) {
+        return result + size;
     }
 found_middle:
     return result + ctzl(tmp);
@@ -101,8 +101,8 @@ unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size,
 
 found_first:
     tmp |= ~0UL << size;
-    if (tmp == ~0UL) {          /* Are any bits zero? */
-        return result + size;   /* Nope. */
+    if (tmp == ~0UL) {
+        return result + size;
     }
 found_middle:
     return result + ctzl(~tmp);

@@ -1077,8 +1077,8 @@ static bool virtqueue_get_head(VirtQueue *vq, unsigned int idx,
 
 enum {
     VIRTQUEUE_READ_DESC_ERROR = -1,
-    VIRTQUEUE_READ_DESC_DONE = 0,   /* end of chain */
-    VIRTQUEUE_READ_DESC_MORE = 1,   /* more buffers in chain */
+    VIRTQUEUE_READ_DESC_DONE = 0,
+    VIRTQUEUE_READ_DESC_MORE = 1,
 };
 
 static int virtqueue_split_read_next_desc(VirtIODevice *vdev, VRingDesc *desc,
@@ -3696,7 +3696,7 @@ static int virtio_device_start_ioeventfd_impl(VirtIODevice *vdev)
     return 0;
 
 assign_error:
-    i = n; /* save n for a second iteration after transaction is committed. */
+    i = n;
     while (--n >= 0) {
         VirtQueue *vq = &vdev->vq[n];
         if (!virtio_queue_get_num(vdev, n)) {

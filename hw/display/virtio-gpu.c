@@ -1217,7 +1217,7 @@ static int virtio_gpu_save(QEMUFile *f, void *opaque, size_t size,
         qemu_put_buffer(f, (void *)pixman_image_get_data(res->image),
                         pixman_image_get_stride(res->image) * res->height);
     }
-    qemu_put_be32(f, 0); /* end of list */
+    qemu_put_be32(f, 0);
 
     return vmstate_save_state(f, &vmstate_virtio_gpu_scanouts, g, NULL);
 }
@@ -1338,7 +1338,7 @@ static int virtio_gpu_blob_save(QEMUFile *f, void *opaque, size_t size,
             qemu_put_be32(f, res->iov[i].iov_len);
         }
     }
-    qemu_put_be32(f, 0); /* end of list */
+    qemu_put_be32(f, 0);
 
     return 0;
 }
@@ -1575,7 +1575,7 @@ const VMStateDescription vmstate_virtio_gpu_blob_state = {
                 .put = virtio_gpu_blob_save,
             },
             .flags = VMS_SINGLE,
-        } /* device */,
+        } ,
         VMSTATE_END_OF_LIST()
     },
 };
@@ -1585,7 +1585,7 @@ static const VMStateDescription vmstate_virtio_gpu = {
     .minimum_version_id = VIRTIO_GPU_VM_VERSION,
     .version_id = VIRTIO_GPU_VM_VERSION,
     .fields = (const VMStateField[]) {
-        VMSTATE_VIRTIO_DEVICE /* core */,
+        VMSTATE_VIRTIO_DEVICE ,
         {
             .name = "virtio-gpu",
             .info = &(const VMStateInfo) {
@@ -1594,7 +1594,7 @@ static const VMStateDescription vmstate_virtio_gpu = {
                         .put = virtio_gpu_save,
             },
             .flags = VMS_SINGLE,
-        } /* device */,
+        } ,
         VMSTATE_END_OF_LIST()
     },
     .subsections = (const VMStateDescription * const []) {

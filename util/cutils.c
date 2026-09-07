@@ -582,11 +582,11 @@ int qemu_parse_fd(const char *param)
 
     errno = 0;
     fd = strtol(param, &endptr, 10);
-    if (param == endptr /* no conversion performed */                    ||
-        errno != 0      /* not representable as long; possibly others */ ||
-        *endptr != '\0' /* final string not empty */                     ||
-        fd < 0          /* invalid as file descriptor */                 ||
-        fd > INT_MAX    /* not representable as int */) {
+    if (param == endptr                     ||
+        errno != 0       ||
+        *endptr != '\0'                      ||
+        fd < 0                           ||
+        fd > INT_MAX    ) {
         return -1;
     }
     return fd;

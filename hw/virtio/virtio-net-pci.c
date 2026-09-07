@@ -35,8 +35,8 @@ static void virtio_net_pci_realize(VirtIOPCIProxy *vpci_dev, Error **errp)
 
     if (vpci_dev->nvectors == DEV_NVECTORS_UNSPECIFIED) {
         vpci_dev->nvectors = 2 * MAX(net->nic_conf.peers.queues, 1)
-            + 1 /* Config interrupt */
-            + 1 /* Control vq */;
+            + 1
+            + 1 ;
     }
 
     virtio_net_set_netclient_name(&dev->vdev, qdev->id,

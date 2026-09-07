@@ -1334,7 +1334,6 @@ static int confidential_guest_init(MachineState *ms)
 {
  ConfidentialGuestSupport *cgs = ms->cgs;
  ArmConfidentialGuestState *obj;
- GUNYAHState *s;
 
  if (!cgs) {
   return 0;
@@ -1354,7 +1353,6 @@ static int confidential_guest_init(MachineState *ms)
   return -1;
  }
 
- s = get_gunyah_state();
  if (obj->swiotlb_size) {
   gunyah_set_swiotlb_size(obj->swiotlb_size);
  }

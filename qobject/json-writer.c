@@ -122,7 +122,7 @@ static void quoted_str(JSONWriter *writer, const char *str)
             break;
         default:
             if (cp < 0) {
-                cp = 0xFFFD; /* replacement character */
+                cp = 0xFFFD;
             }
             if (cp > 0xFFFF) {
                 g_string_append_printf(writer->contents, "\\u%04X\\u%04X",

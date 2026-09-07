@@ -29,7 +29,7 @@ static QemuOptsList raw_runtime_opts = {
             .type = QEMU_OPT_SIZE,
             .help = "virtual disk size",
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -42,7 +42,7 @@ static QemuOptsList raw_create_opts = {
             .type = QEMU_OPT_SIZE,
             .help = "Virtual disk size"
         },
-        { /* end of list */ }
+        {  }
     }
 };
 

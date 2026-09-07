@@ -249,7 +249,7 @@ void qemu_pixman_glyph_render(pixman_image_t *glyph,
     pixman_image_unref(ifg);
     pixman_image_unref(ibg);
 }
-#endif /* CONFIG_PIXMAN */
+#endif
 
 static void *
 qemu_pixman_shareable_alloc(const char *name, size_t size,

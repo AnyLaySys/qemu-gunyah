@@ -191,7 +191,7 @@ static ssize_t qio_channel_file_pwritev(QIOChannel *ioc,
     }
     return ret;
 }
-#endif /* CONFIG_PREADV */
+#endif
 
 static int qio_channel_file_set_blocking(QIOChannel *ioc,
                                          bool enabled,

@@ -7,16 +7,16 @@
 #include "trace.h"
 
 struct partition {
-        uint8_t boot_ind;           /* 0x80 - active */
-        uint8_t head;               /* starting head */
-        uint8_t sector;             /* starting sector */
-        uint8_t cyl;                /* starting cylinder */
-        uint8_t sys_ind;            /* What partition type */
-        uint8_t end_head;           /* end head */
-        uint8_t end_sector;         /* end sector */
-        uint8_t end_cyl;            /* end cylinder */
-        uint32_t start_sect;        /* starting sector counting from 0 */
-        uint32_t nr_sects;          /* nr of sectors in partition */
+        uint8_t boot_ind;
+        uint8_t head;
+        uint8_t sector;
+        uint8_t cyl;
+        uint8_t sys_ind;
+        uint8_t end_head;
+        uint8_t end_sector;
+        uint8_t end_cyl;
+        uint32_t start_sect;
+        uint32_t nr_sects;
 } QEMU_PACKED;
 
 static int guess_disk_lchs(BlockBackend *blk,

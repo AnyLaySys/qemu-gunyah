@@ -7,7 +7,7 @@
 
 typedef struct {
     const char *name;
-    ptrdiff_t offset; /* field's byte offset in EventLoopBase struct */
+    ptrdiff_t offset;
 } EventLoopBaseParamInfo;
 
 static void event_loop_base_instance_init(Object *obj)

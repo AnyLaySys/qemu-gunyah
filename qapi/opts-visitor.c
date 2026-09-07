@@ -11,42 +11,16 @@
 
 enum ListMode
 {
-    LM_NONE,             /* not traversing a list of repeated options */
+    LM_NONE,
 
-    LM_IN_PROGRESS,      /*
-                          * opts_next_list() ready to be called.
-                          *
-                          * Generating the next list link will consume the most
-                          * recently parsed QemuOpt instance of the repeated
-                          * option.
-                          *
-                          * Parsing a value into the list link will examine the
-                          * next QemuOpt instance of the repeated option, and
-                          * possibly enter LM_SIGNED_INTERVAL or
-                          * LM_UNSIGNED_INTERVAL.
-                          */
+    LM_IN_PROGRESS,
 
-    LM_SIGNED_INTERVAL,  /*
-                          * opts_next_list() has been called.
-                          *
-                          * Generating the next list link will consume the most
-                          * recently stored element from the signed interval,
-                          * parsed from the most recent QemuOpt instance of the
-                          * repeated option. This may consume QemuOpt itself
-                          * and return to LM_IN_PROGRESS.
-                          *
-                          * Parsing a value into the list link will store the
-                          * next element of the signed interval.
-                          */
+    LM_SIGNED_INTERVAL,
 
-    LM_UNSIGNED_INTERVAL, /* Same as above, only for an unsigned interval. */
+    LM_UNSIGNED_INTERVAL,
 
-    LM_TRAVERSED          /*
-                           * opts_next_list() has been called.
-                           *
-                           * No more QemuOpt instance in the list.
-                           * The traversal has been completed.
-                           */
+    LM_TRAVERSED
+
 };
 
 typedef enum ListMode ListMode;

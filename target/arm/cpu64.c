@@ -433,10 +433,10 @@ void arm_cpu_lpa2_finalize(ARMCPU *cpu, Error **errp)
     }
 
     t = cpu->isar.id_aa64mmfr0;
-    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN16, 2);   /* 16k pages w/ LPA2 */
-    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN4, 1);    /*  4k pages w/ LPA2 */
-    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN16_2, 3); /* 16k stage2 w/ LPA2 */
-    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN4_2, 3);  /*  4k stage2 w/ LPA2 */
+    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN16, 2);
+    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN4, 1);
+    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN16_2, 3);
+    t = FIELD_DP64(t, ID_AA64MMFR0, TGRAN4_2, 3);
     cpu->isar.id_aa64mmfr0 = t;
 }
 

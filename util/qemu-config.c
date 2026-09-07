@@ -1,5 +1,5 @@
 #include "qemu/osdep.h"
-#include "block/qdict.h" /* for qdict_extract_subqdict() */
+#include "block/qdict.h"
 #include "qapi/error.h"
 #include "qobject/qdict.h"
 #include "qobject/qlist.h"
@@ -63,7 +63,7 @@ void qemu_add_drive_opts(QemuOptsList *list)
     int entries, i;
 
     entries = ARRAY_SIZE(drive_config_groups);
-    entries--; /* keep list NULL terminated */
+    entries--;
     for (i = 0; i < entries; i++) {
         if (drive_config_groups[i] == NULL) {
             drive_config_groups[i] = list;
@@ -79,7 +79,7 @@ void qemu_add_opts(QemuOptsList *list)
     int entries, i;
 
     entries = ARRAY_SIZE(vm_config_groups);
-    entries--; /* keep list NULL terminated */
+    entries--;
     for (i = 0; i < entries; i++) {
         if (vm_config_groups[i] == NULL) {
             vm_config_groups[i] = list;

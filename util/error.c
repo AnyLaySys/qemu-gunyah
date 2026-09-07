@@ -301,6 +301,6 @@ void error_propagate_prepend(Error **dst_errp, Error *err,
         va_start(ap, fmt);
         error_vprepend(&err, fmt, ap);
         va_end(ap);
-    } /* else error is being ignored, don't bother with prepending */
+    }
     error_propagate(dst_errp, err);
 }

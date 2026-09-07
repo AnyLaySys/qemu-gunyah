@@ -11,7 +11,7 @@ static void ram_block_added(RAMBlockNotifier *n, void *host, size_t size,
     Error *err = NULL;
 
     if (!r->ok) {
-        return; /* don't try again if we've already failed */
+        return;
     }
 
     if (!blk_register_buf(r->blk, host, max_size, &err)) {

@@ -29,7 +29,7 @@
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
 #include <CoreFoundation/CoreFoundation.h>
-#endif /* defined(HAVE_HOST_BLOCK_DEVICE) */
+#endif
 #endif
 
 #ifdef __sun__
@@ -54,7 +54,7 @@
 #include <asm/dasd.h>
 #endif
 #ifndef FS_NOCOW_FL
-#define FS_NOCOW_FL                     0x00800000 /* Do not cow file */
+#define FS_NOCOW_FL                     0x00800000
 #endif
 #endif
 #if defined(CONFIG_FALLOCATE_PUNCH_HOLE) || defined(CONFIG_FALLOCATE_ZERO_RANGE)
@@ -123,7 +123,7 @@ typedef struct BDRVRawState {
     bool has_discard:1;
     bool has_write_zeroes:1;
     bool use_linux_io_uring:1;
-    int page_cache_inconsistent; /* errno from fdatasync failure */
+    int page_cache_inconsistent;
     bool has_fallocate;
     bool needs_alignment;
     bool force_alignment;
@@ -408,7 +408,7 @@ static int check_hdev_writable(int fd)
     if (readonly) {
         return -EACCES;
     }
-#endif /* defined(BLKROGET) */
+#endif
     return 0;
 }
 
@@ -474,7 +474,7 @@ static QemuOptsList raw_runtime_opts = {
             .type = QEMU_OPT_BOOL,
             .help = "check that page cache was dropped on live migration (default: off)"
         },
-        { /* end of list */ }
+        {  }
     },
 };
 
@@ -584,7 +584,7 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
         ret = -EINVAL;
         goto fail;
     }
-#endif /* !defined(CONFIG_LINUX_IO_URING) */
+#endif
 
     s->has_discard = true;
     s->has_write_zeroes = true;
@@ -618,7 +618,7 @@ static int raw_open_common(BlockDriverState *bs, QDict *options,
         (!(s->open_flags & O_DIRECT))) {
         error_setg(errp, "The driver supports zoned devices, and it requires "
                          "cache.direct=on, which was not specified.");
-        return -EINVAL; /* No host kernel page cache */
+        return -EINVAL;
     }
 #endif
 
@@ -1053,7 +1053,7 @@ static int get_sysfs_zoned_model(struct stat *st, BlockZoneModel *zoned)
     }
     return 0;
 }
-#endif /* defined(CONFIG_BLKZONED) */
+#endif
 
 #ifdef CONFIG_LINUX
 static long get_sysfs_long_val(struct stat *st, const char *attribute)
@@ -1234,13 +1234,13 @@ no_zoned:
     g_free(bs->wps);
     bs->wps = NULL;
 }
-#else /* !defined(CONFIG_BLKZONED) */
+#else
 static void raw_refresh_zoned_limits(BlockDriverState *bs, struct stat *st,
                                      Error **errp)
 {
     bs->bl.zoned = BLK_Z_NONE;
 }
-#endif /* !defined(CONFIG_BLKZONED) */
+#endif
 
 static void raw_refresh_limits(BlockDriverState *bs, Error **errp)
 {
@@ -1334,7 +1334,7 @@ static int hdev_probe_geometry(BlockDriverState *bs, HDGeometry *geo)
 
     return 0;
 }
-#else /* __linux__ */
+#else
 static int hdev_probe_geometry(BlockDriverState *bs, HDGeometry *geo)
 {
     return -ENOTSUP;
@@ -1356,7 +1356,7 @@ static int handle_aiocb_ioctl(void *opaque)
 
     return 0;
 }
-#endif /* linux */
+#endif
 
 #if defined(CONFIG_FALLOCATE) || defined(BLKZEROOUT) || defined(BLKDISCARD)
 static int translate_err(int err)
@@ -2429,7 +2429,7 @@ static int find_allocation(BlockDriverState *bs, off_t start,
 
     offs = lseek(s->fd, start, SEEK_DATA);
     if (offs < 0) {
-        return -errno;          /* D3 or D4 */
+        return -errno;
     }
 
     if (offs < start) {
@@ -2445,7 +2445,7 @@ static int find_allocation(BlockDriverState *bs, off_t start,
 
     offs = lseek(s->fd, start, SEEK_HOLE);
     if (offs < 0) {
-        return -errno;          /* D1 and (H3 or H4) */
+        return -errno;
     }
 
     if (offs < start) {
@@ -2582,7 +2582,7 @@ static void check_cache_dropped(BlockDriverState *bs, Error **errp)
 
     g_free(vec);
 }
-#endif /* __linux__ */
+#endif
 
 static void coroutine_fn GRAPH_RDLOCK
 raw_co_invalidate_cache(BlockDriverState *bs, Error **errp)
@@ -2601,7 +2601,7 @@ raw_co_invalidate_cache(BlockDriverState *bs, Error **errp)
     }
 
     if (s->open_flags & O_DIRECT) {
-        return; /* No host kernel page cache */
+        return;
     }
 
 #if defined(__linux__)
@@ -2612,7 +2612,7 @@ raw_co_invalidate_cache(BlockDriverState *bs, Error **errp)
     }
 
     ret = posix_fadvise(s->fd, 0, 0, POSIX_FADV_DONTNEED);
-    if (ret != 0) { /* the return value is a positive errno */
+    if (ret != 0) {
         error_setg_errno(errp, ret, "fadvise failed");
         return;
     }
@@ -2620,8 +2620,8 @@ raw_co_invalidate_cache(BlockDriverState *bs, Error **errp)
     if (s->check_cache_dropped) {
         check_cache_dropped(bs, errp);
     }
-#else /* __linux__ */
-#endif /* !__linux__ */
+#else
+#endif
 }
 
 static void raw_account_discard(BDRVRawState *s, uint64_t nbytes, int ret)
@@ -2939,7 +2939,7 @@ static BlockStatsSpecific *hdev_get_specific_stats(BlockDriverState *bs)
 
     return stats;
 }
-#endif /* HAVE_HOST_BLOCK_DEVICE */
+#endif
 
 static QemuOptsList raw_create_opts = {
     .name = "raw-create-opts",
@@ -2969,7 +2969,7 @@ static QemuOptsList raw_create_opts = {
             .type = QEMU_OPT_SIZE,
             .help = "Extent size hint for the image file, 0 to disable"
         },
-        { /* end of list */ }
+        {  }
     }
 };
 
@@ -3098,7 +3098,7 @@ BlockDriver bdrv_file = {
     .protocol_name = "file",
     .instance_size = sizeof(BDRVRawState),
     .bdrv_needs_filename = true,
-    .bdrv_probe = NULL, /* no probe for protocols */
+    .bdrv_probe = NULL,
     .bdrv_parse_filename = raw_parse_filename,
     .bdrv_open      = raw_open,
     .bdrv_reopen_prepare = raw_reopen_prepare,
@@ -3245,7 +3245,7 @@ static void print_unmounting_directions(const char *file_name)
     error_report("Command to mount device: diskutil mountDisk %s", file_name);
 }
 
-#endif /* defined(__APPLE__) && defined(__MACH__) */
+#endif
 
 static int hdev_probe_device(const char *filename)
 {
@@ -3354,7 +3354,7 @@ hdev_open_Mac_error:
             return -ENOENT;
         }
     }
-#endif /* defined(__APPLE__) && defined(__MACH__) */
+#endif
 
     s->type = FTYPE_FILE;
 
@@ -3367,7 +3367,7 @@ hdev_open_Mac_error:
         if (strncmp(filename, "/dev/", 5) == 0) {
             print_unmounting_directions(filename);
         }
-#endif /* defined(__APPLE__) && defined(__MACH__) */
+#endif
         return ret;
     }
 
@@ -3402,7 +3402,7 @@ hdev_co_ioctl(BlockDriverState *bs, unsigned long int req, void *buf)
 
     return raw_thread_pool_submit(handle_aiocb_ioctl, &acb);
 }
-#endif /* linux */
+#endif
 
 static coroutine_fn int
 hdev_co_pdiscard(BlockDriverState *bs, int64_t offset, int64_t bytes)
@@ -3592,7 +3592,7 @@ static BlockDriver bdrv_host_cdrom = {
 
     .bdrv_co_ioctl      = hdev_co_ioctl,
 };
-#endif /* __linux__ */
+#endif
 
 #if defined (__FreeBSD__) || defined(__FreeBSD_kernel__)
 static int cdrom_open(BlockDriverState *bs, QDict *options, int flags,
@@ -3702,9 +3702,9 @@ static BlockDriver bdrv_host_cdrom = {
     .bdrv_co_eject           = cdrom_co_eject,
     .bdrv_co_lock_medium     = cdrom_co_lock_medium,
 };
-#endif /* __FreeBSD__ */
+#endif
 
-#endif /* HAVE_HOST_BLOCK_DEVICE */
+#endif
 
 static void bdrv_file_init(void)
 {
@@ -3717,7 +3717,7 @@ static void bdrv_file_init(void)
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
     bdrv_register(&bdrv_host_cdrom);
 #endif
-#endif /* HAVE_HOST_BLOCK_DEVICE */
+#endif
 }
 
 block_init(bdrv_file_init);

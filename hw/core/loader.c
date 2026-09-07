@@ -133,14 +133,14 @@ void pstrcpy_targphys(const char *name, hwaddr dest, int buf_size,
 
 struct exec
 {
-  uint32_t a_info;   /* Use macros N_MAGIC, etc for access */
-  uint32_t a_text;   /* length of text, in bytes */
-  uint32_t a_data;   /* length of data, in bytes */
-  uint32_t a_bss;    /* length of uninitialized data area, in bytes */
-  uint32_t a_syms;   /* length of symbol table data in file, in bytes */
-  uint32_t a_entry;  /* start address */
-  uint32_t a_trsize; /* length of relocation info for text, in bytes */
-  uint32_t a_drsize; /* length of relocation info for data, in bytes */
+  uint32_t a_info;
+  uint32_t a_text;
+  uint32_t a_data;
+  uint32_t a_bss;
+  uint32_t a_syms;
+  uint32_t a_entry;
+  uint32_t a_trsize;
+  uint32_t a_drsize;
 };
 
 static void bswap_ahdr(struct exec *e)
@@ -755,15 +755,15 @@ ssize_t load_image_gzipped_buffer(const char *filename, uint64_t max_sz,
 #define EFI_PE_LINUX_MAGIC        "\xcd\x23\x82\x81"
 
 struct linux_efi_zboot_header {
-    uint8_t     msdos_magic[2];         /* PE/COFF 'MZ' magic number */
+    uint8_t     msdos_magic[2];
     uint8_t     reserved0[2];
-    uint8_t     zimg[4];                /* "zimg" for Linux EFI zboot images */
-    uint32_t    payload_offset;         /* LE offset to compressed payload */
-    uint32_t    payload_size;           /* LE size of the compressed payload */
+    uint8_t     zimg[4];
+    uint32_t    payload_offset;
+    uint32_t    payload_size;
     uint8_t     reserved1[8];
-    char        compression_type[32];   /* Compression type, NUL terminated */
-    uint8_t     linux_magic[4];         /* Linux header magic */
-    uint32_t    pe_header_offset;       /* LE offset to the PE header */
+    char        compression_type[32];
+    uint8_t     linux_magic[4];
+    uint32_t    pe_header_offset;
 };
 
 ssize_t unpack_efi_zboot_image(uint8_t **buffer, ssize_t *size)
@@ -1251,7 +1251,7 @@ static Rom *find_rom(hwaddr addr, size_t size)
 
 typedef struct RomSec {
     hwaddr base;
-    int se; /* start/end flag */
+    int se;
 } RomSec;
 
 
@@ -1385,10 +1385,10 @@ void *rom_ptr(hwaddr addr, size_t size)
 }
 
 typedef struct FindRomCBData {
-    size_t size; /* Amount of data we want from ROM, in bytes */
-    MemoryRegion *mr; /* MR at the unaliased guest addr */
-    hwaddr xlat; /* Offset of addr within mr */
-    void *rom; /* Output: rom data pointer, if found */
+    size_t size;
+    MemoryRegion *mr;
+    hwaddr xlat;
+    void *rom;
 } FindRomCBData;
 
 static bool find_rom_cb(Int128 start, Int128 len, const MemoryRegion *mr,
@@ -1616,8 +1616,8 @@ static int handle_record_type(HexParser *parser)
 static int parse_hex_blob(const char *filename, hwaddr *addr, uint8_t *hex_blob,
                           size_t hex_blob_size, AddressSpace *as)
 {
-    bool in_process = false; /* avoid re-enter and
-                              * check whether record begin with ':' */
+    bool in_process = false;
+
     uint8_t *end = hex_blob + hex_blob_size;
     uint8_t our_checksum = 0;
     uint32_t record_index = 0;

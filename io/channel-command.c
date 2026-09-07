@@ -112,7 +112,7 @@ static int qio_channel_command_abort(QIOChannelCommand *ioc,
 
     return 0;
 }
-#endif /* ! WIN32 */
+#endif
 
 
 static void qio_channel_command_init(Object *obj)

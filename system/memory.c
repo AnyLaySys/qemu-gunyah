@@ -1242,7 +1242,7 @@ static void memory_region_initfn(Object *obj)
     op = object_property_add(OBJECT(mr), "container",
                              "link<" TYPE_MEMORY_REGION ">",
                              memory_region_get_container,
-                             NULL, /* memory_region_set_container */
+                             NULL,
                              NULL, NULL);
     op->resolve = memory_region_resolve_container;
 
@@ -1250,11 +1250,11 @@ static void memory_region_initfn(Object *obj)
                                    &mr->addr, OBJ_PROP_FLAG_READ);
     object_property_add(OBJECT(mr), "priority", "uint32",
                         memory_region_get_priority,
-                        NULL, /* memory_region_set_priority */
+                        NULL,
                         NULL, NULL);
     object_property_add(OBJECT(mr), "size", "uint64",
                         memory_region_get_size,
-                        NULL, /* memory_region_set_size, */
+                        NULL,
                         NULL, NULL);
 }
 
@@ -1711,7 +1711,7 @@ void memory_region_init_iommu(void *_iommu_mr,
     mr = MEMORY_REGION(_iommu_mr);
     memory_region_do_init(mr, owner, name, size);
     iommu_mr = IOMMU_MEMORY_REGION(mr);
-    mr->terminates = true;  /* then re-forwards */
+    mr->terminates = true;
     QLIST_INIT(&iommu_mr->iommu_notify);
     iommu_mr->iommu_notify_flags = IOMMU_NOTIFIER_NONE;
 }

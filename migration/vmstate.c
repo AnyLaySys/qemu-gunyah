@@ -540,9 +540,9 @@ static int vmstate_subsection_load(QEMUFile *f, const VMStateDescription *vmsd,
             trace_vmstate_subsection_load_bad(vmsd->name, idstr, "(lookup)");
             return -ENOENT;
         }
-        qemu_file_skip(f, 1); /* subsection */
-        qemu_file_skip(f, 1); /* len */
-        qemu_file_skip(f, len); /* idstr */
+        qemu_file_skip(f, 1);
+        qemu_file_skip(f, 1);
+        qemu_file_skip(f, len);
         version_id = qemu_get_be32(f);
 
         ret = vmstate_load_state(f, sub_vmsd, opaque, version_id);

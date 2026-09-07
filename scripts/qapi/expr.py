@@ -450,7 +450,7 @@ def check_enum(expr: QAPIExpression) -> None:
         check_name_is_str(member_name, info, source)
         source = "%s '%s'" % (source, member_name)
         if member_name[0].isdigit():
-            member_name = 'd' + member_name  # Hack: hide the digit
+            member_name = 'd' + member_name
         check_name_lower(member_name, info, source,
                          permit_upper=permissive,
                          permit_underscore=permissive)
@@ -467,7 +467,7 @@ def check_struct(expr: QAPIExpression) -> None:
     :raise QAPISemError: When ``expr`` is not a valid ``struct``.
     :return: None, ``expr`` is normalized in-place as needed.
     """
-    name = cast(str, expr['struct'])  # Checked in check_exprs
+    name = cast(str, expr['struct'])
     members = expr['data']
 
     check_type_implicit(members, expr.info, "'data'", name)
@@ -483,7 +483,7 @@ def check_union(expr: QAPIExpression) -> None:
     :raise QAPISemError: when ``expr`` is not a valid ``union``.
     :return: None, ``expr`` is normalized in-place as needed.
     """
-    name = cast(str, expr['union'])  # Checked in check_exprs
+    name = cast(str, expr['union'])
     base = expr['base']
     discriminator = expr['discriminator']
     members = expr['data']

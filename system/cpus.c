@@ -38,7 +38,7 @@
 #define PR_MCE_KILL_EARLY 1
 #endif
 
-#endif /* CONFIG_LINUX */
+#endif
 
 static QemuMutex bql;
 
@@ -316,11 +316,11 @@ static void qemu_init_sigbus(void)
 
     prctl(PR_MCE_KILL, PR_MCE_KILL_SET, PR_MCE_KILL_EARLY, 0, 0);
 }
-#else /* !CONFIG_LINUX */
+#else
 static void qemu_init_sigbus(void)
 {
 }
-#endif /* !CONFIG_LINUX */
+#endif
 
 static QemuThread io_thread;
 
@@ -394,7 +394,7 @@ void qemu_cpu_kick(CPUState *cpu)
     qemu_cond_broadcast(cpu->halt_cond);
     if (cpus_accel->kick_vcpu_thread) {
         cpus_accel->kick_vcpu_thread(cpu);
-    } else { /* default */
+    } else {
         cpus_kick_thread(cpu);
     }
 }
@@ -560,7 +560,7 @@ void cpu_remove_sync(CPUState *cpu)
 void cpus_register_accel(const AccelOpsClass *ops)
 {
     assert(ops != NULL);
-    assert(ops->create_vcpu_thread != NULL); /* mandatory */
+    assert(ops->create_vcpu_thread != NULL);
     cpus_accel = ops;
 }
 

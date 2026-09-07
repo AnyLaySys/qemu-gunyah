@@ -555,9 +555,9 @@ void gic_dist_set_priority(GICState *s, int cpu, int irq, uint8_t val,
 {
     if (s->security_extn && !attrs.secure) {
         if (!GIC_DIST_TEST_GROUP(irq, (1 << cpu))) {
-            return; /* Ignore Non-secure access of Group0 IRQ */
+            return;
         }
-        val = 0x80 | (val >> 1); /* Non-secure view */
+        val = 0x80 | (val >> 1);
     }
 
     val &= gic_fullprio_mask(s, cpu);
@@ -576,9 +576,9 @@ static uint32_t gic_dist_get_priority(GICState *s, int cpu, int irq,
 
     if (s->security_extn && !attrs.secure) {
         if (!GIC_DIST_TEST_GROUP(irq, (1 << cpu))) {
-            return 0; /* Non-secure access cannot read priority of Group0 IRQ */
+            return 0;
         }
-        prio = (prio << 1) & 0xff; /* Non-secure view */
+        prio = (prio << 1) & 0xff;
     }
     return prio & gic_fullprio_mask(s, cpu);
 }
@@ -739,7 +739,7 @@ static void gic_complete_irq(GICState *s, int cpu, int irq, MemTxAttrs attrs)
         return;
     }
     if (s->running_priority[cpu] == 0x100) {
-        return; /* No active IRQ.  */
+        return;
     }
 
     if (s->revision == REV_11MPCORE) {
@@ -780,7 +780,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
     cpu = gic_get_current_cpu(s);
     cm = 1 << cpu;
     if (offset < 0x100) {
-        if (offset == 0) {      /* GICD_CTLR */
+        if (offset == 0) {
             if (s->security_extn && !attrs.secure) {
                 return extract32(s->ctlr, 1, 1);
             } else {
@@ -794,10 +794,10 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
             return (s->security_extn << 2);
         }
         if (offset == 8) {
-            return 0x3b; /* Arm JEP106 identity */
+            return 0x3b;
         }
         if (offset == 9) {
-            return 0x04; /* Arm JEP106 identity */
+            return 0x04;
         }
         if (offset < 0x0c) {
             return 0;
@@ -829,7 +829,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (GIC_DIST_TEST_ENABLED(irq + i, cm)) {
@@ -848,7 +848,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (gic_test_pending(s, irq + i, mask)) {
@@ -871,7 +871,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (GIC_DIST_TEST_ACTIVE(irq + i, mask)) {
@@ -907,7 +907,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
         for (i = 0; i < 4; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (GIC_DIST_TEST_MODEL(irq + i)) {
@@ -932,7 +932,7 @@ static uint8_t gic_dist_readb(void *opaque, hwaddr offset, MemTxAttrs attrs)
 
         if (s->security_extn && !attrs.secure &&
             !GIC_DIST_TEST_GROUP(irq, 1 << cpu)) {
-            res = 0; /* Ignore Non-secure access of Group0 IRQ */
+            res = 0;
         } else {
             res = s->sgi_pending[irq][cpu];
         }
@@ -1048,7 +1048,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
 
                 if (s->security_extn && !attrs.secure &&
                     !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                    continue; /* Ignore Non-secure access of Group0 IRQ */
+                    continue;
                 }
 
                 if (!GIC_DIST_TEST_ENABLED(irq + i, cm)) {
@@ -1078,7 +1078,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
 
                 if (s->security_extn && !attrs.secure &&
                     !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                    continue; /* Ignore Non-secure access of Group0 IRQ */
+                    continue;
                 }
 
                 if (GIC_DIST_TEST_ENABLED(irq + i, cm)) {
@@ -1103,7 +1103,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
 
                 if (s->security_extn && !attrs.secure &&
                     !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                    continue; /* Ignore Non-secure access of Group0 IRQ */
+                    continue;
                 }
 
                 GIC_DIST_SET_PENDING(irq + i, mask);
@@ -1120,7 +1120,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (value & (1 << i)) {
@@ -1142,7 +1142,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (value & (1 << i)) {
@@ -1164,7 +1164,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         for (i = 0; i < 8; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (value & (1 << i)) {
@@ -1201,7 +1201,7 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         for (i = 0; i < 4; i++) {
             if (s->security_extn && !attrs.secure &&
                 !GIC_DIST_TEST_GROUP(irq + i, 1 << cpu)) {
-                continue; /* Ignore Non-secure access of Group0 IRQ */
+                continue;
             }
 
             if (s->revision == REV_11MPCORE) {
@@ -1383,13 +1383,13 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
                                 uint64_t *data, MemTxAttrs attrs)
 {
     switch (offset) {
-    case 0x00: /* Control */
+    case 0x00:
         *data = gic_get_cpu_control(s, cpu, attrs);
         break;
-    case 0x04: /* Priority mask */
+    case 0x04:
         *data = gic_get_priority_mask(s, cpu, attrs);
         break;
-    case 0x08: /* Binary Point */
+    case 0x08:
         if (gic_cpu_ns_access(s, cpu, attrs)) {
             if (s->cpu_ctlr[cpu] & GICC_CTLR_CBPR) {
                 *data = MIN(s->bpr[cpu] + 1, 7);
@@ -1400,16 +1400,16 @@ static MemTxResult gic_cpu_read(GICState *s, int cpu, int offset,
             *data = s->bpr[cpu];
         }
         break;
-    case 0x0c: /* Acknowledge */
+    case 0x0c:
         *data = gic_acknowledge_irq(s, cpu, attrs);
         break;
-    case 0x14: /* Running Priority */
+    case 0x14:
         *data = gic_get_running_priority(s, cpu, attrs);
         break;
-    case 0x18: /* Highest Pending Interrupt */
+    case 0x18:
         *data = gic_get_current_pending_irq(s, cpu, attrs);
         break;
-    case 0x1c: /* Aliased Binary Point */
+    case 0x1c:
         if (!gic_has_groups(s) || (gic_cpu_ns_access(s, cpu, attrs))) {
             *data = 0;
         } else {
@@ -1470,13 +1470,13 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
                         gic_get_vcpu_real_id(cpu), offset, value);
 
     switch (offset) {
-    case 0x00: /* Control */
+    case 0x00:
         gic_set_cpu_control(s, cpu, value, attrs);
         break;
-    case 0x04: /* Priority mask */
+    case 0x04:
         gic_set_priority_mask(s, cpu, value, attrs);
         break;
-    case 0x08: /* Binary Point */
+    case 0x08:
         if (gic_cpu_ns_access(s, cpu, attrs)) {
             if (s->cpu_ctlr[cpu] & GICC_CTLR_CBPR) {
                 return MEMTX_OK;
@@ -1488,10 +1488,10 @@ static MemTxResult gic_cpu_write(GICState *s, int cpu, int offset,
             s->bpr[cpu] = MAX(value & 0x7, min_bpr);
         }
         break;
-    case 0x10: /* End Of Interrupt */
+    case 0x10:
         gic_complete_irq(s, cpu, value & 0x3ff, attrs);
         return MEMTX_OK;
-    case 0x1c: /* Aliased Binary Point */
+    case 0x1c:
         if (!gic_has_groups(s) || (gic_cpu_ns_access(s, cpu, attrs))) {
             return MEMTX_OK;
         } else {
@@ -1656,11 +1656,11 @@ static MemTxResult gic_hyp_read(void *opaque, int cpu, hwaddr addr,
     int vcpu = cpu + GIC_NCPU;
 
     switch (addr) {
-    case A_GICH_HCR: /* Hypervisor Control */
+    case A_GICH_HCR:
         *data = s->h_hcr[cpu];
         break;
 
-    case A_GICH_VTR: /* VGIC Type */
+    case A_GICH_VTR:
         *data = FIELD_DP32(0, GICH_VTR, ListRegs, s->num_lrs - 1);
         *data = FIELD_DP32(*data, GICH_VTR, PREbits,
                            GIC_VIRT_MAX_GROUP_PRIO_BITS - 1);
@@ -1668,7 +1668,7 @@ static MemTxResult gic_hyp_read(void *opaque, int cpu, hwaddr addr,
                            (7 - GIC_VIRT_MIN_BPR) - 1);
         break;
 
-    case A_GICH_VMCR: /* Virtual Machine Control */
+    case A_GICH_VMCR:
         *data = FIELD_DP32(0, GICH_VMCR, VMCCtlr,
                            extract32(s->cpu_ctlr[vcpu], 0, 10));
         *data = FIELD_DP32(*data, GICH_VMCR, VMABP, s->abpr[vcpu]);
@@ -1677,25 +1677,25 @@ static MemTxResult gic_hyp_read(void *opaque, int cpu, hwaddr addr,
                            extract32(s->priority_mask[vcpu], 3, 5));
         break;
 
-    case A_GICH_MISR: /* Maintenance Interrupt Status */
+    case A_GICH_MISR:
         *data = s->h_misr[cpu];
         break;
 
-    case A_GICH_EISR0: /* End of Interrupt Status 0 and 1 */
+    case A_GICH_EISR0:
     case A_GICH_EISR1:
         *data = gic_compute_eisr(s, cpu, (addr - A_GICH_EISR0) * 8);
         break;
 
-    case A_GICH_ELRSR0: /* Empty List Status 0 and 1 */
+    case A_GICH_ELRSR0:
     case A_GICH_ELRSR1:
         *data = gic_compute_elrsr(s, cpu, (addr - A_GICH_ELRSR0) * 8);
         break;
 
-    case A_GICH_APR: /* Active Priorities */
+    case A_GICH_APR:
         *data = s->h_apr[cpu];
         break;
 
-    case A_GICH_LR0 ... A_GICH_LR63: /* List Registers */
+    case A_GICH_LR0 ... A_GICH_LR63:
     {
         int lr_idx = (addr - A_GICH_LR0) / 4;
 
@@ -1726,20 +1726,20 @@ static MemTxResult gic_hyp_write(void *opaque, int cpu, hwaddr addr,
     trace_gic_hyp_write(addr, value);
 
     switch (addr) {
-    case A_GICH_HCR: /* Hypervisor Control */
+    case A_GICH_HCR:
         s->h_hcr[cpu] = value & GICH_HCR_MASK;
         break;
 
-    case A_GICH_VMCR: /* Virtual Machine Control */
+    case A_GICH_VMCR:
         gic_vmcr_write(s, value, attrs);
         break;
 
-    case A_GICH_APR: /* Active Priorities */
+    case A_GICH_APR:
         s->h_apr[cpu] = value;
         s->running_priority[vcpu] = gic_get_prio_from_apr_bits(s, vcpu);
         break;
 
-    case A_GICH_LR0 ... A_GICH_LR63: /* List Registers */
+    case A_GICH_LR0 ... A_GICH_LR63:
     {
         int lr_idx = (addr - A_GICH_LR0) / 4;
 

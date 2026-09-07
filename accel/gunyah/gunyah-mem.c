@@ -111,7 +111,6 @@ static void gunyah_add_mem(GUNYAHState *s, MemoryRegionSection *section,
             fprintf(f, "1\n");
             fclose(f);
           }
-          usleep(200000);
         }
       }
     }

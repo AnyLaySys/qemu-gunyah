@@ -1,16 +1,9 @@
 #!/bin/sh
-#
-# qemu configure script (c) 2003 Fabrice Bellard
-#
 
-# Unset some variables known to interfere with behavior of common tools,
-# just as autoconf does.  Unlike autoconf, we assume that unset exists.
 unset CLICOLOR_FORCE GREP_OPTIONS BASH_ENV ENV MAIL MAILPATH CDPATH
 
-# Don't allow CCACHE, if present, to use cached results of compile tests!
 export CCACHE_RECACHE=yes
 
-# make source path absolute
 source_path=$(cd "$(dirname -- "$0")"; pwd)
 
 if test "$PWD" -ef "$source_path"
@@ -59,11 +52,6 @@ EOF
     exec "$source_path/configure" "$@"
 fi
 
-# Temporary directory used for files created while
-# configure runs. Since it is in the build directory
-# we can safely blow away any previous version of it
-# (and we need not jump through hoops to try to delete
-# it when configure exits.)
 TMPDIR1="config-temp"
 rm -rf "${TMPDIR1}"
 if ! mkdir -p "${TMPDIR1}"; then
@@ -78,10 +66,9 @@ TMPE="${TMPDIR1}/${TMPB}.exe"
 
 rm -f config.log
 
-# Print a helpful header at the top of config.log
 echo "# QEMU configure log $(date)" >> config.log
 printf "# Configured with:" >> config.log
-# repeat the invocation to log and stdout for CI
+
 invoke=$(printf " '%s'" "$0" "$@")
 test -n "$GITLAB_CI" && echo "configuring with: $invoke"
 { echo "$invoke"; echo; echo "#"; } >> config.log
@@ -102,8 +89,7 @@ error_exit() {
 }
 
 do_compiler() {
-  # Run the compiler, capturing its output to the log. First argument
-  # is compiler binary to execute.
+
   compiler="$1"
   shift
   if test -n "$BASH_VERSION"; then eval '
@@ -131,15 +117,12 @@ compile_prog() {
       $LDFLAGS $EXTRA_LDFLAGS $local_ldflags
 }
 
-# symbolically link $1 to $2.  Portable version of "ln -sf".
 symlink() {
   rm -rf "$2"
   mkdir -p "$(dirname "$2")"
   ln -s "$1" "$2"
 }
 
-# check whether a command is available to this shell (may be either an
-# executable or a builtin)
 has() {
     type "$1" >/dev/null 2>&1
 }
@@ -150,11 +133,11 @@ version_ge () {
     while true; do
         set x $local_ver1
         local_first=${2-0}
-        # 'shift 2' if $2 is set, or 'shift' if $2 is not set
+
         shift ${2:+2}
         local_ver1=$*
         set x $local_ver2
-        # the second argument finished, the first must be greater or equal
+
         test $# = 1 && return 0
         test $local_first -lt $2 && return 1
         test $local_first -gt $2 && return 0
@@ -168,10 +151,6 @@ then
   error_exit "main directory cannot contain spaces nor colons"
 fi
 
-# parse CC options first; some compiler tests are used to establish
-# some defaults, based on the host environment
-
-# default parameters
 container_engine="auto"
 cpu=""
 cross_compile="no"
@@ -182,17 +161,6 @@ EXTRA_CXXFLAGS=""
 EXTRA_OBJCFLAGS=""
 EXTRA_LDFLAGS=""
 
-# Default value for a variable defining feature "foo".
-#  * foo="no"  feature will only be used if --enable-foo arg is given
-#  * foo=""    feature will be searched for, and if found, will be used
-#              unless --disable-foo is given
-#  * foo="yes" this value will only be set by --enable-foo flag.
-#              feature will searched for,
-#              if not found, configure exits with error
-#
-# Always add --enable-foo and --disable-foo command line args.
-# Distributions want to ensure that several features are compiled in, and it
-# is impossible without a --enable-foo that exits if a feature is not found.
 default_feature=""
 
 for opt do
@@ -258,22 +226,14 @@ rust_target_triple=""
 gdb_bin=$(command -v "gdb-multiarch" || command -v "gdb")
 gdb_arches=""
 
-# Don't accept a target_list environment variable.
 unset target_list
 unset target_list_exclude
 
 cfi="false"
 
-# Meson has PIE as a boolean rather than enabled/disabled/auto,
-# and we also need to check for -static-pie before Meson runs
-# which requires knowing whether --static is enabled.
 pie=""
 static="no"
 
-# Preferred compiler:
-#  ${CC} (if set)
-#  ${cross_prefix}gcc (if cross-prefix specified)
-#  system compiler
 if test -z "${CC}${cross_prefix}"; then
   cc="cc"
 else
@@ -286,11 +246,6 @@ else
   cxx="${CXX-${cross_prefix}g++}"
 fi
 
-# Preferred ObjC compiler:
-# $objcc (if set, i.e. via --objcc option)
-# ${cross_prefix}clang (if cross-prefix specified)
-# clang (if available)
-# $cc
 if test -z "${objcc}${cross_prefix}"; then
   if has clang; then
     objcc=clang
@@ -355,14 +310,12 @@ elif check_define __NetBSD__; then
 elif check_define __APPLE__; then
   host_os=darwin
 else
-  # This is a fatal error, but don't report it yet, because we
-  # might be going to just print the --help text, or it might
-  # be the result of a missing compiler.
+
   host_os=bogus
 fi
 
 if test ! -z "$cpu" ; then
-  # command line argument
+
   :
 elif check_define __i386__ ; then
   cpu="i386"
@@ -413,21 +366,13 @@ elif check_define __aarch64__ ; then
 elif check_define __loongarch64 ; then
   cpu="loongarch64"
 else
-  # Using uname is really broken, but it is just a fallback for architectures
-  # that are going to use TCI anyway
+
   cpu=$(uname -m)
   if test "$host_os" != "bogus"; then
     echo "WARNING: unrecognized host CPU, proceeding with 'uname -m' output '$cpu'"
   fi
 fi
 
-# Normalise host CPU name to the values used by Meson cross files and in source
-# directories, and set multilib cflags.  The canonicalization isn't really
-# necessary, because the architectures that we check for should not hit the
-# 'uname -m' case, but better safe than sorry in case --cpu= is used.
-#
-# Note that this case should only have supported host CPUs, not guests.
-# Please keep it sorted and synchronized with meson.build's host_arch.
 host_arch=
 linux_arch=
 raw_cpu=$cpu
@@ -528,21 +473,19 @@ if test -n "$linux_arch" && ! test -d "$source_path/linux-headers/asm-$linux_arc
 fi
 
 check_py_version() {
-    # We require python >= 3.8.
-    # NB: a True python conditional creates a non-zero return code (Failure)
+
     "$1" -c 'import sys; sys.exit(sys.version_info < (3,8))'
 }
 
 first_python=
 if test -z "${PYTHON}"; then
-    # A bare 'python' is traditionally python 2.x, but some distros
-    # have it as python 3.x, so check in both places.
+
     for binary in python3 python python3.12 python3.11 \
                           python3.10 python3.9 python3.8; do
         if has "$binary"; then
             python=$(command -v "$binary")
             if check_py_version "$python"; then
-                # This one is good.
+
                 first_python=
                 break
             else
@@ -551,18 +494,17 @@ if test -z "${PYTHON}"; then
         fi
     done
 else
-    # Same as above, but only check the environment variable.
+
     has "${PYTHON}" || error_exit "The PYTHON environment variable does not point to an executable"
     python=$(command -v "$PYTHON")
     if check_py_version "$python"; then
-        # This one is good.
+
         first_python=
     else
         first_python=$first_python
     fi
 fi
 
-# Check for ancillary tools used in testing
 genisoimage=
 for binary in genisoimage mkisofs
 do
@@ -586,7 +528,7 @@ meson_option_build_array() {
   fi
   for e in $1; do
     printf '"""'
-    # backslash escape any '\' and '"' characters
+
     printf "%s" "$e" | sed -e 's/\([\"]\)/\\\1/g'
     printf '""",'
   done)
@@ -695,7 +637,7 @@ for opt do
                         error_exit "File $cf does not exist"
                     fi
   ;;
-  --without-default-features) # processed above
+  --without-default-features)
   ;;
   --static) static="yes"
   ;;
@@ -704,13 +646,10 @@ for opt do
   --sbindir=*|--sharedstatedir=*|\
   --oldincludedir=*|--datarootdir=*|--infodir=*|\
   --htmldir=*|--dvidir=*|--pdfdir=*|--psdir=*)
-    # These switches are silently ignored, for compatibility with
-    # autoconf-generated configure scripts. This allows QEMU's
-    # configure to be used by RPM and similar macros that set
-    # lots of directory switches by default.
+
   ;;
   --enable-debug)
-      # Enable debugging options that aren't excessively noisy
+
       meson_option_parse --enable-debug-graph-lock ""
       meson_option_parse --enable-debug-mutex ""
       meson_option_add -Doptimization=0
@@ -759,10 +698,10 @@ for opt do
   ;;
   --disable-rust) rust=disabled
   ;;
-  # everything else has the same name in configure and meson
+
   --*) meson_option_parse "$opt" "$optarg"
   ;;
-  # Pass through -Dxxxx options to meson
+
   -D*) meson_option_add "$opt"
   ;;
   esac
@@ -897,20 +836,16 @@ EOF
 exit 0
 fi
 
-# Now that we are sure that the user did not only want to print the --help
-# information, we should double-check that the C compiler really works:
 write_c_skeleton
 if ! compile_object ; then
     error_exit "C compiler \"$cc\" either does not exist or does not work."
 fi
 
-# Remove old dependency files to make sure that they get properly regenerated
 rm -f ./*/config-devices.mak.d
 
 if test -z "$python"
 then
-    # If first_python is set, there was a binary somewhere even though
-    # it was not suitable.  Use it for the error message.
+
     if test -n "$first_python"; then
         error_exit "Cannot use '$first_python', Python >= 3.8 is required." \
             "Use --python=/path/to/python to specify a supported Python."
@@ -927,23 +862,7 @@ if ! check_py_version "$python"; then
              "  CentOS 8: dnf install python38"
 fi
 
-# Resolve PATH
 python="$(command -v "$python")"
-
-# Create a Python virtual environment using our configured python.
-# The stdout of this script will be the location of a symlink that
-# points to the configured Python.
-# Entry point scripts for pip, meson, and sphinx are generated if those
-# packages are present.
-
-# Defaults assumed for now:
-# - venv is cleared if it exists already;
-# - venv is allowed to use system packages;
-# - all setup can be performed offline;
-# - missing packages may be fetched from PyPI,
-#   unless --disable-download is passed.
-# - pip is not installed into the venv when possible,
-#   but ensurepip is called as a fallback when necessary.
 
 echo "python determined to be '$python'"
 echo "python version: $($python --version)"
@@ -953,23 +872,13 @@ if test "$?" -ne 0 ; then
     error_exit "python venv creation failed"
 fi
 
-# Suppress writing compiled files
 python="$python -B"
 mkvenv="$python ${source_path}/python/scripts/mkvenv.py"
-
-# Finish preparing the virtual environment using vendored .whl files
 
 $mkvenv ensuregroup --dir "${source_path}/python/wheels" \
      ${source_path}/pythondeps.toml meson || exit 1
 
-# At this point, we expect Meson to be installed and available.
-# We expect mkvenv or pip to have created pyvenv/bin/meson for us.
-# We ignore PATH completely here: we want to use the venv's Meson
-# *exclusively*.
-
 meson="$(cd pyvenv/bin; pwd)/meson"
-
-# Conditionally ensure Sphinx is installed.
 
 mkvenv_online_flag=""
 if test "$download" = "enabled" ; then
@@ -991,8 +900,6 @@ if test "$docs" != "disabled" ; then
     fi
 fi
 
-# Probe for ninja
-
 if test -z "$ninja"; then
     for c in ninja ninja-build samu; do
         if has $c; then
@@ -1006,10 +913,7 @@ if test -z "$ninja"; then
 fi
 
 if test "$host_os" = "bogus"; then
-    # Now that we know that we're not printing the help and that
-    # the compiler works (so the results of the check_defines we used
-    # to identify the OS are reliable), if we didn't recognize the
-    # host OS we should stop now.
+
     error_exit "Unrecognized host OS (uname -s reports '$(uname -s)')"
 fi
 
@@ -1047,8 +951,6 @@ if test "$pie" != "no"; then
   fi
 fi
 
-##########################################
-
 if test -z "${target_list+xxx}" ; then
     default_targets=yes
     for target in $default_target_list; do
@@ -1059,8 +961,7 @@ else
     default_targets=no
     target_list=$(echo "$target_list" | sed -e 's/,/ /g')
     for target in $target_list; do
-        # Check that we recognised the target name; this allows a more
-        # friendly error message than if we let it fall through.
+
         case " $default_target_list " in
             *" $target "*)
                 ;;
@@ -1071,12 +972,9 @@ else
     done
 fi
 
-#########################################
-# gdb test
-
 if test -n "$gdb_bin"; then
     gdb_version_string=$($gdb_bin --version | head -n 1)
-    # Extract last field in the version string
+
     gdb_version=${gdb_version_string##* }
     if version_ge $gdb_version 9.1; then
         gdb_arches=$($python "$source_path/scripts/probe-gdb-support.py" $gdb_bin)
@@ -1085,8 +983,6 @@ if test -n "$gdb_bin"; then
     fi
 fi
 
-##########################################
-# big/little endian test
 cat > $TMPC << EOF
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # error LITTLE
@@ -1112,9 +1008,6 @@ EOF
   fi
 fi
 
-##########################################
-# detect rust triple
-
 if test "$rust" != disabled && has "$rustc" && $rustc -vV > "${TMPDIR1}/${TMPB}.out"; then
   rust_host_triple=$(sed -n 's/^host: //p' "${TMPDIR1}/${TMPB}.out")
 else
@@ -1124,22 +1017,21 @@ else
   rust=disabled
 fi
 if test "$rust" != disabled && test -z "$rust_target_triple"; then
-  # arch and os generally matches between meson and rust
+
   rust_arch=$host_arch
   rust_os=$host_os
   rust_machine=unknown
   rust_osvariant=
 
-  # tweak rust_os if needed; also, machine and variant depend on the OS
   android=no
   case "$host_os" in
   darwin)
-    # e.g. aarch64-apple-darwin
+
     rust_machine=apple
     ;;
 
   linux)
-    # detect android/glibc/musl
+
     if check_define __ANDROID__; then
       rust_osvariant=android
       android=yes
@@ -1160,7 +1052,7 @@ EOF
 
     case "$cpu" in
     arm)
-      # e.g. arm-unknown-linux-gnueabi, arm-unknown-linux-gnueabihf
+
       write_c_skeleton
       compile_object
       if $READELF -A $TMPO | grep Tag_API_VFP_args: > /dev/null; then
@@ -1171,14 +1063,14 @@ EOF
       ;;
 
     mips64)
-      # e.g. mips64-unknown-linux-gnuabi64
+
       rust_osvariant=${rust_osvariant}abi64
       ;;
     esac
     ;;
 
   netbsd)
-    # e.g. arm-unknown-netbsd-eabihf
+
     test "$host_arch" = arm && rust_osvariant=eabihf
     ;;
 
@@ -1188,7 +1080,7 @@ EOF
     ;;
 
   windows)
-    # e.g. aarch64-pc-windows-gnullvm, x86_64-pc-windows-gnu (MSVC not supported)
+
     rust_machine=pc
     if test "$host_arch" = aarch64; then
       rust_osvariant=gnullvm
@@ -1198,22 +1090,21 @@ EOF
     ;;
   esac
 
-  # now tweak the architecture part, possibly based on pre-canonicalization --cpu
   case "$host_arch" in
   arm)
-    # preserve ISA version (armv7 etc.) from $raw_cpu if passed via --cpu
+
     rust_arch=$raw_cpu
     test "$rust_arch" = arm && test "$rust_os" != linux && rust_arch=armv7
     ;;
 
   mips)
-    # preserve ISA version (mipsisa64r6 etc.) and include endianness
+
     rust_arch=${raw_cpu%el}
     test "$bigendian" = no && rust_arch=${rust_arch}el
     ;;
 
   riscv32|riscv64)
-    # e.g. riscv64gc-unknown-linux-gnu, but riscv64-linux-android
+
     test "$android" = no && rust_arch=${rust_arch}gc
     ;;
 
@@ -1225,21 +1116,18 @@ EOF
     ;;
 
   x86_64)
-    # e.g. x86_64-unknown-linux-gnux32
+
     test "$raw_cpu" = x32 && rust_osvariant=${rust_osvariant}x32
     ;;
   esac
 
   if test "$android" = yes; then
-    # e.g. aarch64-linux-android
+
     rust_target_triple=$rust_arch-$rust_os-$rust_osvariant
   else
     rust_target_triple=$rust_arch-$rust_machine-$rust_os${rust_osvariant:+-$rust_osvariant}
   fi
 fi
-
-##########################################
-# functions to probe cross compilers
 
 container="no"
 runc=""
@@ -1255,7 +1143,6 @@ if test $use_containers = "yes" && (has "docker" || has "podman"); then
     fi
 fi
 
-# cross compilers defaults, can be overridden with --cross-cc-ARCH
 : ${cross_prefix_aarch64="aarch64-linux-gnu-"}
 : ${cross_prefix_aarch64_be="$cross_prefix_aarch64"}
 : ${cross_prefix_alpha="alpha-linux-gnu-"}
@@ -1317,19 +1204,8 @@ have_target() {
   return 1
 }
 
-# probe_target_compiler TARGET
-#
-# Look for a compiler for the given target, either native or cross.
-# Set variables target_* if a compiler is found, and container_cross_*
-# if a Docker-based cross-compiler image is known for the target.
-# Set got_cross_cc to yes/no depending on whether a non-container-based
-# compiler was found.
-#
-# If TARGET is a user-mode emulation target, also set build_static to
-# "y" if static linking is possible.
-#
 probe_target_compiler() {
-  # reset all output variables
+
   got_cross_cc=no
   container_image=
   container_hosts=
@@ -1374,7 +1250,6 @@ probe_target_compiler() {
     test "$container" != no || continue
     test "$host" = "$cpu" || continue
     case $target_arch in
-      # debian-all-test-cross architectures
 
       aarch64_be)
         container_image=debian-all-test-cross
@@ -1392,22 +1267,16 @@ probe_target_compiler() {
         container_cross_prefix=powerpc${target_arch#ppc}-linux-gnu-
         ;;
 
-      # debian-legacy-test-cross architectures (need Debian 11)
-      # - libc6.1-dev-alpha-cross: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1054412
-      # - sh4-linux-user: binaries don't run with bookworm compiler
-
       alpha|sh4)
         container_image=debian-legacy-test-cross
         ;;
 
-      # architectures with individual containers
-
       aarch64)
-        # We don't have any bigendian build tools so we only use this for AArch64
+
         container_image=debian-arm64-cross
         ;;
       arm)
-        # We don't have any bigendian build tools so we only use this for ARM
+
         container_image=debian-armhf-cross
         container_cross_prefix=arm-linux-gnueabihf-
         ;;
@@ -1440,11 +1309,10 @@ probe_target_compiler() {
       xtensa*)
         container_image=debian-xtensa-cross
 
-        # default to the dc232b cpu
         container_cross_prefix=/opt/2020.07/xtensa-dc232b-elf/bin/xtensa-dc232b-elf-
         ;;
     esac
-    # Debian and GNU architecture names usually match
+
     : ${container_image:=debian-$target_arch-cross}
     : ${container_cross_prefix:=$target_arch-linux-gnu-}
     : ${container_cross_cc:=${container_cross_prefix}gcc}
@@ -1458,7 +1326,7 @@ probe_target_compiler() {
   done
 
   try=cross
-  # For softmmu/roms also look for a bi-endian or multilib-enabled host compiler
+
   if [ "${1%softmmu}" != "$1" ] || test "$target_arch" = "$cpu"; then
       case "$target_arch:$cpu" in
         aarch64_be:aarch64 | \
@@ -1514,7 +1382,7 @@ probe_target_compiler() {
           ;;
       esac
     elif test -n "$target_as" && test -n "$target_ld"; then
-      # Special handling for assembler only targets
+
       case $target in
         tricore-softmmu)
           build_static=
@@ -1612,23 +1480,12 @@ write_target_makefile() {
   fi
 }
 
-#######################################
-# cross-compiled firmware targets
-
-# Set up build tree symlinks that point back into the source tree
-# (these can be both files and directories).
-# Caution: avoid adding files or directories here using wildcards. This
-# will result in problems later if a new file matching the wildcard is
-# added to the source tree -- nothing will cause configure to be rerun
-# so the build tree will be missing the link back to the new file, and
-# tests might fail. Prefer to keep the relevant files in their own
-# directory and symlink the directory instead.
 LINKS="Makefile"
 LINKS="$LINKS docs/config"
 LINKS="$LINKS pc-bios/optionrom/Makefile"
 LINKS="$LINKS pc-bios/s390-ccw/Makefile"
 LINKS="$LINKS pc-bios/vof/Makefile"
-LINKS="$LINKS .gdbinit scripts" # scripts needed by relative path in .gdbinit
+LINKS="$LINKS .gdbinit scripts"
 LINKS="$LINKS tests/avocado tests/data"
 LINKS="$LINKS tests/qemu-iotests/check tests/qemu-iotests/Makefile"
 LINKS="$LINKS python"
@@ -1638,14 +1495,12 @@ for f in $LINKS ; do
     fi
 done
 
-# use included Linux headers for KVM architectures
 if test "$host_os" = "linux" && test -n "$linux_arch"; then
   symlink "$source_path/linux-headers/asm-$linux_arch" linux-headers/asm
 fi
 
 echo "# Automatically generated by configure - do not modify" > Makefile.prereqs
 
-# Mac OS X ships with a broken assembler
 if have_target i386-softmmu x86_64-softmmu && \
         test "$host_os" != "darwin" && test "$host_os" != "sunos" && \
         test "$host_os" != "haiku" && \
@@ -1666,8 +1521,6 @@ if have_target ppc-softmmu ppc64-softmmu && \
     write_target_makefile >> $config_mak
 fi
 
-# Only build s390-ccw bios if the compiler has -march=z900 or -march=z10
-# (which is the lowest architecture level that Clang supports)
 if have_target s390x-softmmu && probe_target_compiler s390x-softmmu && \
     GIT=git "$source_path/scripts/git-submodule.sh" "$git_submodules_action" roms/SLOF >> config.log 2>&1; then
   write_c_skeleton
@@ -1686,9 +1539,6 @@ if have_target s390x-softmmu && probe_target_compiler s390x-softmmu && \
     write_target_makefile >> $config_mak
   fi
 fi
-
-#######################################
-# generate config-host.mak
 
 config_host_mak="config-host.mak"
 
@@ -1727,7 +1577,6 @@ if test "$skip_meson" = no; then
   echo "# Automatically generated by configure - do not modify" > $cross
   echo "[properties]" >> $cross
 
-  # unroll any custom device configs
   for a in $device_archs; do
       eval "c=\$devices_${a}"
       echo "${a}-softmmu = '$c'" >> $cross
@@ -1740,7 +1589,6 @@ if test "$skip_meson" = no; then
   echo "c_link_args = [$(meson_quote $CFLAGS $LDFLAGS $EXTRA_CFLAGS $EXTRA_LDFLAGS)]" >> $cross
   echo "cpp_link_args = [$(meson_quote $CXXFLAGS $LDFLAGS $EXTRA_CXXFLAGS $EXTRA_LDFLAGS)]" >> $cross
 
-  # Only enable by default for git builds and on select OSes
   echo "# environment defaults, can still be overridden on " >> $cross
   echo "# the command line" >> $cross
   if test -e "$source_path/.git" && \
@@ -1826,7 +1674,6 @@ if test "$skip_meson" = no; then
   test "$static" = yes && meson_option_add -Dprefer_static=true
   test "$pie" = no && meson_option_add -Db_pie=false
 
-  # QEMU options
   test "$rust" != "disabled" && meson_option_add "-Drust=$rust"
   test "$cfi" != false && meson_option_add "-Dcfi=$cfi" "-Db_lto=$cfi"
   test "$docs" != auto && meson_option_add "-Ddocs=$docs"
@@ -1841,15 +1688,13 @@ if test "$skip_meson" = no; then
   echo "$meson" > build.ninja.stamp
 else
   if test -f meson-private/cmd_line.txt; then
-    # Adjust old command line options that were removed
-    # sed -i is not portable
+
     perl -i -ne '
       /^sphinx_build/ && next;
       print;' meson-private/cmd_line.txt
   fi
 fi
 
-# Save the configure command line for later reuse.
 cat <<EOD >config.status
 #!/bin/sh
 # Generated by configure.
@@ -1872,8 +1717,6 @@ preserve_env() {
     fi
 }
 
-# Preserve various env variables that influence what
-# features/build target configure will detect
 preserve_env AR
 preserve_env AS
 preserve_env CC

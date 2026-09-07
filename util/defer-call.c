@@ -50,7 +50,7 @@ void defer_call(void (*fn)(void *), void *opaque)
 
     for (guint i = 0; i < array->len; i++) {
         if (memcmp(&fns[i], &new_fn, sizeof(new_fn)) == 0) {
-            return; /* already exists */
+            return;
         }
     }
 

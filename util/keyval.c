@@ -40,9 +40,9 @@ static QObject *keyval_parse_put(QDict *cur,
             return NULL;
         }
         if (!value) {
-            return old;         /* already QDict, do nothing */
+            return old;
         }
-        new = QOBJECT(value);   /* replacement */
+        new = QOBJECT(value);
     } else {
         new = value ? QOBJECT(value) : QOBJECT(qdict_new());
     }
@@ -273,7 +273,7 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
         return QOBJECT(cur);
     }
 
-    nelt = qdict_size(cur) + 1; /* one extra, for use as sentinel */
+    nelt = qdict_size(cur) + 1;
     elt = g_new0(QObject *, nelt);
     max_index = -1;
     for (ent = qdict_first(cur); ent; ent = qdict_next(cur, ent)) {
@@ -289,7 +289,7 @@ static QObject *keyval_listify(QDict *cur, GSList *key_of_cur, Error **errp)
     }
 
     list = qlist_new();
-    assert(!elt[nelt-1]);       /* need the sentinel to be null */
+    assert(!elt[nelt-1]);
     for (i = 0; i < MIN(nelt, max_index + 1); i++) {
         if (!elt[i]) {
             key = reassemble_key(key_of_cur);

@@ -44,8 +44,8 @@ struct ThreadPoolAio {
     QTAILQ_HEAD(, ThreadPoolElementAio) request_list;
     int cur_threads;
     int idle_threads;
-    int new_threads;     /* backlog of threads we need to create */
-    int pending_threads; /* threads created but not running yet */
+    int new_threads;
+    int pending_threads;
     int min_threads;
     int max_threads;
 };
@@ -134,7 +134,7 @@ static void thread_pool_completion_bh(void *opaque)
     ThreadPoolAio *pool = opaque;
     ThreadPoolElementAio *elem, *next;
 
-    defer_call_begin(); /* cb() may use defer_call() to coalesce work */
+    defer_call_begin();
 
 restart:
     QLIST_FOREACH_SAFE(elem, &pool->head, all, next) {

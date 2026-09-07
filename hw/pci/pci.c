@@ -176,7 +176,7 @@ static void pci_bus_unrealize(BusState *qbus)
 static int pcibus_num(PCIBus *bus)
 {
     if (pci_bus_is_root(bus)) {
-        return 0; /* pci host bridge */
+        return 0;
     }
     return bus->parent_dev->config[PCI_SECONDARY_BUS];
 }
@@ -1244,7 +1244,7 @@ static PCIDevice *do_pci_register_device(PCIDevice *pci_dev,
     pci_dev->config_read = config_read;
     pci_dev->config_write = config_write;
     bus->devices[devfn] = pci_dev;
-    pci_dev->version_id = 2; /* Current pci device vmstate version */
+    pci_dev->version_id = 2;
     return pci_dev;
 }
 
@@ -1292,12 +1292,12 @@ void pci_register_bar(PCIDevice *pci_dev, int region_num,
                       uint8_t type, MemoryRegion *memory)
 {
     PCIIORegion *r;
-    uint32_t addr; /* offset in pci config space */
+    uint32_t addr;
     uint64_t wmask;
     pcibus_t size = memory_region_size(memory);
     uint8_t hdr_type;
 
-    assert(!pci_is_vf(pci_dev)); /* VFs must use pcie_sriov_vf_register_bar */
+    assert(!pci_is_vf(pci_dev));
     assert(region_num >= 0);
     assert(region_num < PCI_NUM_REGIONS);
     assert(is_power_of_2(size));
@@ -1503,7 +1503,7 @@ void pci_default_write_config(PCIDevice *d, uint32_t addr, uint32_t val_in, int 
         uint8_t w1cmask = d->w1cmask[addr + i];
         assert(!(wmask & w1cmask));
         d->config[addr + i] = (d->config[addr + i] & ~wmask) | (val & wmask);
-        d->config[addr + i] &= ~(val & w1cmask); /* W1C: Write 1 to Clear */
+        d->config[addr + i] &= ~(val & w1cmask);
     }
 
     new_pm_state = pci_pm_update(d, addr, l, old_pm_state);
@@ -1788,7 +1788,7 @@ bool pci_init_nic_in_slot(PCIBus *rootbus, const char *model,
 static bool pci_secondary_bus_in_range(PCIDevice *dev, int bus_num)
 {
     return !(pci_get_word(dev->config + PCI_BRIDGE_CONTROL) &
-             PCI_BRIDGE_CTL_BUS_RESET) /* Don't walk the bus if it's reset. */ &&
+             PCI_BRIDGE_CTL_BUS_RESET)  &&
         dev->config[PCI_SECONDARY_BUS] <= bus_num &&
         bus_num <= dev->config[PCI_SUBORDINATE_BUS];
 }
@@ -2326,7 +2326,7 @@ static char *pcibus_get_dev_path(DeviceState *dev)
     const char *root_bus_path;
     int root_bus_len;
     char slot[] = ":SS.F";
-    int slot_len = sizeof slot - 1 /* For '\0' */;
+    int slot_len = sizeof slot - 1 ;
     int path_len;
     char *path, *p;
     int s;
@@ -2334,7 +2334,7 @@ static char *pcibus_get_dev_path(DeviceState *dev)
     root_bus_path = pci_root_bus_path(d);
     root_bus_len = strlen(root_bus_path);
 
-    /* Calculate # of slots on path between device and root. */;
+    ;
     slot_depth = 0;
     for (t = d; t; t = pci_get_bus(t)->parent_dev) {
         ++slot_depth;
@@ -2342,7 +2342,7 @@ static char *pcibus_get_dev_path(DeviceState *dev)
 
     path_len = root_bus_len + slot_len * slot_depth;
 
-    path = g_malloc(path_len + 1 /* For '\0' */);
+    path = g_malloc(path_len + 1 );
     path[path_len] = '\0';
 
     memcpy(path, root_bus_path, root_bus_len);

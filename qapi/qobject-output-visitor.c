@@ -13,16 +13,16 @@
 
 typedef struct QStackEntry {
     QObject *value;
-    void *qapi; /* sanity check that caller uses same pointer */
+    void *qapi;
     QSLIST_ENTRY(QStackEntry) node;
 } QStackEntry;
 
 struct QObjectOutputVisitor {
     Visitor visitor;
 
-    QSLIST_HEAD(, QStackEntry) stack; /* Stack of unfinished containers */
-    QObject *root; /* Root of the output visit */
-    QObject **result; /* User's storage location for result */
+    QSLIST_HEAD(, QStackEntry) stack;
+    QObject *root;
+    QObject **result;
 };
 
 #define qobject_output_add(qov, name, value) \

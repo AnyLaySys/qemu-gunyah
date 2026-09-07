@@ -7,36 +7,16 @@
 #include "qemu/range.h"
 
 enum ListMode {
-    LM_NONE,             /* not traversing a list of repeated options */
-    LM_STARTED,          /* next_list() ready to be called */
+    LM_NONE,
+    LM_STARTED,
 
-    LM_IN_PROGRESS,      /* next_list() has been called.
-                          *
-                          * Generating the next list link will consume the most
-                          * recently parsed QemuOpt instance of the repeated
-                          * option.
-                          *
-                          * Parsing a value into the list link will examine the
-                          * next QemuOpt instance of the repeated option, and
-                          * possibly enter LM_SIGNED_INTERVAL or
-                          * LM_UNSIGNED_INTERVAL.
-                          */
+    LM_IN_PROGRESS,
 
-    LM_SIGNED_INTERVAL,  /* next_list() has been called.
-                          *
-                          * Generating the next list link will consume the most
-                          * recently stored element from the signed interval,
-                          * parsed from the most recent QemuOpt instance of the
-                          * repeated option. This may consume QemuOpt itself
-                          * and return to LM_IN_PROGRESS.
-                          *
-                          * Parsing a value into the list link will store the
-                          * next element of the signed interval.
-                          */
+    LM_SIGNED_INTERVAL,
 
-    LM_UNSIGNED_INTERVAL,/* Same as above, only for an unsigned interval. */
+    LM_UNSIGNED_INTERVAL,
 
-    LM_END,              /* next_list() called, about to see last element. */
+    LM_END,
 };
 
 typedef enum ListMode ListMode;
@@ -53,7 +33,7 @@ struct StringOutputVisitor
         uint64_t u;
     } range_start, range_end;
     GList *ranges;
-    void *list; /* Only needed for sanity checking the caller */
+    void *list;
     unsigned int struct_nesting;
 };
 

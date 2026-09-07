@@ -59,7 +59,7 @@ bool qdev_prop_sanitize_s390x_loadparm(uint8_t *loadparm, const char *str,
     }
 
     for (i = 0; i < len; i++) {
-        uint8_t c = qemu_toupper(str[i]); /* mimic HMC */
+        uint8_t c = qemu_toupper(str[i]);
 
         if (qemu_isalnum(c) || c == '.' || c == ' ') {
             loadparm[i] = c;

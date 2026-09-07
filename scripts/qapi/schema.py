@@ -539,7 +539,7 @@ class QAPISchemaObjectType(QAPISchemaType):
             self.branches.check_clash(self.info, seen)
 
         self.members = members
-        self._check_complete = True  # mark completed
+        self._check_complete = True
 
     def check_clash(
         self,
@@ -884,7 +884,7 @@ class QAPISchemaObjectTypeMember(QAPISchemaMember):
         for f in features or []:
             f.set_defined_in(name)
         self._type_name = typ
-        self.type: QAPISchemaType  # set during check()
+        self.type: QAPISchemaType
         self.optional = optional
         self.features = features or []
 
@@ -1122,7 +1122,7 @@ class QAPISchema:
     ) -> QAPISchemaType:
         typ = self.lookup_type(name)
         if not typ:
-            assert info and what  # built-in types must not fail lookup
+            assert info and what
             if callable(what):
                 what = what(info)
             raise QAPISemError(
@@ -1223,7 +1223,7 @@ class QAPISchema:
     def _make_array_type(
         self, element_type: str, info: Optional[QAPISourceInfo]
     ) -> str:
-        name = element_type + 'List'    # reserved by check_defn_name_str()
+        name = element_type + 'List'
         if not self.lookup_type(name):
             self._def_definition(QAPISchemaArrayType(
                 name, info, element_type))

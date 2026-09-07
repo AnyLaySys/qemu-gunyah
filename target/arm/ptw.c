@@ -240,30 +240,30 @@ static bool granule_protection_check(CPUARMState *env, uint64_t paddress,
     pps_mask = MAKE_64BIT_MASK(0, pps);
 
     switch (FIELD_EX64(gpccr, GPCCR, SH)) {
-    case 0b10: /* outer shareable */
+    case 0b10:
         break;
-    case 0b00: /* non-shareable */
-    case 0b11: /* inner shareable */
+    case 0b00:
+    case 0b11:
         if (FIELD_EX64(gpccr, GPCCR, ORGN) == 0 &&
             FIELD_EX64(gpccr, GPCCR, IRGN) == 0) {
             goto fault_walk;
         }
         break;
-    default:   /* reserved */
+    default:
         goto fault_walk;
     }
 
     switch (FIELD_EX64(gpccr, GPCCR, PGS)) {
-    case 0b00: /* 4KB */
+    case 0b00:
         pgs = 12;
         break;
-    case 0b01: /* 64KB */
+    case 0b01:
         pgs = 16;
         break;
-    case 0b10: /* 16KB */
+    case 0b10:
         pgs = 14;
         break;
-    default: /* reserved */
+    default:
         goto fault_walk;
     }
 
@@ -295,21 +295,21 @@ static bool granule_protection_check(CPUARMState *env, uint64_t paddress,
     }
 
     switch (extract32(entry, 0, 4)) {
-    case 1: /* block descriptor */
+    case 1:
         if (entry >> 8) {
-            goto fault_walk; /* RES0 bits not 0 */
+            goto fault_walk;
         }
         gpi = extract32(entry, 4, 4);
         goto found;
-    case 3: /* table descriptor */
+    case 3:
         tableaddr = entry & ~0xf;
         align = MAX(l0gptsz - pgs - 1, 12);
         align = MAKE_64BIT_MASK(0, align);
         if (tableaddr & (~pps_mask | align)) {
-            goto fault_walk; /* RES0 bits not 0 */
+            goto fault_walk;
         }
         break;
-    default: /* invalid */
+    default:
         goto fault_walk;
     }
 
@@ -322,12 +322,12 @@ static bool granule_protection_check(CPUARMState *env, uint64_t paddress,
     }
 
     switch (extract32(entry, 0, 4)) {
-    case 1: /* contiguous descriptor */
+    case 1:
         if (entry >> 10) {
-            goto fault_walk; /* RES0 bits not 0 */
+            goto fault_walk;
         }
         if (extract32(entry, 8, 2) == 0) {
-            goto fault_walk; /* reserved contig */
+            goto fault_walk;
         }
         gpi = extract32(entry, 4, 4);
         break;
@@ -339,9 +339,9 @@ static bool granule_protection_check(CPUARMState *env, uint64_t paddress,
 
  found:
     switch (gpi) {
-    case 0b0000: /* no access */
+    case 0b0000:
         break;
-    case 0b1111: /* all access */
+    case 0b1111:
         return true;
     case 0b1000:
     case 0b1001:
@@ -352,7 +352,7 @@ static bool granule_protection_check(CPUARMState *env, uint64_t paddress,
         }
         break;
     default:
-        goto fault_walk; /* reserved */
+        goto fault_walk;
     }
 
     fi->gpcf = GPCF_Fail;
@@ -609,7 +609,7 @@ static int ap_to_rw_prot_is_user(CPUARMState *env, ARMMMUIdx mmu_idx,
         }
     case 3:
         return PAGE_READ | PAGE_WRITE;
-    case 4: /* Reserved.  */
+    case 4:
         return 0;
     case 5:
         return is_user ? 0 : PAGE_READ;
@@ -700,7 +700,7 @@ static bool get_phys_addr_v5(CPUARMState *env, S1Translate *ptw,
     if (type == 2) {
         phys_addr = (desc & 0xfff00000) | (address & 0x000fffff);
         ap = (desc >> 10) & 3;
-        result->f.lg_page_size = 20; /* 1MB */
+        result->f.lg_page_size = 20;
     } else {
         if (type == 1) {
             table = (desc & 0xfffffc00) | ((address >> 10) & 0x3fc);
@@ -715,20 +715,20 @@ static bool get_phys_addr_v5(CPUARMState *env, S1Translate *ptw,
             goto do_fault;
         }
         switch (desc & 3) {
-        case 0: /* Page translation fault.  */
+        case 0:
             fi->type = ARMFault_Translation;
             goto do_fault;
-        case 1: /* 64k page.  */
+        case 1:
             phys_addr = (desc & 0xffff0000) | (address & 0xffff);
             ap = (desc >> (4 + ((address >> 13) & 6))) & 3;
             result->f.lg_page_size = 16;
             break;
-        case 2: /* 4k page.  */
+        case 2:
             phys_addr = (desc & 0xfffff000) | (address & 0xfff);
             ap = (desc >> (4 + ((address >> 9) & 6))) & 3;
             result->f.lg_page_size = 12;
             break;
-        case 3: /* 1k page, or ARMv6/XScale "extended small (4k) page" */
+        case 3:
             if (type == 1) {
                 if (arm_feature(env, ARM_FEATURE_XSCALE)
                     || arm_feature(env, ARM_FEATURE_V6)) {
@@ -819,10 +819,10 @@ static bool get_phys_addr_v6(CPUARMState *env, S1Translate *ptw,
             phys_addr = (desc & 0xff000000) | (address & 0x00ffffff);
             phys_addr |= (uint64_t)extract32(desc, 20, 4) << 32;
             phys_addr |= (uint64_t)extract32(desc, 5, 4) << 36;
-            result->f.lg_page_size = 24;  /* 16MB */
+            result->f.lg_page_size = 24;
         } else {
             phys_addr = (desc & 0xfff00000) | (address & 0x000fffff);
-            result->f.lg_page_size = 20;  /* 1MB */
+            result->f.lg_page_size = 20;
         }
         ap = ((desc >> 10) & 3) | ((desc >> 13) & 4);
         xn = desc & (1 << 4);
@@ -843,15 +843,15 @@ static bool get_phys_addr_v6(CPUARMState *env, S1Translate *ptw,
         }
         ap = ((desc >> 4) & 3) | ((desc >> 7) & 4);
         switch (desc & 3) {
-        case 0: /* Page translation fault.  */
+        case 0:
             fi->type = ARMFault_Translation;
             goto do_fault;
-        case 1: /* 64k page.  */
+        case 1:
             phys_addr = (desc & 0xffff0000) | (address & 0xffff);
             xn = desc & (1 << 15);
             result->f.lg_page_size = 16;
             break;
-        case 2: case 3: /* 4k page.  */
+        case 2: case 3:
             phys_addr = (desc & 0xfffff000) | (address & 0xfff);
             xn = desc & 1;
             result->f.lg_page_size = 12;
@@ -1097,7 +1097,7 @@ static int check_s2_mmu_setup(ARMCPU *cpu, bool is_aa64, uint64_t tcr,
     sl0 = extract32(tcr, 6, 2);
     if (is_aa64) {
         switch (stride) {
-        case 9: /* 4KB */
+        case 9:
             sl2 = extract64(tcr, 33, 1);
             if (ds && sl2) {
                 if (sl0 != 0) {
@@ -1121,7 +1121,7 @@ static int check_s2_mmu_setup(ARMCPU *cpu, bool is_aa64, uint64_t tcr,
                 }
             }
             break;
-        case 11: /* 16KB */
+        case 11:
             switch (sl0) {
             case 2:
                 if (arm_pamax(cpu) < 42) {
@@ -1136,7 +1136,7 @@ static int check_s2_mmu_setup(ARMCPU *cpu, bool is_aa64, uint64_t tcr,
             }
             startlevel = 3 - sl0;
             break;
-        case 13: /* 64KB */
+        case 13:
             switch (sl0) {
             case 2:
                 if (arm_pamax(cpu) < 44) {
@@ -1360,7 +1360,7 @@ static bool get_phys_addr_lpae(CPUARMState *env, S1Translate *ptw,
     if (likely(!ptw->in_debug)) {
         if (!(descriptor & (1 << 10))) {
             if (param.ha) {
-                new_descriptor |= 1 << 10; /* AF */
+                new_descriptor |= 1 << 10;
             } else {
                 fi->type = ARMFault_AccessFlag;
                 goto do_fault;
@@ -1368,12 +1368,12 @@ static bool get_phys_addr_lpae(CPUARMState *env, S1Translate *ptw,
         }
 
         if (param.hd
-            && extract64(descriptor, 51, 1)  /* DBM */
+            && extract64(descriptor, 51, 1)
             && access_type == MMU_DATA_STORE) {
             if (regime_is_stage2(mmu_idx)) {
-                new_descriptor |= 1ull << 7;    /* set S2AP[1] */
+                new_descriptor |= 1ull << 7;
             } else {
-                new_descriptor &= ~(1ull << 7); /* clear AP[2] */
+                new_descriptor &= ~(1ull << 7);
             }
         }
     }
@@ -1381,9 +1381,9 @@ static bool get_phys_addr_lpae(CPUARMState *env, S1Translate *ptw,
     attrs = new_descriptor & (MAKE_64BIT_MASK(2, 10) | MAKE_64BIT_MASK(50, 14));
     if (!regime_is_stage2(mmu_idx)) {
         if (!param.hpd) {
-            attrs |= extract64(tableattrs, 0, 2) << 53;     /* XN, PXN */
-            attrs &= ~(extract64(tableattrs, 2, 1) << 6); /* !APT[0] => AP[1] */
-            attrs |= extract32(tableattrs, 3, 1) << 7;    /* APT[1] => AP[2] */
+            attrs |= extract64(tableattrs, 0, 2) << 53;
+            attrs &= ~(extract64(tableattrs, 2, 1) << 6);
+            attrs |= extract32(tableattrs, 3, 1) << 7;
         }
     }
 
@@ -1466,7 +1466,7 @@ static bool get_phys_addr_lpae(CPUARMState *env, S1Translate *ptw,
         result->cacheattrs.attrs = extract64(mair, attrindx * 8, 8);
 
         if (aarch64 && cpu_isar_feature(aa64_bti, cpu)) {
-            result->f.extra.arm.guarded = extract64(attrs, 50, 1); /* GP */
+            result->f.extra.arm.guarded = extract64(attrs, 50, 1);
         }
         device = S1_attrs_are_device(result->cacheattrs.attrs);
     }
@@ -1625,16 +1625,16 @@ static void get_phys_addr_pmsav7_default(CPUARMState *env, ARMMMUIdx mmu_idx,
         }
     } else {
         switch (address) {
-        case 0x00000000 ... 0x1fffffff: /* ROM */
-        case 0x20000000 ... 0x3fffffff: /* SRAM */
-        case 0x60000000 ... 0x7fffffff: /* RAM */
-        case 0x80000000 ... 0x9fffffff: /* RAM */
+        case 0x00000000 ... 0x1fffffff:
+        case 0x20000000 ... 0x3fffffff:
+        case 0x60000000 ... 0x7fffffff:
+        case 0x80000000 ... 0x9fffffff:
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             break;
-        case 0x40000000 ... 0x5fffffff: /* Peripheral */
-        case 0xa0000000 ... 0xbfffffff: /* Device */
-        case 0xc0000000 ... 0xdfffffff: /* Device */
-        case 0xe0000000 ... 0xffffffff: /* System */
+        case 0x40000000 ... 0x5fffffff:
+        case 0xa0000000 ... 0xbfffffff:
+        case 0xc0000000 ... 0xdfffffff:
+        case 0xe0000000 ... 0xffffffff:
             *prot = PAGE_READ | PAGE_WRITE;
             break;
         default:
@@ -1694,7 +1694,7 @@ static bool get_phys_addr_pmsav7(CPUARMState *env,
     if (regime_translation_disabled(env, mmu_idx, ptw->in_space) ||
         m_is_ppb_region(env, address)) {
         get_phys_addr_pmsav7_default(env, mmu_idx, address, &result->f.prot);
-    } else { /* MPU enabled */
+    } else {
         for (n = (int)cpu->pmsav7_dregion - 1; n >= 0; n--) {
             uint32_t base = env->pmsav7.drbar[n];
             uint32_t rsize = extract32(env->pmsav7.drsr[n], 1, 5);
@@ -1731,11 +1731,11 @@ static bool get_phys_addr_pmsav7(CPUARMState *env,
             }
 
 
-            if (rsize >= 8) { /* no subregions for regions < 256 bytes */
+            if (rsize >= 8) {
                 int i, snd;
                 uint32_t srdis_mask;
 
-                rsize -= 3; /* sub region size (power of 2) */
+                rsize -= 3;
                 snd = ((address - base) >> rsize) & 0x7;
                 srdis = extract32(env->pmsav7.drsr[n], snd + 8, 1);
 
@@ -1760,14 +1760,14 @@ static bool get_phys_addr_pmsav7(CPUARMState *env,
             break;
         }
 
-        if (n == -1) { /* no hits */
+        if (n == -1) {
             if (!pmsav7_use_background_region(cpu, mmu_idx, secure, is_user)) {
                 fi->type = ARMFault_Background;
                 return true;
             }
             get_phys_addr_pmsav7_default(env, mmu_idx, address,
                                          &result->f.prot);
-        } else { /* a MPU hit! */
+        } else {
             uint32_t ap = extract32(env->pmsav7.dracr[n], 8, 3);
             uint32_t xn = extract32(env->pmsav7.dracr[n], 12, 1);
 
@@ -1775,12 +1775,12 @@ static bool get_phys_addr_pmsav7(CPUARMState *env,
                 xn = 1;
             }
 
-            if (is_user) { /* User mode AP bit decoding */
+            if (is_user) {
                 switch (ap) {
                 case 0:
                 case 1:
                 case 5:
-                    break; /* no access */
+                    break;
                 case 3:
                     result->f.prot |= PAGE_WRITE;
                 case 2:
@@ -1797,10 +1797,10 @@ static bool get_phys_addr_pmsav7(CPUARMState *env,
                                   "DRACR[%d]: Bad value for AP bits: 0x%"
                                   PRIx32 "\n", n, ap);
                 }
-            } else { /* Priv. mode AP bits decoding */
+            } else {
                 switch (ap) {
                 case 0:
-                    break; /* no access */
+                    break;
                 case 1:
                 case 2:
                 case 3:
@@ -2050,12 +2050,12 @@ void v8m_security_lookup(CPUARMState *env, uint32_t address,
     }
 
     switch (env->sau.ctrl & 3) {
-    case 0: /* SAU.ENABLE == 0, SAU.ALLNS == 0 */
+    case 0:
         break;
-    case 2: /* SAU.ENABLE == 0, SAU.ALLNS == 1 */
+    case 2:
         sattrs->ns = true;
         break;
-    default: /* SAU.ENABLE == 1 */
+    default:
         for (r = 0; r < cpu->sau_sregion; r++) {
             if (env->sau.rlar[r] & 1) {
                 uint32_t base = env->sau.rbar[r] & ~0x1f;
@@ -2156,15 +2156,15 @@ static uint8_t convert_stage2_attrs(uint64_t hcr, uint8_t s2attrs)
     uint8_t loattr = extract32(s2attrs, 0, 2);
     uint8_t hihint = 0, lohint = 0;
 
-    if (hiattr != 0) { /* normal memory */
-        if (hcr & HCR_CD) { /* cache disabled */
-            hiattr = loattr = 1; /* non-cacheable */
+    if (hiattr != 0) {
+        if (hcr & HCR_CD) {
+            hiattr = loattr = 1;
         } else {
-            if (hiattr != 1) { /* Write-through or write-back */
-                hihint = 3; /* RW allocate */
+            if (hiattr != 1) {
+                hihint = 3;
             }
-            if (loattr != 1) { /* Write-through or write-back */
-                lohint = 3; /* RW allocate */
+            if (loattr != 1) {
+                lohint = 3;
             }
         }
     }
@@ -2180,7 +2180,7 @@ static uint8_t combine_cacheattr_nibble(uint8_t s1, uint8_t s2)
         return s1;
     } else if (extract32(s2, 2, 2) == 2) {
         return (2 << 2) | extract32(s1, 0, 2);
-    } else { /* write-back */
+    } else {
         return s1;
     }
 }
@@ -2205,13 +2205,13 @@ static uint8_t combined_attrs_nofwb(uint64_t hcr,
         if (s1lo == 0 || s2lo == 0) {
             ret_attrs = 0;
         } else if (s1lo == 4 || s2lo == 4) {
-            ret_attrs = 4;  /* nGnRE */
+            ret_attrs = 4;
         } else if (s1lo == 8 || s2lo == 8) {
-            ret_attrs = 8;  /* nGRE */
+            ret_attrs = 8;
         } else {
-            ret_attrs = 0xc; /* GRE */
+            ret_attrs = 0xc;
         }
-    } else { /* Normal memory */
+    } else {
         ret_attrs = combine_cacheattr_nibble(s1hi, s2hi) << 4
                   | combine_cacheattr_nibble(s1lo, s2lo);
     }
@@ -2298,8 +2298,8 @@ static bool get_phys_addr_disabled(CPUARMState *env,
                                    ARMMMUFaultInfo *fi)
 {
     ARMMMUIdx mmu_idx = ptw->in_mmu_idx;
-    uint8_t memattr = 0x00;    /* Device nGnRnE */
-    uint8_t shareability = 0;  /* non-shareable */
+    uint8_t memattr = 0x00;
+    uint8_t shareability = 0;
     int r_el;
 
     switch (mmu_idx) {
@@ -2339,21 +2339,21 @@ static bool get_phys_addr_disabled(CPUARMState *env,
             uint64_t hcr = arm_hcr_el2_eff_secstate(env, ptw->in_space);
             if (hcr & HCR_DC) {
                 if (hcr & HCR_DCT) {
-                    memattr = 0xf0;  /* Tagged, Normal, WB, RWA */
+                    memattr = 0xf0;
                 } else {
-                    memattr = 0xff;  /* Normal, WB, RWA */
+                    memattr = 0xff;
                 }
             }
         }
         if (memattr == 0) {
             if (access_type == MMU_INST_FETCH) {
                 if (regime_sctlr(env, mmu_idx) & SCTLR_I) {
-                    memattr = 0xee;  /* Normal, WT, RA, NT */
+                    memattr = 0xee;
                 } else {
-                    memattr = 0x44;  /* Normal, NC, No */
+                    memattr = 0x44;
                 }
             }
-            shareability = 2; /* outer shareable */
+            shareability = 2;
         }
         result->cacheattrs.is_s2_format = false;
         break;

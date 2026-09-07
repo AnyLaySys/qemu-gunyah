@@ -22,7 +22,7 @@ enum json_lexer_state {
     IN_KEYWORD,
     IN_INTERP,
     IN_START,
-    IN_START_INTERP,            /* must be IN_START + 1 */
+    IN_START_INTERP,
 };
 
 QEMU_BUILD_BUG_ON(JSON_ERROR != 0);

@@ -1,10 +1,10 @@
 
 #ifdef CONFIG_LINUX
 #include <linux/mman.h>
-#else  /* !CONFIG_LINUX */
+#else
 #define MAP_SYNC              0x0
 #define MAP_SHARED_VALIDATE   0x0
-#endif /* CONFIG_LINUX */
+#endif
 
 #include "qemu/osdep.h"
 #include "qemu/mmap-alloc.h"

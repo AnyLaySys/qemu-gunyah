@@ -311,11 +311,11 @@ qemu_open_internal(const char *name, int flags, mode_t mode, Error **errp)
                 error_setg(errp, "Could not %s '%s': "
                            "filesystem does not support O_DIRECT",
                            action, name);
-                errno = EINVAL; /* restore first open()'s errno */
+                errno = EINVAL;
                 return -1;
             }
         }
-#endif /* O_DIRECT */
+#endif
         error_setg_errno(errp, errno, "Could not %s '%s'",
                          action, name);
     }
@@ -357,9 +357,9 @@ int qemu_open_old(const char *name, int flags, ...)
 #ifdef O_DIRECT
     if (ret == -1 && errno == EINVAL && (flags & O_DIRECT)) {
         error_report("file system may not support O_DIRECT");
-        errno = EINVAL; /* in case it was clobbered */
+        errno = EINVAL;
     }
-#endif /* O_DIRECT */
+#endif
 
     return ret;
 }

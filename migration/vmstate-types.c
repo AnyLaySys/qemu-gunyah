@@ -647,7 +647,7 @@ static gboolean put_gtree_elem(gpointer key, gpointer value, gpointer data)
     qemu_put_byte(f, true);
 
     if (!capsule->key_vmsd) {
-        qemu_put_be64(f, (uint64_t)(uintptr_t)(key)); /* direct key */
+        qemu_put_be64(f, (uint64_t)(uintptr_t)(key));
     } else {
         ret = vmstate_save_state(f, capsule->key_vmsd, key, capsule->vmdesc);
         if (ret) {

@@ -100,12 +100,12 @@ qio_channel_socket_set_fd(QIOChannelSocket *sioc,
         QIOChannel *ioc = QIO_CHANNEL(sioc);
         qio_channel_set_feature(ioc, QIO_CHANNEL_FEATURE_FD_PASS);
     }
-#endif /* WIN32 */
+#endif
 
     return 0;
 
  error:
-    sioc->fd = -1; /* Let the caller close FD on failure */
+    sioc->fd = -1;
     return -1;
 }
 
@@ -224,7 +224,7 @@ int qio_channel_socket_listen_sync(QIOChannelSocket *ioc,
 
 struct QIOChannelListenWorkerData {
     SocketAddress *addr;
-    int num; /* amount of expected connections */
+    int num;
 };
 
 static void qio_channel_listen_worker_free(gpointer opaque)
@@ -385,7 +385,7 @@ qio_channel_socket_accept(QIOChannelSocket *ioc,
         QIOChannel *ioc_local = QIO_CHANNEL(cioc);
         qio_channel_set_feature(ioc_local, QIO_CHANNEL_FEATURE_FD_PASS);
     }
-#endif /* WIN32 */
+#endif
 
     qio_channel_set_feature(QIO_CHANNEL(cioc),
                             QIO_CHANNEL_FEATURE_READ_MSG_PEEK);
@@ -602,7 +602,7 @@ static ssize_t qio_channel_socket_writev(QIOChannel *ioc,
 
     return ret;
 }
-#else /* WIN32 */
+#else
 static ssize_t qio_channel_socket_readv(QIOChannel *ioc,
                                         const struct iovec *iov,
                                         size_t niov,
@@ -693,7 +693,7 @@ static ssize_t qio_channel_socket_writev(QIOChannel *ioc,
 
     return done;
 }
-#endif /* WIN32 */
+#endif
 
 
 #ifdef QEMU_MSG_ZEROCOPY
@@ -769,7 +769,7 @@ static int qio_channel_socket_flush(QIOChannel *ioc,
     return ret;
 }
 
-#endif /* QEMU_MSG_ZEROCOPY */
+#endif
 
 static int
 qio_channel_socket_set_blocking(QIOChannel *ioc,
