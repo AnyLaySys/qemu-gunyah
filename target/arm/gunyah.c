@@ -183,6 +183,18 @@ void gunyah_arm_build_dtb(const struct arm_boot_info *binfo, void *fdt)
         }
         fdt_setprop_string(fdt, node, "bootargs", bootargs);
         fdt_setprop_string(fdt, node, "stdout-path", "/pl011@9000000");
+        if (binfo->initrd_size) {
+            fdt64_t initrd_prop;
+
+            initrd_prop = cpu_to_fdt64(binfo->initrd_start);
+            fdt_setprop(fdt, node, "linux,initrd-start", &initrd_prop,
+                        sizeof(initrd_prop));
+
+            initrd_prop = cpu_to_fdt64(binfo->initrd_start +
+                                       binfo->initrd_size);
+            fdt_setprop(fdt, node, "linux,initrd-end", &initrd_prop,
+                        sizeof(initrd_prop));
+        }
     }
 
     {
